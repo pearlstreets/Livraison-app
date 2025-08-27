@@ -61,3 +61,22 @@ const styles = StyleSheet.create({
   btnText: { fontWeight: '700' },
   linkText: { color: BRAND, fontWeight: '700' }
 });
+
+const openMaps = (order) => {
+  try {
+    const addr = order?.dropoffAddress || order?.address || order?.destinationAddress || '';
+    const lat = order?.dropoffLat || order?.lat || order?.destination?.lat;
+    const lng = order?.dropoffLng || order?.lng || order?.destination?.lng;
+    let url;
+    if (lat && lng) {
+      url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    } else if (addr) {
+      url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`;
+    } else {
+      url = 'https://www.google.com/maps';
+    }
+    Linking.openURL(url);
+  } catch(e) {}
+};
+
+export default OrderCard;
