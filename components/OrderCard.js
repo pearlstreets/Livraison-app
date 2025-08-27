@@ -21,8 +21,7 @@ const openMaps = (order) => {
     Linking.openURL(url);
   } catch (e) {}
 };
-
- OrderCard({ order, onAccept, onDecline, onOpen }) {
+function OrderCard({ order, onAccept, onDecline, onOpen }) {
   const [accepted, setAccepted] = useState(false);
 
   return (
