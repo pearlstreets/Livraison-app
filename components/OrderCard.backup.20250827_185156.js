@@ -1,30 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, Pressable, StyleSheet, Linking } from 'react-native';
+import React from 'react';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 const BRAND = '#00C29B';
-// Ouvre l'app Plans/Maps vers l'adresse de livraison si dispo
-const openMaps = (order) => {
-  try {
-    const o = order || (typeof props!=='undefined' ? props.order || props.o : undefined);
-    const addr = (o && (o.dropoffAddress || o.address || o.destinationAddress)) || '';
-    const lat = o && (o.dropoffLat || o.lat || (o.destination && o.destination.lat));
-    const lng = o && (o.dropoffLng || o.lng || (o.destination && o.destination.lng));
-    let url;
-    if (lat && lng) {
-      url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-    } else if (addr) {
-      const q = encodeURIComponent(addr);
-      url = `https://www.google.com/maps/dir/?api=1&destination=${q}`;
-    } else {
-      url = 'https://www.google.com/maps';
-    }
-    Linking.openURL(url);
-  } catch (e) {}
-};
-
- OrderCard({ order, onAccept, onDecline, onOpen }) {
-  const [accepted, setAccepted] = useState(false);
-
+export default function OrderCard({ order, onAccept, onDecline, onOpen }) {
   return (
     <View style={styles.card}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -40,7 +18,7 @@ const openMaps = (order) => {
       </View>
       <View style={styles.actions}>
         <Pressable style={[styles.btn, styles.btnOutline]} onPress={onDecline}><Text style={[styles.btnText, { color: '#111' }]}>Refuser</Text></Pressable>
-        <Pressable style={[styles.btn, styles.btnFill]} onPress={onAccept}><Text style={[styles.btnText, { color: '#fff' }]}>{accepted ? 'Itinéraire' : 'Accepter'}</Text></Pressable>
+        <Pressable style={[styles.btn, styles.btnFill]} onPress={onAccept}><Text style={[styles.btnText, { color: '#fff' }]}>Accepter</Text></Pressable>
         <Pressable style={[styles.btn, styles.btnGhost]} onPress={onOpen}><Text style={styles.linkText}>Détails</Text></Pressable>
       </View>
     </View>
