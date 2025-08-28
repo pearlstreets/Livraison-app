@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, Modal, Image, Alert, ScrollView, Platform } from 'react-native';
+import { ScrollView } from 'react-native'
 import * as ImagePicker from 'expo-image-picker';
 import * as Linking from 'expo-linking';
 import OrderCard from '../components/OrderCard';
@@ -9,6 +10,9 @@ import SignatureCanvas from 'react-native-signature-canvas';
 
 const BRAND = '#00C29B';
 
+
+const toArr = v => Array.isArray(v) ? v : [];
+const unified = [...toArr(typeof available !== 'undefined' ? available : []), ...toArr(typeof active !== 'undefined' ? active : [])];
 export default function OrdersScreen() {
   const [available, setAvailable] = useState([]);
   const [active, setActive] = useState([]);
@@ -49,8 +53,8 @@ export default function OrdersScreen() {
   return (
     <View style={{ flex:1, padding:16 }}>
       <DriverStatus onChange={setOnline} />
-      {active.length>0 && (<View style={styles.section}><Text style={styles.sectionTitle}>En cours</Text><FlatList data={active} keyExtractor={x=>x.id} renderItem={renderOrder} /></View>)}
-      <View style={styles.section}><Text style={styles.sectionTitle}>Disponibles</Text><FlatList data={available} keyExtractor={x=>x.id} renderItem={renderOrder} ListEmptyComponent={<Text style={{ color:'#666', marginTop:10 }}>Aucune commande</Text>} /></View>
+      {active.length>0 && (<View style={styles.section}><Text style={styles.sectionTitle}>{/* En cours */}</Text><FlatList data={active} keyExtractor={x=>x.id} renderItem={renderOrder} /></View>)}
+      <View style={styles.section}><Text style={styles.sectionTitle}>{/* Disponibles */}</Text><FlatList data={available} keyExtractor={x=>x.id} renderItem={renderOrder} ListEmptyComponent={<Text style={{ color:'#666', marginTop:10 }}>Aucune commande</Text>} /></View>
       <Modal visible={!!selected} animationType="slide" onRequestClose={()=>setSelected(null)}>
         {selected && (
           <ScrollView contentContainerStyle={{ padding:16 }}>
