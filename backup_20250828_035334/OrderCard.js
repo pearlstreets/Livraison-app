@@ -17,12 +17,11 @@ function openItinerary(order) {
   } catch {}
 }
 
-function IconRow({ icon, text }) {
-  if (!text) return null;
+function IconLabel({ icon, children }) {
   return (
     <View style={styles.iconRow}>
       <View style={styles.iconBox}>{icon}</View>
-      <Text style={styles.infoText} numberOfLines={1}>{text}</Text>
+      <Text style={styles.infoText} numberOfLines={1}>{children}</Text>
     </View>
   );
 }
@@ -44,16 +43,11 @@ export default function OrderCard({
   onOpen,
   initialAccepted = false
 }) {
-  const inferAccepted = ['accepted','acceptée','active','en_cours'].includes(String(order?.status || '').toLowerCase());
+  const inferAccepted =
+    ['accepted','acceptée','active','en_cours'].includes(String(order?.status || '').toLowerCase());
   const [accepted, setAccepted] = useState(inferAccepted || initialAccepted);
 
-  const merchant = order?.restaurant || order?.merchantName || '';
-  const address = order?.address || order?.dropoffAddress || order?.destinationAddress || '';
-  const distance = order?.distance;
-  const eta = order?.eta;
-  const price = order?.price;
-
-  const handleAcceptOrItinerary = () => {
+  const handlePrimary = () => {
     if (!accepted) {
       setAccepted(true);
       try { if (typeof onAccept === 'function') onAccept(order); } catch {}
@@ -62,6 +56,12 @@ export default function OrderCard({
     }
   };
 
+  const merchant = order?.restaurant || order?.merchantName || '';
+  const address = order?.address || order?.dropoffAddress || order?.destinationAddress || '';
+  const distance = order?.distance;
+  const eta = order?.eta;
+  const price = order?.price;
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -69,14 +69,16 @@ export default function OrderCard({
         {!!order?.category && <Text style={styles.category}>{order.category}</Text>}
       </View>
 
-      <IconRow
-        icon={<MaterialCommunityIcons name="storefront-outline" size={18} color="#333" />}
-        text={merchant}
-      />
-      <IconRow
-        icon={<Ionicons name="home-outline" size={18} color="#333" />}
-        text={address}
-      />
+      {!!merchant && (
+        <IconLabel icon={<MaterialCommunityIcons name="storefront-outline" size={18} color="#333" />}>
+          {merchant}
+        </IconLabel>
+      )}
+      {!!address && (
+        <IconLabel icon={<Ionicons name="home-outline" size={18} color="#333" />}>
+          {address}
+        </IconLabel>
+      )}
 
       {(distance || eta || price) && (
         <View style={styles.pillsRow}>
@@ -87,35 +89,33 @@ export default function OrderCard({
       )}
 
       {!accepted ? (
-        <>
-          <View style={styles.footerRow}>
-            <TouchableOpacity
-              style={[styles.btn, styles.btnLight, styles.mr12]}
-              onPress={() => { try { if (typeof onDecline === 'function') onDecline(order); } catch {} }}
-            >
-              <Text style={styles.btnTextDark}>Refuser</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.btn, styles.btnPrimary]}
-              onPress={handleAcceptOrItinerary}
-            >
-              <Text style={styles.btnText}>Accepter</Text>
-            </TouchableOpacity>
-          </View>
+        <View style={styles.footerRow}>
+          <TouchableOpacity
+            style={[styles.btn, styles.btnLight, styles.mr12]}
+            onPress={() => { try { if (typeof onDecline === 'function') onDecline(order); } catch {} }}
+          >
+            <Text style={styles.btnTextDark}>Refuser</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.btn, styles.btnGhost, styles.btnFull, styles.mt12]}
+            style={[styles.btn, styles.btnPrimary, styles.mr12]}
+            onPress={handlePrimary}
+          >
+            <Text style={styles.btnText}>Accepter</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.btn, styles.btnGhost]}
             onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch {} }}
           >
             <Text style={styles.btnTextDark}>Détails</Text>
           </TouchableOpacity>
-        </>
+        </View>
       ) : (
         <View style={styles.footerRow}>
           <TouchableOpacity
             style={[styles.btn, styles.btnPrimary, styles.mr12, styles.flex125]}
-            onPress={handleAcceptOrItinerary}
+            onPress={handlePrimary}
           >
             <Text style={styles.btnText}>Itinéraire</Text>
           </TouchableOpacity>
@@ -135,7 +135,7 @@ export default function OrderCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    borderRadius: 16,
     padding: 16,
     shadowColor: '#000',
     shadowOpacity: 0.06,
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   code: { fontSize: 18, fontWeight: '800', color: '#111' },
   category: { color: BRAND, fontWeight: '700' },
 
-  iconRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  iconRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   iconBox: { width: 22, alignItems: 'center' },
   infoText: { color: '#333', flexShrink: 1 },
 
@@ -162,11 +162,10 @@ const styles = StyleSheet.create({
 
   footerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
   mr12: { marginRight: 12 },
-  mt12: { marginTop: 12 },
 
   btn: {
     flex: 1,
-    height: 52,
+    height: 48,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center'
@@ -175,7 +174,6 @@ const styles = StyleSheet.create({
   btnPrimary: { backgroundColor: BRAND },
   btnLight: { backgroundColor: '#F2F3F5' },
   btnGhost: { borderWidth: 1, borderColor: '#E6E8EB', backgroundColor: '#FFFFFF' },
-  btnFull: { width: '100%' },
 
   btnText: { color: '#FFFFFF', fontWeight: '700', textAlign: 'center', includeFontPadding: false },
   btnTextDark: { color: '#111111', fontWeight: '700', textAlign: 'center', includeFontPadding: false }
