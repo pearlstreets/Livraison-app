@@ -65,4 +65,3 @@ export default function MapScreen() {
   );
 }
 const styles = StyleSheet.create({ banner: { position:'absolute', top:16, alignSelf:'center', backgroundColor:'#000000AA', paddingHorizontal:12, paddingVertical:8, borderRadius:12 }, bannerText: { color:'#fff', fontWeight:'700' }}      </>
-  );
