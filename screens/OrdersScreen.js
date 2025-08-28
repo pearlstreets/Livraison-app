@@ -189,8 +189,8 @@ const styles = StyleSheet.create({
   onlineText: { color: '#00C29B', fontWeight: '700', fontSize: 16 },
 
   sectionTitle: { fontSize: 28, fontWeight: '800', color: '#111', marginTop: 8, marginBottom: 12 },
-  sectionTitleGap: { marginTop: 24 },
-  cardsBlock: { marginBottom: 4 },
+  sectionTitleGap: {  marginTop: 12  },
+  cardsBlock: {  marginBottom: 2  },
   cardWrap: { marginBottom: 12 },
   emptyText: { color: '#8E8E93', paddingVertical: 8, paddingHorizontal: 4 }
 });
