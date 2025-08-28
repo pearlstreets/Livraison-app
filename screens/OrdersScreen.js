@@ -1,4 +1,3 @@
-import InlineFilters from '../components/InlineFilters';
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity } from 'react-native';
 import OrderCard from '../components/OrderCard';
