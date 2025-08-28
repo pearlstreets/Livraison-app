@@ -1,0 +1,14 @@
+{
+  "inline": {
+    "height": 28,
+    "radius": 14,
+    "gap": 6,
+    "paddingH": 10,
+    "fontSize": 13,
+    "labels": {
+      "smart": "Smart",
+      "highpay": "€",
+      "nearest": "Proche"
+    }
+  }
+}

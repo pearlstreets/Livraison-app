@@ -1,4 +1,3 @@
-import InlineFilters from '../components/InlineFilters';
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { ScrollView, View, Text, StyleSheet, Platform, Switch } from 'react-native';
 import OrderCard from '../components/OrderCard';
@@ -58,9 +57,6 @@ function genOrder() {
 
 /* ---------- Écran ---------- */
 export default function OrdersScreen() {
-  const [selectedFilter, setSelectedFilter] = useState('smart');
-  const filters = [{id:'smart',label:'Smart'},{id:'highpay',label:'€'},{id:'nearest',label:'Proche'}];
-
   // --- Simulateur Meaux uniquement ---
   React.useEffect(() => {
     try {

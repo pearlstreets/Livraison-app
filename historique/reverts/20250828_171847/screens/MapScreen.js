@@ -1,18 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useHeaderHeight } from '@react-navigation/elements';
 import MapView, { Marker } from 'react-native-maps';
 
-const MARGIN_H = 16;   // marge gauche/droite
-const GAP_TOP  = 8;    // écart souhaité en haut
+const MARGIN_H = 16;   // marge gauche/droite de la box
+const OFFSET_TOP = 8;  // distance sous la safe-area (même hauteur que la maquette)
 
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
-  const headerHeight = typeof useHeaderHeight === 'function' ? useHeaderHeight() : 0;
-
-  // Si header > 0, on n’ajoute PAS la safe-area (car le contenu est déjà sous le header)
-  const bannerTop = (headerHeight > 0 ? 0 : (insets?.top ?? 0)) + GAP_TOP;
 
   return (
     <View style={{ flex: 1 }}>
@@ -29,12 +24,16 @@ export default function MapScreen() {
         <Marker coordinate={{ latitude: 37.78825, longitude: -122.4324 }} />
       </MapView>
 
-      {/* Bannière 2 lignes alignée à 8 px du haut visible */}
+      {/* Bannière 2 lignes, même marge haut que les côtés (8 px sous la safe-area) */}
       <View
         pointerEvents="none"
         style={[
           styles.banner,
-          { top: bannerTop, left: MARGIN_H, right: MARGIN_H }
+          {
+            top: (insets?.top ?? 0) + OFFSET_TOP,
+            left: MARGIN_H,
+            right: MARGIN_H
+          }
         ]}
       >
         <Text style={styles.bannerText} numberOfLines={2}>

@@ -1,0 +1,6 @@
+{
+  "fallbackCenter": { "lat": 48.9575, "lng": 2.8795 },
+  "geofenceKm": 8,
+  "feedIntervalMs": 4500,
+  "etaMinutesPerKm": 4
+}

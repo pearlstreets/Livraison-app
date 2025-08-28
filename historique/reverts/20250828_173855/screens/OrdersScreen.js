@@ -1,27 +1,25 @@
-import InlineFilters from '../components/InlineFilters';
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { ScrollView, View, Text, StyleSheet, Platform, Switch } from 'react-native';
 import OrderCard from '../components/OrderCard';
 import DetailsSheet from '../components/DetailsSheet';
-import { getMeauxSeed } from '../constants/mockOrders';
 
 /* ---------- Génération aléatoire ---------- */
 const CATEGORIES = ['Food & Drink', 'Product Purchase', 'Groceries'];
 const RESTOS = [
-  'Pizzeria Roma, Meaux',
-  'Le Bistrot, Meaux',
-  'Chez Marcel, Meaux',
-  'La Terrasse, Meaux',
-  'Café du Pont, Meaux',
-  'Sushi Zen, Meaux'
+  'Pizzeria Roma, Carcassonne',
+  'Le Bistrot, Carcassonne',
+  'Chez Marcel, Carcassonne',
+  'La Terrasse, Carcassonne',
+  'Café du Pont, Carcassonne',
+  'Sushi Zen, Carcassonne'
 ];
 const ADDR = [
-  '12 Rue Voltaire, Meaux',
-  'Place Carnot, Meaux',
-  '3 Bd Barbès, Meaux',
-  '18 Rue de Verdun, Meaux',
-  '6 Rue Trivalle, Meaux',
-  '2 Rue de la République, Meaux'
+  '12 Rue Voltaire, Carcassonne',
+  'Place Carnot, Carcassonne',
+  '3 Bd Barbès, Carcassonne',
+  '18 Rue de Verdun, Carcassonne',
+  '6 Rue Trivalle, Carcassonne',
+  '2 Rue de la République, Carcassonne'
 ];
 
 const rpick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -58,38 +56,6 @@ function genOrder() {
 
 /* ---------- Écran ---------- */
 export default function OrdersScreen() {
-  const [selectedFilter, setSelectedFilter] = useState('smart');
-  const filters = [{id:'smart',label:'Smart'},{id:'highpay',label:'€'},{id:'nearest',label:'Proche'}];
-
-  // --- Simulateur Meaux uniquement ---
-  React.useEffect(() => {
-    try {
-      const stop = startMeauxFeed(setAvailable, 4000);
-      return () => typeof stop==='function' && stop();
-    } catch {}
-  }, []);
-
-  React.useEffect(() => { //__SIM_MEAUX_FEED
-    if (!__SIM_MEAUX) return;
-    const seed = (typeof getMeauxSeed==='function' ? getMeauxSeed() : []);
-    let i = 0;
-    const tick = () => {
-      const item = seed[i % seed.length];
-      i++;
-      if (!item) return;
-      try {
-        if (typeof setAvailable === 'function') {
-          setAvailable(prev => [item, ...(Array.isArray(prev)?prev:[])]);
-        }
-      } catch {}
-    };
-    tick();
-    const iv = setInterval(tick, 5000 + Math.floor(Math.random()*3000));
-    return () => clearInterval(iv);
-  }, []);
-
-  const __SIM_MEAUX = true;
-
   const [detailsOrder, setDetailsOrder] = useState(null);
   const [detailsVisible, setDetailsVisible] = useState(false); //__DETAILS_STATE_ANCHOR
 
