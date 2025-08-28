@@ -3,104 +3,19 @@ import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const BRAND = '#00C29B';
-const BTN_HEIGHT = 56;     // même hauteur partout
-const BTN_RADIUS = 24;     // mêmes angles partout
+const BTN_HEIGHT = 56;   // <- même hauteur partout
+const BTN_RADIUS = 24;   // <- mêmes angles partout
 const GAP = 12;
-
-/* ---------- Utils propres et compatibles ---------- */
-const isObj = (v) => v !== null && typeof v === 'object';
-
-function pickTop(obj, keys) {
-  for (const key of keys) {
-    const path = key.split('.');
-    let val = obj;
-    for (const p of path) {
-      if (!isObj(val) && typeof val !== 'object') { val = undefined; break; }
-      val = val?.[p];
-    }
-    if (val !== undefined && val !== null) {
-      if (typeof val === 'string') {
-        if (val.trim() !== '') return val;
-      } else {
-        return val;
-      }
-    }
-  }
-  return undefined;
-}
-
-function findByKeyRegex(root, regex) {
-  if (!isObj(root)) return undefined;
-  const q = [root];
-  const seen = new Set();
-  while (q.length) {
-    const cur = q.shift();
-    if (seen.has(cur)) continue;
-    seen.add(cur);
-    for (const k of Object.keys(cur)) {
-      const v = cur[k];
-      if (regex.test(k)) return v;
-      if (isObj(v)) q.push(v);
-    }
-  }
-  return undefined;
-}
-
-function pickHybrid(obj, tops, rx) {
-  const t = pickTop(obj, tops);
-  if (t !== undefined) return t;
-  return findByKeyRegex(obj, rx);
-}
-
-const fmtKm = (v) => {
-  if (v == null) return undefined;
-  if (typeof v === 'number') {
-    const km = v > 1000 ? v / 1000 : v;
-    return `${km.toFixed(1)} km`;
-  }
-  const s = String(v);
-  const n = parseFloat(s.replace(',', '.'));
-  return isNaN(n) ? s : (/km/i.test(s) ? s : `${n.toFixed(1)} km`);
-};
-
-const fmtMin = (v) => {
-  if (v == null) return undefined;
-  if (typeof v === 'number') {
-    const m = v > 180 ? Math.round(v / 60) : Math.round(v);
-    return `${m} min`;
-  }
-  const s = String(v);
-  const n = parseFloat(s.replace(',', '.'));
-  return isNaN(n) ? s : (/(min|mn)/i.test(s) ? s : `${Math.round(n)} min`);
-};
-
-const fmtPrice = (v) => {
-  if (v == null) return undefined;
-  if (typeof v === 'number') {
-    const euros = Number.isInteger(v) && v > 1000 ? v / 100 : v;
-    return `${euros.toFixed(2)} €`;
-  }
-  const s = String(v);
-  const n = parseFloat(s.replace(',', '.'));
-  if (!isNaN(n)) return `${n.toFixed(2)} €`;
-  return s.includes('€') ? s : `${s} €`;
-};
 
 function openItinerary(order) {
   try {
-    const addr = pickHybrid(order,
-      ['dropoffAddress','destinationAddress','address','dropoff.address'],
-      /(dropoff|destination).*address|^address$/i
-    ) || '';
-
-    const lat = pickHybrid(order,
-      ['dropoffLat','destination.lat','lat'],
-      /(dropoff|destination).*lat$|^lat$/i
-    );
-    const lng = pickHybrid(order,
-      ['dropoffLng','destination.lng','lng','lon','long','longitude'],
-      /(dropoff|destination).*(lng|lon|long|longitude)$|^(lng|lon|long|longitude)$/i
-    );
+    const addr =
+      order?.dropoffAddress ||
+      order?.destinationAddress ||
+      order?.address ||
+      order?.dropoff?.address || '';
+    const lat = order?.dropoffLat || order?.destination?.lat || order?.lat;
+    const lng = order?.dropoffLng || order?.destination?.lng || order?.lng;
 
     let url;
     if (lat != null && lng != null) url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
@@ -110,7 +25,44 @@ function openItinerary(order) {
   } catch {}
 }
 
-/* ---------- Petits composants UI ---------- */
+const isObj = (v) => v && typeof v === 'object';
+const pickTop = (obj, keys) => {
+  for (const k of keys) {
+    const path = k.split('.');
+  
+const BRAND = '#00C29B';
+const BTN_HEIGHT = 56;   // <- même hauteuned;
+    if (v !== undefined && v !== null && String(v).trim?.() !== '') return v;
+  }
+  return undefined;
+};
+const findByKeyRegex = (root, regex) => {
+  if (!isObj(root)) return undefined;
+  const q = [root], seen = new Set();
+  while (q.length) {
+    const cur = q.shift();
+    if (seen.has(cur)) continue;
+    seen.add(cur);
+    for (const k of Object.keys(cur)) {
+      const val = cur[k];
+      if (regex.test(k)) return val;
+      if (isObj(val)) q.push(val);
+    }
+  }
+  return undefined;
+};
+const pickHybrid = (obj, tops, rx) => pickTop(obj, tops) ?? findByKeyRegex(obj, rx);
+
+const fmtKm = (v) => v==null ? undefined : (typeof v === 'number'
+  ? `${(v>1000? v/1000 : v).toFixed(1)} km`
+  : (/km/i.test(String(v)) ? String(v) : `${parseFloat(String(v).replace(',','.'))} km`));
+const fmtMin = (v) => v==null ? undefined : (typeof v === 'number'
+  ? `${Math.round(v>180? v/60 : v)} min`
+  : (/min|mn/i.test(String(v)) ? String(v) : `${Math.round(parseFloat(String(v)))} min`));
+const fmtPrice = (v) => v==null ? undefined : (typeof v === 'number'
+  ? `${(Number.isInteger(v) && v>1000 ? v/100 : v).toFixed(2)} €`
+  : (String(v).includes('€') ? String(v) : `${String(v)} €`));
+
 function IconRow({ icon, text }) {
   if (!text) return null;
   return (
@@ -131,7 +83,6 @@ function Pill({ children, variant }) {
   );
 }
 
-/* ---------- OrderCard ---------- */
 export default function OrderCard({
   order,
   onAccept,
@@ -144,11 +95,11 @@ export default function OrderCard({
   );
   const [accepted, setAccepted] = useState(inferAccepted || initialAccepted);
 
+  // Données (robustes)
   const code = pickHybrid(order, ['code','id','orderId'], /(code|order.?id)$/i) || 'Commande';
   const category = pickHybrid(order, ['category','type','service'], /(category|type|service)/i);
   const merchant = pickHybrid(order, ['restaurant','merchantName','storeName','pickupName'], /(restaurant|merchant|store|pickup).*name/i);
   const address = pickHybrid(order, ['address','dropoffAddress','destinationAddress','dropoff.address'], /(address$|dropoff.*address|destination.*address)/i);
-
   const distance = fmtKm(pickHybrid(order, ['distanceText','distanceKm','distance'], /(distance|km)/i));
   const eta = fmtMin(pickHybrid(order, ['etaText','etaMinutes','duration','time'], /(eta|duration|time|min)/i));
   const price = fmtPrice(pickHybrid(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i));
@@ -183,7 +134,7 @@ export default function OrderCard({
         </View>
       )}
 
-      {/* Actions — largeur égale, tailles/angles identiques */}
+      {/* Actions — largeur STRICTEMENT égale dans une ligne */}
       {!accepted ? (
         <>
           <View style={styles.rowEqual}>
@@ -202,6 +153,7 @@ export default function OrderCard({
             </TouchableOpacity>
           </View>
 
+          {/* Détails plein large dessous (comme la maquette) */}
           <TouchableOpacity
             style={[styles.btn, styles.btnGhost, styles.btnFull, styles.mt]}
             onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch {} }}
@@ -230,7 +182,7 @@ export default function OrderCard({
   );
 }
 
-/* ---------- Styles ---------- */
+/* Styles normalisés: même hauteur, même rayon, espacements constants */
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
