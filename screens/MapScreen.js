@@ -1,10 +1,15 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import MapView, { Marker, Circle } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { listSurgeAreas, getActiveOrder, applySurgeForPosition, BRAND } from '../components/api';
+import TopNotice from '../components/TopNotice';
+
+const NOTICE_LINES = ['Aucune commande active', 'Boost auto appliqué selon zone'];
 
 export default function MapScreen() {
+  const insets = useSafeAreaInsets();
   const [loc, setLoc] = useState(null);
   const [order, setOrder] = useState(null);
   const [surges, setSurges] = useState([]);
@@ -32,6 +37,10 @@ export default function MapScreen() {
   const region = { latitude: loc.latitude, longitude: loc.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
 
   return (
+      {/* Bannière carte (2 lignes, safe-area, marges latérales) */}
+      <View style={{ position:'absolute', left:0, right:0, zIndex:1000, paddingHorizontal:16, top: (insets?.top ?? 0) + 8 }} pointerEvents="none">
+        <TopNotice lines={NOTICE_LINES} />
+      </View>
     <View style={{ flex: 1 }}>
       <MapView style={StyleSheet.absoluteFill} initialRegion={region} region={region}>
         {surges.map(s => (
