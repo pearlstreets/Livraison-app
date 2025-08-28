@@ -1,105 +1,107 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, Modal, Image, Alert, ScrollView, Platform } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import * as Linking from 'expo-linking';
+import React, { useMemo } from 'react';
+import { ScrollView, View, Text, StyleSheet, Platform } from 'react-native';
 import OrderCard from '../components/OrderCard';
-import DriverStatus from '../components/DriverStatus';
-import api from '../components/api';
-import SignatureCanvas from 'react-native-signature-canvas';
 
-const BRAND = '#00C29B';
+/**
+ * Helper: force un tableau
+ */
+const toArr = (v) => Array.isArray(v) ? v : (v ? [v] : []);
 
-const toArr = v => Array.isArray(v) ? v : [];
-const unified = [...toArr(typeof available !== 'undefined' ? available : []), ...toArr(typeof active !== 'undefined' ? active : [])];
-export default function OrdersScreen() {
-  const [available, setAvailable] = useState([]);
-  const [active, setActive] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [proofPhoto, setProofPhoto] = useState(null);
-  const [signatureData, setSignatureData] = useState(null);
-  const [signatureOpen, setSignatureOpen] = useState(false);
-  const [online, setOnline] = useState(true);
+/**
+ * Écran Commandes
+ * - Un seul ScrollView pour toute la page
+ * - Section "En cours" (active) puis "Disponibles"
+ * - Chaque item est un OrderCard (qui affiche nom d'établissement + adresse + chips)
+ */
+export default function OrdersScreen(props) {
+  // Tente d'utiliser les données déjà présentes dans l'écran existant
+  // (ex: state, props, route, etc.)
+  const activeRaw =
+    props?.active ??
+    props?.route?.params?.active ??
+    props?.route?.params?.ordersActive ??
+    [];
 
-  const refresh = useCallback(async () => {
-    if (online) {
-      setAvailable(await api.listAvailableOrders());
-      setActive(await api.listActiveOrders());
-    } else {
-      setAvailable([]);
-    }
-  }, [online]);
+  const availableRaw =
+    props?.available ??
+    props?.route?.params?.available ??
+    props?.route?.params?.ordersAvailable ??
+    [];
 
-  useEffect(() => {
-    refresh();
-    const t=setInterval(async()=>{ 
-      if(Math.random()<0.25 && online){ await api.seedNewOrder('ORD-'+Math.floor(1000+Math.random()*9000)); } 
-      refresh(); 
-    },5000); 
-    return ()=>clearInterval(t);
-  }, [refresh, online]);
+  const active = toArr(activeRaw);
+  const available = toArr(availableRaw);
 
-  async function accept(id){ await api.acceptOrder(id); await refresh(); }
-  async function decline(id){ await api.declineOrder(id); await refresh(); }
-  async function advanceStatus(){ if(!selected) return; const next=selected.status==='accepted'?'picking':selected.status==='picking'?'delivering':selected.status; const u=await api.updateStatus(selected.id,next); setSelected({...u}); await refresh(); }
-  async function openCamera(){ const { status }=await ImagePicker.requestCameraPermissionsAsync(); if(status!=='granted'){ Alert.alert('Permission','Autorisez la caméra.'); return; } const res=await ImagePicker.launchCameraAsync({ allowsEditing:false, quality:0.7 }); if(!res.canceled) setProofPhoto(res.assets[0].uri); }
-  function onSignatureOK(dataUrl){ setSignatureData(dataUrl); setSignatureOpen(false); }
-  async function markDelivered(){ if(!selected) return; if(!proofPhoto){ Alert.alert('Preuve requise','Prenez une photo.'); return; } if(!signatureData){ Alert.alert('Signature requise','Obtenez la signature.'); return; } await api.completeOrder(selected.id,proofPhoto,signatureData); setSelected(null); setProofPhoto(null); setSignatureData(null); await refresh(); Alert.alert('Succès','Commande livrée.'); }
-  function openNav(address){ const url=Platform.select({ ios:`maps:0,0?q=${encodeURIComponent(address)}`, android:`geo:0,0?q=${encodeURIComponent(address)}` }); Linking.openURL(url); }
+  // clés de rendu stables
+  const keyOf = (order, i) => String(order?.id || order?.code || i);
 
-  const renderOrder=({ item }) => (<OrderCard order={item} onAccept={()=>accept(item.id)} onDecline={()=>decline(item.id)} onOpen={()=>setSelected(item)} />);
+  // mémo pour alléger les re-rendus
+  const hasActive = active.length > 0;
+  const hasAvailable = available.length > 0;
 
   return (
-    <View style={{ flex:1, padding:16 }}>
-      <DriverStatus onChange={setOnline} />
-      {active.length>0 && (<View style={styles.section}><Text style={styles.sectionTitle}>{/* En cours */}</Text><FlatList data={active} keyExtractor={x=>x.id} renderItem={renderOrder} /></View>)}
-      <View style={styles.section}><Text style={styles.sectionTitle}>{/* Disponibles */}</Text><FlatList data={available} keyExtractor={x=>x.id} renderItem={renderOrder} ListEmptyComponent={<Text style={{ color:'#666', marginTop:10 }}>Aucune commande</Text>} /></View>
-      <Modal visible={!!selected} animationType="slide" onRequestClose={()=>setSelected(null)}>
-        {selected && (
-          <ScrollView contentContainerStyle={{ padding:16 }}>
-            <Text style={styles.detailId}>{selected.id}</Text>
-            <Text style={styles.detailLine}>Prise: {selected.pickup.label}</Text>
-            <Text style={styles.detailLine}>Livraison: {selected.dropoff.label}</Text>
-            <Text style={styles.detailLine}>Client: {selected.customer.name}  Tel: {selected.customer.phone}</Text>
-            <Text style={styles.detailLine}>Articles: {selected.items.join(', ')}</Text>
-            <Text style={styles.detailLine}>Montant: {(selected.amountCents/100).toFixed(2)} €</Text>
-            <Text style={styles.badgeStatus}>Statut: {selected.status}</Text>
-            {selected.status==='accepted' && (<Pressable style={[styles.btn, styles.fill]} onPress={()=>openNav(selected.pickup.label)}><Text style={styles.btnTxt}>Naviguer vers collecte</Text></Pressable>)}
-            {selected.status==='picking' && (<Pressable style={[styles.btn, styles.fill]} onPress={()=>openNav(selected.dropoff.label)}><Text style={styles.btnTxt}>Naviguer vers livraison</Text></Pressable>)}
-            {selected.status==='accepted' && (<Pressable style={[styles.btn, styles.fill]} onPress={advanceStatus}><Text style={styles.btnTxt}>En route collecte</Text></Pressable>)}
-            {selected.status==='picking' && (<Pressable style={[styles.btn, styles.fill]} onPress={advanceStatus}><Text style={styles.btnTxt}>En route livraison</Text></Pressable>)}
-            {selected.status==='delivering' && (
-              <View>
-                <View style={{ flexDirection:'row' }}>
-                  <Pressable style={[styles.btn, styles.outline, { flex:1, marginRight:8 }]} onPress={openCamera}><Text style={[styles.btnTxt, { color:'#111' }]}>Prendre photo</Text></Pressable>
-                  <Pressable style={[styles.btn, styles.outline, { flex:1 }]} onPress={()=>setSignatureOpen(true)}><Text style={[styles.btnTxt, { color:'#111' }]}>Signature</Text></Pressable>
-                </View>
-                {proofPhoto && (<Image source={{ uri: proofPhoto }} style={{ width:'100%', height:220, borderRadius:12, marginTop:12 }} />)}
-                <Pressable style={[styles.btn, styles.fill, { marginTop:12 }]} onPress={markDelivered}><Text style={styles.btnTxt}>Marquer livrée</Text></Pressable>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      // iOS a un bounce agréable, Android moins : on lisse un peu
+      alwaysBounceVertical={Platform.OS === 'ios'}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Section En cours */}
+      {hasActive && (
+        <>
+          <Text style={styles.sectionTitle}>En cours</Text>
+          <View style={styles.cardsBlock}>
+            {active.map((order, i) => (
+              <View key={keyOf(order, i)} style={styles.cardWrap}>
+                <OrderCard order={order} initialAccepted />
               </View>
-            )}
-            <Pressable style={[styles.btn, styles.ghost]} onPress={()=>setSelected(null)}><Text style={[styles.btnTxt, { color:BRAND }]}>Fermer</Text></Pressable>
-          </ScrollView>
+            ))}
+          </View>
+        </>
+      )}
+
+      {/* Section Disponibles */}
+      <Text style={[styles.sectionTitle, hasActive && styles.sectionTitleGap]}>
+        Disponibles
+      </Text>
+      <View style={styles.cardsBlock}>
+        {hasAvailable ? (
+          available.map((order, i) => (
+            <View key={keyOf(order, i)} style={styles.cardWrap}>
+              <OrderCard order={order} />
+            </View>
+          ))
+        ) : (
+          <Text style={styles.emptyText}>Aucune commande</Text>
         )}
-      </Modal>
-      <Modal visible={signatureOpen} animationType="slide" onRequestClose={()=>setSignatureOpen(false)}>
-        <View style={{ flex:1 }}>
-          <SignatureCanvas onOK={onSignatureOK} descriptionText="Signature client" clearText="Effacer" confirmText="Valider" webStyle={".m-signature-pad--footer .button { background:#00C29B; color:#fff; }"} autoClear={false} />
-          <Pressable style={[styles.btn, { backgroundColor:'#fff', borderWidth:1, borderColor:'#e5e5ea', margin:16 }]} onPress={()=>setSignatureOpen(false)}><Text style={[styles.btnTxt, { color:BRAND }]}>Annuler</Text></Pressable>
-        </View>
-      </Modal>
-    </View>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 8 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', marginBottom: 8 },
-  detailId: { fontSize: 22, fontWeight: '800', marginBottom: 10 },
-  detailLine: { marginVertical: 4, color: '#222' },
-  badgeStatus: { marginTop: 8, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: '#f2f2f7', alignSelf: 'flex-start', borderRadius: 999, fontWeight: '700' },
-  btn: { paddingVertical: 14, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-  fill: { backgroundColor: BRAND },
-  outline: { backgroundColor: '#f2f2f7' },
-  ghost: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e5ea' },
-  btnTxt: { fontWeight: '800', color: '#fff' }
+  container: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  sectionTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#111',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  sectionTitleGap: {
+    marginTop: 24,
+  },
+  cardsBlock: {
+    marginBottom: 4,
+  },
+  cardWrap: {
+    marginBottom: 12,
+  },
+  emptyText: {
+    color: '#8E8E93',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
 });
