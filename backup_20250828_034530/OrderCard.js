@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const BRAND = '#00C29B';
 
@@ -17,21 +16,14 @@ function openItinerary(order) {
   } catch {}
 }
 
-function IconLabel({ icon, children }) {
-  return (
-    <View style={styles.iconRow}>
-      <View style={styles.iconBox}>{icon}</View>
-      <Text style={styles.infoText} numberOfLines={1}>{children}</Text>
-    </View>
-  );
-}
-
 function Pill({ children, variant }) {
-  const bg = variant === 'green' ? BRAND : '#F2F3F5';
-  const color = variant === 'green' ? '#FFFFFF' : '#111111';
+  const style =
+    variant === 'green'
+      ? [styles.pill, { backgroundColor: BRAND, color: '#fff' }]
+      : [styles.pill, { backgroundColor: '#F2F3F5', color: '#111' }];
   return (
-    <View style={[styles.pill, { backgroundColor: bg }]}>
-      <Text style={[styles.pillText, { color }]}>{children}</Text>
+    <View style={[styles.pillBox, style[0]]}>
+      <Text style={[styles.pillText, { color: style[1].color }]}>{children}</Text>
     </View>
   );
 }
@@ -56,12 +48,6 @@ export default function OrderCard({
     }
   };
 
-  const merchant = order?.restaurant || order?.merchantName || '';
-  const address = order?.address || order?.dropoffAddress || order?.destinationAddress || '';
-  const distance = order?.distance;
-  const eta = order?.eta;
-  const price = order?.price;
-
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -69,24 +55,14 @@ export default function OrderCard({
         {!!order?.category && <Text style={styles.category}>{order.category}</Text>}
       </View>
 
-      {!!merchant && (
-        <IconLabel icon={<MaterialCommunityIcons name="storefront-outline" size={18} color="#333" />}>
-          {merchant}
-        </IconLabel>
-      )}
-      {!!address && (
-        <IconLabel icon={<Ionicons name="home-outline" size={18} color="#333" />}>
-          {address}
-        </IconLabel>
-      )}
+      {!!order?.restaurant && <Text style={styles.line}>🏪 {order.restaurant}</Text>}
+      {!!order?.address && <Text style={styles.line}>🏠 {order.address}</Text>}
 
-      {(distance || eta || price) && (
-        <View style={styles.pillsRow}>
-          {!!distance && <Pill>{distance}</Pill>}
-          {!!eta && <Pill>{eta}</Pill>}
-          {!!price && <Pill variant="green">{price}</Pill>}
-        </View>
-      )}
+      <View style={styles.pillsRow}>
+        {!!order?.distance && <Pill>{order.distance}</Pill>}
+        {!!order?.eta && <Pill>{order.eta}</Pill>}
+        {!!order?.price && <Pill variant="green">{order.price}</Pill>}
+      </View>
 
       {!accepted ? (
         <View style={styles.footerRow}>
@@ -149,15 +125,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8
   },
-  code: { fontSize: 18, fontWeight: '800', color: '#111' },
+  code: { fontSize: 18, fontWeight: '800' },
   category: { color: BRAND, fontWeight: '700' },
-
-  iconRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  iconBox: { width: 22, alignItems: 'center' },
-  infoText: { color: '#333', flexShrink: 1 },
+  line: { color: '#333', marginBottom: 4 },
 
   pillsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 8 },
-  pill: { borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12, marginRight: 10 },
+  pillBox: { marginRight: 10 },
+  pill: { borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 },
   pillText: { fontWeight: '700' },
 
   footerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
