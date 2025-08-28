@@ -3,3 +3,5 @@ node_modules
 .expo-shared
 npm-debug.log
 package-lock.json
+
+historique/reverts/*.bak

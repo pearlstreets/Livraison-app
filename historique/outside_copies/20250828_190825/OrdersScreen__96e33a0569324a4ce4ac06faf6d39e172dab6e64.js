@@ -1,54 +1,25 @@
-import InlineFilters from '../components/InlineFilters';
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, Platform, Switch } from 'react-native';
 import OrderCard from '../components/OrderCard';
 import DetailsSheet from '../components/DetailsSheet';
-import { getMeauxSeed } from '../constants/mockOrders';
-import filtersUI from '../constants/filters-ui.json';
-
-/* === Filtres inline (unique) === */
-const OrdersInlineFilters = ({ selected, onChange, filters = [] }) => {
-  const UI = (filtersUI && filtersUI.inline) || {};
-  const H = UI.height ?? 28, R = UI.radius ?? 14, GAP = UI.gap ?? 6, PH = UI.paddingH ?? 10, FZ = UI.fontSize ?? 13;
-  const labels = UI.labels || {};
-  return (
-    <View style={{ flexDirection:'row', gap:GAP }}>
-      {filters.map(f => (
-        <TouchableOpacity
-          key={f.id}
-          onPress={() => onChange && onChange(f.id)}
-          style={{
-            height:H, paddingHorizontal:PH, borderRadius:R,
-            alignItems:'center', justifyContent:'center',
-            backgroundColor: selected===f.id ? '#00C29B' : '#F2F3F5'
-          }}
-        >
-          <Text style={{ fontSize:FZ, fontWeight:'700', color: selected===f.id ? '#fff' : '#111' }}>
-            { labels[f.id] ?? f.label ?? f.id }
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-};
 
 /* ---------- Génération aléatoire ---------- */
 const CATEGORIES = ['Food & Drink', 'Product Purchase', 'Groceries'];
 const RESTOS = [
-  'Pizzeria Roma, Meaux',
-  'Le Bistrot, Meaux',
-  'Chez Marcel, Meaux',
-  'La Terrasse, Meaux',
-  'Café du Pont, Meaux',
-  'Sushi Zen, Meaux'
+  'Pizzeria Roma, Carcassonne',
+  'Le Bistrot, Carcassonne',
+  'Chez Marcel, Carcassonne',
+  'La Terrasse, Carcassonne',
+  'Café du Pont, Carcassonne',
+  'Sushi Zen, Carcassonne'
 ];
 const ADDR = [
-  '12 Rue Voltaire, Meaux',
-  'Place Carnot, Meaux',
-  '3 Bd Barbès, Meaux',
-  '18 Rue de Verdun, Meaux',
-  '6 Rue Trivalle, Meaux',
-  '2 Rue de la République, Meaux'
+  '12 Rue Voltaire, Carcassonne',
+  'Place Carnot, Carcassonne',
+  '3 Bd Barbès, Carcassonne',
+  '18 Rue de Verdun, Carcassonne',
+  '6 Rue Trivalle, Carcassonne',
+  '2 Rue de la République, Carcassonne'
 ];
 
 const rpick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -84,41 +55,7 @@ function genOrder() {
 }
 
 /* ---------- Écran ---------- */
-;
-
 export default function OrdersScreen() {
-  const [selectedFilter, setSelectedFilter] = useState('smart');
-  const filters = [{id:'smart',label:'Smart'},{id:'highpay',label:'€'},{id:'nearest',label:'Proche'}];
-
-  // --- Simulateur Meaux uniquement ---
-  React.useEffect(() => {
-    try {
-      const stop = startMeauxFeed(setAvailable, 4000);
-      return () => typeof stop==='function' && stop();
-    } catch {}
-  }, []);
-
-  React.useEffect(() => { //__SIM_MEAUX_FEED
-    if (!__SIM_MEAUX) return;
-    const seed = (typeof getMeauxSeed==='function' ? getMeauxSeed() : []);
-    let i = 0;
-    const tick = () => {
-      const item = seed[i % seed.length];
-      i++;
-      if (!item) return;
-      try {
-        if (typeof setAvailable === 'function') {
-          setAvailable(prev => [item, ...(Array.isArray(prev)?prev:[])]);
-        }
-      } catch {}
-    };
-    tick();
-    const iv = setInterval(tick, 5000 + Math.floor(Math.random()*3000));
-    return () => clearInterval(iv);
-  }, []);
-
-  const __SIM_MEAUX = true;
-
   const [detailsOrder, setDetailsOrder] = useState(null);
   const [detailsVisible, setDetailsVisible] = useState(false); //__DETAILS_STATE_ANCHOR
 
@@ -252,8 +189,8 @@ const styles = StyleSheet.create({
   onlineText: { color: '#00C29B', fontWeight: '700', fontSize: 16 },
 
   sectionTitle: { fontSize: 28, fontWeight: '800', color: '#111', marginTop: 8, marginBottom: 12 },
-  sectionTitleGap: {  marginTop: 12  },
-  cardsBlock: {  marginBottom: 2  },
+  sectionTitleGap: { marginTop: 24 },
+  cardsBlock: { marginBottom: 4 },
   cardWrap: { marginBottom: 12 },
   emptyText: { color: '#8E8E93', paddingVertical: 8, paddingHorizontal: 4 }
 });
