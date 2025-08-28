@@ -5,9 +5,6 @@ import MapView, { Marker, Circle } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { listSurgeAreas, getActiveOrder, applySurgeForPosition, BRAND } from '../components/api';
 
-/** Mini-bannière 2 lignes (inline) */
-};
-
 const NOTICE_LINES = ['Aucune commande active', 'Boost auto appliqué selon zone'];
 
 export default function MapScreen() {
