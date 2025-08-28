@@ -1,9 +1,10 @@
 import InlineFilters from '../components/InlineFilters';
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { ScrollView, View, Text, StyleSheet, Platform, Switch } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity } from 'react-native';
 import OrderCard from '../components/OrderCard';
 import DetailsSheet from '../components/DetailsSheet';
 import { getMeauxSeed } from '../constants/mockOrders';
+import filtersUI from '../constants/filters-ui.json';
 
 /* ---------- Génération aléatoire ---------- */
 const CATEGORIES = ['Food & Drink', 'Product Purchase', 'Groceries'];
@@ -57,6 +58,31 @@ function genOrder() {
 }
 
 /* ---------- Écran ---------- */
+const InlineFilters = ({ selected, onChange }) => {
+  const UI = (filtersUI && filtersUI.inline) || {};
+  const H = UI.height ?? 28, R = UI.radius ?? 14, GAP = UI.gap ?? 6, PH = UI.paddingH ?? 10, FZ = UI.fontSize ?? 13;
+  const items = [
+    { id:'smart',   label:(UI.labels&&UI.labels.smart)||'Smart' },
+    { id:'highpay', label:(UI.labels&&UI.labels.highpay)||'€' },
+    { id:'nearest', label:(UI.labels&&UI.labels.nearest)||'Proche' }
+  ];
+  return (
+    <View style={{ flexDirection:'row' }}>
+      {items.map((f, i)=>(
+        <TouchableOpacity key={f.id} onPress={()=>onChange&&onChange(f.id)}
+          style={{
+            height:H, paddingHorizontal:PH, borderRadius:R,
+            alignItems:'center', justifyContent:'center',
+            backgroundColor: selected===f.id ? '#00C29B' : '#F2F3F5',
+            marginLeft: i===0 ? 0 : GAP
+          }}>
+          <Text style={{ fontSize:FZ, fontWeight:'700', color:selected===f.id?'#fff':'#111' }}>{f.label}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+};
+
 export default function OrdersScreen() {
   const [selectedFilter, setSelectedFilter] = useState('smart');
   const filters = [{id:'smart',label:'Smart'},{id:'highpay',label:'€'},{id:'nearest',label:'Proche'}];
