@@ -259,12 +259,12 @@ const styles = StyleSheet.create({
   pill: { borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12, marginRight: 10 },
   pillText: { fontWeight: '700' },
 
-  rowEqual: { flexDirection: 'row', alignItems: 'center', marginTop: GAP },
-  mr: { marginRight: GAP/2 },
-  ml: { marginLeft: GAP/2 },
+  rowEqual: { flexDirection: 'row', alignItems: 'center', marginTop: GAP},
+  mr: { marginRight: GAP/2},
+  ml: { marginLeft: GAP/2},
   mt: { marginTop: GAP },
 
-  btn: {
+  btn: { borderRadius: 24, height: 56,
     flex: 1,
     height: BTN_HEIGHT,
     borderRadius: BTN_RADIUS,
@@ -276,6 +276,6 @@ const styles = StyleSheet.create({
   btnGhost: { borderWidth: 1, borderColor: '#E6E8EB', backgroundColor: '#FFFFFF' },
   btnFull: { width: '100%' },
 
-  btnText: { color: '#FFFFFF', fontWeight: '700', textAlign: 'center', includeFontPadding: false },
-  btnTextDark: { color: '#111111', fontWeight: '700', textAlign: 'center', includeFontPadding: false }
+  btnText: { fontSize: 18, color: '#FFFFFF', fontWeight: '700', textAlign: 'center', includeFontPadding: false },
+  btnTextDark: { fontSize: 18, color: '#111111', fontWeight: '700', textAlign: 'center', includeFontPadding: false }
 });
