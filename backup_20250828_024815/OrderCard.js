@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native'
 
 const BRAND = '#00C29B';
 
-function openItinerary(order) {
+function openMaps(order) {
   try {
     const addr = order?.dropoffAddress || order?.address || order?.destinationAddress || '';
     const lat = order?.dropoffLat || order?.lat || order?.destination?.lat;
@@ -23,14 +23,14 @@ function openItinerary(order) {
 export default function OrderCard({ order, onAccept, onDecline, onOpen }) {
   const [accepted, setAccepted] = useState(false);
 
-  const onPressMain = () => {
+  const handleAccept = () => {
     if (!accepted) {
       setAccepted(true);
       try { if (typeof onAccept === 'function') onAccept(order); } catch (e) {}
-    } else {
-      openItinerary(order);
     }
   };
+
+  const handleItinerary = () => openMaps(order);
 
   return (
     <View style={styles.card}>
@@ -39,34 +39,32 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen }) {
         {!!order?.category && <Text style={styles.category}>{order.category}</Text>}
       </View>
 
-      {!!order?.restaurant && <Text style={styles.line}>{order.restaurant}</Text>}
-      {!!order?.address && <Text style={styles.line}>{order.address}</Text>}
+      {!!order?.restaurant && (
+        <Text style={styles.line}>{order.restaurant}</Text>
+      )}
+      {!!order?.address && (
+        <Text style={styles.line}>{order.address}</Text>
+      )}
 
-      {!accepted ? (
-        <View style={styles.footer3}>
-          <TouchableOpacity style={[styles.btn, styles.btnLight]} onPress={() => { try { if (typeof onDecline === 'function') onDecline(order); } catch (e) {} }}>
-            <Text style={styles.btnTextDark}>Refuser</Text>
-          </TouchableOpacity>
+      <View style={styles.footer}>
+        <TouchableOpacity style={[styles.btn, styles.btnLight]} onPress={() => { try { if (typeof onDecline === 'function') onDecline(order); } catch (e) {} }}>
+          <Text style={styles.btnTextDark}>Refuser</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={onPressMain}>
+        {!accepted ? (
+          <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={handleAccept}>
             <Text style={styles.btnText}>Accepter</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.btn, styles.btnGhost]} onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch (e) {} }}>
-            <Text style={styles.btnTextDark}>Détails</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <View style={styles.footer2}>
-          <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={onPressMain}>
+        ) : (
+          <TouchableOpacity style={[styles.btn, styles.btnPrimary]} onPress={handleItinerary}>
             <Text style={styles.btnText}>Itinéraire</Text>
           </TouchableOpacity>
+        )}
 
-          <TouchableOpacity style={[styles.btn, styles.btnGhost]} onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch (e) {} }}>
-            <Text style={styles.btnTextDark}>Détails</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+        <TouchableOpacity style={[styles.btn, styles.btnGhost]} onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch (e) {} }}>
+          <Text style={styles.btnTextDark}>Détails</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -91,10 +89,7 @@ const styles = StyleSheet.create({
   code: { fontSize: 18, fontWeight: '800' },
   category: { color: BRAND, fontWeight: '700' },
   line: { color: '#333', marginBottom: 2 },
-
-  footer3: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
-  footer2: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
-
+  footer: { flexDirection: 'row', gap: 12, marginTop: 12 },
   btn: {
     flex: 1,
     height: 48,
@@ -105,7 +100,6 @@ const styles = StyleSheet.create({
   btnPrimary: { backgroundColor: BRAND },
   btnLight: { backgroundColor: '#F2F3F5' },
   btnGhost: { borderWidth: 1, borderColor: '#E6E8EB', backgroundColor: '#fff' },
-
   btnText: { color: '#fff', fontWeight: '700', textAlign: 'center', includeFontPadding: false },
   btnTextDark: { color: '#111', fontWeight: '700', textAlign: 'center', includeFontPadding: false }
 });
