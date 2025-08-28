@@ -6,17 +6,9 @@ const BRAND = '#00C29B';
 
 function openItinerary(order) {
   try {
-    const addr =
-      order?.dropoffAddress ||
-      order?.destinationAddress ||
-      order?.address ||
-      order?.dropoff?.address ||
-      '';
-    const lat =
-      order?.dropoffLat || order?.destination?.lat || order?.lat;
-    const lng =
-      order?.dropoffLng || order?.destination?.lng || order?.lng;
-
+    const addr = order?.dropoffAddress || order?.address || order?.destinationAddress || '';
+    const lat = order?.dropoffLat || order?.lat || order?.destination?.lat;
+    const lng = order?.dropoffLng || order?.lng || order?.destination?.lng;
     let url;
     if (lat && lng) url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     else if (addr) url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`;
@@ -24,34 +16,6 @@ function openItinerary(order) {
     Linking.openURL(url);
   } catch {}
 }
-
-/** Utils: récupère le premier champ non vide parmi plusieurs clés */
-const pick = (obj, keys) => {
-  for (const k of keys) {
-    const val = k.split('.').reduce((a, c) => (a ? a[c] : undefined), obj);
-    if (val !== undefined && val !== null && String(val).trim() !== '') return val;
-  }
-  return undefined;
-};
-
-const fmtKm = (v) => {
-  if (v === undefined) return undefined;
-  if (typeof v === 'number') return `${v.toFixed(1)} km`;
-  const s = String(v);
-  return /km/i.test(s) ? s : `${s} km`;
-};
-const fmtMin = (v) => {
-  if (v === undefined) return undefined;
-  if (typeof v === 'number') return `${Math.round(v)} min`;
-  const s = String(v);
-  return /(min|mn)/i.test(s) ? s : `${s} min`;
-};
-const fmtPrice = (v) => {
-  if (v === undefined) return undefined;
-  if (typeof v === 'number') return `${v.toFixed(2)} €`;
-  const s = String(v);
-  return /€/.test(s) ? s : `${s} €`;
-};
 
 function IconRow({ icon, text }) {
   if (!text) return null;
@@ -80,20 +44,14 @@ export default function OrderCard({
   onOpen,
   initialAccepted = false
 }) {
-  const inferAccepted = ['accepted','acceptée','active','en_cours'].includes(
-    String(order?.status || '').toLowerCase()
-  );
+  const inferAccepted = ['accepted','acceptée','active','en_cours'].includes(String(order?.status || '').toLowerCase());
   const [accepted, setAccepted] = useState(inferAccepted || initialAccepted);
 
-  // Champs robustes (noms variés)
-  const code = pick(order, ['code', 'id']) || 'Commande';
-  const category = pick(order, ['category', 'type', 'service']);
-  const merchant = pick(order, ['restaurant', 'merchantName', 'storeName', 'pickupName']);
-  const address = pick(order, ['address', 'dropoffAddress', 'destinationAddress', 'dropoff.address']);
-
-  const distance = fmtKm(pick(order, ['distanceText', 'distanceKm', 'distance']));
-  const eta = fmtMin(pick(order, ['etaText', 'etaMinutes', 'duration', 'time']));
-  const price = fmtPrice(pick(order, ['priceText', 'price', 'amount', 'payout']));
+  const merchant = order?.restaurant || order?.merchantName || '';
+  const address = order?.address || order?.dropoffAddress || order?.destinationAddress || '';
+  const distance = order?.distance;
+  const eta = order?.eta;
+  const price = order?.price;
 
   const handleAcceptOrItinerary = () => {
     if (!accepted) {
@@ -106,13 +64,11 @@ export default function OrderCard({
 
   return (
     <View style={styles.card}>
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.code}>{code}</Text>
-        {!!category && <Text style={styles.category}>{category}</Text>}
+        <Text style={styles.code}>{order?.code || order?.id || 'Commande'}</Text>
+        {!!order?.category && <Text style={styles.category}>{order.category}</Text>}
       </View>
 
-      {/* Lignes info */}
       <IconRow
         icon={<MaterialCommunityIcons name="storefront-outline" size={18} color="#333" />}
         text={merchant}
@@ -122,7 +78,6 @@ export default function OrderCard({
         text={address}
       />
 
-      {/* Chips */}
       {(distance || eta || price) && (
         <View style={styles.pillsRow}>
           {!!distance && <Pill>{distance}</Pill>}
@@ -131,7 +86,6 @@ export default function OrderCard({
         </View>
       )}
 
-      {/* Actions */}
       {!accepted ? (
         <>
           <View style={styles.footerRow}>
