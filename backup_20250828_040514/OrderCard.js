@@ -4,122 +4,61 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const BRAND = '#00C29B';
 
-/** -------- Utils de détection robuste -------- **/
-const isObj = (v) => v && typeof v === 'object';
-const seenSetAdd = (set, v) => { try { if (isObj(v)) { if (set.has(v)) return false; set.add(v); } } catch {} return true; };
-
-// Recherche BFS d'une clé par regex n'importe où dans l'objet
-function findByKeyRegex(root, regex) {
-  if (!isObj(root)) return undefined;
-  const q = [root];
-  const seen = new Set();
-  while (q.length) {
-    const cur = q.shift();
-    if (!seenSetAdd(seen, cur)) continue;
-    for (const k of Object.keys(cur)) {
-      const val = cur[k];
-      if (regex.test(k)) return val;
-      if (isObj(val)) q.push(val);
-    }
-  }
-  return undefined;
-}
-
-// Cherche le premier champ non vide parmi des chemins simples au 1er niveau
-function pickTop(obj, keys) {
-  for (const k of keys) {
-    const path = k.split('.');
-    let v = obj;
-    for (const p of path) v = isObj(v) ? v[p] : undefined;
-    if (v !== undefined && v !== null && String(v).trim?.() !== '') return v;
-  }
-  return undefined;
-}
-
-// Pick hybride: d'abord top-level, sinon regex profonde
-function pickHybrid(obj, tops, rx) {
-  const v = pickTop(obj, tops);
-  if (v !== undefined) return v;
-  const deep = findByKeyRegex(obj, rx);
-  return deep;
-}
-
-// Formateurs
-const fmtKm = (v) => {
-  if (v == null) return undefined;
-  if (typeof v === 'number') {
-    // si >1000 on suppose mètres
-    const km = v > 1000 ? v / 1000 : v;
-    return `${km.toFixed(1)} km`;
-  }
-  const s = String(v);
-  const num = parseFloat(s.replace(',', '.'));
-  if (!isNaN(num)) {
-    return /km/i.test(s) ? s : `${num.toFixed(1)} km`;
-  }
-  return s;
-};
-
-const fmtMin = (v) => {
-  if (v == null) return undefined;
-  if (typeof v === 'number') {
-    // si > 180 on suppose secondes
-    const min = v > 180 ? Math.round(v / 60) : Math.round(v);
-    return `${min} min`;
-  }
-  const s = String(v);
-  const num = parseFloat(s.replace(',', '.'));
-  if (!isNaN(num)) {
-    // contient déjà "min" ?
-    return /(min|mn)/i.test(s) ? s : `${Math.round(num)} min`;
-  }
-  return s;
-};
-
-const fmtPrice = (v) => {
-  if (v == null) return undefined;
-  if (typeof v === 'number') {
-    // si entier et grand, on suppose cents
-    const euros = Number.isInteger(v) && v > 1000 ? v / 100 : v;
-    return `${euros.toFixed(2)} €`;
-  }
-  const s = String(v);
-  const num = parseFloat(s.replace(',', '.'));
-  if (!isNaN(num)) return `${num.toFixed(2)} €`;
-  return s.includes('€') ? s : `${s} €`;
-};
-
 function openItinerary(order) {
   try {
-    const addr = pickHybrid(order,
-      ['dropoffAddress','destinationAddress','address','dropoff.address'],
-      /(dropoff|destination).*address|^address$/i
-    ) || '';
-
-    const lat = pickHybrid(order,
-      ['dropoffLat','destination.lat','lat'],
-      /(dropoff|destination).*lat$|^lat$/i
-    );
-    const lng = pickHybrid(order,
-      ['dropoffLng','destination.lng','lng','lon','long','longitude'],
-      /(dropoff|destination).*(lng|lon|long|longitude)$|^(lng|lon|long|longitude)$/i
-    );
+    const addr =
+      order?.dropoffAddress ||
+      order?.destinationAddress ||
+      order?.address ||
+      order?.dropoff?.address ||
+      '';
+    const lat =
+      order?.dropoffLat || order?.destination?.lat || order?.lat;
+    const lng =
+      order?.dropoffLng || order?.destination?.lng || order?.lng;
 
     let url;
-    if (lat != null && lng != null) url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-    else if (addr) url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(String(addr))}`;
+    if (lat && lng) url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    else if (addr) url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`;
     else url = 'https://www.google.com/maps';
     Linking.openURL(url);
   } catch {}
 }
 
-/** -------- Composants UI -------- **/
+/** Utils: récupère le premier champ non vide parmi plusieurs clés */
+const pick = (obj, keys) => {
+  for (const k of keys) {
+    const val = k.split('.').reduce((a, c) => (a ? a[c] : undefined), obj);
+    if (val !== undefined && val !== null && String(val).trim() !== '') return val;
+  }
+  return undefined;
+};
+
+const fmtKm = (v) => {
+  if (v === undefined) return undefined;
+  if (typeof v === 'number') return `${v.toFixed(1)} km`;
+  const s = String(v);
+  return /km/i.test(s) ? s : `${s} km`;
+};
+const fmtMin = (v) => {
+  if (v === undefined) return undefined;
+  if (typeof v === 'number') return `${Math.round(v)} min`;
+  const s = String(v);
+  return /(min|mn)/i.test(s) ? s : `${s} min`;
+};
+const fmtPrice = (v) => {
+  if (v === undefined) return undefined;
+  if (typeof v === 'number') return `${v.toFixed(2)} €`;
+  const s = String(v);
+  return /€/.test(s) ? s : `${s} €`;
+};
+
 function IconRow({ icon, text }) {
   if (!text) return null;
   return (
     <View style={styles.iconRow}>
       <View style={styles.iconBox}>{icon}</View>
-      <Text style={styles.infoText} numberOfLines={1}>{String(text)}</Text>
+      <Text style={styles.infoText} numberOfLines={1}>{text}</Text>
     </View>
   );
 }
@@ -146,30 +85,15 @@ export default function OrderCard({
   );
   const [accepted, setAccepted] = useState(inferAccepted || initialAccepted);
 
-  // En-tête
-  const code = pickHybrid(order, ['code','id','orderId'], /(code|order.?id)$/i) || 'Commande';
-  const category = pickHybrid(order, ['category','type','service'], /(category|type|service)/i);
+  // Champs robustes (noms variés)
+  const code = pick(order, ['code', 'id']) || 'Commande';
+  const category = pick(order, ['category', 'type', 'service']);
+  const merchant = pick(order, ['restaurant', 'merchantName', 'storeName', 'pickupName']);
+  const address = pick(order, ['address', 'dropoffAddress', 'destinationAddress', 'dropoff.address']);
 
-  // Lignes info
-  const merchant = pickHybrid(
-    order,
-    ['restaurant','merchantName','storeName','pickupName'],
-    /(restaurant|merchant|store|pickup).*name/i
-  );
-  const address = pickHybrid(
-    order,
-    ['address','dropoffAddress','destinationAddress','dropoff.address'],
-    /(address$|dropoff.*address|destination.*address)/i
-  );
-
-  // Chips
-  const distanceRaw = pickHybrid(order, ['distanceText','distanceKm','distance'], /(distance|km)/i);
-  const etaRaw = pickHybrid(order, ['etaText','etaMinutes','duration','time'], /(eta|duration|time|min)/i);
-  const priceRaw = pickHybrid(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i);
-
-  const distance = fmtKm(distanceRaw);
-  const eta = fmtMin(etaRaw);
-  const price = fmtPrice(priceRaw);
+  const distance = fmtKm(pick(order, ['distanceText', 'distanceKm', 'distance']));
+  const eta = fmtMin(pick(order, ['etaText', 'etaMinutes', 'duration', 'time']));
+  const price = fmtPrice(pick(order, ['priceText', 'price', 'amount', 'payout']));
 
   const handleAcceptOrItinerary = () => {
     if (!accepted) {
@@ -184,11 +108,11 @@ export default function OrderCard({
     <View style={styles.card}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.code}>{String(code)}</Text>
-        {!!category && <Text style={styles.category}>{String(category)}</Text>}
+        <Text style={styles.code}>{code}</Text>
+        {!!category && <Text style={styles.category}>{category}</Text>}
       </View>
 
-      {/* Infos */}
+      {/* Lignes info */}
       <IconRow
         icon={<MaterialCommunityIcons name="storefront-outline" size={18} color="#333" />}
         text={merchant}
@@ -254,7 +178,6 @@ export default function OrderCard({
   );
 }
 
-/** -------- Styles (fidèles à ta maquette) -------- **/
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
