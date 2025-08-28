@@ -9,6 +9,8 @@ import OrdersScreen from './screens/OrdersScreen';
 import MapScreen from './screens/MapScreen';
 import HistoryScreen from './screens/HistoryScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import { navigationRef, onStateChange } from './navigation/RootNavigation';
+import HistoryButton from './components/HistoryButton';
 
 const BRAND = '#00C29B';
 const Tab = createBottomTabNavigator();
@@ -44,7 +46,7 @@ export default function App() {
   }, []);
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer theme={navTheme} ref={navigationRef} onStateChange={onStateChange}>
       <StatusBar style="dark" />
       <Tab.Navigator
         screenOptions={({ route }) => ({
@@ -68,6 +70,7 @@ export default function App() {
         <Tab.Screen name="Historique" component={HistoryScreen} />
         <Tab.Screen name="Profil" component={ProfileScreen} />
       </Tab.Navigator>
-    </NavigationContainer>
+    <HistoryButton />
+</NavigationContainer>
   );
 }
