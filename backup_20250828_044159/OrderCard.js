@@ -3,44 +3,71 @@ import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const BRAND = '#00C29B';
-const BTN_HEIGHT = 40;   // plus petit
-const BTN_RADIUS = 12;   // moins arrondi
-const GAP = 10;          // écart plus serré
-const BTN_FONTSIZE = 16; // texte plus petit
+const BTN_HEIGHT = 52;   // hauteur exacte
+const BTN_RADIUS = 18;   // angles exacts
+const GAP = 12;
 
 /* ---------- Utils ---------- */
 const isObj = (v) => v !== null && typeof v === 'object';
+
 function pickTop(obj, keys) {
   for (const key of keys) {
     const path = key.split('.');
     let val = obj;
-    for (const p of path) { if (!isObj(val) && typeof val !== 'object') { val = undefined; break; } val = val?.[p]; }
-    if (val !== undefined && val !== null) return typeof val === 'string' ? (val.trim() ? val : undefined) : val;
+    for (const p of path) {
+      if (!isObj(val) && typeof val !== 'object') { val = undefined; break; }
+      val = val?.[p];
+    }
+    if (val !== undefined && val !== null) {
+      if (typeof val === 'string') {
+        if (val.trim() !== '') return val;
+      } else return val;
+    }
   }
   return undefined;
 }
 function findByKeyRegex(root, regex) {
   if (!isObj(root)) return undefined;
   const q = [root], seen = new Set();
-  while (q.length) { const cur = q.shift(); if (seen.has(cur)) continue; seen.add(cur);
-    for (const k of Object.keys(cur)) { const v = cur[k]; if (regex.test(k)) return v; if (isObj(v)) q.push(v); }
+  while (q.length) {
+    const cur = q.shift();
+    if (seen.has(cur)) continue;
+    seen.add(cur);
+    for (const k of Object.keys(cur)) {
+      const v = cur[k];
+      if (regex.test(k)) return v;
+      if (isObj(v)) q.push(v);
+    }
   }
   return undefined;
 }
-const pickHybrid = (obj, tops, rx) => { const t = pickTop(obj, tops); return t !== undefined ? t : findByKeyRegex(obj, rx); };
+const pickHybrid = (obj, tops, rx) => pickTop(obj, tops) ?? findByKeyRegex(obj, rx);
 
-const fmtKm = (v)=> v==null?undefined : (typeof v==='number' ? `${(v>1000? v/1000:v).toFixed(1)} km`
-  : ((s=>{const n=parseFloat(s.replace(',','.')); return isNaN(n)?s:(/km/i.test(s)?s:`${n.toFixed(1)} km`);})(String(v))));
-const fmtMin=(v)=> v==null?undefined : (typeof v==='number' ? `${Math.round(v>180? v/60:v)} min`
-  : ((s=>{const n=parseFloat(s.replace(',','.')); return isNaN(n)?s:(/(min|mn)/i.test(s)?s:`${Math.round(n)} min`);})(String(v))));
-const fmtPrice=(v)=> v==null?undefined : (typeof v==='number' ? `${(Number.isInteger(v)&&v>1000? v/100:v).toFixed(2)} €`
-  : ((s=>{const n=parseFloat(s.replace(',','.')); return isNaN(n)?(s.includes('€')?s:`${s} €`):`${n.toFixed(2)} €`;})(String(v))));
+const fmtKm = (v)=>{
+  if (v==null) return undefined;
+  if (typeof v==='number') return `${(v>1000? v/1000:v).toFixed(1)} km`;
+  const s=String(v), n=parseFloat(s.replace(',','.')); return isNaN(n)?s:(/km/i.test(s)?s:`${n.toFixed(1)} km`);
+};
+const fmtMin=(v)=>{
+  if (v==null) return undefined;
+  if (typeof v==='number') return `${Math.round(v>180? v/60:v)} min`;
+  const s=String(v), n=parseFloat(s.replace(',','.')); return isNaN(n)?s:(/(min|mn)/i.test(s)?s:`${Math.round(n)} min`);
+};
+const fmtPrice=(v)=>{
+  if (v==null) return undefined;
+  if (typeof v==='number') return `${(Number.isInteger(v)&&v>1000? v/100:v).toFixed(2)} €`;
+  const s=String(v), n=parseFloat(s.replace(',','.')); return isNaN(n)?(s.includes('€')?s:`${s} €`):`${n.toFixed(2)} €`;
+};
 
 function openItinerary(order) {
   try {
-    const addr = pickHybrid(order, ['dropoffAddress','destinationAddress','address','dropoff.address'], /(dropoff|destination).*address|^address$/i) || '';
-    const lat  = pickHybrid(order, ['dropoffLat','destination.lat','lat'], /(dropoff|destination).*lat$|^lat$/i);
-    const lng  = pickHybrid(order, ['dropoffLng','destination.lng','lng','lon','long','longitude'], /(dropoff|destination).*(lng|lon|long|longitude)$|^(lng|lon|long|longitude)$/i);
+    const addr = pickHybrid(order,
+      ['dropoffAddress','destinationAddress','address','dropoff.address'],
+      /(dropoff|destination).*address|^address$/i
+    ) || '';
+    const lat = pickHybrid(order, ['dropoffLat','destination.lat','lat'], /(dropoff|destination).*lat$|^lat$/i);
+    const lng = pickHybrid(order, ['dropoffLng','destination.lng','lng','lon','long','longitude'],
+      /(dropoff|destination).*(lng|lon|long|longitude)$|^(lng|lon|long|longitude)$/i);
     let url;
     if (lat!=null && lng!=null) url=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     else if (addr) url=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(String(addr))}`;
@@ -49,7 +76,7 @@ function openItinerary(order) {
   } catch {}
 }
 
-/* ---------- Sub components ---------- */
+/* ---------- Petits composants ---------- */
 function IconRow({ icon, text }) {
   if (!text) return null;
   return (
@@ -62,10 +89,14 @@ function IconRow({ icon, text }) {
 function Pill({ children, variant }) {
   const bg = variant === 'green' ? BRAND : '#F2F3F5';
   const color = variant === 'green' ? '#FFFFFF' : '#111111';
-  return <View style={[styles.pill, { backgroundColor: bg }]}><Text style={[styles.pillText, { color }]}>{children}</Text></View>;
+  return (
+    <View style={[styles.pill, { backgroundColor: bg }]}>
+      <Text style={[styles.pillText, { color }]}>{children}</Text>
+    </View>
+  );
 }
 
-/* ---------- Card ---------- */
+/* ---------- Carte ---------- */
 export default function OrderCard({ order, onAccept, onDecline, onOpen, initialAccepted=false }) {
   const inferAccepted = ['accepted','acceptée','active','en_cours'].includes(String(order?.status||'').toLowerCase());
   const [accepted, setAccepted] = useState(inferAccepted || initialAccepted);
@@ -80,20 +111,27 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
   const price = fmtPrice(pickHybrid(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i));
 
   const handleAcceptOrItinerary = () => {
-    if (!accepted) { setAccepted(true); try { if (typeof onAccept === 'function') onAccept(order); } catch {} }
-    else { openItinerary(order); }
+    if (!accepted) {
+      setAccepted(true);
+      try { if (typeof onAccept === 'function') onAccept(order); } catch {}
+    } else {
+      openItinerary(order);
+    }
   };
 
   return (
     <View style={styles.card}>
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.code}>{String(code)}</Text>
         {!!category && <Text style={styles.category}>{String(category)}</Text>}
       </View>
 
+      {/* Infos */}
       <IconRow icon={<MaterialCommunityIcons name="storefront-outline" size={18} color="#333" />} text={merchant} />
       <IconRow icon={<Ionicons name="home-outline" size={18} color="#333" />} text={address} />
 
+      {/* Chips */}
       {(distance || eta || price) && (
         <View style={styles.pillsRow}>
           {!!distance && <Pill>{distance}</Pill>}
@@ -102,25 +140,24 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
         </View>
       )}
 
+      {/* Actions — largeur 50/50, mêmes dimensions */}
       {!accepted ? (
         <>
-          {/* Disponibles : 46% / 46% */}
           <View style={styles.row}>
             <TouchableOpacity
-              style={[styles.btn, styles.btn46, styles.btnLight]}
+              style={[styles.btn, styles.btnHalf, styles.btnLight]}
               onPress={() => { try { if (typeof onDecline === 'function') onDecline(order); } catch {} }}
             >
               <Text style={styles.btnTextDark}>Refuser</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.btn, styles.btn46, styles.btnPrimary]}
+              style={[styles.btn, styles.btnHalf, styles.btnPrimary]}
               onPress={handleAcceptOrItinerary}
             >
               <Text style={styles.btnText}>Accepter</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Détails plein large */}
           <TouchableOpacity
             style={[styles.btn, styles.btnFull, styles.btnGhost, styles.mt]}
             onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch {} }}
@@ -129,16 +166,15 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
           </TouchableOpacity>
         </>
       ) : (
-        // Accepté : Itinéraire 56% / Détails 40%
         <View style={styles.row}>
           <TouchableOpacity
-            style={[styles.btn, styles.btn56, styles.btnPrimary]}
+            style={[styles.btn, styles.btnHalf, styles.btnPrimary]}
             onPress={handleAcceptOrItinerary}
           >
             <Text style={styles.btnText}>Itinéraire</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.btn, styles.btn40, styles.btnGhost]}
+            style={[styles.btn, styles.btnHalf, styles.btnGhost]}
             onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch {} }}
           >
             <Text style={styles.btnTextDark}>Détails</Text>
@@ -182,30 +218,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    columnGap: GAP,
     marginTop: GAP
   },
 
-  // Boutons (plus petits)
   btn: {
     height: BTN_HEIGHT,
     borderRadius: BTN_RADIUS,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12
+    justifyContent: 'center'
   },
-  btn46: { width: '46%' },
-  btn56: { width: '56%' },
-  btn40: { width: '40%' },
+  btnHalf: { width: '48%' },         // 50/50 visuel avec GAP=12
   btnFull: { width: '100%' },
   mt: { marginTop: GAP },
 
-  // Variantes
   btnPrimary: { backgroundColor: BRAND },
   btnLight: { backgroundColor: '#F2F3F5' },
   btnGhost: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E6E8EB' },
 
-  // Texte
-  btnText: { color: '#FFFFFF', fontSize: BTN_FONTSIZE, fontWeight: '700', includeFontPadding: false },
-  btnTextDark: { color: '#111111', fontSize: BTN_FONTSIZE, fontWeight: '700', includeFontPadding: false }
+  btnText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700', includeFontPadding: false },
+  btnTextDark: { color: '#111111', fontSize: 18, fontWeight: '700', includeFontPadding: false }
 });
