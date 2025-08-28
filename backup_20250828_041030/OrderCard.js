@@ -3,19 +3,107 @@ import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const BRAND = '#00C29B';
-const BTN_HEIGHT = 56;   // <- même hauteur partout
-const BTN_RADIUS = 24;   // <- mêmes angles partout
-const GAP = 12;
+
+/** -------- Utils de détection robuste -------- **/
+const isObj = (v) => v && typeof v === 'object';
+const seenSetAdd = (set, v) => { try { if (isObj(v)) { if (set.has(v)) return false; set.add(v); } } catch {} return true; };
+
+// Recherche BFS d'une clé par regex n'importe où dans l'objet
+function findByKeyRegex(root, regex) {
+  if (!isObj(root)) return undefined;
+  const q = [root];
+  const seen = new Set();
+  while (q.length) {
+    const cur = q.shift();
+    if (!seenSetAdd(seen, cur)) continue;
+    for (const k of Object.keys(cur)) {
+      const val = cur[k];
+      if (regex.test(k)) return val;
+      if (isObj(val)) q.push(val);
+    }
+  }
+  return undefined;
+}
+
+// Cherche le premier champ non vide parmi des chemins simples au 1er niveau
+function pickTop(obj, keys) {
+  for (const k of keys) {
+    const path = k.split('.');
+    let v = obj;
+    for (const p of path) v = isObj(v) ? v[p] : undefined;
+    if (v !== undefined && v !== null && String(v).trim?.() !== '') return v;
+  }
+  return undefined;
+}
+
+// Pick hybride: d'abord top-level, sinon regex profonde
+function pickHybrid(obj, tops, rx) {
+  const v = pickTop(obj, tops);
+  if (v !== undefined) return v;
+  const deep = findByKeyRegex(obj, rx);
+  return deep;
+}
+
+// Formateurs
+const fmtKm = (v) => {
+  if (v == null) return undefined;
+  if (typeof v === 'number') {
+    // si >1000 on suppose mètres
+    const km = v > 1000 ? v / 1000 : v;
+    return `${km.toFixed(1)} km`;
+  }
+  const s = String(v);
+  const num = parseFloat(s.replace(',', '.'));
+  if (!isNaN(num)) {
+    return /km/i.test(s) ? s : `${num.toFixed(1)} km`;
+  }
+  return s;
+};
+
+const fmtMin = (v) => {
+  if (v == null) return undefined;
+  if (typeof v === 'number') {
+    // si > 180 on suppose secondes
+    const min = v > 180 ? Math.round(v / 60) : Math.round(v);
+    return `${min} min`;
+  }
+  const s = String(v);
+  const num = parseFloat(s.replace(',', '.'));
+  if (!isNaN(num)) {
+    // contient déjà "min" ?
+    return /(min|mn)/i.test(s) ? s : `${Math.round(num)} min`;
+  }
+  return s;
+};
+
+const fmtPrice = (v) => {
+  if (v == null) return undefined;
+  if (typeof v === 'number') {
+    // si entier et grand, on suppose cents
+    const euros = Number.isInteger(v) && v > 1000 ? v / 100 : v;
+    return `${euros.toFixed(2)} €`;
+  }
+  const s = String(v);
+  const num = parseFloat(s.replace(',', '.'));
+  if (!isNaN(num)) return `${num.toFixed(2)} €`;
+  return s.includes('€') ? s : `${s} €`;
+};
 
 function openItinerary(order) {
   try {
-    const addr =
-      order?.dropoffAddress ||
-      order?.destinationAddress ||
-      order?.address ||
-      order?.dropoff?.address || '';
-    const lat = order?.dropoffLat || order?.destination?.lat || order?.lat;
-    const lng = order?.dropoffLng || order?.destination?.lng || order?.lng;
+    const addr = pickHybrid(order,
+      ['dropoffAddress','destinationAddress','address','dropoff.address'],
+      /(dropoff|destination).*address|^address$/i
+    ) || '';
+
+    const lat = pickHybrid(order,
+      ['dropoffLat','destination.lat','lat'],
+      /(dropoff|destination).*lat$|^lat$/i
+    );
+    const lng = pickHybrid(order,
+      ['dropoffLng','destination.lng','lng','lon','long','longitude'],
+      /(dropoff|destination).*(lng|lon|long|longitude)$|^(lng|lon|long|longitude)$/i
+    );
 
     let url;
     if (lat != null && lng != null) url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
@@ -25,44 +113,7 @@ function openItinerary(order) {
   } catch {}
 }
 
-const isObj = (v) => v && typeof v === 'object';
-const pickTop = (obj, keys) => {
-  for (const k of keys) {
-    const path = k.split('.');
-  
-const BRAND = '#00C29B';
-const BTN_HEIGHT = 56;   // <- même hauteuned;
-    if (v !== undefined && v !== null && String(v).trim?.() !== '') return v;
-  }
-  return undefined;
-};
-const findByKeyRegex = (root, regex) => {
-  if (!isObj(root)) return undefined;
-  const q = [root], seen = new Set();
-  while (q.length) {
-    const cur = q.shift();
-    if (seen.has(cur)) continue;
-    seen.add(cur);
-    for (const k of Object.keys(cur)) {
-      const val = cur[k];
-      if (regex.test(k)) return val;
-      if (isObj(val)) q.push(val);
-    }
-  }
-  return undefined;
-};
-const pickHybrid = (obj, tops, rx) => pickTop(obj, tops) ?? findByKeyRegex(obj, rx);
-
-const fmtKm = (v) => v==null ? undefined : (typeof v === 'number'
-  ? `${(v>1000? v/1000 : v).toFixed(1)} km`
-  : (/km/i.test(String(v)) ? String(v) : `${parseFloat(String(v).replace(',','.'))} km`));
-const fmtMin = (v) => v==null ? undefined : (typeof v === 'number'
-  ? `${Math.round(v>180? v/60 : v)} min`
-  : (/min|mn/i.test(String(v)) ? String(v) : `${Math.round(parseFloat(String(v)))} min`));
-const fmtPrice = (v) => v==null ? undefined : (typeof v === 'number'
-  ? `${(Number.isInteger(v) && v>1000 ? v/100 : v).toFixed(2)} €`
-  : (String(v).includes('€') ? String(v) : `${String(v)} €`));
-
+/** -------- Composants UI -------- **/
 function IconRow({ icon, text }) {
   if (!text) return null;
   return (
@@ -95,14 +146,30 @@ export default function OrderCard({
   );
   const [accepted, setAccepted] = useState(inferAccepted || initialAccepted);
 
-  // Données (robustes)
+  // En-tête
   const code = pickHybrid(order, ['code','id','orderId'], /(code|order.?id)$/i) || 'Commande';
   const category = pickHybrid(order, ['category','type','service'], /(category|type|service)/i);
-  const merchant = pickHybrid(order, ['restaurant','merchantName','storeName','pickupName'], /(restaurant|merchant|store|pickup).*name/i);
-  const address = pickHybrid(order, ['address','dropoffAddress','destinationAddress','dropoff.address'], /(address$|dropoff.*address|destination.*address)/i);
-  const distance = fmtKm(pickHybrid(order, ['distanceText','distanceKm','distance'], /(distance|km)/i));
-  const eta = fmtMin(pickHybrid(order, ['etaText','etaMinutes','duration','time'], /(eta|duration|time|min)/i));
-  const price = fmtPrice(pickHybrid(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i));
+
+  // Lignes info
+  const merchant = pickHybrid(
+    order,
+    ['restaurant','merchantName','storeName','pickupName'],
+    /(restaurant|merchant|store|pickup).*name/i
+  );
+  const address = pickHybrid(
+    order,
+    ['address','dropoffAddress','destinationAddress','dropoff.address'],
+    /(address$|dropoff.*address|destination.*address)/i
+  );
+
+  // Chips
+  const distanceRaw = pickHybrid(order, ['distanceText','distanceKm','distance'], /(distance|km)/i);
+  const etaRaw = pickHybrid(order, ['etaText','etaMinutes','duration','time'], /(eta|duration|time|min)/i);
+  const priceRaw = pickHybrid(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i);
+
+  const distance = fmtKm(distanceRaw);
+  const eta = fmtMin(etaRaw);
+  const price = fmtPrice(priceRaw);
 
   const handleAcceptOrItinerary = () => {
     if (!accepted) {
@@ -122,8 +189,14 @@ export default function OrderCard({
       </View>
 
       {/* Infos */}
-      <IconRow icon={<MaterialCommunityIcons name="storefront-outline" size={18} color="#333" />} text={merchant} />
-      <IconRow icon={<Ionicons name="home-outline" size={18} color="#333" />} text={address} />
+      <IconRow
+        icon={<MaterialCommunityIcons name="storefront-outline" size={18} color="#333" />}
+        text={merchant}
+      />
+      <IconRow
+        icon={<Ionicons name="home-outline" size={18} color="#333" />}
+        text={address}
+      />
 
       {/* Chips */}
       {(distance || eta || price) && (
@@ -134,44 +207,43 @@ export default function OrderCard({
         </View>
       )}
 
-      {/* Actions — largeur STRICTEMENT égale dans une ligne */}
+      {/* Actions */}
       {!accepted ? (
         <>
-          <View style={styles.rowEqual}>
+          <View style={styles.footerRow}>
             <TouchableOpacity
-              style={[styles.btn, styles.btnLight, styles.mr]}
+              style={[styles.btn, styles.btnLight, styles.mr12]}
               onPress={() => { try { if (typeof onDecline === 'function') onDecline(order); } catch {} }}
             >
               <Text style={styles.btnTextDark}>Refuser</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.btn, styles.btnPrimary, styles.ml]}
+              style={[styles.btn, styles.btnPrimary]}
               onPress={handleAcceptOrItinerary}
             >
               <Text style={styles.btnText}>Accepter</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Détails plein large dessous (comme la maquette) */}
           <TouchableOpacity
-            style={[styles.btn, styles.btnGhost, styles.btnFull, styles.mt]}
+            style={[styles.btn, styles.btnGhost, styles.btnFull, styles.mt12]}
             onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch {} }}
           >
             <Text style={styles.btnTextDark}>Détails</Text>
           </TouchableOpacity>
         </>
       ) : (
-        <View style={styles.rowEqual}>
+        <View style={styles.footerRow}>
           <TouchableOpacity
-            style={[styles.btn, styles.btnPrimary, styles.mr]}
+            style={[styles.btn, styles.btnPrimary, styles.mr12, styles.flex125]}
             onPress={handleAcceptOrItinerary}
           >
             <Text style={styles.btnText}>Itinéraire</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.btn, styles.btnGhost, styles.ml]}
+            style={[styles.btn, styles.btnGhost]}
             onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch {} }}
           >
             <Text style={styles.btnTextDark}>Détails</Text>
@@ -182,7 +254,7 @@ export default function OrderCard({
   );
 }
 
-/* Styles normalisés: même hauteur, même rayon, espacements constants */
+/** -------- Styles (fidèles à ta maquette) -------- **/
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
@@ -211,18 +283,18 @@ const styles = StyleSheet.create({
   pill: { borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12, marginRight: 10 },
   pillText: { fontWeight: '700' },
 
-  rowEqual: { flexDirection: 'row', alignItems: 'center', marginTop: GAP },
-  mr: { marginRight: GAP/2 },
-  ml: { marginLeft: GAP/2 },
-  mt: { marginTop: GAP },
+  footerRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
+  mr12: { marginRight: 12 },
+  mt12: { marginTop: 12 },
 
   btn: {
     flex: 1,
-    height: BTN_HEIGHT,
-    borderRadius: BTN_RADIUS,
+    height: 52,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center'
   },
+  flex125: { flex: 1.25 },
   btnPrimary: { backgroundColor: BRAND },
   btnLight: { backgroundColor: '#F2F3F5' },
   btnGhost: { borderWidth: 1, borderColor: '#E6E8EB', backgroundColor: '#FFFFFF' },
