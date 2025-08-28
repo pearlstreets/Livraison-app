@@ -1,35 +1,46 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
-export default function TopNotice({ message }) {
+/** 
+ * lines: [ligne1, ligne2]
+ * Deux lignes forcées (pas de wrap sur la même ligne), centrées, avec marges internes.
+ */
+export default function TopNotice({ lines = [] }) {
+  const l1 = lines[0] ?? '';
+  const l2 = lines[1] ?? '';
   return (
-    <View style={styles.wrap} pointerEvents="none">
-      <View style={styles.badge}>
+    <View style={styles.badge} pointerEvents="none">
+      <Text
+        style={styles.txt}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+        allowFontScaling={false}
+      >
+        {l1}
+      </Text>
+      {!!l2 && (
         <Text
-          style={styles.txt}
-          numberOfLines={2}
+          style={[styles.txt, styles.line2]}
+          numberOfLines={1}
           ellipsizeMode="tail"
           allowFontScaling={false}
         >
-          {message}
+          {l2}
         </Text>
-      </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    alignSelf: 'stretch'
-  },
   badge: {
     alignSelf: 'center',
-    maxWidth: '92%',
+    maxWidth: '100%',
     backgroundColor: 'rgba(0,0,0,0.75)',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 12,
-    // petit relief iOS/Android
+    // relief
     shadowColor: '#000',
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -42,5 +53,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 18,
     textAlign: 'center'
-  }
+  },
+  line2: { marginTop: 2 }
 });
