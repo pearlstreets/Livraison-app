@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { ScrollView, View, Text, StyleSheet, Platform, Switch } from 'react-native';
 import OrderCard from '../components/OrderCard';
+import DetailsSheet from '../components/DetailsSheet';
 
 /* ---------- Génération aléatoire ---------- */
 const CATEGORIES = ['Food & Drink', 'Product Purchase', 'Groceries'];
@@ -55,6 +56,9 @@ function genOrder() {
 
 /* ---------- Écran ---------- */
 export default function OrdersScreen() {
+  const [detailsOrder, setDetailsOrder] = useState(null);
+  const [detailsVisible, setDetailsVisible] = useState(false); //__DETAILS_STATE_ANCHOR
+
   const [online, setOnline] = useState(true);
   const [active, setActive] = useState([]);           // En cours
   const [available, setAvailable] = useState([]);     // Disponibles
@@ -98,11 +102,9 @@ export default function OrdersScreen() {
     setAvailable(prev => prev.filter(o => (o.id||o.code) !== (order?.id||order?.code)));
   }, []);
 
-  const onOpen = useCallback((_order) => {
-    // tu peux mettre un modal ici si besoin
-  }, []);
+    const keyOf = (o, i) => String(o?.id || o?.code || i);
 
-  const keyOf = (o, i) => String(o?.id || o?.code || i);
+  const onOpen = useCallback((order)=>{ setDetailsOrder(order); setDetailsVisible(true); }, []);
 
   return (
     <ScrollView
@@ -161,6 +163,7 @@ export default function OrdersScreen() {
           <Text style={styles.emptyText}>Aucune commande</Text>
         )}
       </View>
+      <DetailsSheet visible={detailsVisible} order={detailsOrder} onClose={() => setDetailsVisible(false)} />
     </ScrollView>
   );
 }
