@@ -6,27 +6,6 @@ import * as Location from 'expo-location';
 import { listSurgeAreas, getActiveOrder, applySurgeForPosition, BRAND } from '../components/api';
 
 /** Mini-bannière 2 lignes (inline) */
-const TopNotice = ({ lines = [] }) => {
-  const l1 = lines[0] ?? '';
-  const l2 = lines[1] ?? '';
-  return (
-      <>
-        {/* Bannière carte (2 lignes, safe-area, marges latérales) */}
-        <View style={{ position:'absolute', left:0, right:0, zIndex:1000, paddingHorizontal:16, top:(insets?.top ?? 0) + 8 }} pointerEvents="none">
-          <TopNotice lines={NOTICE_LINES} />
-        </View>
-    <View pointerEvents="none" style={{
-      alignSelf:'center',
-      backgroundColor:'rgba(0,0,0,0.75)',
-      paddingVertical:8,
-      paddingHorizontal:14,
-      borderRadius:12,
-      shadowColor:'#000', shadowOpacity:0.2, shadowRadius:8, shadowOffset:{width:0,height:2}, elevation:4
-    }}>
-      <Text style={{color:'#fff',fontWeight:'700',fontSize:15,lineHeight:18,textAlign:'center'}} numberOfLines={1} ellipsizeMode="tail" allowFontScaling={false}>{l1}</Text>
-      {!!l2 && <Text style={{color:'#fff',fontWeight:'700',fontSize:15,lineHeight:18,textAlign:'center',marginTop:2}} numberOfLines={1} ellipsizeMode="tail" allowFontScaling={false}>{l2}</Text>}
-    </View>
-  );
 };
 
 const NOTICE_LINES = ['Aucune commande active', 'Boost auto appliqué selon zone'];
@@ -60,10 +39,8 @@ export default function MapScreen() {
   const region = { latitude: loc.latitude, longitude: loc.longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
 
   return (
-      {/* Bannière carte (2 lignes, safe-area, marges latérales) */}
-      <View style={{ position:'absolute', left:0, right:0, zIndex:1000, paddingHorizontal:16, top: (insets?.top ?? 0) + 8 }} pointerEvents="none">
-        </View>
-    <View style={{ flex: 1 }}>
+      <>
+      {    <View style={{ flex: 1 }}>
       <MapView style={StyleSheet.absoluteFill} initialRegion={region} region={region}>
         {surges.map(s => (
           <Circle
