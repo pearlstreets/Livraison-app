@@ -3,11 +3,11 @@ import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const BRAND = '#00C29B';
-const BTN_HEIGHT = 52;   // hauteur exacte
-const BTN_RADIUS = 18;   // angles exacts
+const BTN_HEIGHT = 56;     // même hauteur partout
+const BTN_RADIUS = 24;     // mêmes angles partout
 const GAP = 12;
 
-/* ---------- Utils ---------- */
+/* ---------- Utils propres et compatibles ---------- */
 const isObj = (v) => v !== null && typeof v === 'object';
 
 function pickTop(obj, keys) {
@@ -21,14 +21,18 @@ function pickTop(obj, keys) {
     if (val !== undefined && val !== null) {
       if (typeof val === 'string') {
         if (val.trim() !== '') return val;
-      } else return val;
+      } else {
+        return val;
+      }
     }
   }
   return undefined;
 }
+
 function findByKeyRegex(root, regex) {
   if (!isObj(root)) return undefined;
-  const q = [root], seen = new Set();
+  const q = [root];
+  const seen = new Set();
   while (q.length) {
     const cur = q.shift();
     if (seen.has(cur)) continue;
@@ -41,22 +45,45 @@ function findByKeyRegex(root, regex) {
   }
   return undefined;
 }
-const pickHybrid = (obj, tops, rx) => pickTop(obj, tops) ?? findByKeyRegex(obj, rx);
 
-const fmtKm = (v)=>{
-  if (v==null) return undefined;
-  if (typeof v==='number') return `${(v>1000? v/1000:v).toFixed(1)} km`;
-  const s=String(v), n=parseFloat(s.replace(',','.')); return isNaN(n)?s:(/km/i.test(s)?s:`${n.toFixed(1)} km`);
+function pickHybrid(obj, tops, rx) {
+  const t = pickTop(obj, tops);
+  if (t !== undefined) return t;
+  return findByKeyRegex(obj, rx);
+}
+
+const fmtKm = (v) => {
+  if (v == null) return undefined;
+  if (typeof v === 'number') {
+    const km = v > 1000 ? v / 1000 : v;
+    return `${km.toFixed(1)} km`;
+  }
+  const s = String(v);
+  const n = parseFloat(s.replace(',', '.'));
+  return isNaN(n) ? s : (/km/i.test(s) ? s : `${n.toFixed(1)} km`);
 };
-const fmtMin=(v)=>{
-  if (v==null) return undefined;
-  if (typeof v==='number') return `${Math.round(v>180? v/60:v)} min`;
-  const s=String(v), n=parseFloat(s.replace(',','.')); return isNaN(n)?s:(/(min|mn)/i.test(s)?s:`${Math.round(n)} min`);
+
+const fmtMin = (v) => {
+  if (v == null) return undefined;
+  if (typeof v === 'number') {
+    const m = v > 180 ? Math.round(v / 60) : Math.round(v);
+    return `${m} min`;
+  }
+  const s = String(v);
+  const n = parseFloat(s.replace(',', '.'));
+  return isNaN(n) ? s : (/(min|mn)/i.test(s) ? s : `${Math.round(n)} min`);
 };
-const fmtPrice=(v)=>{
-  if (v==null) return undefined;
-  if (typeof v==='number') return `${(Number.isInteger(v)&&v>1000? v/100:v).toFixed(2)} €`;
-  const s=String(v), n=parseFloat(s.replace(',','.')); return isNaN(n)?(s.includes('€')?s:`${s} €`):`${n.toFixed(2)} €`;
+
+const fmtPrice = (v) => {
+  if (v == null) return undefined;
+  if (typeof v === 'number') {
+    const euros = Number.isInteger(v) && v > 1000 ? v / 100 : v;
+    return `${euros.toFixed(2)} €`;
+  }
+  const s = String(v);
+  const n = parseFloat(s.replace(',', '.'));
+  if (!isNaN(n)) return `${n.toFixed(2)} €`;
+  return s.includes('€') ? s : `${s} €`;
 };
 
 function openItinerary(order) {
@@ -65,18 +92,25 @@ function openItinerary(order) {
       ['dropoffAddress','destinationAddress','address','dropoff.address'],
       /(dropoff|destination).*address|^address$/i
     ) || '';
-    const lat = pickHybrid(order, ['dropoffLat','destination.lat','lat'], /(dropoff|destination).*lat$|^lat$/i);
-    const lng = pickHybrid(order, ['dropoffLng','destination.lng','lng','lon','long','longitude'],
-      /(dropoff|destination).*(lng|lon|long|longitude)$|^(lng|lon|long|longitude)$/i);
+
+    const lat = pickHybrid(order,
+      ['dropoffLat','destination.lat','lat'],
+      /(dropoff|destination).*lat$|^lat$/i
+    );
+    const lng = pickHybrid(order,
+      ['dropoffLng','destination.lng','lng','lon','long','longitude'],
+      /(dropoff|destination).*(lng|lon|long|longitude)$|^(lng|lon|long|longitude)$/i
+    );
+
     let url;
-    if (lat!=null && lng!=null) url=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-    else if (addr) url=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(String(addr))}`;
-    else url='https://www.google.com/maps';
+    if (lat != null && lng != null) url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+    else if (addr) url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(String(addr))}`;
+    else url = 'https://www.google.com/maps';
     Linking.openURL(url);
   } catch {}
 }
 
-/* ---------- Petits composants ---------- */
+/* ---------- Petits composants UI ---------- */
 function IconRow({ icon, text }) {
   if (!text) return null;
   return (
@@ -86,6 +120,7 @@ function IconRow({ icon, text }) {
     </View>
   );
 }
+
 function Pill({ children, variant }) {
   const bg = variant === 'green' ? BRAND : '#F2F3F5';
   const color = variant === 'green' ? '#FFFFFF' : '#111111';
@@ -96,9 +131,17 @@ function Pill({ children, variant }) {
   );
 }
 
-/* ---------- Carte ---------- */
-export default function OrderCard({ order, onAccept, onDecline, onOpen, initialAccepted=false }) {
-  const inferAccepted = ['accepted','acceptée','active','en_cours'].includes(String(order?.status||'').toLowerCase());
+/* ---------- OrderCard ---------- */
+export default function OrderCard({
+  order,
+  onAccept,
+  onDecline,
+  onOpen,
+  initialAccepted = false
+}) {
+  const inferAccepted = ['accepted','acceptée','active','en_cours'].includes(
+    String(order?.status || '').toLowerCase()
+  );
   const [accepted, setAccepted] = useState(inferAccepted || initialAccepted);
 
   const code = pickHybrid(order, ['code','id','orderId'], /(code|order.?id)$/i) || 'Commande';
@@ -140,18 +183,19 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
         </View>
       )}
 
-      {/* Actions — largeur 50/50, mêmes dimensions */}
+      {/* Actions — largeur égale, tailles/angles identiques */}
       {!accepted ? (
         <>
-          <View style={styles.row}>
+          <View style={styles.rowEqual}>
             <TouchableOpacity
-              style={[styles.btn, styles.btnHalf, styles.btnLight]}
+              style={[styles.btn, styles.btnLight, styles.mr]}
               onPress={() => { try { if (typeof onDecline === 'function') onDecline(order); } catch {} }}
             >
               <Text style={styles.btnTextDark}>Refuser</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
-              style={[styles.btn, styles.btnHalf, styles.btnPrimary]}
+              style={[styles.btn, styles.btnPrimary, styles.ml]}
               onPress={handleAcceptOrItinerary}
             >
               <Text style={styles.btnText}>Accepter</Text>
@@ -159,22 +203,23 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
           </View>
 
           <TouchableOpacity
-            style={[styles.btn, styles.btnFull, styles.btnGhost, styles.mt]}
+            style={[styles.btn, styles.btnGhost, styles.btnFull, styles.mt]}
             onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch {} }}
           >
             <Text style={styles.btnTextDark}>Détails</Text>
           </TouchableOpacity>
         </>
       ) : (
-        <View style={styles.row}>
+        <View style={styles.rowEqual}>
           <TouchableOpacity
-            style={[styles.btn, styles.btnHalf, styles.btnPrimary]}
+            style={[styles.btn, styles.btnPrimary, styles.mr]}
             onPress={handleAcceptOrItinerary}
           >
             <Text style={styles.btnText}>Itinéraire</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={[styles.btn, styles.btnHalf, styles.btnGhost]}
+            style={[styles.btn, styles.btnGhost, styles.ml]}
             onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch {} }}
           >
             <Text style={styles.btnTextDark}>Détails</Text>
@@ -214,27 +259,23 @@ const styles = StyleSheet.create({
   pill: { borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12, marginRight: 10 },
   pillText: { fontWeight: '700' },
 
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: GAP
-  },
+  rowEqual: { flexDirection: 'row', alignItems: 'center', marginTop: GAP},
+  mr: { marginRight: GAP/2},
+  ml: { marginLeft: GAP/2},
+  mt: { marginTop: GAP },
 
-  btn: {
+  btn: { borderRadius: 24, height: 56,
+    flex: 1,
     height: BTN_HEIGHT,
     borderRadius: BTN_RADIUS,
     alignItems: 'center',
     justifyContent: 'center'
   },
-  btnHalf: { width: '48%' },         // 50/50 visuel avec GAP=12
-  btnFull: { width: '100%' },
-  mt: { marginTop: GAP },
-
   btnPrimary: { backgroundColor: BRAND },
   btnLight: { backgroundColor: '#F2F3F5' },
-  btnGhost: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E6E8EB' },
+  btnGhost: { borderWidth: 1, borderColor: '#E6E8EB', backgroundColor: '#FFFFFF' },
+  btnFull: { width: '100%' },
 
-  btnText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700', includeFontPadding: false },
-  btnTextDark: { color: '#111111', fontSize: 18, fontWeight: '700', includeFontPadding: false }
+  btnText: { fontSize: 18, color: '#FFFFFF', fontWeight: '700', textAlign: 'center', includeFontPadding: false },
+  btnTextDark: { fontSize: 18, color: '#111111', fontWeight: '700', textAlign: 'center', includeFontPadding: false }
 });
