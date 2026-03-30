@@ -30,6 +30,7 @@ export function toOrder(o){
     distanceText: distanceText ?? '',
     etaText: eta ? `${eta} min` : '',
     priceText: `${parseEuro(o.priceEuro).toFixed(2)} €`,
+    itemsCount: o.itemsCount ?? (Math.floor(Math.random() * 5) + 1),
     status: 'available'
   };
 }

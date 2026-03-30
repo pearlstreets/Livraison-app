@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, Animated, Dimensions, ScrollView, Linking } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const { height: H } = Dimensions.get('window');
 const SHEET_HEIGHT = Math.round(H * 0.55); // ~55% de l'écran
 const BRAND = '#00C29B';
-const BTN_H = 40, BTN_R = 12, GAP = 10;
+const BTN_H = 40, BTN_R = 12;
 
 const isObj = v => v && typeof v === 'object';
 const pickTop = (obj, keys) => {
@@ -49,6 +50,7 @@ function openItinerary(order){
 }
 
 export default function DetailsSheet({ visible, order, onClose }) {
+  const { t } = useLanguage();
   const y = useRef(new Animated.Value(SHEET_HEIGHT)).current;
 
   useEffect(() => {
@@ -58,7 +60,7 @@ export default function DetailsSheet({ visible, order, onClose }) {
       // remet en bas pour la prochaine ouverture
       y.setValue(SHEET_HEIGHT);
     }
-  }, [visible]);
+  }, [visible, y]);
 
   if (!visible) return null;
 
@@ -86,7 +88,7 @@ export default function DetailsSheet({ visible, order, onClose }) {
 
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.code}>{String(code || 'Commande')}</Text>
+            <Text style={styles.code}>{String(code || t('orderLabel'))}</Text>
             {!!category && <Text style={styles.category}>{String(category)}</Text>}
           </View>
 
@@ -111,13 +113,15 @@ export default function DetailsSheet({ visible, order, onClose }) {
 
           <View style={styles.actions}>
             <Pressable onPress={() => openItinerary(order)} style={[styles.btn, styles.primary]}>
-              <Text style={styles.btnTxtLight}>Itinéraire</Text>
-            </Pressable>
-            <Pressable onPress={animateClose} style={[styles.btn, styles.ghost]}>
-              <Text style={styles.btnTxtDark}>Fermer</Text>
+              <Text style={styles.btnTxtLight}>{t('itinerary')}</Text>
             </Pressable>
           </View>
         </ScrollView>
+
+        {/* Fixed black close button at bottom */}
+        <Pressable onPress={animateClose} style={styles.closeBtn}>
+          <Text style={styles.closeBtnTxt}>{t('close')}</Text>
+        </Pressable>
       </Animated.View>
     </Modal>
   );
@@ -150,5 +154,6 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: BRAND },
   ghost: { backgroundColor:'#fff', borderWidth:1, borderColor:'#E6E8EB' },
   btnTxtLight: { color:'#fff', fontSize:16, fontWeight:'700' },
-  btnTxtDark: { color:'#111', fontSize:16, fontWeight:'700' },
+  closeBtn: { backgroundColor:'#111', borderRadius:14, paddingVertical:16, marginHorizontal:16, marginBottom:20, alignItems:'center' },
+  closeBtnTxt: { color:'#fff', fontSize:16, fontWeight:'800' },
 });

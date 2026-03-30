@@ -3,5 +3,11 @@ node_modules
 .expo-shared
 npm-debug.log
 package-lock.json
+dist/
+ios/
+.claude/
+backup_*/
+historique/
+retry.txt
 
 historique/reverts/*.bak
