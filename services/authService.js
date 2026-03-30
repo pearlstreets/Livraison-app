@@ -4,8 +4,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const authService = {
   async login(email, password) {
     const { data } = await api.post('/api/v1/delivery/login/', { email, password });
-    await AsyncStorage.setItem('accessToken', data.access);
-    await AsyncStorage.setItem('refreshToken', data.refresh);
+    await AsyncStorage.setItem('accessToken', data.access_token);
+    await AsyncStorage.setItem('refreshToken', data.refresh_token);
     await AsyncStorage.setItem('userData', JSON.stringify(data.user));
     return data;
   },

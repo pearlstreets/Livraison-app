@@ -7,7 +7,7 @@ export const deliveryService = {
   },
 
   async updateLocation(lat, lng) {
-    const { data } = await api.post('/api/v1/delivery/update-location/', { lat, lng });
+    const { data } = await api.post('/api/v1/delivery/location/', { lat, lng });
     return data;
   },
 
@@ -17,27 +17,22 @@ export const deliveryService = {
   },
 
   async acceptDelivery(assignmentId) {
-    const { data } = await api.post(`/api/v1/delivery/accept/${assignmentId}/`);
+    const { data } = await api.post('/api/v1/delivery/accept/', { assignment_id: assignmentId });
     return data;
   },
 
   async updateDeliveryStatus(assignmentId, status) {
-    const { data } = await api.patch(`/api/v1/delivery/status/${assignmentId}/`, { status });
+    const { data } = await api.patch(`/api/v1/delivery/assignments/${assignmentId}/status/`, { status });
     return data;
   },
 
   async cancelDelivery(assignmentId, reason = '') {
-    const { data } = await api.post(`/api/v1/delivery/cancel/${assignmentId}/`, { reason });
+    const { data } = await api.post(`/api/v1/delivery/assignments/${assignmentId}/cancel/`, { reason });
     return data;
   },
 
   async getDeliveryHistory(page = 1) {
     const { data } = await api.get('/api/v1/delivery/history/', { params: { page } });
-    return data;
-  },
-
-  async getActiveDelivery() {
-    const { data } = await api.get('/api/v1/delivery/active/');
     return data;
   },
 };
