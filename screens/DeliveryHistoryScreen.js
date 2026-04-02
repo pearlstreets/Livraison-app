@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, SectionList, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -7,40 +7,102 @@ import { useAuth } from '../contexts/AuthContext';
 
 const BRAND = '#00C29B';
 
+const HistoryOrderItem = React.memo(({ order, navigation, t }) => {
+  const isCancelled = order.status === 'cancelled';
+  const isReported = order.reported;
+  const price = order.priceText || order.price || '';
+  const distance = order.distanceText || order.distance || '';
+  const iconColor = isCancelled ? '#e74c3c' : isReported ? '#e74c3c' : BRAND;
+  const borderColor = isCancelled ? '#e74c3c' : isReported ? '#e74c3c' : BRAND;
+  return (
+    <Pressable style={[s.orderCard, { borderLeftColor: borderColor }, isCancelled && { opacity: 0.7 }]} onPress={() => !isCancelled && navigation.navigate('DeliveryDetail', { order })} disabled={isCancelled}>
+      <View style={s.orderHeader}>
+        <View style={s.checkWrap}>
+          <Ionicons name={isCancelled ? 'close-circle' : isReported ? 'hourglass' : 'checkmark-circle'} size={20} color={iconColor} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={s.orderId}>{order.id}</Text>
+            <Text style={[s.orderPrice, isCancelled && { color: '#999' }]}>{isCancelled ? '0,00 \u20ac' : price}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={[s.orderTime, isCancelled && { color: '#e74c3c' }]}>
+              {isCancelled ? `${t('cancelledAt')} ${order.time}` : order.time}
+            </Text>
+            {!isCancelled && order.tip && <Text style={s.orderTip}>+ {order.tip} {t('tip')}</Text>}
+          </View>
+        </View>
+      </View>
+      <View style={s.orderDetails}>
+        <View style={s.detailRow}>
+          <Ionicons name="storefront-outline" size={14} color="#888" />
+          <Text style={s.detailText} numberOfLines={1}>{order.restaurant}</Text>
+        </View>
+        <View style={s.detailRow}>
+          <Ionicons name="location-outline" size={14} color="#888" />
+          <Text style={s.detailText} numberOfLines={1}>{order.address}</Text>
+        </View>
+        {!!distance && (
+          <View style={s.detailRow}>
+            <Ionicons name="navigate-outline" size={14} color="#888" />
+            <Text style={s.detailText}>{distance}</Text>
+          </View>
+        )}
+      </View>
+    </Pressable>
+  );
+});
+
 export default function DeliveryHistoryScreen({ navigation }) {
   const { t } = useLanguage();
   const { deliveryHistory } = useAuth();
   const insets = useSafeAreaInsets();
 
-  const parsePrice = (p) => { const n = parseFloat(String(p).replace(',', '.')); return isNaN(n) ? 0 : n; };
-  const totalEarnings = deliveryHistory.filter(o => o.status !== 'cancelled').reduce((s, o) => s + parsePrice(o.priceText), 0);
-  const totalTips = deliveryHistory.reduce((s, o) => s + (o.tip ? parsePrice(o.tip) : 0), 0);
-  const totalOrders = deliveryHistory.length;
+  const parsePrice = useCallback((p) => { const n = parseFloat(String(p).replace(',', '.')); return isNaN(n) ? 0 : n; }, []);
 
-  // Compute display date label for each order
-  const now = new Date();
-  const todayStr = `${now.getDate()} ${['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][now.getMonth()]}`;
-  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-  const yesterdayStr = `${yesterday.getDate()} ${['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][yesterday.getMonth()]}`;
+  // Memoize stats to avoid recomputation
+  const { totalEarnings, totalTips, totalOrders } = useMemo(() => ({
+    totalEarnings: deliveryHistory.filter(o => o.status !== 'cancelled').reduce((s, o) => s + parsePrice(o.priceText), 0),
+    totalTips: deliveryHistory.reduce((s, o) => s + (o.tip ? parsePrice(o.tip) : 0), 0),
+    totalOrders: deliveryHistory.length,
+  }), [deliveryHistory, parsePrice]);
 
-  const getDateLabel = (order) => {
-    const d = order.date || '';
-    if (d === todayStr) return t('today');
-    if (d === yesterdayStr) return t('yesterday');
-    return d;
-  };
+  // Memoize date grouping for SectionList
+  const sections = useMemo(() => {
+    const now = new Date();
+    const todayStr = `${now.getDate()} ${['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][now.getMonth()]}`;
+    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+    const yesterdayStr = `${yesterday.getDate()} ${['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][yesterday.getMonth()]}`;
 
-  // Group by date
-  const groups = [];
-  let currentDate = null;
-  deliveryHistory.forEach(o => {
-    const label = getDateLabel(o);
-    if (label !== currentDate) {
-      currentDate = label;
-      groups.push({ date: label, orders: [] });
-    }
-    groups[groups.length - 1].orders.push(o);
-  });
+    const getDateLabel = (order) => {
+      const d = order.date || '';
+      if (d === todayStr) return t('today');
+      if (d === yesterdayStr) return t('yesterday');
+      return d;
+    };
+
+    const groups = [];
+    let currentDate = null;
+    deliveryHistory.forEach(o => {
+      const label = getDateLabel(o);
+      if (label !== currentDate) {
+        currentDate = label;
+        groups.push({ title: label, data: [] });
+      }
+      groups[groups.length - 1].data.push(o);
+    });
+    return groups;
+  }, [deliveryHistory, t]);
+
+  const renderItem = useCallback(({ item }) => (
+    <HistoryOrderItem order={item} navigation={navigation} t={t} />
+  ), [navigation, t]);
+
+  const renderSectionHeader = useCallback(({ section }) => (
+    <Text style={s.dateHeader}>{section.title}</Text>
+  ), []);
+
+  const keyExtractor = useCallback((item) => item.id, []);
 
   return (
     <View style={s.container}>
@@ -71,59 +133,20 @@ export default function DeliveryHistoryScreen({ navigation }) {
         </View>
       </View>
 
-      {/* Liste scrollable */}
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        {groups.map((group, gi) => (
-          <View key={gi}>
-            <Text style={s.dateHeader}>{group.date}</Text>
-            {group.orders.map((order, i) => {
-              const isCancelled = order.status === 'cancelled';
-              const isReported = order.reported;
-              const price = order.priceText || order.price || '';
-              const distance = order.distanceText || order.distance || '';
-              const iconColor = isCancelled ? '#e74c3c' : isReported ? '#e74c3c' : BRAND;
-              const borderColor = isCancelled ? '#e74c3c' : isReported ? '#e74c3c' : BRAND;
-              return (
-              <Pressable key={order.id} style={[s.orderCard, { borderLeftColor: borderColor }, isCancelled && { opacity: 0.7 }]} onPress={() => !isCancelled && navigation.navigate('DeliveryDetail', { order })} disabled={isCancelled}>
-                <View style={s.orderHeader}>
-                  <View style={s.checkWrap}>
-                    <Ionicons name={isCancelled ? 'close-circle' : isReported ? 'hourglass' : 'checkmark-circle'} size={20} color={iconColor} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={s.orderId}>{order.id}</Text>
-                      <Text style={[s.orderPrice, isCancelled && { color: '#999' }]}>{isCancelled ? '0,00 €' : price}</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Text style={[s.orderTime, isCancelled && { color: '#e74c3c' }]}>
-                        {isCancelled ? `${t('cancelledAt')} ${order.time}` : order.time}
-                      </Text>
-                      {!isCancelled && order.tip && <Text style={s.orderTip}>+ {order.tip} {t('tip')}</Text>}
-                    </View>
-                  </View>
-                </View>
-                <View style={s.orderDetails}>
-                  <View style={s.detailRow}>
-                    <Ionicons name="storefront-outline" size={14} color="#888" />
-                    <Text style={s.detailText} numberOfLines={1}>{order.restaurant}</Text>
-                  </View>
-                  <View style={s.detailRow}>
-                    <Ionicons name="location-outline" size={14} color="#888" />
-                    <Text style={s.detailText} numberOfLines={1}>{order.address}</Text>
-                  </View>
-                  {!!distance && (
-                  <View style={s.detailRow}>
-                    <Ionicons name="navigate-outline" size={14} color="#888" />
-                    <Text style={s.detailText}>{distance}</Text>
-                  </View>
-                  )}
-                </View>
-              </Pressable>
-              );
-            })}
-          </View>
-        ))}
-      </ScrollView>
+      {/* Liste scrollable - SectionList for windowed rendering */}
+      <SectionList
+        sections={sections}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        renderSectionHeader={renderSectionHeader}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
+        stickySectionHeadersEnabled={false}
+      />
     </View>
   );
 }

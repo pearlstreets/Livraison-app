@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { isValidEmail, sanitizeInput, isStrongPassword } from '../utils/validation';
 import * as ImagePicker from 'expo-image-picker';
 
+// NOTE: To prevent screen capture in production, consider using
+// expo-screen-capture: ScreenCapture.preventScreenCaptureAsync()
+
 const BRAND = '#00C29B';
+const MAX_LOGIN_FAILS = 3;
+const LOGIN_COOLDOWN_MS = 30000; // 30s cooldown after 3 fails
 
 const COUNTRIES = [
   { code: 'FR', flag: '🇫🇷', name: 'France', phoneCode: '+33' },
@@ -93,6 +99,11 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Rate limiting for login
+  const loginFailsRef = useRef(0);
+  const [loginDisabled, setLoginDisabled] = useState(false);
+  const cooldownTimerRef = useRef(null);
+
   const selectedCountry = COUNTRIES.find(c => c.code === country) || COUNTRIES[0];
   const selectedPhoneCountry = COUNTRIES.find(c => c.code === phoneCountry) || COUNTRIES[0];
 
@@ -112,14 +123,35 @@ export default function LoginScreen() {
     setMode('login');
   };
 
-  // Login
+  // Login with rate limiting and validation
   const handleLogin = () => {
     setError('');
+    if (loginDisabled) {
+      setError(t('loginCooldown') || 'Trop de tentatives. Veuillez patienter 30 secondes.');
+      return;
+    }
     if (!email.trim() && !password.trim()) { setError(t('errorBothEmpty') || 'Veuillez saisir votre email et mot de passe'); return; }
     if (!email.trim()) { setError(t('errorNoEmail') || 'Veuillez saisir votre email'); return; }
+    if (!isValidEmail(email.trim())) { setError(t('errorInvalidEmail') || 'Format email invalide'); return; }
     if (!password.trim()) { setError(t('errorNoPassword') || 'Veuillez saisir votre mot de passe'); return; }
-    const ok = login(email.trim(), password);
-    if (!ok) setError(t('loginErrorCredentials') || 'Email ou mot de passe incorrect');
+    const result = login(email.trim(), password);
+    if (result && typeof result === 'object' && result.locked) {
+      setError(t('accountLocked') || 'Compte temporairement verrouill\u00e9. R\u00e9essayez dans quelques minutes.');
+      return;
+    }
+    if (!result) {
+      loginFailsRef.current += 1;
+      if (loginFailsRef.current >= MAX_LOGIN_FAILS) {
+        setLoginDisabled(true);
+        setError(t('loginCooldown') || 'Trop de tentatives. Veuillez patienter 30 secondes.');
+        cooldownTimerRef.current = setTimeout(() => {
+          setLoginDisabled(false);
+          loginFailsRef.current = 0;
+        }, LOGIN_COOLDOWN_MS);
+      } else {
+        setError(t('loginErrorCredentials') || 'Email ou mot de passe incorrect');
+      }
+    }
   };
 
   // Signup
@@ -128,7 +160,8 @@ export default function LoginScreen() {
     // Step 1: email + password
     if (step === 1) {
       if (!email.trim() || !password.trim() || !confirmPwd.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
-      if (password.length < 6) { setError(t('errorPasswordLength') || 'Minimum 6 caractères'); return; }
+      if (!isValidEmail(email.trim())) { setError(t('errorInvalidEmail') || 'Format email invalide'); return; }
+      if (!isStrongPassword(password)) { setError(t('errorPasswordWeak') || 'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre'); return; }
       if (password !== confirmPwd) { setError(t('errorPasswordMismatch') || 'Les mots de passe ne correspondent pas'); return; }
       setStep(2);
       return;
@@ -240,7 +273,7 @@ export default function LoginScreen() {
                   <Ionicons name={showPwd ? 'eye-off' : 'eye'} size={22} color="#888" />
                 </Pressable>
               </View>
-              <Pressable style={s.btn} onPress={handleLogin}>
+              <Pressable style={[s.btn, loginDisabled && { opacity: 0.5 }]} onPress={handleLogin} disabled={loginDisabled}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{t('loginButton') || 'Se connecter'}</Text>}
               </Pressable>
               <TouchableOpacity onPress={() => { setMode('choose'); setError(''); }} style={{alignItems:'center', paddingVertical:16}}>

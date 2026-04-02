@@ -1,5 +1,19 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { Platform } from 'react-native';
+
+// Security: Disable React DevTools in production
+if (!__DEV__) {
+  if (typeof window !== 'undefined') {
+    window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = { isDisabled: true };
+  }
+}
+
+// NOTE: For Android network security, add the following to android/app/src/main/res/xml/network_security_config.xml:
+// <network-security-config>
+//   <domain-config cleartextTrafficPermitted="false">
+//     <domain includeSubdomains="true">pythonapi.digiexports.in</domain>
+//   </domain-config>
+// </network-security-config>
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -56,7 +70,7 @@ Notifications.setNotificationHandler({
 
 function HomeStackScreen() {
   return (
-    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+    <HomeStack.Navigator screenOptions={{ headerShown: false, detachInactiveScreens: true }}>
       <HomeStack.Screen name="OrdersMain" component={OrdersScreen} />
       <HomeStack.Screen name="DeliveryFlow" component={DeliveryFlowScreen} />
       <HomeStack.Screen name="Heatmap" component={HeatmapScreen} />
@@ -66,7 +80,7 @@ function HomeStackScreen() {
 
 function EarningsStackScreen() {
   return (
-    <EarningsStack.Navigator screenOptions={{ headerShown: false }}>
+    <EarningsStack.Navigator screenOptions={{ headerShown: false, detachInactiveScreens: true }}>
       <EarningsStack.Screen name="EarningsMain" component={EarningsScreen} />
       <EarningsStack.Screen name="WeekDetail" component={WeekDetailScreen} />
       <EarningsStack.Screen name="Wallet" component={WalletScreen} />
@@ -79,7 +93,7 @@ function EarningsStackScreen() {
 
 function MenuStackScreen() {
   return (
-    <MenuStack.Navigator>
+    <MenuStack.Navigator screenOptions={{ detachInactiveScreens: true }}>
       <MenuStack.Screen name="MenuMain" component={MenuScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="Wallet" component={WalletScreen} options={{ headerShown: false }} />
@@ -141,6 +155,7 @@ function Main() {
         tabBarActiveTintColor: BRAND,
         tabBarInactiveTintColor: '#8e8e93',
         tabBarStyle: { backgroundColor: '#fff' },
+        detachInactiveScreens: true,
         tabBarIcon: ({ color, size }) => {
           if (route.name === 'Accueil') return <Ionicons name="home-outline" size={size} color={color} />;
           if (route.name === 'MessagesTab') return <Ionicons name="mail-outline" size={size} color={color} />;

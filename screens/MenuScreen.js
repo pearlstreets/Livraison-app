@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert, Modal, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 
 const BRAND = '#00C29B';
 
-function MenuItem({ icon, label, onPress, color = '#111', badge, detail }) {
+const MenuItem = React.memo(({ icon, label, onPress, color = '#111', badge, detail }) => {
   return (
     <Pressable style={s.menuItem} onPress={onPress}>
       <Ionicons name={icon} size={22} color={color} style={{ marginRight: 14 }} />
@@ -18,7 +18,7 @@ function MenuItem({ icon, label, onPress, color = '#111', badge, detail }) {
       <Ionicons name="chevron-forward" size={18} color="#ccc" />
     </Pressable>
   );
-}
+});
 
 export default function MenuScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -33,23 +33,29 @@ export default function MenuScreen({ navigation }) {
 
   const currentLang = LANGUAGES.find(l => l.code === lang);
 
-  const now = new Date();
-  const currentWeek = weeklyEarnings.length > 0 ? weeklyEarnings[0] : null;
-  const thisWeekTotal = currentWeek ? currentWeek.total : 0;
-  const thisMonthTotal = weeklyEarnings.filter(w => {
-    const d = new Date(w.start);
-    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-  }).reduce((s, w) => s + w.total, 0);
-  const parsePrice = (p) => { const n = parseFloat(String(p).replace(',', '.').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; };
-  const todayStr = `${now.getDate()} ${['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][now.getMonth()]}`;
-  const thisDayTotal = (deliveryHistory || []).filter(o => o.date === todayStr && o.status !== 'cancelled').reduce((s, o) => s + parsePrice(o.priceText), 0);
+  const parsePrice = useCallback((p) => { const n = parseFloat(String(p).replace(',', '.').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; }, []);
 
-  function confirmLogout() {
+  // Memoize earnings calculations to avoid recomputation on every render
+  const { thisDayTotal, thisWeekTotal, thisMonthTotal } = useMemo(() => {
+    const now = new Date();
+    const currentWeek = weeklyEarnings.length > 0 ? weeklyEarnings[0] : null;
+    const weekTotal = currentWeek ? currentWeek.total : 0;
+    const todayStr = `${now.getDate()} ${['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][now.getMonth()]}`;
+    const dayTotal = (deliveryHistory || []).filter(o => o.date === todayStr && o.status !== 'cancelled').reduce((s, o) => s + parsePrice(o.priceText), 0);
+    const monthTotal = (deliveryHistory || []).filter(o => {
+      if (!o.completedAt && !o.cancelledAt) return false;
+      const d = new Date(o.completedAt || o.cancelledAt);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && o.status !== 'cancelled';
+    }).reduce((s, o) => s + parsePrice(o.priceText), 0);
+    return { thisDayTotal: dayTotal, thisWeekTotal: weekTotal, thisMonthTotal: monthTotal };
+  }, [weeklyEarnings, deliveryHistory, parsePrice]);
+
+  const confirmLogout = useCallback(() => {
     Alert.alert(t('logoutTitle'), t('logoutMsg'), [
       { text: t('cancel'), style: 'cancel' },
       { text: t('logoutTitle'), style: 'destructive', onPress: logout },
     ]);
-  }
+  }, [t, logout]);
 
   return (
     <ScrollView ref={scrollRef} style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -79,20 +85,20 @@ export default function MenuScreen({ navigation }) {
         <Text style={s.statusText}>{!accountActive ? t('deactivatedTitle') : isOnline ? t('youAreOnline') : t('offline')}</Text>
       </View>
 
-      {/* Gains annuels */}
+      {/* Gains */}
       <View style={{flexDirection:'row', paddingHorizontal:16, marginTop:10, gap:8}}>
-        <View style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}}>
-          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{thisMonthTotal.toFixed(2)} €</Text>
-          <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('thisMonth')}</Text>
-        </View>
-        <View style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}}>
-          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{thisWeekTotal.toFixed(2)} €</Text>
-          <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('thisWeek')}</Text>
-        </View>
-        <View style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}}>
+        <Pressable style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}} onPress={() => navigation.navigate('DeliveryHistory')}>
           <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{thisDayTotal.toFixed(2)} €</Text>
           <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('today') || "Aujourd'hui"}</Text>
-        </View>
+        </Pressable>
+        <Pressable style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}} onPress={() => navigation.navigate('Wallet')}>
+          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{thisWeekTotal.toFixed(2)} €</Text>
+          <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('thisWeek')}</Text>
+        </Pressable>
+        <Pressable style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}} onPress={() => navigation.navigate('Wallet')}>
+          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{thisMonthTotal.toFixed(2)} €</Text>
+          <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('thisMonth')}</Text>
+        </Pressable>
       </View>
 
       {/* Compte désactivé banner */}

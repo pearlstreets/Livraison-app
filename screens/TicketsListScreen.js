@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +6,36 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 
 const BRAND = '#00C29B';
+
+const TicketCard = React.memo(({ ticket, navigation, t }) => {
+  const isOpen = ticket.status === 'open';
+  const hasUnread = ticket.hasUnread || false;
+  return (
+    <Pressable
+      style={s.ticketCard}
+      onPress={() => navigation.navigate('TicketChat', { order: { id: ticket.orderId }, resolved: ticket.status === 'resolved' })}
+    >
+      <View style={s.ticketHeader}>
+        <View style={s.ticketIdRow}>
+          <Ionicons name={isOpen ? 'chatbubble-ellipses' : 'checkmark-circle'} size={18} color={isOpen ? '#f5a623' : BRAND} />
+          <Text style={s.ticketId}>{ticket.id}</Text>
+          {hasUnread && <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{ticket.unreadCount || ''}</Text></View>}
+        </View>
+        <View style={[s.statusBadge, isOpen ? s.statusOpen : s.statusResolved]}>
+          <Text style={[s.statusText, isOpen ? s.statusOpenText : s.statusResolvedText]}>
+            {isOpen ? t('inProgress') : t('resolved')}
+          </Text>
+        </View>
+      </View>
+      <Text style={s.ticketSubject}>{ticket.subject}</Text>
+      <Text style={s.ticketOrder}>{t('order')} {ticket.orderId}</Text>
+      <View style={s.ticketFooter}>
+        <Text style={[s.ticketLastMsg, hasUnread && { color: '#111', fontWeight: '700' }]} numberOfLines={1}>{ticket.lastMessage}</Text>
+        <Text style={s.ticketDate}>{ticket.date}</Text>
+      </View>
+    </Pressable>
+  );
+});
 
 const MOCK_TICKETS = [
   { id: 'TK-3038', orderId: 'ORD-3038', subject: 'Commande endommagée', date: '26 mars 2025', status: 'resolved', lastMessage: 'Votre problème a été traité avec succès.' },
@@ -52,8 +82,11 @@ export default function TicketsListScreen({ navigation }) {
   const mockFiltered = MOCK_TICKETS.filter(mt => !authTicketIds.includes(mt.orderId));
   const allTickets = [...dynamicTickets, ...mockFiltered];
 
-  const openTickets = allTickets.filter(tk => tk.status === 'open');
-  const resolvedTickets = allTickets.filter(tk => tk.status === 'resolved');
+  // Memoize ticket filtering to avoid recomputation on every render
+  const { openTickets, resolvedTickets } = useMemo(() => ({
+    openTickets: allTickets.filter(tk => tk.status === 'open'),
+    resolvedTickets: allTickets.filter(tk => tk.status === 'resolved'),
+  }), [allTickets]);
 
   function renderTicket(ticket) {
     const isOpen = ticket.status === 'open';
@@ -116,7 +149,9 @@ export default function TicketsListScreen({ navigation }) {
       {openTickets.length > 0 && (
         <>
           <Text style={s.sectionTitle}>{t('inProgress')}</Text>
-          {openTickets.map(renderTicket)}
+          {openTickets.map(ticket => (
+            <TicketCard key={ticket.id} ticket={ticket} navigation={navigation} t={t} />
+          ))}
         </>
       )}
 
@@ -124,7 +159,9 @@ export default function TicketsListScreen({ navigation }) {
       {resolvedTickets.length > 0 && (
         <>
           <Text style={s.sectionTitle}>{t('resolved')}</Text>
-          {resolvedTickets.map(renderTicket)}
+          {resolvedTickets.map(ticket => (
+            <TicketCard key={ticket.id} ticket={ticket} navigation={navigation} t={t} />
+          ))}
         </>
       )}
     </ScrollView>

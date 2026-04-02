@@ -11,7 +11,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import filtersUI from '../constants/filters-ui.json';
 
 /* === Filtres inline (unique) === */
-const OrdersInlineFilters = ({ selected, onChange, filters = [] }) => {
+const OrdersInlineFilters = React.memo(({ selected, onChange, filters = [] }) => {
   const UI = (filtersUI && filtersUI.inline) || {};
   const H = UI.height ?? 28, R = UI.radius ?? 14, GAP = UI.gap ?? 6, PH = UI.paddingH ?? 10, FZ = UI.fontSize ?? 13;
   const labels = UI.labels || {};
@@ -34,7 +34,7 @@ const OrdersInlineFilters = ({ selected, onChange, filters = [] }) => {
       ))}
     </View>
   );
-};
+});
 
 /* ---------- Génération aléatoire ---------- */
 const CATEGORIES = ['Food & Drink', 'Product Purchase', 'Groceries'];
@@ -53,6 +53,14 @@ const ADDR = [
   '18 Rue de Verdun, Meaux',
   '6 Rue Trivalle, Meaux',
   '2 Rue de la République, Meaux'
+];
+const FOOD_ITEMS = [
+  'Pizza Margherita', 'Burger Classic', 'Salade César', 'Pâtes Carbonara', 'Sushi Mix 12p',
+  'Tacos Poulet', 'Wrap Végétarien', 'Tiramisu', 'Coca-Cola 33cl', 'Frites Maison',
+  'Nems x4', 'Pad Thaï', 'Crêpe Nutella', 'Smoothie Fruits', 'Croissant Beurre',
+];
+const PRODUCT_ITEMS = [
+  'Colis petit', 'Colis moyen', 'Enveloppe A4', 'Paquet fragile', 'Sac courses',
 ];
 
 const rpick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -74,7 +82,14 @@ function genOrder() {
   const lat = 43.21 + Math.random()*0.02;
   const lng = 2.34 + Math.random()*0.03;
 
-  const items = rint(1, 6);
+  const itemCount = rint(1, 5);
+  const itemPool = category === 'Product Purchase' ? PRODUCT_ITEMS : FOOD_ITEMS;
+  const orderItems = [];
+  for (let j = 0; j < itemCount; j++) {
+    const name = rpick(itemPool);
+    const qty = category === 'Product Purchase' ? 1 : rint(1, 3);
+    if (!orderItems.find(it => it.name === name)) orderItems.push({ name, qty });
+  }
 
   return {
     id: `ORD-${idNum}`,
@@ -84,7 +99,8 @@ function genOrder() {
     distanceText: `${km.toFixed(1)} km`,
     etaText: `${min} min`,
     priceText: `${price.toFixed(2)} €`,
-    itemsCount: items,
+    itemsCount: orderItems.reduce((s, it) => s + it.qty, 0),
+    items: orderItems,
     dropoffAddress: address,
     dropoffLat: lat, dropoffLng: lng
   };
@@ -210,12 +226,12 @@ export default function OrdersScreen({ navigation, route }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Flux continu quand "En ligne"
+  // Flux continu quand "En ligne" — throttled to reduce state updates
   useEffect(() => {
     if (!online) { if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = null; return; }
 
     const schedule = () => {
-      const delay = rint(4000, 7000); // 4–7s
+      const delay = rint(6000, 10000); // 6–10s (throttled from 4–7s)
       timerRef.current = setTimeout(() => {
         setAvailable(prev => {
           // Cap à 12 éléments, pas de doublon d'id
@@ -253,6 +269,24 @@ export default function OrdersScreen({ navigation, route }) {
     const keyOf = (o, i) => String(o?._uid || o?.id || o?.code || `order-${i}`);
 
   const onOpen = useCallback((order)=>{ setDetailsOrder(order); setDetailsVisible(true); }, []);
+
+  const onFilterChange = useCallback((id) => setSelectedFilter(id), []);
+
+  // Memoize history rendering data to avoid re-computation on every render
+  const memoizedHistory = useMemo(() => history.map(order => {
+    const id = order.id || order.code || '';
+    const resto = order.restaurant || order.merchantName || '';
+    const addr = order.dropoffAddress || order.address || '';
+    const isCancelled = order.status === 'cancelled';
+    const isReported = order.reported;
+    const price = isCancelled ? '0,00 \u20ac' : (order.priceText || '');
+    const dist = order.distanceText || '';
+    const time = (order.completedAt || order.cancelledAt) ? new Date(order.completedAt || order.cancelledAt) : null;
+    const timeStr = time ? `${time.getHours()}h${String(time.getMinutes()).padStart(2,'0')}` : '';
+    const iconColor = isCancelled ? '#e74c3c' : isReported ? '#e74c3c' : '#00C29B';
+    const borderColor = isCancelled ? '#e74c3c' : isReported ? '#e74c3c' : '#00C29B';
+    return { id, resto, addr, isCancelled, isReported, price, dist, timeStr, iconColor, borderColor, order };
+  }), [history]);
 
   if (!accountActive) {
     return (
@@ -381,55 +415,42 @@ export default function OrdersScreen({ navigation, route }) {
         </>
       )}
       {/* Historique */}
-      {online && history.length > 0 && (
+      {online && memoizedHistory.length > 0 && (
         <>
           <Text style={[styles.sectionTitle, styles.sectionTitleGap]}>{t('history')}</Text>
           <View style={styles.cardsBlock}>
-            {history.map((order, i) => {
-              const id = order.id || order.code || '';
-              const resto = order.restaurant || order.merchantName || '';
-              const addr = order.dropoffAddress || order.address || '';
-              const isCancelled = order.status === 'cancelled';
-              const isReported = order.reported;
-              const price = isCancelled ? '0,00 €' : (order.priceText || '');
-              const dist = order.distanceText || '';
-              const time = (order.completedAt || order.cancelledAt) ? new Date(order.completedAt || order.cancelledAt) : null;
-              const timeStr = time ? `${time.getHours()}h${String(time.getMinutes()).padStart(2,'0')}` : '';
-              const iconColor = isCancelled ? '#e74c3c' : isReported ? '#e74c3c' : '#00C29B';
-              const borderColor = isCancelled ? '#e74c3c' : isReported ? '#e74c3c' : '#00C29B';
-              return (
-                <View key={id || i} style={[styles.historyCard, { borderLeftColor: borderColor }]}>
+            {memoizedHistory.map((h, i) => (
+                <View key={h.id || i} style={[styles.historyCard, { borderLeftColor: h.borderColor }]}>
                   <View style={styles.historyHeader}>
                     <View style={styles.historyIconWrap}>
-                      <Ionicons name={isCancelled ? 'close-circle' : isReported ? 'hourglass' : 'checkmark-circle'} size={20} color={iconColor} />
+                      <Ionicons name={h.isCancelled ? 'close-circle' : h.isReported ? 'hourglass' : 'checkmark-circle'} size={20} color={h.iconColor} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.historyId}>{id}</Text>
-                      <Text style={[styles.historyTime, isCancelled && { color: '#e74c3c' }]}>
-                        {isCancelled ? `${t('cancelledAt')}${timeStr ? ` ${timeStr}` : ''}` : `${t('deliveredAt')}${timeStr ? ` ${timeStr}` : ''}`}
+                      <Text style={styles.historyId}>{h.id}</Text>
+                      <Text style={[styles.historyTime, h.isCancelled && { color: '#e74c3c' }]}>
+                        {h.isCancelled ? `${t('cancelledAt')}${h.timeStr ? ` ${h.timeStr}` : ''}` : `${t('deliveredAt')}${h.timeStr ? ` ${h.timeStr}` : ''}`}
                       </Text>
                     </View>
-                    <Text style={[styles.historyPrice, isCancelled && { color: '#999' }]}>{price}</Text>
+                    <Text style={[styles.historyPrice, h.isCancelled && { color: '#999' }]}>{h.price}</Text>
                   </View>
                   <View style={styles.historyDetails}>
                     <View style={styles.historyDetailRow}>
                       <Ionicons name="storefront-outline" size={14} color="#888" />
-                      <Text style={styles.historyDetailText} numberOfLines={1}>{resto}</Text>
+                      <Text style={styles.historyDetailText} numberOfLines={1}>{h.resto}</Text>
                     </View>
                     <View style={styles.historyDetailRow}>
                       <Ionicons name="location-outline" size={14} color="#888" />
-                      <Text style={styles.historyDetailText} numberOfLines={1}>{addr}</Text>
+                      <Text style={styles.historyDetailText} numberOfLines={1}>{h.addr}</Text>
                     </View>
-                    {!!dist && (
+                    {!!h.dist && (
                       <View style={styles.historyDetailRow}>
                         <Ionicons name="navigate-outline" size={14} color="#888" />
-                        <Text style={styles.historyDetailText}>{dist}</Text>
+                        <Text style={styles.historyDetailText}>{h.dist}</Text>
                       </View>
                     )}
                   </View>
                 </View>
-              );
-            })}
+            ))}
           </View>
         </>
       )}

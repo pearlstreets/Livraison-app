@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useRef } from 'react';
+import { sanitizeInput, isValidEmail } from '../utils/validation';
 
 const USERS = [
   { email: 'remsko@live.fr', password: 'Test@123', firstName: 'Ganja', lastName: 'Remsko', pseudo: 'Remsko', phone: '06 12 34 56 78', vehicle: 'Scooter' },
@@ -6,29 +7,33 @@ const USERS = [
 
 const AuthContext = createContext(null);
 
+// Max login attempts before lockout
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
 
 const INITIAL_WEEKS = [
-  { start: '2026-03-24', range: '24 mars - 29 mars', total: 312.50, bars: [45, 62, 38, 70, 55, 42, 0] },
-  { start: '2026-03-17', range: '17 mars - 23 mars', total: 447.40, bars: [30, 55, 48, 72, 65, 80, 47] },
-  { start: '2026-03-10', range: '10 mars - 16 mars', total: 518.20, bars: [10, 40, 65, 85, 50, 70, 58] },
-  { start: '2026-03-03', range: '3 mars - 9 mars', total: 369.37, bars: [60, 20, 50, 30, 75, 45, 49] },
-  { start: '2026-02-24', range: '24 fév. - 2 mars', total: 272.07, bars: [15, 45, 10, 60, 35, 55, 52] },
-  { start: '2026-02-17', range: '17 fév. - 23 fév.', total: 427.92, bars: [40, 20, 55, 70, 45, 80, 17] },
-  { start: '2026-02-10', range: '10 fév. - 16 fév.', total: 343.81, bars: [25, 35, 60, 15, 50, 72, 43] },
+  { start: '2026-03-30', range: '30 mars - 5 avr.', total: 284.30, bars: [55, 70, 80, 65, 0, 0, 0] },
+  { start: '2026-03-23', range: '23 mars - 29 mars', total: 447.40, bars: [30, 55, 48, 72, 65, 80, 47] },
+  { start: '2026-03-16', range: '16 mars - 22 mars', total: 518.20, bars: [10, 40, 65, 85, 50, 70, 58] },
+  { start: '2026-03-09', range: '9 mars - 15 mars', total: 369.37, bars: [60, 20, 50, 30, 75, 45, 49] },
+  { start: '2026-03-02', range: '2 mars - 8 mars', total: 312.50, bars: [45, 62, 38, 70, 55, 42, 48] },
+  { start: '2026-02-23', range: '23 fév. - 1 mars', total: 272.07, bars: [15, 45, 10, 60, 35, 55, 52] },
+  { start: '2026-02-16', range: '16 fév. - 22 fév.', total: 427.92, bars: [40, 20, 55, 70, 45, 80, 17] },
 ];
 
 const INITIAL_HISTORY = [
-  { id: 'ORD-2998', restaurant: 'Pizzeria Roma, Meaux', address: '12 Rue Voltaire, Meaux', distanceText: '2.3 km', priceText: '8.50 €', tip: '1.50 €', date: '29 mars', time: '19h32', status: 'completed', completedAt: '2026-03-29T19:32:00' },
-  { id: 'ORD-2996', restaurant: 'Café du Pont, Meaux', address: '2 Rue de la République, Meaux', distanceText: '1.4 km', priceText: '0,00 €', tip: null, date: '29 mars', time: '18h50', status: 'cancelled', cancelledAt: '2026-03-29T18:50:00' },
-  { id: 'ORD-2995', restaurant: 'Le Bistrot, Meaux', address: 'Place Carnot, Meaux', distanceText: '1.8 km', priceText: '6.20 €', tip: null, date: '29 mars', time: '18h15', status: 'completed', completedAt: '2026-03-29T18:15:00' },
-  { id: 'ORD-2991', restaurant: 'Sushi Zen, Meaux', address: '3 Bd Barbès, Meaux', distanceText: '3.1 km', priceText: '11.40 €', tip: '2.00 €', date: '29 mars', time: '14h48', status: 'completed', completedAt: '2026-03-29T14:48:00' },
-  { id: 'ORD-2987', restaurant: 'Chez Marcel, Meaux', address: '18 Rue de Verdun, Meaux', distanceText: '0.9 km', priceText: '7.80 €', tip: null, date: '28 mars', time: '20h10', status: 'completed', completedAt: '2026-03-28T20:10:00' },
-  { id: 'ORD-2984', restaurant: 'La Terrasse, Meaux', address: '6 Rue Trivalle, Meaux', distanceText: '2.7 km', priceText: '9.90 €', tip: '1.00 €', date: '28 mars', time: '19h22', status: 'completed', completedAt: '2026-03-28T19:22:00' },
-  { id: 'ORD-2980', restaurant: 'Café du Pont, Meaux', address: '2 Rue de la République, Meaux', distanceText: '1.5 km', priceText: '6.50 €', tip: null, date: '28 mars', time: '13h05', status: 'completed', completedAt: '2026-03-28T13:05:00' },
-  { id: 'ORD-2976', restaurant: 'Pizzeria Roma, Meaux', address: 'Place Carnot, Meaux', distanceText: '2.0 km', priceText: '8.10 €', tip: '3.00 €', date: '27 mars', time: '20h45', status: 'completed', completedAt: '2026-03-27T20:45:00' },
-  { id: 'ORD-2971', restaurant: 'Le Bistrot, Meaux', address: '12 Rue Voltaire, Meaux', distanceText: '1.2 km', priceText: '7.30 €', tip: null, date: '27 mars', time: '12h30', status: 'completed', completedAt: '2026-03-27T12:30:00' },
-  { id: 'ORD-2968', restaurant: 'Sushi Zen, Meaux', address: '18 Rue de Verdun, Meaux', distanceText: '3.5 km', priceText: '12.60 €', tip: '2.50 €', date: '26 mars', time: '19h55', status: 'completed', completedAt: '2026-03-26T19:55:00' },
-  { id: 'ORD-2963', restaurant: 'La Terrasse, Meaux', address: '3 Bd Barbès, Meaux', distanceText: '2.1 km', priceText: '9.20 €', tip: null, date: '26 mars', time: '13h18', status: 'completed', completedAt: '2026-03-26T13:18:00' },
+  { id: 'ORD-3005', restaurant: 'Pizzeria Roma, Meaux', address: '12 Rue Voltaire, Meaux', distanceText: '2.3 km', priceText: '8.50 €', tip: '1.50 €', date: '2 avr', time: '12h15', status: 'completed', completedAt: '2026-04-02T12:15:00' },
+  { id: 'ORD-3004', restaurant: 'Sushi Zen, Meaux', address: '3 Bd Barbès, Meaux', distanceText: '3.1 km', priceText: '11.40 €', tip: '2.00 €', date: '2 avr', time: '11h30', status: 'completed', completedAt: '2026-04-02T11:30:00' },
+  { id: 'ORD-3003', restaurant: 'Le Bistrot, Meaux', address: 'Place Carnot, Meaux', distanceText: '1.8 km', priceText: '6.20 €', tip: null, date: '2 avr', time: '10h45', status: 'completed', completedAt: '2026-04-02T10:45:00' },
+  { id: 'ORD-3001', restaurant: 'Chez Marcel, Meaux', address: '18 Rue de Verdun, Meaux', distanceText: '0.9 km', priceText: '9.80 €', tip: '1.00 €', date: '1 avr', time: '20h10', status: 'completed', completedAt: '2026-04-01T20:10:00' },
+  { id: 'ORD-3000', restaurant: 'Café du Pont, Meaux', address: '2 Rue de la République, Meaux', distanceText: '1.5 km', priceText: '7.50 €', tip: null, date: '1 avr', time: '19h22', status: 'completed', completedAt: '2026-04-01T19:22:00' },
+  { id: 'ORD-2998', restaurant: 'La Terrasse, Meaux', address: '6 Rue Trivalle, Meaux', distanceText: '2.7 km', priceText: '9.90 €', tip: '1.00 €', date: '31 mars', time: '19h32', status: 'completed', completedAt: '2026-03-31T19:32:00' },
+  { id: 'ORD-2996', restaurant: 'Café du Pont, Meaux', address: '2 Rue de la République, Meaux', distanceText: '1.4 km', priceText: '0,00 €', tip: null, date: '31 mars', time: '18h50', status: 'cancelled', cancelledAt: '2026-03-31T18:50:00' },
+  { id: 'ORD-2995', restaurant: 'Pizzeria Roma, Meaux', address: 'Place Carnot, Meaux', distanceText: '2.0 km', priceText: '8.10 €', tip: null, date: '30 mars', time: '20h45', status: 'completed', completedAt: '2026-03-30T20:45:00' },
+  { id: 'ORD-2991', restaurant: 'Le Bistrot, Meaux', address: '12 Rue Voltaire, Meaux', distanceText: '1.2 km', priceText: '7.30 €', tip: null, date: '30 mars', time: '12h30', status: 'completed', completedAt: '2026-03-30T12:30:00' },
+  { id: 'ORD-2987', restaurant: 'Sushi Zen, Meaux', address: '18 Rue de Verdun, Meaux', distanceText: '3.5 km', priceText: '12.60 €', tip: '2.50 €', date: '29 mars', time: '19h55', status: 'completed', completedAt: '2026-03-29T19:55:00' },
+  { id: 'ORD-2984', restaurant: 'La Terrasse, Meaux', address: '3 Bd Barbès, Meaux', distanceText: '2.1 km', priceText: '9.20 €', tip: null, date: '29 mars', time: '13h18', status: 'completed', completedAt: '2026-03-29T13:18:00' },
 ];
 
 export function AuthProvider({ children }) {
@@ -55,24 +60,63 @@ export function AuthProvider({ children }) {
   const [ticketReadCounts, setTicketReadCounts] = useState({}); // { ticketId: lastReadCount }
   const MAX_WEEKLY_CANCELS = 5;
 
+  // Login attempt tracking
+  const loginAttemptsRef = useRef(0);
+  const lockoutUntilRef = useRef(null);
+
   function login(email, password) {
+    // Check lockout
+    if (lockoutUntilRef.current && Date.now() < lockoutUntilRef.current) {
+      const remaining = Math.ceil((lockoutUntilRef.current - Date.now()) / 1000);
+      return { locked: true, remainingSeconds: remaining };
+    }
+
+    // Validate and sanitize inputs
+    const cleanEmail = sanitizeInput(email);
+    if (!isValidEmail(cleanEmail)) return false;
+    if (!password || typeof password !== 'string') return false;
+
     const found = USERS.find(
-      u => u.email.toLowerCase() === email.toLowerCase() && u.password === password
+      u => u.email.toLowerCase() === cleanEmail.toLowerCase() && u.password === password
     );
-    if (!found) return false;
+    if (!found) {
+      loginAttemptsRef.current += 1;
+      if (loginAttemptsRef.current >= MAX_LOGIN_ATTEMPTS) {
+        lockoutUntilRef.current = Date.now() + LOCKOUT_DURATION_MS;
+        loginAttemptsRef.current = 0;
+        return { locked: true, remainingSeconds: LOCKOUT_DURATION_MS / 1000 };
+      }
+      return false;
+    }
+    // Reset attempts on success
+    loginAttemptsRef.current = 0;
+    lockoutUntilRef.current = null;
     const { password: _, ...profile } = found;
     setUser({ ...profile, photo: null });
     return true;
   }
 
   function register(data) {
+    // Validate email
+    const cleanEmail = sanitizeInput(data.email);
+    if (!isValidEmail(cleanEmail)) return false;
+
     // Check if email already exists
-    if (USERS.find(u => u.email.toLowerCase() === data.email.toLowerCase())) return false;
+    if (USERS.find(u => u.email.toLowerCase() === cleanEmail.toLowerCase())) return false;
+
+    // Sanitize all user inputs
     const newUser = {
-      email: data.email, password: data.password, firstName: data.prenom, lastName: data.nom,
-      pseudo: data.pseudo, phone: data.phone, vehicle: 'Scooter',
-      role: data.role || 'user', isVerified: data.role === 'user' ? true : false,
-      companyName: data.companyName || '', country: data.country || 'FR',
+      email: cleanEmail,
+      password: data.password,
+      firstName: sanitizeInput(data.prenom),
+      lastName: sanitizeInput(data.nom),
+      pseudo: sanitizeInput(data.pseudo),
+      phone: sanitizeInput(data.phone),
+      vehicle: 'Scooter',
+      role: data.role || 'user',
+      isVerified: data.role === 'user' ? true : false,
+      companyName: sanitizeInput(data.companyName || ''),
+      country: data.country || 'FR',
     };
     USERS.push(newUser);
     if (data.role === 'user') {

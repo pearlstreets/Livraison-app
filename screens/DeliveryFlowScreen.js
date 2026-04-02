@@ -1,9 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, PanResponder, Dimensions, Linking, Alert, TextInput, ScrollView, Modal, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { sanitizeInput, createRateLimiter } from '../utils/validation';
+
+// Rate limiter for slide buttons (prevent double triggers)
+const slideRateLimiter = createRateLimiter(2000);
 
 const BRAND = '#00C29B';
 const { width: W } = Dimensions.get('window');
@@ -256,19 +260,19 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     }
   }, [step]);
 
-  function nextStep() {
+  const nextStep = useCallback(() => {
     if (stepIndex < STEPS.length - 1) {
       const next = stepIndex + 1;
       setStepIndex(next);
     }
-  }
+  }, [stepIndex]);
 
   // Sync step to OrdersScreen params whenever stepIndex changes (without navigating away)
   useEffect(() => {
     navigation.setParams({ currentStep: stepIndex, currentStepLabel: t(STEP_LABEL_KEYS[STEPS[stepIndex]]) });
   }, [stepIndex]);
 
-  function openMap(dest) {
+  const openMap = useCallback((dest) => {
     const lat = order.dropoffLat;
     const lng = order.dropoffLng;
     const addr = encodeURIComponent(dest);
@@ -283,13 +287,13 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     setMapSheetUrls({ google: googleUrl, waze: wazeUrl });
     sheetPan.setValue(0);
     setShowMapSheet(true);
-  }
+  }, [order.dropoffLat, order.dropoffLng, sheetPan]);
 
-  function closeMapSheet() {
+  const closeMapSheet = useCallback(() => {
     Animated.timing(sheetPan, { toValue: 400, duration: 200, useNativeDriver: true }).start(() => {
       setShowMapSheet(false);
     });
-  }
+  }, [sheetPan]);
 
   const sheetPanResponder = useRef(
     PanResponder.create({
@@ -305,14 +309,16 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     })
   ).current;
 
-  function handleCodeInput(text, index) {
+  const handleCodeInput = useCallback((text, index) => {
+    // Validate: only accept single digits
+    const digit = text.replace(/[^0-9]/g, '').slice(0, 1);
     const newCode = [...code];
-    newCode[index] = text;
+    newCode[index] = digit;
     setCode(newCode);
-    if (text && index < 3) {
+    if (digit && index < 3) {
       codeRefs[index + 1].current?.focus();
     }
-    if (index === 3 && text) {
+    if (index === 3 && digit) {
       const entered = newCode.join('');
       if (entered === REAL_CODE) {
         setTimeout(nextStep, 300);
@@ -322,10 +328,10 @@ export default function DeliveryFlowScreen({ navigation, route }) {
         codeRefs[0].current?.focus();
       }
     }
-  }
+  }, [code, nextStep, t]);
 
-  // Progress indicator
-  const progress = stepIndex / (STEPS.length - 1);
+  // Progress indicator (memoized)
+  const progress = useMemo(() => stepIndex / (STEPS.length - 1), [stepIndex]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f5f5f5' }} edges={['top']}>
@@ -368,7 +374,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               </View>
             </View>
 
-            {/* Adresses */}
+            {/* Adresses + Articles */}
             <View style={ss.routeCard}>
               <View style={ss.routeRow}>
                 <View style={ss.routeDotGreen} />
@@ -377,6 +383,23 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                   <Text style={ss.routeAddr}>{restaurant}</Text>
                 </View>
               </View>
+
+              {/* Articles à récupérer */}
+              {order.items && order.items.length > 0 && (
+                <View style={ss.itemsBlock}>
+                  <View style={ss.itemsHeader}>
+                    <Ionicons name="bag-outline" size={14} color={BRAND} />
+                    <Text style={ss.itemsTitle}>{order.items.reduce((s, it) => s + (it.qty || 1), 0)} article{order.items.reduce((s, it) => s + (it.qty || 1), 0) > 1 ? 's' : ''}</Text>
+                  </View>
+                  {order.items.map((item, idx) => (
+                    <View key={idx} style={ss.itemRow}>
+                      <Text style={ss.itemQty}>{item.qty || 1}x</Text>
+                      <Text style={ss.itemName}>{item.name}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
               <View style={ss.routeLineVert} />
               <View style={ss.routeRow}>
                 <View style={ss.routeDotRed} />
@@ -651,9 +674,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       {/* Fixed bottom slide button + cancel */}
       {(step === 'pickup' || step === 'enroute' || step === 'arrived') && (
         <View style={ss.bottomBar}>
-          {step === 'pickup' && <SlideButton label={t('orderPickedUp')} onComplete={nextStep} />}
-          {step === 'enroute' && <SlideButton label={t('iArrived')} onComplete={nextStep} color="#2196F3" />}
-          {step === 'arrived' && <SlideButton label={t('orderGiven')} onComplete={nextStep} color="#f5a623" />}
+          {step === 'pickup' && <SlideButton label={t('orderPickedUp')} onComplete={() => slideRateLimiter(nextStep)} />}
+          {step === 'enroute' && <SlideButton label={t('iArrived')} onComplete={() => slideRateLimiter(nextStep)} color="#2196F3" />}
+          {step === 'arrived' && <SlideButton label={t('orderGiven')} onComplete={() => slideRateLimiter(nextStep)} color="#f5a623" />}
           <Pressable style={ss.cancelBtn} onPress={() => setShowCancelPopup(true)}>
             <Text style={ss.cancelBtnTxt}>{t('cancelOrder')}</Text>
           </Pressable>
@@ -784,7 +807,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 numberOfLines={3}
                 textAlignVertical="top"
                 value={codeProblemDesc}
-                onChangeText={setCodeProblemDesc}
+                onChangeText={(text) => setCodeProblemDesc(sanitizeInput(text))}
               />
             )}
           </View>
@@ -853,6 +876,10 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             data={chatMessages}
             keyExtractor={item => String(item.id)}
             contentContainerStyle={{ padding: 16, flexGrow: 1, justifyContent: 'flex-end', width: '100%' }}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            removeClippedSubviews={true}
             renderItem={({ item }) => (
               <View style={[ss.chatBubble, item.from === 'me' ? ss.chatBubbleMe : ss.chatBubbleClient]}>
                 <Text style={[ss.chatBubbleText, item.from === 'me' && { color: '#fff' }]}>{item.text}</Text>
@@ -890,7 +917,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             />
             <Pressable style={[ss.chatSendBtn, !chatInput.trim() && { opacity: 0.4 }]} onPress={() => {
               if (!chatInput.trim()) return;
-              const m = { id: Date.now(), text: chatInput.trim(), from: 'me', time: new Date() };
+              const sanitized = sanitizeInput(chatInput);
+              if (!sanitized) return;
+              const m = { id: Date.now(), text: sanitized, from: 'me', time: new Date() };
               setChatMessages(prev => [...prev, m]);
               setChatInput('');
               setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 100);
@@ -969,6 +998,12 @@ const ss = StyleSheet.create({
   routeDotGreen: { width: 12, height: 12, borderRadius: 6, backgroundColor: BRAND, marginRight: 12 },
   routeDotRed: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#e74c3c', marginRight: 12 },
   routeLineVert: { width: 2, height: 20, backgroundColor: '#e0e0e0', marginLeft: 5, marginVertical: 4 },
+  itemsBlock: { marginLeft: 16, marginVertical: 8, backgroundColor: '#f8f9fa', borderRadius: 10, padding: 10 },
+  itemsHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  itemsTitle: { fontSize: 13, fontWeight: '800', color: BRAND },
+  itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 3 },
+  itemQty: { fontSize: 13, fontWeight: '800', color: '#111', width: 28 },
+  itemName: { fontSize: 13, color: '#444', flex: 1 },
   routeLabel: { fontSize: 12, color: '#888', fontWeight: '600' },
   routeAddr: { fontSize: 15, fontWeight: '700', color: '#111', marginTop: 2 },
 
