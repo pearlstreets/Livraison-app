@@ -203,14 +203,15 @@ export default function LoginScreen() {
           </TouchableOpacity>
         )}
 
-        <ScrollView contentContainerStyle={{flexGrow:1, justifyContent:'center', paddingHorizontal:24, paddingVertical:30}} keyboardShouldPersistTaps="handled">
-          {/* Logo — on login, choose, step 1 */}
-          {(mode === 'login' || mode === 'choose' || step === 1) && (
-            <View style={{alignItems:'center', marginBottom:24}}>
-              <Ionicons name="bicycle" size={64} color={BRAND} style={{marginBottom:8}} />
-              <Text style={{fontSize:28, fontWeight:'900', color:'#111'}}>Pearl Delivery</Text>
-            </View>
-          )}
+        {/* Logo — fixed top */}
+        {(mode === 'login' || mode === 'choose' || (mode === 'signup' && step === 1)) && (
+          <View style={{alignItems:'center', paddingTop:16, paddingBottom:8}}>
+            <Ionicons name="bicycle" size={50} color={BRAND} style={{marginBottom:6}} />
+            <Text style={{fontSize:24, fontWeight:'900', color:'#111'}}>Pearl Delivery</Text>
+          </View>
+        )}
+
+        <ScrollView contentContainerStyle={{flexGrow:1, paddingHorizontal:24, paddingVertical:20}} keyboardShouldPersistTaps="handled">
 
           {/* Step title on form pages */}
           {mode === 'signup' && isPro !== null && (
