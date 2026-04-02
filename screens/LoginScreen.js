@@ -271,11 +271,6 @@ export default function LoginScreen() {
                   <Ionicons name="chevron-forward" size={20} color={BRAND} />
                 </TouchableOpacity>
               ))}
-              <TouchableOpacity onPress={() => { setMode('login'); setError(''); }} style={{alignItems:'center', paddingVertical:16}}>
-                <Text style={{color:'#6B7280', fontSize:15}}>
-                  {t('hasAccount') || 'Déjà un compte ?'} <Text style={{color:BRAND, fontWeight:'800'}}>{t('loginButton') || 'Se connecter'}</Text>
-                </Text>
-              </TouchableOpacity>
             </>
           )}
 
@@ -372,6 +367,15 @@ export default function LoginScreen() {
             </>
           )}
         </ScrollView>
+
+        {/* Already have account — fixed above language on choose page */}
+        {mode === 'choose' && (
+          <TouchableOpacity onPress={() => { setMode('login'); setError(''); }} style={{alignItems:'center', paddingVertical:12}}>
+            <Text style={{color:'#6B7280', fontSize:15}}>
+              {t('hasAccount') || 'Déjà un compte Pearl Delivery ?'} <Text style={{color:BRAND, fontWeight:'800'}}>{t('loginButton') || 'Se connecter'}</Text>
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Language button — fixed bottom */}
         <TouchableOpacity onPress={() => setLangPickerVisible(true)} style={{
