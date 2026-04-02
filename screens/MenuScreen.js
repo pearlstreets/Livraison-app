@@ -80,20 +80,18 @@ export default function MenuScreen({ navigation }) {
       </View>
 
       {/* Gains annuels */}
-      <View style={[s.earningsBar, !isOnline && { backgroundColor: '#8e8e93' }]}>
-        <View style={s.earningsItem}>
-          <Text style={s.earningsValue}>{thisMonthTotal.toFixed(2)} €</Text>
-          <Text style={s.earningsLabel}>{t('thisMonth')}</Text>
+      <View style={{flexDirection:'row', paddingHorizontal:16, marginTop:10, gap:8}}>
+        <View style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}}>
+          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{thisMonthTotal.toFixed(2)} €</Text>
+          <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('thisMonth')}</Text>
         </View>
-        <View style={s.earningsDivider} />
-        <View style={s.earningsItem}>
-          <Text style={s.earningsValue}>{thisWeekTotal.toFixed(2)} €</Text>
-          <Text style={s.earningsLabel}>{t('thisWeek')}</Text>
+        <View style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}}>
+          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{thisWeekTotal.toFixed(2)} €</Text>
+          <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('thisWeek')}</Text>
         </View>
-        <View style={s.earningsDivider} />
-        <View style={s.earningsItem}>
-          <Text style={s.earningsValue}>{thisDayTotal.toFixed(2)} €</Text>
-          <Text style={s.earningsLabel}>{t('today') || "Aujourd'hui"}</Text>
+        <View style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}}>
+          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{thisDayTotal.toFixed(2)} €</Text>
+          <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('today') || "Aujourd'hui"}</Text>
         </View>
       </View>
 
