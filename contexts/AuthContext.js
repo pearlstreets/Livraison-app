@@ -65,6 +65,23 @@ export function AuthProvider({ children }) {
     return true;
   }
 
+  function register(data) {
+    // Check if email already exists
+    if (USERS.find(u => u.email.toLowerCase() === data.email.toLowerCase())) return false;
+    const newUser = {
+      email: data.email, password: data.password, firstName: data.prenom, lastName: data.nom,
+      pseudo: data.pseudo, phone: data.phone, vehicle: 'Scooter',
+      role: data.role || 'user', isVerified: data.role === 'user' ? true : false,
+      companyName: data.companyName || '', country: data.country || 'FR',
+    };
+    USERS.push(newUser);
+    if (data.role === 'user') {
+      const { password: _, ...profile } = newUser;
+      setUser({ ...profile, photo: null });
+    }
+    return true;
+  }
+
   function logout() { setUser(null); }
 
   function updateUser(updates) { setUser(prev => prev ? { ...prev, ...updates } : prev); }
@@ -256,7 +273,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, updateUser, warnings, accountActive, rating, totalDeliveries, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount, deliveryHistory, addToHistory, markOrderReported, getTicketMessages, saveTicketMessages, currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban, isOnline, setIsOnline, warningsList, markTicketRead, getUnreadTicketCount, scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts, readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateUser, warnings, accountActive, rating, totalDeliveries, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount, deliveryHistory, addToHistory, markOrderReported, getTicketMessages, saveTicketMessages, currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban, isOnline, setIsOnline, warningsList, markTicketRead, getUnreadTicketCount, scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts, readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount }}>
       {children}
     </AuthContext.Provider>
   );
