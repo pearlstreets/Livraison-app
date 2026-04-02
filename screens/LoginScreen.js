@@ -135,7 +135,7 @@ export default function LoginScreen() {
     }
     // Step 2: info
     if (step === 2) {
-      if (!nom.trim() || !prenom.trim() || !pseudo.trim() || !phone.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
+      if (!nom.trim() || !prenom.trim() || !phone.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
       if (isPro && !companyName.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
       if (isPro) { setStep(3); return; }
       // Particulier: register directly
@@ -307,8 +307,6 @@ export default function LoginScreen() {
               <TextInput style={s.input} value={nom} onChangeText={setNom} placeholder="Dupont" placeholderTextColor="#aaa" />
               <Text style={s.label}>{t('driverFirstName') || 'Prénom du livreur'}</Text>
               <TextInput style={s.input} value={prenom} onChangeText={setPrenom} placeholder="Jean" placeholderTextColor="#aaa" />
-              <Text style={s.label}>Pseudo</Text>
-              <TextInput style={s.input} value={pseudo} onChangeText={setPseudo} placeholder="MonPseudo" placeholderTextColor="#aaa" />
               {isPro && (
                 <>
                   <Text style={s.label}>{t('companyName') || "Nom de l'établissement"}</Text>
