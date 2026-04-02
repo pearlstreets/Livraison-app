@@ -211,7 +211,7 @@ export default function LoginScreen() {
           </View>
         )}
 
-        <ScrollView contentContainerStyle={{flexGrow:1, paddingHorizontal:24, paddingVertical:20}} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={{flexGrow:1, justifyContent:'center', paddingHorizontal:24, paddingVertical:20}} keyboardShouldPersistTaps="handled">
 
           {/* Step title on form pages */}
           {mode === 'signup' && isPro !== null && (
