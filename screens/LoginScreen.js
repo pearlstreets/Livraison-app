@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -102,7 +102,25 @@ export default function LoginScreen() {
   // Rate limiting for login
   const loginFailsRef = useRef(0);
   const [loginDisabled, setLoginDisabled] = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
   const cooldownTimerRef = useRef(null);
+  const countdownRef = useRef(null);
+
+  // Countdown effect
+  useEffect(() => {
+    if (cooldownSeconds > 0) {
+      countdownRef.current = setInterval(() => {
+        setCooldownSeconds(prev => {
+          if (prev <= 1) {
+            clearInterval(countdownRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(countdownRef.current);
+    }
+  }, [cooldownSeconds > 0]);
 
   const selectedCountry = COUNTRIES.find(c => c.code === country) || COUNTRIES[0];
   const selectedPhoneCountry = COUNTRIES.find(c => c.code === phoneCountry) || COUNTRIES[0];
@@ -127,29 +145,39 @@ export default function LoginScreen() {
   const handleLogin = () => {
     setError('');
     if (loginDisabled) {
-      setError(t('loginCooldown') || 'Trop de tentatives. Veuillez patienter 30 secondes.');
+      setError(`${t('loginTooManyAttempts')} ${t('loginTryAgainIn')} ${cooldownSeconds}s`);
       return;
     }
-    if (!email.trim() && !password.trim()) { setError(t('errorBothEmpty') || 'Veuillez saisir votre email et mot de passe'); return; }
-    if (!email.trim()) { setError(t('errorNoEmail') || 'Veuillez saisir votre email'); return; }
-    if (!isValidEmail(email.trim())) { setError(t('errorInvalidEmail') || 'Format email invalide'); return; }
-    if (!password.trim()) { setError(t('errorNoPassword') || 'Veuillez saisir votre mot de passe'); return; }
+    if (!email.trim() && !password.trim()) { setError(t('errorBothEmpty')); return; }
+    if (!email.trim()) { setError(t('errorNoEmail')); return; }
+    if (!isValidEmail(email.trim())) { setError(t('errorInvalidEmail')); return; }
+    if (!password.trim()) { setError(t('errorNoPassword')); return; }
     const result = login(email.trim(), password);
     if (result && typeof result === 'object' && result.locked) {
-      setError(t('accountLocked') || 'Compte temporairement verrouill\u00e9. R\u00e9essayez dans quelques minutes.');
+      const secs = result.remainingSeconds || 300;
+      setCooldownSeconds(secs);
+      setLoginDisabled(true);
+      setError(`${t('loginAccountLocked')} ${t('loginTryAgainIn')} ${secs}s`);
+      cooldownTimerRef.current = setTimeout(() => {
+        setLoginDisabled(false);
+        setCooldownSeconds(0);
+      }, secs * 1000);
       return;
     }
     if (!result) {
       loginFailsRef.current += 1;
       if (loginFailsRef.current >= MAX_LOGIN_FAILS) {
         setLoginDisabled(true);
-        setError(t('loginCooldown') || 'Trop de tentatives. Veuillez patienter 30 secondes.');
+        const secs = Math.ceil(LOGIN_COOLDOWN_MS / 1000);
+        setCooldownSeconds(secs);
+        setError(`${t('loginTooManyAttempts')} ${t('loginTryAgainIn')} ${secs}s`);
         cooldownTimerRef.current = setTimeout(() => {
           setLoginDisabled(false);
           loginFailsRef.current = 0;
+          setCooldownSeconds(0);
         }, LOGIN_COOLDOWN_MS);
       } else {
-        setError(t('loginErrorCredentials') || 'Email ou mot de passe incorrect');
+        setError(t('loginErrorCredentials'));
       }
     }
   };
@@ -257,7 +285,11 @@ export default function LoginScreen() {
           {error ? (
             <View style={{backgroundColor:'#FEE2E2', borderRadius:10, padding:12, marginBottom:16, flexDirection:'row', alignItems:'center'}}>
               <Ionicons name="alert-circle" size={18} color="#EF4444" />
-              <Text style={{color:'#EF4444', fontSize:13, marginLeft:8, flex:1}}>{error}</Text>
+              <Text style={{color:'#EF4444', fontSize:13, marginLeft:8, flex:1}}>
+                {loginDisabled && cooldownSeconds > 0
+                  ? `${t('loginTooManyAttempts')} ${t('loginTryAgainIn')} ${cooldownSeconds}s`
+                  : error}
+              </Text>
             </View>
           ) : null}
 
