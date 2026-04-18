@@ -35,4 +35,12 @@ export const deliveryService = {
     const { data } = await api.get('/api/v1/delivery/history/', { params: { page } });
     return data;
   },
+
+  // Register (or update) the driver's Expo push token so the backend can
+  // target this device for new-order notifications. Safe to call repeatedly
+  // — the backend is expected to upsert by (user, token) pair.
+  async registerPushToken(token, platform) {
+    const { data } = await api.post('/api/v1/delivery/push-token/', { token, platform });
+    return data;
+  },
 };

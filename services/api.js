@@ -2,7 +2,13 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sanitizeForApi } from '../utils/validation';
 
-const API_BASE = 'https://pythonapi.digiexports.in';
+// Base URL resolution order:
+//  1. EXPO_PUBLIC_API_URL env var (set at build time via `app.config.ts`,
+//     `eas.json`, or a plain `.env`) — lets prod / staging / local point to
+//     Pearl Streets without code changes.
+//  2. Hardcoded fallback — the dev backend we've been using all along.
+const API_BASE = (process.env.EXPO_PUBLIC_API_URL || 'https://pythonapi.digiexports.in').replace(/\/+$/, '');
+export { API_BASE };
 
 // Request ID generator for tracing
 const generateRequestId = () =>

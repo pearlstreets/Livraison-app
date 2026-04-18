@@ -20,6 +20,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
+import { deliveryService } from './services/deliveryService';
 import * as Device from 'expo-device';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
@@ -136,22 +137,37 @@ function Main() {
 
   useEffect(() => {
     (async () => {
-      if (Device.isDevice) {
+      if (!Device.isDevice) return; // push tokens don't exist on simulators
+      try {
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
         if (existingStatus !== 'granted') {
           const { status } = await Notifications.requestPermissionsAsync();
           finalStatus = status;
         }
-        if (finalStatus === 'granted' && Platform.OS === 'android') {
+        if (finalStatus !== 'granted') return;
+
+        if (Platform.OS === 'android') {
           await Notifications.setNotificationChannelAsync('default', {
             name: 'default',
             importance: Notifications.AndroidImportance.DEFAULT,
           });
         }
-      }
+
+        // Grab the Expo push token and register it with the backend so the
+        // marketplace can actually push new-order notifications to this
+        // device. Any failure is silent — we don't want a flaky network to
+        // block the rest of the app boot.
+        try {
+          const tokenData = await Notifications.getExpoPushTokenAsync();
+          const token = tokenData?.data;
+          if (token) {
+            deliveryService.registerPushToken(token, Platform.OS).catch(() => { /* ignore */ });
+          }
+        } catch { /* ignore token fetch failures */ }
+      } catch { /* ignore permission failures */ }
     })();
-  }, []);
+  }, [user?.email]); // re-register after login
 
   // Foreground + response listeners for push notifications. When a new order
   // is delivered to the device (either while the app is open, or when the

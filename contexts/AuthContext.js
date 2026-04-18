@@ -1,5 +1,15 @@
 import React, { createContext, useContext, useState, useRef } from 'react';
 import { sanitizeInput, isValidEmail } from '../utils/validation';
+import { authService } from '../services/authService';
+
+// An axios error counts as a "network" failure (backend unreachable, DNS,
+// timeout, aborted) when there is no response object attached. In that case
+// it's safe to fall back to the local USERS list so the demo account still
+// works offline or while the backend isn't live. Any HTTP response — even a
+// 401 / 404 / 500 — is treated as authoritative and NOT masked by the mock.
+function isNetworkLevelError(err) {
+  return !!err && !err.response;
+}
 
 const USERS = [
   { email: 'remsko@live.fr', password: 'Test@123', firstName: 'Ganja', lastName: 'Remsko', pseudo: 'Remsko', phone: '06 12 34 56 78', vehicle: 'Scooter' },
@@ -66,7 +76,7 @@ export function AuthProvider({ children }) {
   const loginAttemptsRef = useRef(0);
   const lockoutUntilRef = useRef(null);
 
-  function login(email, password) {
+  async function login(email, password) {
     // Check lockout
     if (lockoutUntilRef.current && Date.now() < lockoutUntilRef.current) {
       const remaining = Math.ceil((lockoutUntilRef.current - Date.now()) / 1000);
@@ -78,6 +88,39 @@ export function AuthProvider({ children }) {
     if (!isValidEmail(cleanEmail)) return false;
     if (!password || typeof password !== 'string') return false;
 
+    // 1) Try the real backend first.
+    try {
+      const data = await authService.login(cleanEmail, password);
+      const remoteUser = data?.user || {};
+      setUser({
+        email: remoteUser.email || cleanEmail,
+        firstName: remoteUser.first_name || remoteUser.firstName || '',
+        lastName: remoteUser.last_name || remoteUser.lastName || '',
+        pseudo: remoteUser.pseudo || remoteUser.username || remoteUser.userName || remoteUser.email || cleanEmail,
+        phone: remoteUser.phone || '',
+        vehicle: remoteUser.vehicle || 'Scooter',
+        photo: remoteUser.photo || remoteUser.photo_url || null,
+        role: remoteUser.role || 'driver',
+      });
+      loginAttemptsRef.current = 0;
+      lockoutUntilRef.current = null;
+      return true;
+    } catch (err) {
+      // Real HTTP response → backend says "no". Don't mask with the mock.
+      if (!isNetworkLevelError(err)) {
+        loginAttemptsRef.current += 1;
+        if (loginAttemptsRef.current >= MAX_LOGIN_ATTEMPTS) {
+          lockoutUntilRef.current = Date.now() + LOCKOUT_DURATION_MS;
+          loginAttemptsRef.current = 0;
+          return { locked: true, remainingSeconds: LOCKOUT_DURATION_MS / 1000 };
+        }
+        return false;
+      }
+      // else: network error → fall through to local demo accounts.
+    }
+
+    // 2) Network unreachable → fall back to the local demo users so dev /
+    // offline flows keep working.
     const found = USERS.find(
       u => u.email.toLowerCase() === cleanEmail.toLowerCase() && u.password === password
     );
@@ -90,7 +133,6 @@ export function AuthProvider({ children }) {
       }
       return false;
     }
-    // Reset attempts on success
     loginAttemptsRef.current = 0;
     lockoutUntilRef.current = null;
     const { password: _, ...profile } = found;
@@ -128,7 +170,12 @@ export function AuthProvider({ children }) {
     return true;
   }
 
-  function logout() { setUser(null); }
+  function logout() {
+    // Fire-and-forget so logout UX never stalls on a slow backend. authService
+    // already clears secure storage even if the remote POST fails.
+    authService.logout().catch(() => { /* ignore */ });
+    setUser(null);
+  }
 
   function updateUser(updates) { setUser(prev => prev ? { ...prev, ...updates } : prev); }
 

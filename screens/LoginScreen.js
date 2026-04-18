@@ -124,7 +124,7 @@ export default function LoginScreen() {
   };
 
   // Login with rate limiting and validation
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
     if (loginDisabled) {
       setError(t('loginCooldown') || 'Trop de tentatives. Veuillez patienter 30 secondes.');
@@ -134,7 +134,7 @@ export default function LoginScreen() {
     if (!email.trim()) { setError(t('errorNoEmail') || 'Veuillez saisir votre email'); return; }
     if (!isValidEmail(email.trim())) { setError(t('errorInvalidEmail') || 'Format email invalide'); return; }
     if (!password.trim()) { setError(t('errorNoPassword') || 'Veuillez saisir votre mot de passe'); return; }
-    const result = login(email.trim(), password);
+    const result = await login(email.trim(), password);
     if (result && typeof result === 'object' && result.locked) {
       setError(t('accountLocked') || 'Compte temporairement verrouill\u00e9. R\u00e9essayez dans quelques minutes.');
       return;
