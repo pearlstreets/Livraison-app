@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { ticketService } from '../services/ticketService';
 
 const BRAND = '#00C29B';
 
@@ -66,6 +67,9 @@ export default function TicketChatScreen({ navigation, route }) {
   function sendMessage() {
     const text = input.trim();
     if (!text || isResolvedState) return;
+
+    // Optimistic UI: render the message immediately so the driver sees it even
+    // if the network is slow or offline.
     setMessages(prev => [...prev, {
       id: `user-${Date.now()}`,
       type: 'user',
@@ -74,7 +78,15 @@ export default function TicketChatScreen({ navigation, route }) {
     }]);
     setInput('');
 
-    // Auto reply after user message — stored as key for language-agnostic render.
+    // Fire-and-forget POST to the real endpoint. Any failure (offline, 4xx,
+    // 5xx, ticket not yet created server-side) is swallowed so the UX never
+    // looks broken. The driver's message stays visible locally either way.
+    if (ticketId && ticketId !== 'unknown') {
+      ticketService.sendMessage(ticketId, text).catch(() => { /* ignore */ });
+    }
+
+    // Local auto-reply keeps the chat feeling alive until real admin polling
+    // is implemented. Stored as a key so it re-renders in the current language.
     setTimeout(() => {
       const idx = autoIndex.current % USER_REPLY_KEYS.length;
       autoIndex.current++;
