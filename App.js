@@ -23,6 +23,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import LoginScreen from './screens/LoginScreen';
 import OrdersScreen from './screens/OrdersScreen';
 import EarningsScreen from './screens/EarningsScreen';
@@ -182,13 +183,15 @@ function Main() {
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <NavigationContainer theme={navTheme}>
-          <StatusBar style="dark" />
-          <Main />
-        </NavigationContainer>
-      </AuthProvider>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <AuthProvider>
+          <NavigationContainer theme={navTheme}>
+            <StatusBar style="dark" />
+            <Main />
+          </NavigationContainer>
+        </AuthProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }

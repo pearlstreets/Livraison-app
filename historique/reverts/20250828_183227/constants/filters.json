@@ -1,5 +1,0 @@
-[
-  { "id": "smart",   "label": "Smart",  "nearWeight": 0.5, "payWeight": 0.5 },
-  { "id": "highpay", "label": "€",      "nearWeight": 0.1, "payWeight": 0.9 },
-  { "id": "nearest", "label": "Proche", "nearWeight": 1.0, "payWeight": 0.0 }
-]
