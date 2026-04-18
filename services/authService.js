@@ -25,16 +25,20 @@ function loadNotificationDeps() {
 // `OneSignal.login(String(driver.id))` after a successful login is what
 // wires the driver to receive targeted pushes.
 //
-// We conditionally require() it so the app still builds and runs today
-// without the native module — a missing `react-native-onesignal` just
-// silently skips the external-id registration, and the new-order push
-// still reaches the driver via the `included_segments=['All']` fallback
-// the backend uses when no external IDs are set.
+// IMPORTANT: we use a *dynamic* require via a variable module name so
+// Metro doesn't try to resolve `react-native-onesignal` at bundle time.
+// If we wrote `require('react-native-onesignal')` literally, Metro
+// would fail the EAS build when the package isn't in package.json —
+// the try/catch only saves us at runtime, not at bundle time. The
+// indirection below makes Metro treat the call as opaque, so a missing
+// module falls through to the catch at runtime only.
 let _OneSignal = null;
 function loadOneSignal() {
   if (_OneSignal !== null) return _OneSignal;
   try {
-    const mod = require('react-native-onesignal');
+    const moduleName = 'react-native-onesignal';
+    // eslint-disable-next-line import/no-dynamic-require, global-require
+    const mod = require(moduleName);
     _OneSignal = (mod && mod.OneSignal) || mod.default || mod;
   } catch (e) {
     _OneSignal = false;
