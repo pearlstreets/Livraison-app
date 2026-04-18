@@ -415,6 +415,7 @@ const translations = {
     chatOpening1: 'Merci de nous contacter. Un agent va prendre en charge votre demande.', chatOpening2: 'Je consulte les détails de votre course. Un instant…', chatOpening3: 'Comment puis-je vous aider ?',
     chatReply1: 'Nous avons bien pris en compte votre demande.', chatReply2: 'Merci pour votre patience. Nous analysons votre dossier.', chatReply3: 'Votre demande est en cours de traitement.', chatReply4: 'Nous revenons vers vous rapidement.', chatReply5: 'Bien noté. Notre équipe travaille sur votre demande.',
     quickMsg1: 'J\'arrive bientôt', quickMsg2: 'Je suis devant la porte', quickMsg3: 'Je suis en bas de l\'immeuble', quickMsg4: 'Pouvez-vous descendre ?', quickMsg5: 'Quel est le code d\'entrée ?', quickMsg6: 'Je ne trouve pas l\'adresse',
+    forgotLink: 'Mot de passe oublié ?', forgotTitle: 'Mot de passe oublié', forgotSubtitle: 'Entrez votre email pour recevoir un code de vérification.', forgotSendOtp: 'Envoyer le code', forgotOtpSent: 'Nous avons envoyé un code à votre email. Saisissez-le avec votre nouveau mot de passe.', forgotOtpLabel: 'Code de vérification', forgotOtpRequired: 'Code de vérification requis', forgotResetBtn: 'Réinitialiser le mot de passe', forgotResendOtp: 'Renvoyer le code', forgotDoneTitle: 'Mot de passe réinitialisé', forgotDoneMsg: 'Vous pouvez maintenant vous connecter avec votre nouveau mot de passe.', forgotResetFailed: 'Échec de la réinitialisation. Vérifiez le code et réessayez.',
   },
 
   en: {
@@ -785,6 +786,7 @@ const translations = {
     chatOpening1: 'Thanks for reaching out. An agent will take care of your request.', chatOpening2: 'Looking into your delivery. One moment…', chatOpening3: 'How can I help?',
     chatReply1: 'We have noted your request.', chatReply2: 'Thank you for your patience. We are reviewing your case.', chatReply3: 'Your request is being processed.', chatReply4: 'We will get back to you shortly.', chatReply5: 'Noted. Our team is working on it.',
     quickMsg1: 'I\'m almost there', quickMsg2: 'I\'m at the door', quickMsg3: 'I\'m downstairs', quickMsg4: 'Can you come down?', quickMsg5: 'What is the entry code?', quickMsg6: 'I can\'t find the address',
+    forgotLink: 'Forgot password?', forgotTitle: 'Forgot password', forgotSubtitle: 'Enter your email to receive a verification code.', forgotSendOtp: 'Send code', forgotOtpSent: 'We sent a code to your email. Enter it with your new password.', forgotOtpLabel: 'Verification code', forgotOtpRequired: 'Verification code required', forgotResetBtn: 'Reset password', forgotResendOtp: 'Resend code', forgotDoneTitle: 'Password reset', forgotDoneMsg: 'You can now sign in with your new password.', forgotResetFailed: 'Reset failed. Check the code and try again.',
   },
 
   es: {
@@ -854,6 +856,7 @@ const translations = {
     chatOpening1: 'Gracias por contactarnos. Un agente atenderá su solicitud.', chatOpening2: 'Consultando los detalles de su entrega. Un momento…', chatOpening3: '¿En qué puedo ayudarle?',
     chatReply1: 'Hemos tomado nota de su solicitud.', chatReply2: 'Gracias por su paciencia. Estamos analizando su caso.', chatReply3: 'Su solicitud está siendo procesada.', chatReply4: 'Le responderemos en breve.', chatReply5: 'Anotado. Nuestro equipo está trabajando en ello.',
     quickMsg1: 'Llego pronto', quickMsg2: 'Estoy en la puerta', quickMsg3: 'Estoy en la calle', quickMsg4: '¿Puede bajar?', quickMsg5: '¿Cuál es el código de entrada?', quickMsg6: 'No encuentro la dirección',
+    forgotLink: '¿Olvidó su contraseña?', forgotTitle: 'Contraseña olvidada', forgotSubtitle: 'Introduzca su email para recibir un código de verificación.', forgotSendOtp: 'Enviar código', forgotOtpSent: 'Hemos enviado un código a su email. Introdúzcalo con su nueva contraseña.', forgotOtpLabel: 'Código de verificación', forgotOtpRequired: 'Código de verificación requerido', forgotResetBtn: 'Restablecer contraseña', forgotResendOtp: 'Reenviar código', forgotDoneTitle: 'Contraseña restablecida', forgotDoneMsg: 'Ya puede iniciar sesión con su nueva contraseña.', forgotResetFailed: 'Error al restablecer. Verifique el código y vuelva a intentarlo.',
   },
 
   zh: {
@@ -923,6 +926,7 @@ const translations = {
     chatOpening1: '感谢联系。客服将处理您的请求。', chatOpening2: '正在查看您的配送详情，请稍候…', chatOpening3: '请问需要什么帮助？',
     chatReply1: '我们已记录您的请求。', chatReply2: '感谢您的耐心，我们正在分析您的情况。', chatReply3: '您的请求正在处理中。', chatReply4: '我们会尽快回复您。', chatReply5: '收到。我们的团队正在处理。',
     quickMsg1: '我马上到', quickMsg2: '我在门口', quickMsg3: '我在楼下', quickMsg4: '您可以下来吗？', quickMsg5: '入门密码是什么？', quickMsg6: '我找不到地址',
+    forgotLink: '忘记密码？', forgotTitle: '忘记密码', forgotSubtitle: '输入您的邮箱以接收验证码。', forgotSendOtp: '发送验证码', forgotOtpSent: '我们已向您的邮箱发送验证码，请将其与新密码一起输入。', forgotOtpLabel: '验证码', forgotOtpRequired: '需要验证码', forgotResetBtn: '重置密码', forgotResendOtp: '重新发送验证码', forgotDoneTitle: '密码已重置', forgotDoneMsg: '您现在可以使用新密码登录。', forgotResetFailed: '重置失败。请检查验证码并重试。',
   },
 
   ar: {
@@ -992,6 +996,7 @@ const translations = {
     chatOpening1: 'شكراً لتواصلك معنا. سيتولى أحد الوكلاء طلبك.', chatOpening2: 'نتحقق من تفاصيل توصيلك. لحظة من فضلك…', chatOpening3: 'كيف يمكنني مساعدتك؟',
     chatReply1: 'لقد سجلنا طلبك.', chatReply2: 'شكراً لصبرك. نحن نراجع حالتك.', chatReply3: 'طلبك قيد المعالجة.', chatReply4: 'سنعاود الاتصال بك قريباً.', chatReply5: 'تم التسجيل. فريقنا يعمل على ذلك.',
     quickMsg1: 'أنا قادم قريباً', quickMsg2: 'أنا عند الباب', quickMsg3: 'أنا في الأسفل', quickMsg4: 'هل يمكنك النزول؟', quickMsg5: 'ما هو رمز الدخول؟', quickMsg6: 'لا أستطيع إيجاد العنوان',
+    forgotLink: 'نسيت كلمة المرور؟', forgotTitle: 'نسيت كلمة المرور', forgotSubtitle: 'أدخل بريدك الإلكتروني لتلقي رمز التحقق.', forgotSendOtp: 'إرسال الرمز', forgotOtpSent: 'أرسلنا رمزاً إلى بريدك الإلكتروني. أدخله مع كلمة المرور الجديدة.', forgotOtpLabel: 'رمز التحقق', forgotOtpRequired: 'رمز التحقق مطلوب', forgotResetBtn: 'إعادة تعيين كلمة المرور', forgotResendOtp: 'إعادة إرسال الرمز', forgotDoneTitle: 'تم إعادة تعيين كلمة المرور', forgotDoneMsg: 'يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.', forgotResetFailed: 'فشل في إعادة التعيين. تحقق من الرمز وحاول مرة أخرى.',
   },
 
   de: {
@@ -1061,6 +1066,7 @@ const translations = {
     chatOpening1: 'Danke für Ihre Nachricht. Ein Agent kümmert sich um Ihr Anliegen.', chatOpening2: 'Wir prüfen die Details Ihrer Fahrt. Einen Moment…', chatOpening3: 'Wie kann ich helfen?',
     chatReply1: 'Wir haben Ihre Anfrage notiert.', chatReply2: 'Danke für Ihre Geduld. Wir prüfen Ihren Fall.', chatReply3: 'Ihre Anfrage wird bearbeitet.', chatReply4: 'Wir melden uns in Kürze.', chatReply5: 'Notiert. Unser Team arbeitet daran.',
     quickMsg1: 'Ich bin gleich da', quickMsg2: 'Ich stehe an der Tür', quickMsg3: 'Ich bin unten', quickMsg4: 'Können Sie herunterkommen?', quickMsg5: 'Wie lautet der Türcode?', quickMsg6: 'Ich finde die Adresse nicht',
+    forgotLink: 'Passwort vergessen?', forgotTitle: 'Passwort vergessen', forgotSubtitle: 'Geben Sie Ihre E-Mail ein, um einen Bestätigungscode zu erhalten.', forgotSendOtp: 'Code senden', forgotOtpSent: 'Wir haben einen Code an Ihre E-Mail gesendet. Geben Sie ihn mit Ihrem neuen Passwort ein.', forgotOtpLabel: 'Bestätigungscode', forgotOtpRequired: 'Bestätigungscode erforderlich', forgotResetBtn: 'Passwort zurücksetzen', forgotResendOtp: 'Code erneut senden', forgotDoneTitle: 'Passwort zurückgesetzt', forgotDoneMsg: 'Sie können sich nun mit Ihrem neuen Passwort anmelden.', forgotResetFailed: 'Zurücksetzen fehlgeschlagen. Überprüfen Sie den Code und versuchen Sie es erneut.',
   },
 
   nl: {
@@ -1130,6 +1136,7 @@ const translations = {
     chatOpening1: 'Bedankt voor uw bericht. Een medewerker helpt u verder.', chatOpening2: 'We bekijken uw rit. Een moment…', chatOpening3: 'Hoe kan ik helpen?',
     chatReply1: 'We hebben uw verzoek genoteerd.', chatReply2: 'Dank voor uw geduld. We bekijken uw dossier.', chatReply3: 'Uw verzoek wordt verwerkt.', chatReply4: 'We komen snel bij u terug.', chatReply5: 'Genoteerd. Ons team werkt eraan.',
     quickMsg1: 'Ik ben er bijna', quickMsg2: 'Ik sta voor de deur', quickMsg3: 'Ik sta beneden', quickMsg4: 'Kunt u naar beneden komen?', quickMsg5: 'Wat is de toegangscode?', quickMsg6: 'Ik kan het adres niet vinden',
+    forgotLink: 'Wachtwoord vergeten?', forgotTitle: 'Wachtwoord vergeten', forgotSubtitle: 'Voer uw e-mailadres in om een verificatiecode te ontvangen.', forgotSendOtp: 'Code versturen', forgotOtpSent: 'We hebben een code naar uw e-mail gestuurd. Voer deze in met uw nieuwe wachtwoord.', forgotOtpLabel: 'Verificatiecode', forgotOtpRequired: 'Verificatiecode vereist', forgotResetBtn: 'Wachtwoord herstellen', forgotResendOtp: 'Code opnieuw versturen', forgotDoneTitle: 'Wachtwoord hersteld', forgotDoneMsg: 'U kunt nu inloggen met uw nieuwe wachtwoord.', forgotResetFailed: 'Herstel mislukt. Controleer de code en probeer het opnieuw.',
   },
 
   it: {
@@ -1199,6 +1206,7 @@ const translations = {
     chatOpening1: 'Grazie per averci contattato. Un agente prenderà in carico la tua richiesta.', chatOpening2: 'Sto consultando i dettagli della consegna. Un momento…', chatOpening3: 'Come posso aiutarti?',
     chatReply1: 'Abbiamo preso nota della tua richiesta.', chatReply2: 'Grazie per la pazienza. Stiamo analizzando il tuo caso.', chatReply3: 'La tua richiesta è in elaborazione.', chatReply4: 'Ti risponderemo a breve.', chatReply5: 'Annotato. Il nostro team sta lavorando.',
     quickMsg1: 'Sto arrivando', quickMsg2: 'Sono alla porta', quickMsg3: 'Sono giù', quickMsg4: 'Può scendere?', quickMsg5: 'Qual è il codice d\'ingresso?', quickMsg6: 'Non trovo l\'indirizzo',
+    forgotLink: 'Password dimenticata?', forgotTitle: 'Password dimenticata', forgotSubtitle: 'Inserisci la tua email per ricevere un codice di verifica.', forgotSendOtp: 'Invia codice', forgotOtpSent: 'Abbiamo inviato un codice alla tua email. Inseriscilo con la nuova password.', forgotOtpLabel: 'Codice di verifica', forgotOtpRequired: 'Codice di verifica richiesto', forgotResetBtn: 'Reimposta password', forgotResendOtp: 'Invia nuovamente il codice', forgotDoneTitle: 'Password reimpostata', forgotDoneMsg: 'Ora puoi accedere con la tua nuova password.', forgotResetFailed: 'Reimpostazione fallita. Verifica il codice e riprova.',
   },
 
   pt: {
@@ -1268,6 +1276,7 @@ const translations = {
     chatOpening1: 'Obrigado por nos contactar. Um agente irá tratar do seu pedido.', chatOpening2: 'A consultar os detalhes da sua entrega. Um momento…', chatOpening3: 'Como posso ajudar?',
     chatReply1: 'Registámos o seu pedido.', chatReply2: 'Obrigado pela paciência. Estamos a analisar o seu caso.', chatReply3: 'O seu pedido está a ser processado.', chatReply4: 'Voltaremos ao contacto em breve.', chatReply5: 'Registado. A nossa equipa está a trabalhar.',
     quickMsg1: 'Estou quase a chegar', quickMsg2: 'Estou à porta', quickMsg3: 'Estou lá em baixo', quickMsg4: 'Pode descer?', quickMsg5: 'Qual é o código de entrada?', quickMsg6: 'Não encontro a morada',
+    forgotLink: 'Esqueceu a palavra-passe?', forgotTitle: 'Palavra-passe esquecida', forgotSubtitle: 'Introduza o seu email para receber um código de verificação.', forgotSendOtp: 'Enviar código', forgotOtpSent: 'Enviámos um código para o seu email. Introduza-o com a nova palavra-passe.', forgotOtpLabel: 'Código de verificação', forgotOtpRequired: 'Código de verificação necessário', forgotResetBtn: 'Redefinir palavra-passe', forgotResendOtp: 'Reenviar código', forgotDoneTitle: 'Palavra-passe redefinida', forgotDoneMsg: 'Já pode iniciar sessão com a nova palavra-passe.', forgotResetFailed: 'Falha na redefinição. Verifique o código e tente novamente.',
   },
 
   ja: {
@@ -1337,6 +1346,7 @@ const translations = {
     chatOpening1: 'ご連絡ありがとうございます。担当者がご要望を承ります。', chatOpening2: '配達の詳細を確認中です。少々お待ちください…', chatOpening3: '何かお手伝いできますか？',
     chatReply1: 'ご要望を承りました。', chatReply2: 'お待たせして申し訳ありません。確認中です。', chatReply3: 'ご要望を処理中です。', chatReply4: 'まもなくご連絡いたします。', chatReply5: '承知しました。チームが対応中です。',
     quickMsg1: 'まもなく到着します', quickMsg2: 'ドアの前にいます', quickMsg3: '建物の下にいます', quickMsg4: '降りてきていただけますか？', quickMsg5: '入館コードは何ですか？', quickMsg6: '住所が見つかりません',
+    forgotLink: 'パスワードをお忘れですか？', forgotTitle: 'パスワードを忘れた', forgotSubtitle: '確認コードを受け取るためにメールアドレスを入力してください。', forgotSendOtp: 'コードを送信', forgotOtpSent: 'メールにコードを送信しました。新しいパスワードと一緒に入力してください。', forgotOtpLabel: '確認コード', forgotOtpRequired: '確認コードが必要です', forgotResetBtn: 'パスワードをリセット', forgotResendOtp: 'コードを再送信', forgotDoneTitle: 'パスワードがリセットされました', forgotDoneMsg: '新しいパスワードでログインできるようになりました。', forgotResetFailed: 'リセットに失敗しました。コードを確認して再試行してください。',
   },
 
   th: {
@@ -1406,6 +1416,7 @@ const translations = {
     chatOpening1: 'ขอบคุณที่ติดต่อเรา เจ้าหน้าที่จะดูแลคำขอของคุณ', chatOpening2: 'กำลังตรวจสอบรายละเอียดการจัดส่งของคุณ โปรดรอสักครู่…', chatOpening3: 'ฉันช่วยอะไรได้บ้าง?',
     chatReply1: 'เราได้บันทึกคำขอของคุณแล้ว', chatReply2: 'ขอบคุณสำหรับความอดทน เรากำลังตรวจสอบกรณีของคุณ', chatReply3: 'คำขอของคุณกำลังดำเนินการ', chatReply4: 'เราจะติดต่อกลับในไม่ช้า', chatReply5: 'รับทราบ ทีมของเรากำลังดำเนินการ',
     quickMsg1: 'ใกล้ถึงแล้ว', quickMsg2: 'อยู่หน้าประตู', quickMsg3: 'อยู่ข้างล่าง', quickMsg4: 'ลงมาได้ไหม?', quickMsg5: 'รหัสเข้าคืออะไร?', quickMsg6: 'หาที่อยู่ไม่พบ',
+    forgotLink: 'ลืมรหัสผ่าน?', forgotTitle: 'ลืมรหัสผ่าน', forgotSubtitle: 'กรอกอีเมลของคุณเพื่อรับรหัสยืนยัน', forgotSendOtp: 'ส่งรหัส', forgotOtpSent: 'เราส่งรหัสไปที่อีเมลของคุณแล้ว กรอกรหัสพร้อมรหัสผ่านใหม่', forgotOtpLabel: 'รหัสยืนยัน', forgotOtpRequired: 'ต้องใช้รหัสยืนยัน', forgotResetBtn: 'ตั้งรหัสผ่านใหม่', forgotResendOtp: 'ส่งรหัสอีกครั้ง', forgotDoneTitle: 'ตั้งรหัสผ่านใหม่แล้ว', forgotDoneMsg: 'ตอนนี้คุณสามารถเข้าสู่ระบบด้วยรหัสผ่านใหม่', forgotResetFailed: 'ตั้งรหัสผ่านใหม่ล้มเหลว ตรวจสอบรหัสและลองอีกครั้ง',
   },
 
   sv: {
@@ -1475,6 +1486,7 @@ const translations = {
     chatOpening1: 'Tack för att du kontaktar oss. En agent tar hand om din förfrågan.', chatOpening2: 'Jag kollar detaljerna för din leverans. Ett ögonblick…', chatOpening3: 'Hur kan jag hjälpa dig?',
     chatReply1: 'Vi har noterat din förfrågan.', chatReply2: 'Tack för ditt tålamod. Vi granskar ditt ärende.', chatReply3: 'Din förfrågan behandlas.', chatReply4: 'Vi återkommer inom kort.', chatReply5: 'Noterat. Vårt team arbetar på det.',
     quickMsg1: 'Jag är snart framme', quickMsg2: 'Jag står vid dörren', quickMsg3: 'Jag står nere', quickMsg4: 'Kan du komma ner?', quickMsg5: 'Vad är portkoden?', quickMsg6: 'Jag kan inte hitta adressen',
+    forgotLink: 'Glömt lösenord?', forgotTitle: 'Glömt lösenord', forgotSubtitle: 'Ange din e-postadress för att få en verifieringskod.', forgotSendOtp: 'Skicka kod', forgotOtpSent: 'Vi har skickat en kod till din e-post. Ange den tillsammans med ditt nya lösenord.', forgotOtpLabel: 'Verifieringskod', forgotOtpRequired: 'Verifieringskod krävs', forgotResetBtn: 'Återställ lösenord', forgotResendOtp: 'Skicka kod igen', forgotDoneTitle: 'Lösenord återställt', forgotDoneMsg: 'Du kan nu logga in med ditt nya lösenord.', forgotResetFailed: 'Återställning misslyckades. Kontrollera koden och försök igen.',
   },
 
   ru: {
@@ -1544,6 +1556,7 @@ const translations = {
     chatOpening1: 'Спасибо за обращение. Агент возьмёт ваш запрос в работу.', chatOpening2: 'Проверяю детали вашей доставки. Минуту…', chatOpening3: 'Чем я могу помочь?',
     chatReply1: 'Мы зафиксировали ваш запрос.', chatReply2: 'Спасибо за терпение. Мы рассматриваем ваш случай.', chatReply3: 'Ваш запрос обрабатывается.', chatReply4: 'Мы ответим вам в ближайшее время.', chatReply5: 'Принято. Наша команда работает над этим.',
     quickMsg1: 'Скоро буду', quickMsg2: 'Я у двери', quickMsg3: 'Я внизу', quickMsg4: 'Можете спуститься?', quickMsg5: 'Какой код от подъезда?', quickMsg6: 'Не могу найти адрес',
+    forgotLink: 'Забыли пароль?', forgotTitle: 'Забыли пароль', forgotSubtitle: 'Введите email, чтобы получить код подтверждения.', forgotSendOtp: 'Отправить код', forgotOtpSent: 'Мы отправили код на вашу почту. Введите его вместе с новым паролем.', forgotOtpLabel: 'Код подтверждения', forgotOtpRequired: 'Требуется код подтверждения', forgotResetBtn: 'Сбросить пароль', forgotResendOtp: 'Отправить код повторно', forgotDoneTitle: 'Пароль сброшен', forgotDoneMsg: 'Теперь вы можете войти с новым паролем.', forgotResetFailed: 'Не удалось сбросить. Проверьте код и попробуйте снова.',
   },
 };
 

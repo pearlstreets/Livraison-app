@@ -61,7 +61,7 @@ const COUNTRIES = [
   { code: 'HT', flag: '🇭🇹', name: 'Haïti', phoneCode: '+509' },
 ];
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }) {
   const { t, lang, setLang, LANGUAGES } = useLanguage();
   const { login, register } = useAuth();
 
@@ -276,6 +276,12 @@ export default function LoginScreen() {
               <Pressable style={[s.btn, loginDisabled && { opacity: 0.5 }]} onPress={handleLogin} disabled={loginDisabled}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{t('loginButton') || 'Se connecter'}</Text>}
               </Pressable>
+              <TouchableOpacity
+                onPress={() => navigation?.navigate?.('ForgotPassword')}
+                style={{alignItems:'center', paddingTop:12}}
+              >
+                <Text style={{color:BRAND, fontSize:14, fontWeight:'700'}}>{t('forgotLink')}</Text>
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => { setMode('choose'); setError(''); }} style={{alignItems:'center', paddingVertical:16}}>
                 <Text style={{color:'#6B7280', fontSize:15}}>
                   {t('noAccount') || 'Pas de compte ?'} <Text style={{color:BRAND, fontWeight:'800'}}>{t('signUp') || "S'inscrire"}</Text>

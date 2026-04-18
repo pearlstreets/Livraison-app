@@ -4,6 +4,7 @@ import { sanitizeInput, isValidEmail } from '../utils/validation';
 import { authService } from '../services/authService';
 import secureStorage from '../services/secureStorage';
 import api from '../services/api';
+import pushService from '../services/pushService';
 
 // An error counts as "network-level" (backend unreachable, DNS, timeout,
 // aborted) when no HTTP response came back. In that case it's safe to fall
@@ -228,6 +229,10 @@ export function AuthProvider({ children }) {
     // authService.logout calls secureStorage.clearAll() which nukes the whole
     // store — we don't want that here.
     setUser(null);
+    // Unbind this device's OneSignal external_user_id so the next user
+    // logging in on the same phone doesn't receive the previous driver's
+    // push notifications.
+    try { pushService.clearExternalUser(); } catch { /* ignore */ }
     try {
       const refreshToken = await secureStorage.getSecure('refreshToken').catch(() => null);
       if (refreshToken) {

@@ -21,10 +21,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { deliveryService } from './services/deliveryService';
+import pushService from './services/pushService';
 import * as Device from 'expo-device';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import LoginScreen from './screens/LoginScreen';
+import ForgotPasswordScreen from './screens/ForgotPasswordScreen';
 import OrdersScreen from './screens/OrdersScreen';
 import EarningsScreen from './screens/EarningsScreen';
 import WeekDetailScreen from './screens/WeekDetailScreen';
@@ -59,6 +61,16 @@ const Tab = createBottomTabNavigator();
 const HomeStack = createNativeStackNavigator();
 const MenuStack = createNativeStackNavigator();
 const EarningsStack = createNativeStackNavigator();
+const LoginStack = createNativeStackNavigator();
+
+function LoginStackScreen() {
+  return (
+    <LoginStack.Navigator screenOptions={{ headerShown: false }}>
+      <LoginStack.Screen name="LoginMain" component={LoginScreen} />
+      <LoginStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+    </LoginStack.Navigator>
+  );
+}
 const navTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: BRAND, card: '#fff', text: '#111' } };
 
 Notifications.setNotificationHandler({
@@ -138,6 +150,20 @@ function Main() {
   useEffect(() => {
     (async () => {
       if (!Device.isDevice) return; // push tokens don't exist on simulators
+
+      // 1) OneSignal init — this is the real push channel used by the Pearl
+      // Streets backend (settings.ONESIGNAL_USER_APP_ID). Safe no-op when
+      // EXPO_PUBLIC_ONESIGNAL_APP_ID is unset or the native module isn't
+      // linked (Expo Go, web).
+      pushService.init();
+      await pushService.requestPermission();
+      if (user?.driverId || user?.email) {
+        pushService.setExternalUser(user.driverId || user.email);
+      }
+
+      // 2) Expo notifications still set up so local / scheduled notifs work
+      // (e.g. "Tester notification" on ProfileScreen). Channel-only on
+      // Android; no network call in this branch.
       try {
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
@@ -145,52 +171,64 @@ function Main() {
           const { status } = await Notifications.requestPermissionsAsync();
           finalStatus = status;
         }
-        if (finalStatus !== 'granted') return;
-
-        if (Platform.OS === 'android') {
+        if (finalStatus === 'granted' && Platform.OS === 'android') {
           await Notifications.setNotificationChannelAsync('default', {
             name: 'default',
             importance: Notifications.AndroidImportance.DEFAULT,
           });
         }
+      } catch { /* ignore */ }
 
-        // Grab the Expo push token and register it with the backend so the
-        // marketplace can actually push new-order notifications to this
-        // device. Any failure is silent — we don't want a flaky network to
-        // block the rest of the app boot.
+      // 3) Legacy Expo push token registration — kept as a fallback for
+      // dev builds without OneSignal. Silent 404 when the backend doesn't
+      // expose /push-token/; harmless.
+      if (!pushService.isEnabled()) {
         try {
           const tokenData = await Notifications.getExpoPushTokenAsync();
           const token = tokenData?.data;
           if (token) {
             deliveryService.registerPushToken(token, Platform.OS).catch(() => { /* ignore */ });
           }
-        } catch { /* ignore token fetch failures */ }
-      } catch { /* ignore permission failures */ }
+        } catch { /* ignore */ }
+      }
     })();
-  }, [user?.email]); // re-register after login
+  }, [user?.email, user?.driverId]); // re-register after login
 
   // Foreground + response listeners for push notifications. When a new order
   // is delivered to the device (either while the app is open, or when the
-  // driver taps a background notification), route them to the Orders tab so
-  // the new assignment card is visible immediately.
+  // driver taps a background notification), route to the Orders tab so the
+  // new assignment card is visible immediately. Covers BOTH push channels:
+  //   - expo-notifications: local scheduled notifs + Expo push (dev)
+  //   - OneSignal: what the Marketplace backend actually uses in prod
   useEffect(() => {
-    const isOrderPush = (n) => {
-      const type = n?.request?.content?.data?.type;
-      return type === 'new_order' || type === 'delivery_assignment';
-    };
+    const isOrderType = (type) =>
+      type === 'new_order' || type === 'delivery_assignment';
+
+    // Expo channel
+    const isExpoOrderPush = (n) => isOrderType(n?.request?.content?.data?.type);
     const receivedSub = Notifications.addNotificationReceivedListener((n) => {
-      if (isOrderPush(n)) focusOrdersTab();
+      if (isExpoOrderPush(n)) focusOrdersTab();
     });
     const responseSub = Notifications.addNotificationResponseReceivedListener((resp) => {
-      if (isOrderPush(resp?.notification)) focusOrdersTab();
+      if (isExpoOrderPush(resp?.notification)) focusOrdersTab();
     });
+
+    // OneSignal channel — only attaches when the native module is linked
+    // AND an app id is configured. Otherwise this is a no-op.
+    const onesignalClickHandler = (event) => {
+      const data = event?.notification?.additionalData || event?.additionalData || {};
+      if (isOrderType(data?.type)) focusOrdersTab();
+    };
+    pushService.addClickListener(onesignalClickHandler);
+
     return () => {
       try { receivedSub.remove(); } catch { /* ignore */ }
       try { responseSub.remove(); } catch { /* ignore */ }
+      pushService.removeClickListener();
     };
   }, []);
 
-  if (!user) return <LoginScreen />;
+  if (!user) return <LoginStackScreen />;
 
   return (
     <Tab.Navigator
