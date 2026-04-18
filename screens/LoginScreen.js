@@ -61,7 +61,7 @@ const COUNTRIES = [
   { code: 'HT', flag: '🇭🇹', name: 'Haïti', phoneCode: '+509' },
 ];
 
-export default function LoginScreen() {
+export default function LoginScreen({ navigation }) {
   const { t, lang, setLang, LANGUAGES } = useLanguage();
   const { login, register } = useAuth();
 
@@ -124,7 +124,7 @@ export default function LoginScreen() {
   };
 
   // Login with rate limiting and validation
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
     if (loginDisabled) {
       setError(t('loginCooldown') || 'Trop de tentatives. Veuillez patienter 30 secondes.');
@@ -134,7 +134,7 @@ export default function LoginScreen() {
     if (!email.trim()) { setError(t('errorNoEmail') || 'Veuillez saisir votre email'); return; }
     if (!isValidEmail(email.trim())) { setError(t('errorInvalidEmail') || 'Format email invalide'); return; }
     if (!password.trim()) { setError(t('errorNoPassword') || 'Veuillez saisir votre mot de passe'); return; }
-    const result = login(email.trim(), password);
+    const result = await login(email.trim(), password);
     if (result && typeof result === 'object' && result.locked) {
       setError(t('accountLocked') || 'Compte temporairement verrouill\u00e9. R\u00e9essayez dans quelques minutes.');
       return;
@@ -264,7 +264,7 @@ export default function LoginScreen() {
           {/* === LOGIN === */}
           {mode === 'login' && (
             <>
-              <Text style={s.label}>Email</Text>
+              <Text style={s.label}>{t('email')}</Text>
               <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
               <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
               <View style={s.pwdRow}>
@@ -276,6 +276,12 @@ export default function LoginScreen() {
               <Pressable style={[s.btn, loginDisabled && { opacity: 0.5 }]} onPress={handleLogin} disabled={loginDisabled}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{t('loginButton') || 'Se connecter'}</Text>}
               </Pressable>
+              <TouchableOpacity
+                onPress={() => navigation?.navigate?.('ForgotPassword')}
+                style={{alignItems:'center', paddingTop:12}}
+              >
+                <Text style={{color:BRAND, fontSize:14, fontWeight:'700'}}>{t('forgotLink')}</Text>
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => { setMode('choose'); setError(''); }} style={{alignItems:'center', paddingVertical:16}}>
                 <Text style={{color:'#6B7280', fontSize:15}}>
                   {t('noAccount') || 'Pas de compte ?'} <Text style={{color:BRAND, fontWeight:'800'}}>{t('signUp') || "S'inscrire"}</Text>
@@ -311,8 +317,8 @@ export default function LoginScreen() {
           {/* === SIGNUP STEP 1: Email + Password === */}
           {mode === 'signup' && step === 1 && (
             <>
-              <Text style={s.label}>Email</Text>
-              <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder="email@exemple.com" placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+              <Text style={s.label}>{t('email')}</Text>
+              <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder={t('loginEmail')} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
               <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
               <View style={s.pwdRow}>
                 <TextInput style={[s.input, {flex:1, marginBottom:0}]} value={password} onChangeText={setPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />

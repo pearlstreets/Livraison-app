@@ -3,12 +3,14 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHeaderHeight } from '@react-navigation/elements';
 import MapView, { Marker } from 'react-native-maps';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const MARGIN_H = 16;   // marge gauche/droite
 const GAP_TOP  = 8;    // écart souhaité en haut
 
 export default function MapScreen() {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const headerHeight = typeof useHeaderHeight === 'function' ? useHeaderHeight() : 0;
 
   // Si header > 0, on n’ajoute PAS la safe-area (car le contenu est déjà sous le header)
@@ -38,7 +40,7 @@ export default function MapScreen() {
         ]}
       >
         <Text style={styles.bannerText} numberOfLines={2}>
-          Aucune commande active{'\n'}Boost auto appliqué selon zone
+          {t('noOrderActive')}{'\n'}{t('boostAutoAppliedMsg')}
         </Text>
       </View>
     </View>

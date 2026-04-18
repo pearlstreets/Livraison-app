@@ -1,8 +1,15 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import secureStorage from './secureStorage';
 import { sanitizeForApi } from '../utils/validation';
 
-const API_BASE = 'https://pythonapi.digiexports.in';
+// Base URL resolution order:
+//  1. EXPO_PUBLIC_API_URL env var (set at build time via `app.config.ts`,
+//     `eas.json`, or a plain `.env`) — lets prod / staging / local point to
+//     Pearl Streets without code changes.
+//  2. Hardcoded fallback — the dev backend we've been using all along.
+const API_BASE = (process.env.EXPO_PUBLIC_API_URL || 'https://pythonapi.digiexports.in').replace(/\/+$/, '');
+export { API_BASE };
 
 // Request ID generator for tracing
 const generateRequestId = () =>
@@ -46,9 +53,15 @@ function sanitizeRequestData(data) {
   return sanitized;
 }
 
-// Request interceptor - attach token, sanitize, add headers
+// Request interceptor - attach token, sanitize, add headers.
+// IMPORTANT: authService.login stores the access token via
+// secureStorage.setSecure (SecureStore on device, XOR-obfuscated AsyncStorage
+// as fallback). Reading from AsyncStorage directly would either miss the
+// token entirely (on device) or attach garbage (obfuscated value) as the
+// Bearer header. Always go through secureStorage.getSecure here.
 api.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem('accessToken');
+  let token = null;
+  try { token = await secureStorage.getSecure('accessToken'); } catch { /* ignore */ }
   if (token) config.headers.Authorization = `Bearer ${token}`;
 
   // Request ID for tracing
@@ -72,26 +85,60 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Response interceptor - handle 401, sanitize errors
+// Response interceptor — handle 401 with a SINGLE refresh attempt shared by
+// concurrent callers. Without this queue, N parallel requests that all hit
+// 401 at once would each fire its own POST /token/refresh/. Some backends
+// (SimpleJWT with ROTATE_REFRESH_TOKENS=True) invalidate the refresh token
+// on the first call, so the other N-1 refreshes fail and the session gets
+// wiped even though the user is perfectly valid. We serialise refreshes:
+// the first 401 performs the refresh, any other concurrent 401 waits on
+// the same Promise, and all N original requests retry once refreshed.
+async function clearSession() {
+  try { await secureStorage.removeSecure('accessToken'); } catch { /* ignore */ }
+  try { await secureStorage.removeSecure('refreshToken'); } catch { /* ignore */ }
+  try { await AsyncStorage.removeItem('userData'); } catch { /* ignore */ }
+}
+
+let inflightRefresh = null;
+
+async function refreshAccessToken() {
+  if (inflightRefresh) return inflightRefresh;
+  inflightRefresh = (async () => {
+    try {
+      const refreshToken = await secureStorage.getSecure('refreshToken');
+      if (!refreshToken) throw new Error('No refresh token stored');
+      // Raw axios (not `api`) to skip our own interceptors — otherwise a
+      // failing refresh would re-enter the 401 handler recursively.
+      const { data } = await axios.post(`${API_BASE}/api/v1/token/refresh/`, { refresh: refreshToken });
+      const newAccess = data?.access || data?.access_token;
+      if (!newAccess) throw new Error('No access token in refresh response');
+      await secureStorage.setSecure('accessToken', newAccess);
+      if (data.refresh || data.refresh_token) {
+        await secureStorage.setSecure('refreshToken', data.refresh || data.refresh_token);
+      }
+      return newAccess;
+    } finally {
+      // Clear the shared promise on next tick so callers currently awaiting
+      // this refresh read the value, but any 401 that lands after now
+      // triggers a fresh attempt rather than reusing the settled promise.
+      setTimeout(() => { inflightRefresh = null; }, 0);
+    }
+  })();
+  return inflightRefresh;
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const refreshToken = await AsyncStorage.getItem('refreshToken');
-        if (!refreshToken) {
-          await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userData']);
-          return Promise.reject(createSafeError('Session expired'));
-        }
-        const { data } = await axios.post(`${API_BASE}/api/v1/delivery/token/refresh/`, { refresh: refreshToken });
-        await AsyncStorage.setItem('accessToken', data.access);
-        if (data.refresh) await AsyncStorage.setItem('refreshToken', data.refresh);
-        originalRequest.headers.Authorization = `Bearer ${data.access}`;
+        const newAccess = await refreshAccessToken();
+        originalRequest.headers.Authorization = `Bearer ${newAccess}`;
         return api(originalRequest);
       } catch (refreshError) {
-        await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userData']);
+        await clearSession();
         return Promise.reject(createSafeError('Session expired'));
       }
     }

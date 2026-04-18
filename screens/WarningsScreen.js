@@ -31,7 +31,7 @@ export default function WarningsScreen({ navigation }) {
         </View>
         <Text style={s.gaugeText}>{warnings}/3 {t('warnings')}</Text>
         {warnings === 0 && (
-          <Text style={s.gaugeGood}>{t('noWarnings') || 'Aucun avertissement'}</Text>
+          <Text style={s.gaugeGood}>{t('noWarnings')}</Text>
         )}
         {warnings > 0 && warnings < 3 && (
           <Text style={s.gaugeWarn}>{3 - warnings} {t('warningRemaining')}</Text>
@@ -45,7 +45,7 @@ export default function WarningsScreen({ navigation }) {
       <View style={s.infoCard}>
         <Ionicons name="information-circle" size={20} color={BRAND} style={{ marginRight: 10 }} />
         <Text style={s.infoText}>
-          Les avertissements sont attribués en cas de non-respect des règles de la plateforme. Au bout de 3 avertissements, votre compte est désactivé.
+          {t('warningsInfo')}
         </Text>
       </View>
 
@@ -54,7 +54,7 @@ export default function WarningsScreen({ navigation }) {
       {warningsList.length === 0 ? (
         <View style={s.emptyCard}>
           <Ionicons name="checkmark-circle" size={32} color={BRAND} />
-          <Text style={s.emptyText}>Aucun avertissement pour le moment</Text>
+          <Text style={s.emptyText}>{t('noWarningsYet')}</Text>
         </View>
       ) : (
         warningsList.map((w, i) => (
@@ -64,12 +64,12 @@ export default function WarningsScreen({ navigation }) {
                 <Ionicons name="warning" size={18} color="#e74c3c" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.warningNum}>Avertissement #{warningsList.length - i}</Text>
-                <Text style={s.warningDate}>{w.date} à {w.time}</Text>
+                <Text style={s.warningNum}>{t('warningNumber')} #{warningsList.length - i}</Text>
+                <Text style={s.warningDate}>{w.date} · {w.time}</Text>
               </View>
             </View>
             <View style={s.warningReasonWrap}>
-              <Text style={s.warningReasonLabel}>Motif :</Text>
+              <Text style={s.warningReasonLabel}>{t('reason')} :</Text>
               <Text style={s.warningReason}>{w.reason}</Text>
             </View>
           </View>
@@ -77,18 +77,18 @@ export default function WarningsScreen({ navigation }) {
       )}
 
       {/* Causes possibles */}
-      <Text style={s.sectionTitle}>Causes possibles</Text>
+      <Text style={s.sectionTitle}>{t('possibleCauses')}</Text>
       <View style={s.causesCard}>
         {[
-          { icon: 'close-circle-outline', text: 'Trop d\'annulations de commandes (> 5/semaine)', color: '#e74c3c' },
-          { icon: 'time-outline', text: 'Retards répétés aux points de récupération', color: '#f5a623' },
-          { icon: 'alert-circle-outline', text: 'Signalements clients (comportement, état du colis)', color: '#f5a623' },
-          { icon: 'document-text-outline', text: 'Documents expirés ou non conformes', color: '#e74c3c' },
-          { icon: 'ban-outline', text: 'Non-respect des conditions de livraison', color: '#e74c3c' },
+          { icon: 'close-circle-outline', textKey: 'cause1', color: '#e74c3c' },
+          { icon: 'time-outline', textKey: 'cause2', color: '#f5a623' },
+          { icon: 'alert-circle-outline', textKey: 'cause3', color: '#f5a623' },
+          { icon: 'document-text-outline', textKey: 'cause4', color: '#e74c3c' },
+          { icon: 'ban-outline', textKey: 'cause5', color: '#e74c3c' },
         ].map((cause, i) => (
           <View key={i} style={[s.causeRow, i < 4 && s.causeBorder]}>
             <Ionicons name={cause.icon} size={18} color={cause.color} style={{ marginRight: 12 }} />
-            <Text style={s.causeText}>{cause.text}</Text>
+            <Text style={s.causeText}>{t(cause.textKey)}</Text>
           </View>
         ))}
       </View>
@@ -97,7 +97,7 @@ export default function WarningsScreen({ navigation }) {
       {warnings > 0 && (
         <Pressable style={s.contestBtn} onPress={() => navigation.navigate('ContactSupport')}>
           <Ionicons name="chatbubbles-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={s.contestTxt}>Contester un avertissement</Text>
+          <Text style={s.contestTxt}>{t('contestWarning')}</Text>
         </Pressable>
       )}
 

@@ -1,5 +1,23 @@
-import React, { createContext, useContext, useState, useRef } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sanitizeInput, isValidEmail } from '../utils/validation';
+import { authService } from '../services/authService';
+import secureStorage from '../services/secureStorage';
+import api from '../services/api';
+import pushService from '../services/pushService';
+
+// An error counts as "network-level" (backend unreachable, DNS, timeout,
+// aborted) when no HTTP response came back. In that case it's safe to fall
+// back to the local USERS list so the demo account still works offline.
+// Any HTTP response — 401/404/500/… — is treated as authoritative and NOT
+// masked by the mock. Handles BOTH raw axios errors (err.response) and the
+// sanitised ones produced by services/api.js createSafeError (err.isNetworkError).
+function isNetworkLevelError(err) {
+  if (!err) return false;
+  if (err.isNetworkError === true) return true;
+  if (err.isNetworkError === false) return false;
+  return !err.response && !err.status;
+}
 
 const USERS = [
   { email: 'remsko@live.fr', password: 'Test@123', firstName: 'Ganja', lastName: 'Remsko', pseudo: 'Remsko', phone: '06 12 34 56 78', vehicle: 'Scooter' },
@@ -36,8 +54,15 @@ const INITIAL_HISTORY = [
   { id: 'ORD-2984', restaurant: 'La Terrasse, Meaux', address: '3 Bd Barbès, Meaux', distanceText: '2.1 km', priceText: '9.20 €', tip: null, date: '29 mars', time: '13h18', status: 'completed', completedAt: '2026-03-29T13:18:00' },
 ];
 
+// Demo user rehydrated in dev if no real session is found. In production
+// (`__DEV__ === false`) we start with user = null so the LoginScreen is
+// the first thing a fresh install sees — no "logged in as demo" flash.
+const DEMO_USER = __DEV__
+  ? { email: 'remsko@live.fr', firstName: 'Ganja', lastName: 'Remsko', pseudo: 'Remsko', phone: '06 12 34 56 78', vehicle: 'Scooter', photo: null }
+  : null;
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState({ email: 'remsko@live.fr', firstName: 'Ganja', lastName: 'Remsko', pseudo: 'Remsko', phone: '06 12 34 56 78', vehicle: 'Scooter', photo: null });
+  const [user, setUser] = useState(DEMO_USER);
   const [warnings, setWarnings] = useState(0);
   const [accountActive, setAccountActive] = useState(true);
   const [rating, setRating] = useState(4.8);
@@ -58,13 +83,82 @@ export function AuthProvider({ children }) {
   const [readOpportunities, setReadOpportunities] = useState([]);
   const [ticketMessages, setTicketMessages] = useState({});
   const [ticketReadCounts, setTicketReadCounts] = useState({}); // { ticketId: lastReadCount }
+  // Driver-to-client chat drafts, keyed by orderId. Cleared on delivery completion.
+  const [clientChats, setClientChats] = useState({}); // { orderId: Message[] }
   const MAX_WEEKLY_CANCELS = 5;
 
   // Login attempt tracking
   const loginAttemptsRef = useRef(0);
   const lockoutUntilRef = useRef(null);
 
-  function login(email, password) {
+  // Session restoration on boot: if authService.login previously stored a
+  // token pair + userData, rehydrate the user state without forcing a
+  // re-login. If the stored access token has expired, the first authenticated
+  // request will trigger the refresh interceptor in services/api.js; if the
+  // refresh fails the interceptor clears the session and the user lands on
+  // LoginScreen — no crash, no data loss beyond the session itself.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [token, rawUser] = await Promise.all([
+          secureStorage.getSecure('accessToken').catch(() => null),
+          AsyncStorage.getItem('userData').catch(() => null),
+        ]);
+        if (cancelled || !token || !rawUser) return;
+        const parsed = JSON.parse(rawUser);
+        if (!parsed || typeof parsed !== 'object') return;
+        // Accept either the normalized shape we persist after login or the
+        // raw DeliveryDriverProfileSerializer payload. Mount the stored
+        // value first so the UI renders instantly; the refresh below then
+        // reconciles any stale field with the backend.
+        setUser({
+          email: parsed.email,
+          firstName: parsed.firstName || parsed.first_name || '',
+          lastName: parsed.lastName || parsed.last_name || '',
+          pseudo: parsed.pseudo || parsed.userName || parsed.username || parsed.email,
+          phone: parsed.phone || '',
+          phoneCode: parsed.phoneCode || '',
+          vehicle: parsed.vehicle || parsed.vehicle_type || 'Scooter',
+          photo: parsed.photo || null,
+          role: parsed.role || 'driver',
+          driverId: parsed.driverId || parsed.id,
+        });
+
+        // Background refresh: pull a fresh profile from /profile/ so
+        // rating / total_deliveries / verification / account_active are
+        // up to date. Any failure (network, 401 → auto-refresh via the
+        // axios interceptor, or final auth loss) leaves the cached user
+        // in place; it does NOT clear the session here.
+        try {
+          const fresh = await authService.getProfile();
+          if (cancelled || !fresh) return;
+          const remote = fresh?.data || fresh;
+          if (remote && typeof remote === 'object') {
+            setUser(prev => prev ? {
+              ...prev,
+              email: remote.email || prev.email,
+              phone: remote.phone || prev.phone,
+              phoneCode: remote.phoneCode || prev.phoneCode,
+              pseudo: remote.userName || remote.username || prev.pseudo,
+              vehicle: remote.vehicle_type || prev.vehicle,
+              rating: remote.rating ?? prev.rating,
+              totalDeliveries: remote.total_deliveries ?? prev.totalDeliveries,
+              isVerified: remote.is_verified ?? prev.isVerified,
+              driverId: remote.id ?? prev.driverId,
+            } : prev);
+            // Persist the refreshed snapshot so next boot starts even fresher.
+            try {
+              await AsyncStorage.setItem('userData', JSON.stringify(remote));
+            } catch { /* ignore */ }
+          }
+        } catch { /* keep cached user */ }
+      } catch { /* silent — falls back to logged-out state */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function login(email, password) {
     // Check lockout
     if (lockoutUntilRef.current && Date.now() < lockoutUntilRef.current) {
       const remaining = Math.ceil((lockoutUntilRef.current - Date.now()) / 1000);
@@ -76,6 +170,48 @@ export function AuthProvider({ children }) {
     if (!isValidEmail(cleanEmail)) return false;
     if (!password || typeof password !== 'string') return false;
 
+    // 1) Try the real backend first.
+    // Shape reference: DeliveryDriverProfileSerializer (Marketplace repo) —
+    // fields: email, userName, phone, phoneCode, vehicle_type, rating,
+    // total_deliveries, total_earnings, warnings_count, account_active,
+    // is_verified. No first/last name or photo fields exist server-side.
+    try {
+      const data = await authService.login(cleanEmail, password);
+      const remoteUser = data?.user || {};
+      setUser({
+        email: remoteUser.email || cleanEmail,
+        firstName: remoteUser.first_name || remoteUser.firstName || '',
+        lastName: remoteUser.last_name || remoteUser.lastName || '',
+        pseudo: remoteUser.userName || remoteUser.username || remoteUser.pseudo || remoteUser.email || cleanEmail,
+        phone: remoteUser.phone || '',
+        phoneCode: remoteUser.phoneCode || '',
+        vehicle: remoteUser.vehicle_type || remoteUser.vehicle || 'Scooter',
+        photo: remoteUser.photo || remoteUser.photo_url || null,
+        role: remoteUser.role || 'driver',
+        driverId: remoteUser.id,
+        rating: remoteUser.rating,
+        totalDeliveries: remoteUser.total_deliveries,
+        isVerified: remoteUser.is_verified,
+      });
+      loginAttemptsRef.current = 0;
+      lockoutUntilRef.current = null;
+      return true;
+    } catch (err) {
+      // Real HTTP response → backend says "no". Don't mask with the mock.
+      if (!isNetworkLevelError(err)) {
+        loginAttemptsRef.current += 1;
+        if (loginAttemptsRef.current >= MAX_LOGIN_ATTEMPTS) {
+          lockoutUntilRef.current = Date.now() + LOCKOUT_DURATION_MS;
+          loginAttemptsRef.current = 0;
+          return { locked: true, remainingSeconds: LOCKOUT_DURATION_MS / 1000 };
+        }
+        return false;
+      }
+      // else: network error → fall through to local demo accounts.
+    }
+
+    // 2) Network unreachable → fall back to the local demo users so dev /
+    // offline flows keep working.
     const found = USERS.find(
       u => u.email.toLowerCase() === cleanEmail.toLowerCase() && u.password === password
     );
@@ -88,7 +224,6 @@ export function AuthProvider({ children }) {
       }
       return false;
     }
-    // Reset attempts on success
     loginAttemptsRef.current = 0;
     lockoutUntilRef.current = null;
     const { password: _, ...profile } = found;
@@ -126,7 +261,27 @@ export function AuthProvider({ children }) {
     return true;
   }
 
-  function logout() { setUser(null); }
+  async function logout() {
+    // Surgical session cleanup: wipe only the auth artefacts so non-session
+    // preferences (language, notifications read state, …) survive logout.
+    // authService.logout calls secureStorage.clearAll() which nukes the whole
+    // store — we don't want that here.
+    setUser(null);
+    // Unbind this device's OneSignal external_user_id so the next user
+    // logging in on the same phone doesn't receive the previous driver's
+    // push notifications.
+    try { pushService.clearExternalUser(); } catch { /* ignore */ }
+    try {
+      const refreshToken = await secureStorage.getSecure('refreshToken').catch(() => null);
+      if (refreshToken) {
+        // Fire-and-forget so logout UX never stalls on a slow backend.
+        api.post('/api/v1/delivery/logout/', { refresh: refreshToken }).catch(() => { /* ignore */ });
+      }
+    } catch { /* ignore */ }
+    try { await secureStorage.removeSecure('accessToken'); } catch { /* ignore */ }
+    try { await secureStorage.removeSecure('refreshToken'); } catch { /* ignore */ }
+    try { await AsyncStorage.removeItem('userData'); } catch { /* ignore */ }
+  }
 
   function updateUser(updates) { setUser(prev => prev ? { ...prev, ...updates } : prev); }
 
@@ -227,13 +382,9 @@ export function AuthProvider({ children }) {
 
   const adminReplyTimers = useRef({});
 
-  const ADMIN_REPLIES = [
-    'Nous avons bien pris en compte votre demande. Un membre de l\'équipe va vous répondre sous peu.',
-    'Merci pour votre patience. Nous analysons votre dossier.',
-    'Votre demande est en cours de traitement par notre équipe.',
-    'Nous revenons vers vous très rapidement avec une solution.',
-    'Bien noté. Notre équipe travaille sur votre demande.',
-  ];
+  // Reply keys — resolved at render time via t() so the chat follows the
+  // current language even for auto-generated messages already in storage.
+  const ADMIN_REPLY_KEYS = ['chatReply1', 'chatReply2', 'chatReply3', 'chatReply4', 'chatReply5'];
 
   function getTicketMessages(ticketId) {
     return ticketMessages[ticketId] || null;
@@ -254,18 +405,37 @@ export function AuthProvider({ children }) {
     if (adminReplyTimers.current[ticketId]) clearTimeout(adminReplyTimers.current[ticketId]);
     const delay = 3000 + Math.random() * 4000;
     adminReplyTimers.current[ticketId] = setTimeout(() => {
-      const reply = ADMIN_REPLIES[Math.floor(Math.random() * ADMIN_REPLIES.length)];
+      const textKey = ADMIN_REPLY_KEYS[Math.floor(Math.random() * ADMIN_REPLY_KEYS.length)];
       setTicketMessages(prev => {
         const msgs = prev[ticketId] || [];
         return { ...prev, [ticketId]: [...msgs, {
           id: `admin-auto-${Date.now()}`,
           type: 'admin',
-          text: reply,
+          textKey, // resolved at render via t(); old messages still use `text`
           time: new Date().toISOString(),
         }] };
       });
       delete adminReplyTimers.current[ticketId];
     }, delay);
+  }
+
+  function getClientChat(orderId) {
+    if (!orderId) return [];
+    return clientChats[orderId] || [];
+  }
+
+  function saveClientChat(orderId, msgs) {
+    if (!orderId) return;
+    setClientChats(prev => ({ ...prev, [orderId]: msgs }));
+  }
+
+  function clearClientChat(orderId) {
+    if (!orderId) return;
+    setClientChats(prev => {
+      if (!(orderId in prev)) return prev;
+      const { [orderId]: _removed, ...rest } = prev;
+      return rest;
+    });
   }
 
   function cancelAdminReply(ticketId) {
@@ -317,7 +487,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, updateUser, warnings, accountActive, rating, totalDeliveries, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount, deliveryHistory, addToHistory, markOrderReported, getTicketMessages, saveTicketMessages, currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban, isOnline, setIsOnline, warningsList, markTicketRead, getUnreadTicketCount, scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts, readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateUser, warnings, accountActive, rating, totalDeliveries, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount, deliveryHistory, addToHistory, markOrderReported, getTicketMessages, saveTicketMessages, currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban, isOnline, setIsOnline, warningsList, markTicketRead, getUnreadTicketCount, scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts, readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount, getClientChat, saveClientChat, clearClientChat }}>
       {children}
     </AuthContext.Provider>
   );

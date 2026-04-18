@@ -8,7 +8,54 @@ import DetailsSheet from '../components/DetailsSheet';
 import { getMeauxSeed } from '../constants/mockOrders';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { deliveryService } from '../services/deliveryService';
+import * as Location from 'expo-location';
 import filtersUI from '../constants/filters-ui.json';
+
+// Normalize a backend-shaped order into the fields the OrderCard renders.
+// Backend reference (AvailableDeliveriesView in DeliveryApp/views.py):
+//   order_id (int), customer_name, order_price (string "12.34"),
+//   order_status, order_date, delivery_method,
+//   pickup_address, dropoff_address, delivery_notes.
+// Note: backend does NOT expose distance_km, eta, client phone, or itemised
+// products on this endpoint — we fill what we can and default the rest so
+// the existing OrderCard layout still renders without gaps.
+function normalizeRemoteOrder(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const orderId = raw.order_id ?? raw.id ?? raw.code ?? raw.assignment_id ?? raw.assignmentId;
+  if (!orderId && orderId !== 0) return null;
+  const km = Number(raw.distance_km ?? raw.distanceKm ?? raw.distance ?? 0);
+  const priceNum = Number(raw.order_price ?? raw.price);
+  const priceText = Number.isFinite(priceNum)
+    ? `${priceNum.toFixed(2)} €`
+    : (raw.price_text || '');
+  return {
+    _uid: `api-${orderId}`,
+    id: String(orderId),
+    orderId: Number(orderId),
+    assignmentId: raw.assignment_id || raw.assignmentId || null,
+    category: raw.category || 'Food & Drink',
+    restaurant: raw.restaurant || raw.merchant_name || raw.merchantName || raw.pickup_address || raw.pickup_label || 'Restaurant',
+    merchantName: raw.merchant_name || raw.merchantName || raw.pickup_address || '',
+    customerName: raw.customer_name || '',
+    address: raw.dropoff_address || raw.address || raw.delivery_address || '',
+    dropoffAddress: raw.dropoff_address || raw.address || raw.delivery_address || '',
+    pickupAddress: raw.pickup_address || '',
+    deliveryNotes: raw.delivery_notes || '',
+    distanceText: km ? `${km.toFixed(1)} km` : (raw.distance_text || ''),
+    etaText: raw.eta_text || (raw.eta_min ? `${raw.eta_min} min` : ''),
+    priceText,
+    itemsCount: raw.items_count ?? raw.itemsCount ?? (Array.isArray(raw.items) ? raw.items.length : 0),
+    items: Array.isArray(raw.items) ? raw.items : [],
+    dropoffLat: raw.dropoff_lat ?? raw.dropoffLat,
+    dropoffLng: raw.dropoff_lng ?? raw.dropoffLng,
+    // Backend does not currently expose the customer phone on /available/;
+    // keep the field so a future payload change lights up the "Call client"
+    // button without code churn.
+    clientPhone: raw.client_phone || raw.customer_phone || raw.phone || null,
+    _source: 'api',
+  };
+}
 
 /* === Filtres inline (unique) === */
 const OrdersInlineFilters = React.memo(({ selected, onChange, filters = [] }) => {
@@ -247,12 +294,107 @@ export default function OrdersScreen({ navigation, route }) {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = null; };
   }, [online]);
 
+  // Background location updates while online so the marketplace can route
+  // nearby orders. Requests foreground permission once, then pushes
+  // location every 30 seconds. Permission denial or any other failure is
+  // silent — the app still works, backend just doesn't see the driver's
+  // position.
+  useEffect(() => {
+    if (!online) return undefined;
+    let cancelled = false;
+    let intervalId = null;
+
+    (async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        let finalStatus = status;
+        if (status !== 'granted') {
+          const req = await Location.requestForegroundPermissionsAsync();
+          finalStatus = req.status;
+        }
+        if (finalStatus !== 'granted' || cancelled) return;
+
+        const pushCurrent = async () => {
+          try {
+            const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            if (!pos?.coords || cancelled) return;
+            deliveryService.updateLocation(pos.coords.latitude, pos.coords.longitude).catch(() => { /* ignore */ });
+          } catch { /* ignore individual failures */ }
+        };
+        pushCurrent();
+        intervalId = setInterval(pushCurrent, 30000);
+      } catch { /* ignore permission errors */ }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [online]);
+
+  // Real API polling — runs in parallel with the mock feed so the driver sees
+  // both demo orders and real assignments pushed by the marketplace. Silent
+  // fallback on any error (offline, 4xx/5xx, empty payload) means the mock
+  // flow is never interrupted.
+  useEffect(() => {
+    if (!online) return undefined;
+    let cancelled = false;
+    const pollRealOrders = async () => {
+      try {
+        const raw = await deliveryService.getAvailableOrders();
+        if (cancelled) return;
+        // Tolerate: bare array | DRF {results:[]} | DeliveryApp {status,count,data:[]}.
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+            ? raw.results
+            : Array.isArray(raw?.data)
+              ? raw.data
+              : [];
+        if (list.length === 0) return;
+        const normalized = list.map(normalizeRemoteOrder).filter(Boolean);
+        if (normalized.length === 0) return;
+        setAvailable(prev => {
+          const existingIds = new Set(prev.map(o => o._uid || o.id));
+          const added = normalized.filter(o => !existingIds.has(o._uid) && !existingIds.has(o.id));
+          if (added.length === 0) return prev;
+          return [...added, ...prev].slice(0, 20);
+        });
+      } catch { /* silent — mock continues */ }
+    };
+    pollRealOrders();
+    const iv = setInterval(pollRealOrders, 15000); // every 15s
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [online]);
+
   const onAccept = useCallback((order) => {
     const key = orderKey(order);
+    // Optimistic local update first so the navigation feels instant.
     setAvailable(prev => prev.filter(o => orderKey(o) !== key));
     setActive(prev => [{ ...order, status: 'active' }, ...prev]);
     setActiveSteps(prev => ({ ...prev, [key]: { stepIndex: 0, stepLabel: 'Récupération' } }));
     navigation.navigate('DeliveryFlow', { order });
+
+    // Real accept, only for API-sourced orders (has an orderId / _source='api').
+    // Fire it in the background so nav feels instant; when the backend returns
+    // the fresh DeliveryAssignment, push its id into DeliveryFlow's route params
+    // so subsequent status PATCHs target the correct assignment.
+    const orderId = order.orderId ?? (order._source === 'api' ? Number(order.id) : null);
+    if (!orderId) return;
+    (async () => {
+      try {
+        const resp = await deliveryService.acceptDelivery(orderId, {
+          pickup_address: order.pickupAddress || '',
+          dropoff_address: order.dropoffAddress || '',
+        });
+        const assignmentId = resp?.data?.id ?? resp?.id;
+        if (assignmentId) {
+          setActive(prev => prev.map(o => orderKey(o) === key ? { ...o, assignmentId } : o));
+          // Only update params if DeliveryFlow is still the active route for this order.
+          try { navigation.setParams({ assignmentId }); } catch { /* ignore */ }
+        }
+      } catch { /* silent — local flow continues regardless */ }
+    })();
   }, [navigation]);
 
   const onResumeActive = useCallback((order) => {
@@ -320,6 +462,10 @@ export default function OrdersScreen({ navigation, route }) {
                 return;
               }
               setOnline(val);
+              // Tell the backend so it starts / stops routing orders to
+              // this driver. Fire-and-forget — if the call fails, local
+              // state still reflects the driver's intent.
+              deliveryService.toggleOnline(val).catch(() => { /* ignore */ });
             }}
             trackColor={{ true: '#00C29B', false: '#E6E8EB' }}
             thumbColor={online ? '#fff' : '#fff'}

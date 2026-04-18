@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { earningsService } from '../services/earningsService';
 
 const BRAND = '#00C29B';
 
@@ -33,7 +34,7 @@ export default function WalletScreen({ navigation }) {
   function startEncaiss() {
     if (earn.earningsCents <= 0) return;
     if (alreadyCashedToday) {
-      Alert.alert('Limite atteinte', 'Vous ne pouvez effectuer qu\'un seul encaissement par jour.');
+      Alert.alert(t('limitReached'), t('onlyOneCashoutPerDay'));
       return;
     }
     setCashedAmount(earn.earnings);
@@ -43,6 +44,13 @@ export default function WalletScreen({ navigation }) {
 
   function processEncaiss() {
     setEncaissStep('processing');
+    // Fire the real cashout request. The backend throttles to 1 per day
+    // server-side (CashoutRateThrottle); any failure is swallowed so the
+    // local demo keeps working — the Alert at /screens/WalletScreen.js
+    // already handles the "1 per day" case client-side.
+    earningsService.requestCashout().catch(() => { /* ignore */ });
+    // Keep the 1.5s faux-processing window so the UI still animates even
+    // when the real response is near-instant — avoids a jarring flash.
     setTimeout(() => {
       cashOut();
       setEncaissStep('done');
@@ -66,7 +74,7 @@ export default function WalletScreen({ navigation }) {
             <Text style={s.balanceAmount}>{earn.earnings}</Text>
             <Ionicons name="chevron-forward" size={22} color="#999" />
           </View>
-          <Text style={s.nextPayout}>Versement planifié : 31 mars</Text>
+          <Text style={s.nextPayout}>{t('plannedPayout')} : 31/03</Text>
           <Pressable style={[s.encaissBtn, earn.earningsCents <= 0 && { opacity: 0.4 }]} onPress={startEncaiss}>
             <Ionicons name="flash" size={16} color="#111" />
             <Text style={s.encaissTxt}>{t('cashout')}</Text>

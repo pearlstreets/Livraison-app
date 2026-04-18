@@ -124,7 +124,9 @@ export const authService = {
     const refreshToken = await AsyncStorage.getItem('refreshToken');
     if (!refreshToken) throw new Error('No refresh token');
 
-    const { data } = await api.post('/api/v1/delivery/token/refresh/', { refresh: refreshToken });
+    // Refresh endpoint is mounted at root, NOT under /delivery/.
+    // See Marketplace/urls.py: path('api/v1/token/refresh/', CookieAwareTokenRefreshView).
+    const { data } = await api.post('/api/v1/token/refresh/', { refresh: refreshToken });
     await secureStorage.setSecure('accessToken', data.access);
     if (data.refresh) {
       await secureStorage.setSecure('refreshToken', data.refresh);

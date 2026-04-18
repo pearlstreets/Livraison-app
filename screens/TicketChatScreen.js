@@ -4,24 +4,26 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { ticketService } from '../services/ticketService';
 
 const BRAND = '#00C29B';
 
-const AUTO_REPLIES = [
-  { delay: 1500, text: 'Bonjour ! Merci de nous contacter. Un agent va prendre en charge votre demande.' },
-  { delay: 4000, text: 'Je consulte les détails de votre course. Un instant s\'il vous plaît...' },
-  { delay: 8000, text: 'J\'ai bien retrouvé votre course. Comment puis-je vous aider exactement ?' },
-];
+// Opening messages emitted when a ticket is created. Stored as keys so the
+// full conversation re-renders in whatever language the user picks later.
+const OPENING_REPLY_KEYS = ['chatOpening1', 'chatOpening2', 'chatOpening3'];
+// Pool for generated replies after the user sends a message.
+const USER_REPLY_KEYS = ['chatReply1', 'chatReply2', 'chatReply3', 'chatReply4', 'chatReply5'];
 
 function buildInitialMessages(orderId) {
   const now = new Date();
   return [
-    { id: '0', type: 'system', text: `Ticket ouvert pour la commande ${orderId || 'N/A'}` },
-    ...AUTO_REPLIES.map((reply, i) => ({
+    // System banner stores only a textKey + orderId; rendered via t(textKey) + id.
+    { id: '0', type: 'system', textKey: 'ticketOpenedFor', orderId: orderId || 'N/A' },
+    ...OPENING_REPLY_KEYS.map((k, i) => ({
       id: `admin-${i}`,
       type: 'admin',
-      text: reply.text,
-      time: new Date(now.getTime() - (AUTO_REPLIES.length - i) * 60000).toISOString(),
+      textKey: k,
+      time: new Date(now.getTime() - (OPENING_REPLY_KEYS.length - i) * 60000).toISOString(),
     })),
   ];
 }
@@ -62,9 +64,53 @@ export default function TicketChatScreen({ navigation, route }) {
     };
   }, [messages, isResolvedState]);
 
+  // Fetch the real ticket detail from the backend on mount so driver sees
+  // actual support replies (not just the local placeholder auto-replies).
+  // Only runs for tickets whose id is numeric — our mock TK- identifiers
+  // obviously don't exist server-side. Silent on any failure.
+  useEffect(() => {
+    const numericId = typeof ticketId === 'number'
+      ? ticketId
+      : (typeof ticketId === 'string' && /^\d+$/.test(ticketId) ? Number(ticketId) : null);
+    if (!numericId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await ticketService.getTicketDetail(numericId);
+        if (cancelled || !data) return;
+        const remoteMsgs = Array.isArray(data?.messages) ? data.messages : [];
+        if (remoteMsgs.length === 0) return;
+        // Map backend TicketMessage rows onto the local render shape. Each
+        // remote id is prefixed so it never collides with locally-generated
+        // ids like `user-<timestamp>` or `admin-reply-<timestamp>`.
+        const mapped = remoteMsgs.map(m => ({
+          id: `remote-${m.id}`,
+          type: m.sender_type === 'admin' || m.is_admin ? 'admin' : 'user',
+          text: m.text || m.message || '',
+          time: m.created_at || m.time || new Date().toISOString(),
+        }));
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(x => x.id));
+          const toAdd = mapped.filter(m => !existingIds.has(m.id));
+          if (toAdd.length === 0) return prev;
+          return [...prev, ...toAdd].sort((a, b) =>
+            new Date(a.time || 0) - new Date(b.time || 0)
+          );
+        });
+        if (data.status && ['resolved', 'closed'].includes(String(data.status).toLowerCase())) {
+          setIsResolvedState(true);
+        }
+      } catch { /* silent — local placeholder stays */ }
+    })();
+    return () => { cancelled = true; };
+  }, [ticketId]);
+
   function sendMessage() {
     const text = input.trim();
     if (!text || isResolvedState) return;
+
+    // Optimistic UI: render the message immediately so the driver sees it even
+    // if the network is slow or offline.
     setMessages(prev => [...prev, {
       id: `user-${Date.now()}`,
       type: 'user',
@@ -73,25 +119,22 @@ export default function TicketChatScreen({ navigation, route }) {
     }]);
     setInput('');
 
-    // Auto reply after user message
-    setTimeout(() => {
-      const replies = [
-        'Merci pour cette information. Je note votre demande.',
-        'Je comprends. Laissez-moi vérifier cela pour vous.',
-        'Bien reçu. Notre équipe va traiter votre demande dans les plus brefs délais.',
-        'D\'accord, je transmets cela à notre équipe technique.',
-        'Merci de votre patience. Nous faisons le nécessaire.',
-        'Je vais vérifier cela avec notre équipe et revenir vers vous.',
-        'Votre demande est bien prise en compte. Merci.',
-        'Nous analysons la situation. Un instant s\'il vous plaît.',
-      ];
-      const idx = autoIndex.current % replies.length;
-      autoIndex.current++;
+    // Fire-and-forget POST to the real endpoint. Any failure (offline, 4xx,
+    // 5xx, ticket not yet created server-side) is swallowed so the UX never
+    // looks broken. The driver's message stays visible locally either way.
+    if (ticketId && ticketId !== 'unknown') {
+      ticketService.sendMessage(ticketId, text).catch(() => { /* ignore */ });
+    }
 
+    // Local auto-reply keeps the chat feeling alive until real admin polling
+    // is implemented. Stored as a key so it re-renders in the current language.
+    setTimeout(() => {
+      const idx = autoIndex.current % USER_REPLY_KEYS.length;
+      autoIndex.current++;
       setMessages(prev => [...prev, {
         id: `admin-reply-${Date.now()}`,
         type: 'admin',
-        text: replies[idx],
+        textKey: USER_REPLY_KEYS[idx],
         time: new Date().toISOString(),
       }]);
     }, 2000 + Math.random() * 2000);
@@ -103,12 +146,24 @@ export default function TicketChatScreen({ navigation, route }) {
     return `${d.getHours()}h${String(d.getMinutes()).padStart(2, '0')}`;
   }
 
+  // Resolve the text body of any message, tolerating three shapes:
+  //  - { text: '...' }             legacy messages already in AsyncStorage
+  //  - { textKey: 'xxx' }          new key-based messages (language-agnostic)
+  //  - { textKey, orderId }        system banner with interpolated orderId
+  function resolveText(item) {
+    if (item.textKey) {
+      const base = t(item.textKey);
+      return item.orderId ? `${base} ${item.orderId}` : base;
+    }
+    return item.text ?? '';
+  }
+
   const renderMessage = ({ item }) => {
     if (item.type === 'system') {
       const isResolvedMsg = item.id?.startsWith('system-resolved');
       return (
         <View style={[s.systemMsg, isResolvedMsg && { backgroundColor: BRAND + '20' }]}>
-          <Text style={[s.systemText, isResolvedMsg && { color: BRAND }]}>{item.text}</Text>
+          <Text style={[s.systemText, isResolvedMsg && { color: BRAND }]}>{resolveText(item)}</Text>
         </View>
       );
     }
@@ -121,8 +176,8 @@ export default function TicketChatScreen({ navigation, route }) {
           </View>
         )}
         <View style={[s.bubbleContent, isUser ? s.bubbleContentUser : s.bubbleContentAdmin]}>
-          {!isUser && <Text style={s.adminName}>Support Pearl</Text>}
-          <Text style={[s.bubbleText, isUser && { color: '#fff' }]}>{item.text}</Text>
+          {!isUser && <Text style={s.adminName}>{t('supportAgentName')}</Text>}
+          <Text style={[s.bubbleText, isUser && { color: '#fff' }]}>{resolveText(item)}</Text>
           <Text style={[s.bubbleTime, isUser && { color: 'rgba(255,255,255,0.6)' }]}>{formatTime(item.time)}</Text>
         </View>
       </View>
@@ -167,7 +222,7 @@ export default function TicketChatScreen({ navigation, route }) {
       {isResolvedState ? (
         <View style={[s.closedBar, { paddingBottom: insets.bottom || 16 }]}>
           <Ionicons name="lock-closed" size={16} color="#999" style={{ marginRight: 8 }} />
-          <Text style={s.closedText}>Ce ticket est fermé</Text>
+          <Text style={s.closedText}>{t('ticketClosed')}</Text>
         </View>
       ) : (
         <View style={[s.inputBar, { paddingBottom: insets.bottom || 16 }]}>

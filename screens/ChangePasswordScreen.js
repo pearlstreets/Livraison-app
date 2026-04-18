@@ -4,11 +4,21 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { authService } from '../services/authService';
 
 const BRAND = '#00C29B';
+// Local demo password store — used only when the real backend is
+// unreachable (see handleSave). The real source of truth is the backend.
 const USERS_DB = [
   { email: 'remsko@live.fr', password: 'Test@123' },
 ];
+
+function isNetworkLevelError(err) {
+  if (!err) return false;
+  if (err.isNetworkError === true) return true;
+  if (err.isNetworkError === false) return false;
+  return !err.response && !err.status;
+}
 
 export default function ChangePasswordScreen({ navigation }) {
   const { t } = useLanguage();
@@ -22,14 +32,9 @@ export default function ChangePasswordScreen({ navigation }) {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  function handleSave() {
-    const entry = USERS_DB.find(u => u.email.toLowerCase() === user.email.toLowerCase());
+  async function handleSave() {
     if (!currentPwd) {
-      Alert.alert(t('error'), t('currentPassword') ? 'Veuillez saisir votre mot de passe actuel' : 'Veuillez saisir votre mot de passe actuel');
-      return;
-    }
-    if (entry && entry.password !== currentPwd) {
-      Alert.alert(t('error'), t('passwordWrong') || 'Mot de passe actuel incorrect');
+      Alert.alert(t('error'), t('passwordError') || 'Veuillez saisir votre mot de passe actuel');
       return;
     }
     if (newPwd.length < 6) {
@@ -40,9 +45,32 @@ export default function ChangePasswordScreen({ navigation }) {
       Alert.alert(t('error'), t('passwordMismatch') || 'Les mots de passe ne correspondent pas');
       return;
     }
+
+    // Try the real backend first. On HTTP error (e.g. 401 "wrong current
+    // password"), surface it. Only a network-level failure falls back to
+    // the local demo store so the offline demo keeps working.
+    try {
+      await authService.updatePassword(currentPwd, newPwd);
+      Alert.alert(t('saved') || 'Succès', t('profileUpdated') || 'Mot de passe modifié avec succès', [
+        { text: t('ok') || 'OK', onPress: () => navigation.goBack() },
+      ]);
+      return;
+    } catch (err) {
+      if (!isNetworkLevelError(err)) {
+        Alert.alert(t('error'), t('passwordWrong') || 'Mot de passe actuel incorrect');
+        return;
+      }
+    }
+
+    // Offline fallback — only reachable if the backend didn't respond.
+    const entry = USERS_DB.find(u => u.email.toLowerCase() === user.email.toLowerCase());
+    if (entry && entry.password !== currentPwd) {
+      Alert.alert(t('error'), t('passwordWrong') || 'Mot de passe actuel incorrect');
+      return;
+    }
     if (entry) entry.password = newPwd;
-    Alert.alert('Succès', 'Mot de passe modifié avec succès', [
-      { text: 'OK', onPress: () => navigation.goBack() },
+    Alert.alert(t('saved') || 'Succès', t('profileUpdated') || 'Mot de passe modifié avec succès', [
+      { text: t('ok') || 'OK', onPress: () => navigation.goBack() },
     ]);
   }
 
