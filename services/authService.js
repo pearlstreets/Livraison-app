@@ -19,6 +19,58 @@ function loadNotificationDeps() {
   return { Notifications: _Notifications, Device: _Device };
 }
 
+// OneSignal is loaded conditionally. The backend push dispatcher targets
+// drivers by `include_external_user_ids=[driver.id]`, so once OneSignal
+// is installed (via `react-native-onesignal` + EAS rebuild), calling
+// `OneSignal.login(String(driver.id))` after a successful login is what
+// wires the driver to receive targeted pushes.
+//
+// We conditionally require() it so the app still builds and runs today
+// without the native module — a missing `react-native-onesignal` just
+// silently skips the external-id registration, and the new-order push
+// still reaches the driver via the `included_segments=['All']` fallback
+// the backend uses when no external IDs are set.
+let _OneSignal = null;
+function loadOneSignal() {
+  if (_OneSignal !== null) return _OneSignal;
+  try {
+    const mod = require('react-native-onesignal');
+    _OneSignal = (mod && mod.OneSignal) || mod.default || mod;
+  } catch (e) {
+    _OneSignal = false;
+  }
+  return _OneSignal;
+}
+
+function registerOneSignalExternalIdSafe(user) {
+  try {
+    const OneSignal = loadOneSignal();
+    if (!OneSignal) return;
+    const id = user && (user.id || user.driver_id);
+    if (id == null) return;
+    if (typeof OneSignal.login === 'function') {
+      OneSignal.login(String(id));
+    } else if (OneSignal.User && typeof OneSignal.User.addAlias === 'function') {
+      // v5 API alternative
+      OneSignal.User.addAlias('external_id', String(id));
+    }
+  } catch (e) {
+    // Silent — OneSignal failure must not block login.
+  }
+}
+
+function logoutOneSignalSafe() {
+  try {
+    const OneSignal = loadOneSignal();
+    if (!OneSignal) return;
+    if (typeof OneSignal.logout === 'function') {
+      OneSignal.logout();
+    }
+  } catch (e) {
+    // Silent.
+  }
+}
+
 // Register the device's Expo push token with the backend so the driver
 // can receive new-order pushes even if OneSignal isn't configured.
 // Never throws — a push-token failure must NEVER block login.
@@ -122,9 +174,11 @@ export const authService = {
 
     refreshCount = 0;
     resetSessionTimer();
-    // Fire-and-forget: register the Expo push token with the backend.
-    // Any failure here is silent (see registerPushTokenSafe).
+    // Fire-and-forget: register the Expo push token with the backend
+    // AND tell OneSignal about the driver's external_id. Both failures
+    // are silent — login must never depend on push wiring.
     registerPushTokenSafe();
+    registerOneSignalExternalIdSafe(data && data.user);
     return data;
   },
 
@@ -160,6 +214,9 @@ export const authService = {
     clearSessionTimer();
     refreshCount = 0;
     await secureStorage.clearAll();
+    // Detach from OneSignal so the device stops receiving this
+    // driver's targeted pushes until next login.
+    logoutOneSignalSafe();
   },
 
   async refreshToken() {
