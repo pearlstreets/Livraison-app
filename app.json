@@ -34,7 +34,16 @@
     },
     "jsEngine": "hermes",
     "plugins": [
-      "expo-notifications"
-    ]
+      "expo-notifications",
+      [
+        "onesignal-expo-plugin",
+        {
+          "mode": "production"
+        }
+      ]
+    ],
+    "extra": {
+      "oneSignalAppId": ""
+    }
   }
 }
