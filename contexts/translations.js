@@ -411,6 +411,10 @@ const translations = {
     helpSecurity_q1: 'Signaler un problème de sécurité', helpSecurity_a1: 'En cas d\'urgence, appelez le 112. Sinon contactez le support.',
     helpSecurity_q2: 'Assurance pendant les courses', helpSecurity_a2: 'Couvert par votre RC Pro. Vérifiez que votre attestation est à jour.',
     loginCooldown: 'Trop de tentatives. Veuillez patienter 30 secondes.', errorInvalidEmail: 'Format email invalide', accountLocked: 'Compte temporairement verrouillé. Réessayez dans quelques minutes.', errorPasswordWeak: 'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre', cannotGoOfflineTitle: 'Impossible', cannotGoOfflineMsg: 'Vous avez une commande en cours. Terminez-la avant de passer hors ligne.',
+    messageClientTitle: 'Message au client', messageClientBtn: 'Message client', ticketOpenedFor: 'Ticket ouvert pour la commande', ticketClosed: 'Ce ticket est fermé', supportAgentName: 'Support Pearl',
+    chatOpening1: 'Merci de nous contacter. Un agent va prendre en charge votre demande.', chatOpening2: 'Je consulte les détails de votre course. Un instant…', chatOpening3: 'Comment puis-je vous aider ?',
+    chatReply1: 'Nous avons bien pris en compte votre demande.', chatReply2: 'Merci pour votre patience. Nous analysons votre dossier.', chatReply3: 'Votre demande est en cours de traitement.', chatReply4: 'Nous revenons vers vous rapidement.', chatReply5: 'Bien noté. Notre équipe travaille sur votre demande.',
+    quickMsg1: 'J\'arrive bientôt', quickMsg2: 'Je suis devant la porte', quickMsg3: 'Je suis en bas de l\'immeuble', quickMsg4: 'Pouvez-vous descendre ?', quickMsg5: 'Quel est le code d\'entrée ?', quickMsg6: 'Je ne trouve pas l\'adresse',
   },
 
   en: {
@@ -777,6 +781,10 @@ const translations = {
     helpSecurity_q1: 'Report a security issue', helpSecurity_a1: 'In an emergency, call 112. Otherwise contact support.',
     helpSecurity_q2: 'Insurance during rides', helpSecurity_a2: 'Covered by your professional liability insurance. Check that your certificate is up to date.',
     loginCooldown: 'Too many attempts. Please wait 30 seconds.', errorInvalidEmail: 'Invalid email format', accountLocked: 'Account temporarily locked. Try again in a few minutes.', errorPasswordWeak: 'Password must be at least 8 characters and include an uppercase, a lowercase and a digit', cannotGoOfflineTitle: 'Unable', cannotGoOfflineMsg: 'You have an order in progress. Finish it before going offline.',
+    messageClientTitle: 'Message the customer', messageClientBtn: 'Message customer', ticketOpenedFor: 'Ticket opened for order', ticketClosed: 'This ticket is closed', supportAgentName: 'Pearl Support',
+    chatOpening1: 'Thanks for reaching out. An agent will take care of your request.', chatOpening2: 'Looking into your delivery. One moment…', chatOpening3: 'How can I help?',
+    chatReply1: 'We have noted your request.', chatReply2: 'Thank you for your patience. We are reviewing your case.', chatReply3: 'Your request is being processed.', chatReply4: 'We will get back to you shortly.', chatReply5: 'Noted. Our team is working on it.',
+    quickMsg1: 'I\'m almost there', quickMsg2: 'I\'m at the door', quickMsg3: 'I\'m downstairs', quickMsg4: 'Can you come down?', quickMsg5: 'What is the entry code?', quickMsg6: 'I can\'t find the address',
   },
 
   es: {
@@ -842,6 +850,10 @@ const translations = {
     helpSecurity_q1: 'Informar de un problema de seguridad', helpSecurity_a1: 'En caso de emergencia, llame al 112. Si no, contacte con el soporte.',
     helpSecurity_q2: 'Seguro durante las entregas', helpSecurity_a2: 'Cubierto por su RC Profesional. Verifique que su certificado esté actualizado.',
     loginCooldown: 'Demasiados intentos. Espere 30 segundos.', errorInvalidEmail: 'Formato de email inválido', accountLocked: 'Cuenta bloqueada temporalmente. Inténtelo de nuevo en unos minutos.', errorPasswordWeak: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un dígito', cannotGoOfflineTitle: 'Imposible', cannotGoOfflineMsg: 'Tiene un pedido en curso. Termínelo antes de desconectarse.',
+    messageClientTitle: 'Mensaje al cliente', messageClientBtn: 'Mensaje cliente', ticketOpenedFor: 'Ticket abierto para el pedido', ticketClosed: 'Este ticket está cerrado', supportAgentName: 'Soporte Pearl',
+    chatOpening1: 'Gracias por contactarnos. Un agente atenderá su solicitud.', chatOpening2: 'Consultando los detalles de su entrega. Un momento…', chatOpening3: '¿En qué puedo ayudarle?',
+    chatReply1: 'Hemos tomado nota de su solicitud.', chatReply2: 'Gracias por su paciencia. Estamos analizando su caso.', chatReply3: 'Su solicitud está siendo procesada.', chatReply4: 'Le responderemos en breve.', chatReply5: 'Anotado. Nuestro equipo está trabajando en ello.',
+    quickMsg1: 'Llego pronto', quickMsg2: 'Estoy en la puerta', quickMsg3: 'Estoy en la calle', quickMsg4: '¿Puede bajar?', quickMsg5: '¿Cuál es el código de entrada?', quickMsg6: 'No encuentro la dirección',
   },
 
   zh: {
@@ -907,6 +919,10 @@ const translations = {
     helpSecurity_q1: '报告安全问题', helpSecurity_a1: '紧急情况下请拨打112。否则联系客服。',
     helpSecurity_q2: '配送期间的保险', helpSecurity_a2: '由您的职业责任保险承保。请确保证书有效。',
     loginCooldown: '尝试次数过多，请等待30秒。', errorInvalidEmail: '邮箱格式无效', accountLocked: '账户暂时被锁定，请在几分钟后重试。', errorPasswordWeak: '密码必须至少8个字符，包含大写字母、小写字母和数字', cannotGoOfflineTitle: '无法操作', cannotGoOfflineMsg: '您有一个订单进行中，请完成后再离线。',
+    messageClientTitle: '发消息给客户', messageClientBtn: '客户消息', ticketOpenedFor: '已为订单开启工单', ticketClosed: '此工单已关闭', supportAgentName: 'Pearl客服',
+    chatOpening1: '感谢联系。客服将处理您的请求。', chatOpening2: '正在查看您的配送详情，请稍候…', chatOpening3: '请问需要什么帮助？',
+    chatReply1: '我们已记录您的请求。', chatReply2: '感谢您的耐心，我们正在分析您的情况。', chatReply3: '您的请求正在处理中。', chatReply4: '我们会尽快回复您。', chatReply5: '收到。我们的团队正在处理。',
+    quickMsg1: '我马上到', quickMsg2: '我在门口', quickMsg3: '我在楼下', quickMsg4: '您可以下来吗？', quickMsg5: '入门密码是什么？', quickMsg6: '我找不到地址',
   },
 
   ar: {
@@ -972,6 +988,10 @@ const translations = {
     helpSecurity_q1: 'الإبلاغ عن مشكلة أمنية', helpSecurity_a1: 'في حالة الطوارئ، اتصل برقم 112. وإلا، اتصل بالدعم.',
     helpSecurity_q2: 'التأمين أثناء التوصيل', helpSecurity_a2: 'مغطى بتأمين RC المهني. تأكد من تحديث شهادتك.',
     loginCooldown: 'محاولات كثيرة. يرجى الانتظار 30 ثانية.', errorInvalidEmail: 'صيغة البريد الإلكتروني غير صحيحة', accountLocked: 'الحساب مقفل مؤقتاً. حاول مرة أخرى بعد بضع دقائق.', errorPasswordWeak: 'يجب أن تحتوي كلمة المرور على 8 أحرف على الأقل وحرف كبير وحرف صغير ورقم', cannotGoOfflineTitle: 'غير ممكن', cannotGoOfflineMsg: 'لديك طلب قيد التنفيذ. أكمله قبل الانتقال إلى وضع عدم الاتصال.',
+    messageClientTitle: 'رسالة إلى العميل', messageClientBtn: 'رسالة للعميل', ticketOpenedFor: 'تم فتح تذكرة للطلب', ticketClosed: 'تم إغلاق هذه التذكرة', supportAgentName: 'دعم Pearl',
+    chatOpening1: 'شكراً لتواصلك معنا. سيتولى أحد الوكلاء طلبك.', chatOpening2: 'نتحقق من تفاصيل توصيلك. لحظة من فضلك…', chatOpening3: 'كيف يمكنني مساعدتك؟',
+    chatReply1: 'لقد سجلنا طلبك.', chatReply2: 'شكراً لصبرك. نحن نراجع حالتك.', chatReply3: 'طلبك قيد المعالجة.', chatReply4: 'سنعاود الاتصال بك قريباً.', chatReply5: 'تم التسجيل. فريقنا يعمل على ذلك.',
+    quickMsg1: 'أنا قادم قريباً', quickMsg2: 'أنا عند الباب', quickMsg3: 'أنا في الأسفل', quickMsg4: 'هل يمكنك النزول؟', quickMsg5: 'ما هو رمز الدخول؟', quickMsg6: 'لا أستطيع إيجاد العنوان',
   },
 
   de: {
@@ -1037,6 +1057,10 @@ const translations = {
     helpSecurity_q1: 'Sicherheitsproblem melden', helpSecurity_a1: 'Im Notfall wählen Sie 112. Ansonsten Support kontaktieren.',
     helpSecurity_q2: 'Versicherung während Fahrten', helpSecurity_a2: 'Durch Ihre Berufshaftpflichtversicherung abgedeckt. Prüfen Sie, dass Ihre Bescheinigung aktuell ist.',
     loginCooldown: 'Zu viele Versuche. Bitte warten Sie 30 Sekunden.', errorInvalidEmail: 'Ungültiges E-Mail-Format', accountLocked: 'Konto vorübergehend gesperrt. Versuchen Sie es in wenigen Minuten erneut.', errorPasswordWeak: 'Passwort muss mindestens 8 Zeichen, einen Großbuchstaben, einen Kleinbuchstaben und eine Ziffer enthalten', cannotGoOfflineTitle: 'Nicht möglich', cannotGoOfflineMsg: 'Sie haben eine laufende Bestellung. Schließen Sie sie ab, bevor Sie offline gehen.',
+    messageClientTitle: 'Nachricht an den Kunden', messageClientBtn: 'Kundennachricht', ticketOpenedFor: 'Ticket geöffnet für Bestellung', ticketClosed: 'Dieses Ticket ist geschlossen', supportAgentName: 'Pearl Support',
+    chatOpening1: 'Danke für Ihre Nachricht. Ein Agent kümmert sich um Ihr Anliegen.', chatOpening2: 'Wir prüfen die Details Ihrer Fahrt. Einen Moment…', chatOpening3: 'Wie kann ich helfen?',
+    chatReply1: 'Wir haben Ihre Anfrage notiert.', chatReply2: 'Danke für Ihre Geduld. Wir prüfen Ihren Fall.', chatReply3: 'Ihre Anfrage wird bearbeitet.', chatReply4: 'Wir melden uns in Kürze.', chatReply5: 'Notiert. Unser Team arbeitet daran.',
+    quickMsg1: 'Ich bin gleich da', quickMsg2: 'Ich stehe an der Tür', quickMsg3: 'Ich bin unten', quickMsg4: 'Können Sie herunterkommen?', quickMsg5: 'Wie lautet der Türcode?', quickMsg6: 'Ich finde die Adresse nicht',
   },
 
   nl: {
@@ -1102,6 +1126,10 @@ const translations = {
     helpSecurity_q1: 'Meld een veiligheidsprobleem', helpSecurity_a1: 'In noodgevallen bel 112. Anders support contacteren.',
     helpSecurity_q2: 'Verzekering tijdens ritten', helpSecurity_a2: 'Gedekt door uw beroepsaansprakelijkheidsverzekering. Controleer of uw certificaat actueel is.',
     loginCooldown: 'Te veel pogingen. Wacht 30 seconden.', errorInvalidEmail: 'Ongeldig e-mailformaat', accountLocked: 'Account tijdelijk geblokkeerd. Probeer over enkele minuten opnieuw.', errorPasswordWeak: 'Wachtwoord moet minstens 8 tekens, een hoofdletter, een kleine letter en een cijfer bevatten', cannotGoOfflineTitle: 'Niet mogelijk', cannotGoOfflineMsg: 'U heeft een lopende bestelling. Voltooi deze voordat u offline gaat.',
+    messageClientTitle: 'Bericht aan de klant', messageClientBtn: 'Bericht klant', ticketOpenedFor: 'Ticket geopend voor bestelling', ticketClosed: 'Dit ticket is gesloten', supportAgentName: 'Pearl Support',
+    chatOpening1: 'Bedankt voor uw bericht. Een medewerker helpt u verder.', chatOpening2: 'We bekijken uw rit. Een moment…', chatOpening3: 'Hoe kan ik helpen?',
+    chatReply1: 'We hebben uw verzoek genoteerd.', chatReply2: 'Dank voor uw geduld. We bekijken uw dossier.', chatReply3: 'Uw verzoek wordt verwerkt.', chatReply4: 'We komen snel bij u terug.', chatReply5: 'Genoteerd. Ons team werkt eraan.',
+    quickMsg1: 'Ik ben er bijna', quickMsg2: 'Ik sta voor de deur', quickMsg3: 'Ik sta beneden', quickMsg4: 'Kunt u naar beneden komen?', quickMsg5: 'Wat is de toegangscode?', quickMsg6: 'Ik kan het adres niet vinden',
   },
 
   it: {
@@ -1167,6 +1195,10 @@ const translations = {
     helpSecurity_q1: 'Segnala un problema di sicurezza', helpSecurity_a1: 'In caso di emergenza, chiama il 112. Altrimenti contatta il supporto.',
     helpSecurity_q2: 'Assicurazione durante le consegne', helpSecurity_a2: 'Coperto dalla tua RC professionale. Verifica che il certificato sia aggiornato.',
     loginCooldown: 'Troppi tentativi. Attendi 30 secondi.', errorInvalidEmail: 'Formato email non valido', accountLocked: 'Account temporaneamente bloccato. Riprova tra qualche minuto.', errorPasswordWeak: 'La password deve contenere almeno 8 caratteri, una maiuscola, una minuscola e una cifra', cannotGoOfflineTitle: 'Impossibile', cannotGoOfflineMsg: 'Hai un ordine in corso. Completalo prima di passare offline.',
+    messageClientTitle: 'Messaggio al cliente', messageClientBtn: 'Messaggio cliente', ticketOpenedFor: 'Ticket aperto per l\'ordine', ticketClosed: 'Questo ticket è chiuso', supportAgentName: 'Supporto Pearl',
+    chatOpening1: 'Grazie per averci contattato. Un agente prenderà in carico la tua richiesta.', chatOpening2: 'Sto consultando i dettagli della consegna. Un momento…', chatOpening3: 'Come posso aiutarti?',
+    chatReply1: 'Abbiamo preso nota della tua richiesta.', chatReply2: 'Grazie per la pazienza. Stiamo analizzando il tuo caso.', chatReply3: 'La tua richiesta è in elaborazione.', chatReply4: 'Ti risponderemo a breve.', chatReply5: 'Annotato. Il nostro team sta lavorando.',
+    quickMsg1: 'Sto arrivando', quickMsg2: 'Sono alla porta', quickMsg3: 'Sono giù', quickMsg4: 'Può scendere?', quickMsg5: 'Qual è il codice d\'ingresso?', quickMsg6: 'Non trovo l\'indirizzo',
   },
 
   pt: {
@@ -1232,6 +1264,10 @@ const translations = {
     helpSecurity_q1: 'Reportar um problema de segurança', helpSecurity_a1: 'Em caso de emergência, ligue 112. Caso contrário, contacte o suporte.',
     helpSecurity_q2: 'Seguro durante entregas', helpSecurity_a2: 'Coberto pelo seu seguro RC profissional. Verifique que o certificado está atualizado.',
     loginCooldown: 'Demasiadas tentativas. Aguarde 30 segundos.', errorInvalidEmail: 'Formato de email inválido', accountLocked: 'Conta temporariamente bloqueada. Tente novamente dentro de alguns minutos.', errorPasswordWeak: 'A palavra-passe deve ter pelo menos 8 caracteres, uma maiúscula, uma minúscula e um dígito', cannotGoOfflineTitle: 'Impossível', cannotGoOfflineMsg: 'Tem um pedido em curso. Termine-o antes de ficar offline.',
+    messageClientTitle: 'Mensagem ao cliente', messageClientBtn: 'Mensagem cliente', ticketOpenedFor: 'Ticket aberto para o pedido', ticketClosed: 'Este ticket está fechado', supportAgentName: 'Suporte Pearl',
+    chatOpening1: 'Obrigado por nos contactar. Um agente irá tratar do seu pedido.', chatOpening2: 'A consultar os detalhes da sua entrega. Um momento…', chatOpening3: 'Como posso ajudar?',
+    chatReply1: 'Registámos o seu pedido.', chatReply2: 'Obrigado pela paciência. Estamos a analisar o seu caso.', chatReply3: 'O seu pedido está a ser processado.', chatReply4: 'Voltaremos ao contacto em breve.', chatReply5: 'Registado. A nossa equipa está a trabalhar.',
+    quickMsg1: 'Estou quase a chegar', quickMsg2: 'Estou à porta', quickMsg3: 'Estou lá em baixo', quickMsg4: 'Pode descer?', quickMsg5: 'Qual é o código de entrada?', quickMsg6: 'Não encontro a morada',
   },
 
   ja: {
@@ -1297,6 +1333,10 @@ const translations = {
     helpSecurity_q1: 'セキュリティ問題を報告', helpSecurity_a1: '緊急時は112に電話してください。それ以外はサポートに連絡してください。',
     helpSecurity_q2: '配達中の保険', helpSecurity_a2: '職業賠償責任保険でカバーされています。証明書が最新であることを確認してください。',
     loginCooldown: '試行回数が多すぎます。30秒お待ちください。', errorInvalidEmail: 'メールアドレスの形式が無効です', accountLocked: 'アカウントが一時的にロックされました。数分後に再試行してください。', errorPasswordWeak: 'パスワードは8文字以上で、大文字、小文字、数字を含める必要があります', cannotGoOfflineTitle: '不可能', cannotGoOfflineMsg: '進行中の注文があります。オフラインにする前に完了してください。',
+    messageClientTitle: 'お客様へメッセージ', messageClientBtn: 'お客様メッセージ', ticketOpenedFor: '注文のチケットを開きました', ticketClosed: 'このチケットはクローズされました', supportAgentName: 'Pearlサポート',
+    chatOpening1: 'ご連絡ありがとうございます。担当者がご要望を承ります。', chatOpening2: '配達の詳細を確認中です。少々お待ちください…', chatOpening3: '何かお手伝いできますか？',
+    chatReply1: 'ご要望を承りました。', chatReply2: 'お待たせして申し訳ありません。確認中です。', chatReply3: 'ご要望を処理中です。', chatReply4: 'まもなくご連絡いたします。', chatReply5: '承知しました。チームが対応中です。',
+    quickMsg1: 'まもなく到着します', quickMsg2: 'ドアの前にいます', quickMsg3: '建物の下にいます', quickMsg4: '降りてきていただけますか？', quickMsg5: '入館コードは何ですか？', quickMsg6: '住所が見つかりません',
   },
 
   th: {
@@ -1362,6 +1402,10 @@ const translations = {
     helpSecurity_q1: 'รายงานปัญหาความปลอดภัย', helpSecurity_a1: 'ในกรณีฉุกเฉิน โทร 112 หรือติดต่อฝ่ายสนับสนุน',
     helpSecurity_q2: 'ประกันภัยระหว่างส่งของ', helpSecurity_a2: 'ครอบคลุมโดยประกันภัยวิชาชีพของคุณ ตรวจสอบว่าใบรับรองของคุณเป็นปัจจุบัน',
     loginCooldown: 'ลองเข้ามากเกินไป โปรดรอ 30 วินาที', errorInvalidEmail: 'รูปแบบอีเมลไม่ถูกต้อง', accountLocked: 'บัญชีถูกล็อกชั่วคราว โปรดลองอีกครั้งในอีกไม่กี่นาที', errorPasswordWeak: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร มีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลข', cannotGoOfflineTitle: 'ไม่สามารถทำได้', cannotGoOfflineMsg: 'คุณมีคำสั่งซื้อที่กำลังดำเนินการอยู่ ทำให้เสร็จก่อนออฟไลน์',
+    messageClientTitle: 'ข้อความถึงลูกค้า', messageClientBtn: 'ข้อความลูกค้า', ticketOpenedFor: 'เปิดตั๋วสำหรับคำสั่งซื้อ', ticketClosed: 'ตั๋วนี้ปิดแล้ว', supportAgentName: 'ฝ่ายสนับสนุน Pearl',
+    chatOpening1: 'ขอบคุณที่ติดต่อเรา เจ้าหน้าที่จะดูแลคำขอของคุณ', chatOpening2: 'กำลังตรวจสอบรายละเอียดการจัดส่งของคุณ โปรดรอสักครู่…', chatOpening3: 'ฉันช่วยอะไรได้บ้าง?',
+    chatReply1: 'เราได้บันทึกคำขอของคุณแล้ว', chatReply2: 'ขอบคุณสำหรับความอดทน เรากำลังตรวจสอบกรณีของคุณ', chatReply3: 'คำขอของคุณกำลังดำเนินการ', chatReply4: 'เราจะติดต่อกลับในไม่ช้า', chatReply5: 'รับทราบ ทีมของเรากำลังดำเนินการ',
+    quickMsg1: 'ใกล้ถึงแล้ว', quickMsg2: 'อยู่หน้าประตู', quickMsg3: 'อยู่ข้างล่าง', quickMsg4: 'ลงมาได้ไหม?', quickMsg5: 'รหัสเข้าคืออะไร?', quickMsg6: 'หาที่อยู่ไม่พบ',
   },
 
   sv: {
@@ -1427,6 +1471,10 @@ const translations = {
     helpSecurity_q1: 'Rapportera säkerhetsproblem', helpSecurity_a1: 'Vid nödsituation, ring 112. Annars kontakta supporten.',
     helpSecurity_q2: 'Försäkring under leveranser', helpSecurity_a2: 'Täcks av din yrkesansvarsförsäkring. Kontrollera att intyget är aktuellt.',
     loginCooldown: 'För många försök. Vänta 30 sekunder.', errorInvalidEmail: 'Ogiltigt e-postformat', accountLocked: 'Kontot är tillfälligt låst. Försök igen om några minuter.', errorPasswordWeak: 'Lösenordet måste innehålla minst 8 tecken, en stor bokstav, en liten bokstav och en siffra', cannotGoOfflineTitle: 'Inte möjligt', cannotGoOfflineMsg: 'Du har en pågående beställning. Avsluta den innan du går offline.',
+    messageClientTitle: 'Meddelande till kunden', messageClientBtn: 'Meddelande kund', ticketOpenedFor: 'Ärende öppnat för beställning', ticketClosed: 'Detta ärende är stängt', supportAgentName: 'Pearl Support',
+    chatOpening1: 'Tack för att du kontaktar oss. En agent tar hand om din förfrågan.', chatOpening2: 'Jag kollar detaljerna för din leverans. Ett ögonblick…', chatOpening3: 'Hur kan jag hjälpa dig?',
+    chatReply1: 'Vi har noterat din förfrågan.', chatReply2: 'Tack för ditt tålamod. Vi granskar ditt ärende.', chatReply3: 'Din förfrågan behandlas.', chatReply4: 'Vi återkommer inom kort.', chatReply5: 'Noterat. Vårt team arbetar på det.',
+    quickMsg1: 'Jag är snart framme', quickMsg2: 'Jag står vid dörren', quickMsg3: 'Jag står nere', quickMsg4: 'Kan du komma ner?', quickMsg5: 'Vad är portkoden?', quickMsg6: 'Jag kan inte hitta adressen',
   },
 
   ru: {
@@ -1492,6 +1540,10 @@ const translations = {
     helpSecurity_q1: 'Сообщить о проблеме безопасности', helpSecurity_a1: 'В экстренной ситуации звоните 112. Иначе свяжитесь с поддержкой.',
     helpSecurity_q2: 'Страхование во время доставок', helpSecurity_a2: 'Покрывается вашей профессиональной страховкой. Убедитесь, что сертификат актуален.',
     loginCooldown: 'Слишком много попыток. Подождите 30 секунд.', errorInvalidEmail: 'Неверный формат email', accountLocked: 'Аккаунт временно заблокирован. Попробуйте через несколько минут.', errorPasswordWeak: 'Пароль должен содержать не менее 8 символов, заглавную букву, строчную букву и цифру', cannotGoOfflineTitle: 'Невозможно', cannotGoOfflineMsg: 'У вас есть активный заказ. Завершите его перед переходом в офлайн.',
+    messageClientTitle: 'Сообщение клиенту', messageClientBtn: 'Сообщение клиенту', ticketOpenedFor: 'Тикет открыт по заказу', ticketClosed: 'Этот тикет закрыт', supportAgentName: 'Поддержка Pearl',
+    chatOpening1: 'Спасибо за обращение. Агент возьмёт ваш запрос в работу.', chatOpening2: 'Проверяю детали вашей доставки. Минуту…', chatOpening3: 'Чем я могу помочь?',
+    chatReply1: 'Мы зафиксировали ваш запрос.', chatReply2: 'Спасибо за терпение. Мы рассматриваем ваш случай.', chatReply3: 'Ваш запрос обрабатывается.', chatReply4: 'Мы ответим вам в ближайшее время.', chatReply5: 'Принято. Наша команда работает над этим.',
+    quickMsg1: 'Скоро буду', quickMsg2: 'Я у двери', quickMsg3: 'Я внизу', quickMsg4: 'Можете спуститься?', quickMsg5: 'Какой код от подъезда?', quickMsg6: 'Не могу найти адрес',
   },
 };
 

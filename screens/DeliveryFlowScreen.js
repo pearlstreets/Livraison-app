@@ -78,7 +78,7 @@ const WAIT_SECONDS = 7 * 60; // 7 minutes
 
 const CALL_DEADLINE = 4 * 60; // 4 minutes — must call before this
 
-function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showCallPopup, setShowCallPopup, onMessage, onOpenMap }) {
+function ArrivedStep({ address, orderId, clientPhone, onCallDone, hasCalled, onWarning, showCallPopup, setShowCallPopup, onMessage, onOpenMap }) {
   const { t } = useLanguage();
   const [remaining, setRemaining] = useState(WAIT_SECONDS);
   const timerRef = useRef(null);
@@ -114,7 +114,14 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
   function handleCall() {
     onCallDone?.();
     setShowCallPopup(false);
-    Alert.alert(t('callInProgress'), t('callInProgressMsg'));
+    // Open the native dialer if we have a phone number; otherwise fall back
+    // to a "feature pending" alert so the flow never looks broken.
+    if (clientPhone) {
+      const tel = 'tel:' + String(clientPhone).replace(/[^\d+]/g, '');
+      Linking.openURL(tel).catch(() => Alert.alert(t('error'), t('featureComingSoon')));
+    } else {
+      Alert.alert(t('callInProgress'), t('callInProgressMsg'));
+    }
   }
 
   return (
@@ -170,7 +177,7 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
 
       <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={onMessage}>
         <Ionicons name="chatbubble-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
-        <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>Message client</Text>
+        <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('messageClientBtn')}</Text>
       </Pressable>
 
       {/* Call popup overlay */}
@@ -194,7 +201,7 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
 export default function DeliveryFlowScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, saveTicketMessages, markOrderReported } = useAuth();
+  const { addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, saveTicketMessages, markOrderReported, getClientChat, saveClientChat, clearClientChat } = useAuth();
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [showCodeProblem, setShowCodeProblem] = useState(false);
   const [selectedCodeProblem, setSelectedCodeProblem] = useState(null);
@@ -217,18 +224,10 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const [hasCalled, setHasCalled] = useState(false);
   const [showCallPopup, setShowCallPopup] = useState(false);
   const [showChat, setShowChat] = useState(false);
-  const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
-  const [sentQuicks, setSentQuicks] = useState([]);
   const chatListRef = useRef(null);
-  const QUICK_MSGS = [
-    "J'arrive bientôt",
-    "Je suis devant la porte",
-    "Je suis en bas de l'immeuble",
-    "Pouvez-vous descendre ?",
-    "Quel est le code d'entrée ?",
-    "Je ne trouve pas l'adresse",
-  ];
+  // Quick-message translation keys; resolved at render for i18n.
+  const QUICK_MSG_KEYS = ['quickMsg1', 'quickMsg2', 'quickMsg3', 'quickMsg4', 'quickMsg5', 'quickMsg6'];
   const [showMapSheet, setShowMapSheet] = useState(false);
   const [mapSheetDest, setMapSheetDest] = useState('');
   const [mapSheetUrls, setMapSheetUrls] = useState({ google: '', waze: '' });
@@ -241,6 +240,26 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const distance = order.distanceText || '—';
   const eta = order.etaText || '—';
   const orderId = order.id || order.code || 'Commande';
+  const clientPhone = order.clientPhone || order.customerPhone || order.phone || null;
+
+  // Client chat is persisted in AuthContext keyed by orderId so the driver
+  // doesn't lose the conversation if the modal is re-opened. Cleared when the
+  // delivery reaches step 'done' — see effect below.
+  const chatMessages = getClientChat(orderId);
+  const sentQuickKeys = chatMessages.map(m => m.textKey).filter(Boolean);
+  const pushClientMessage = useCallback((msg) => {
+    if (!orderId) return;
+    saveClientChat(orderId, [...getClientChat(orderId), msg]);
+    setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 100);
+  }, [orderId, getClientChat, saveClientChat]);
+
+  // Auto-close chat and purge its history when the delivery is marked done.
+  useEffect(() => {
+    if (step === 'done') {
+      setShowChat(false);
+      clearClientChat(orderId);
+    }
+  }, [step, orderId, clearClientChat]);
 
   const REAL_CODE = '4521';
 
@@ -518,14 +537,21 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <Text style={ss.mapBtnTxt}>{t('clientItinerary')}</Text>
             </Pressable>
 
-            <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={() => Alert.alert(t('clientCall'), t('featureComingSoon'))}>
+            <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={() => {
+              if (clientPhone) {
+                const tel = 'tel:' + String(clientPhone).replace(/[^\d+]/g, '');
+                Linking.openURL(tel).catch(() => Alert.alert(t('clientCall'), t('featureComingSoon')));
+              } else {
+                Alert.alert(t('clientCall'), t('featureComingSoon'));
+              }
+            }}>
               <Ionicons name="call-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
               <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('callTheClient')}</Text>
             </Pressable>
 
             <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={() => setShowChat(true)}>
               <Ionicons name="chatbubble-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
-              <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>Message client</Text>
+              <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('messageClientBtn')}</Text>
             </Pressable>
           </View>
         )}
@@ -535,6 +561,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           <ArrivedStep
             address={address}
             orderId={orderId}
+            clientPhone={clientPhone}
             hasCalled={hasCalled}
             onCallDone={() => setHasCalled(true)}
             onWarning={addWarning}
@@ -583,14 +610,21 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               </Text>
             </View>
 
-            <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={() => Alert.alert(t('clientCall'), t('featureComingSoon'))}>
+            <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={() => {
+              if (clientPhone) {
+                const tel = 'tel:' + String(clientPhone).replace(/[^\d+]/g, '');
+                Linking.openURL(tel).catch(() => Alert.alert(t('clientCall'), t('featureComingSoon')));
+              } else {
+                Alert.alert(t('clientCall'), t('featureComingSoon'));
+              }
+            }}>
               <Ionicons name="call-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
               <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('callTheClient') || 'Appeler le client'}</Text>
             </Pressable>
 
             <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={() => setShowChat(true)}>
               <Ionicons name="chatbubble-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
-              <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>Message client</Text>
+              <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('messageClientBtn')}</Text>
             </Pressable>
 
           </View>
@@ -840,21 +874,21 @@ export default function DeliveryFlowScreen({ navigation, route }) {
         </View>
       </Modal>
 
-      {/* Chat client modal */}
-      <Modal visible={showChat} animationType="slide" presentationStyle="pageSheet">
+      {/* Chat client modal — only reachable while delivery is in progress (step !== 'done') */}
+      <Modal visible={showChat && step !== 'done'} animationType="slide" presentationStyle="pageSheet">
         <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#f5f5f5' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={ss.chatHeader}>
             <Pressable onPress={() => setShowChat(false)}>
               <Ionicons name="close" size={28} color="#111" />
             </Pressable>
-            <Text style={ss.chatHeaderTitle}>Message au client</Text>
+            <Text style={ss.chatHeaderTitle}>{t('messageClientTitle')}</Text>
             <View style={{ width: 28 }} />
           </View>
 
           {/* Info commande */}
           <View style={ss.chatInfoBar}>
             <View style={{ flex: 1 }}>
-              <Text style={ss.chatInfoLabel}>Récupération</Text>
+              <Text style={ss.chatInfoLabel}>{t('pickup')}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                 <Ionicons name="storefront-outline" size={14} color={BRAND} style={{ marginRight: 6 }} />
                 <Text style={ss.chatInfoText} numberOfLines={1}>{restaurant}</Text>
@@ -862,7 +896,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             </View>
             <View style={{ width: 1, height: 30, backgroundColor: '#e0e0e0', marginHorizontal: 10 }} />
             <View style={{ flex: 1 }}>
-              <Text style={ss.chatInfoLabel}>Livraison</Text>
+              <Text style={ss.chatInfoLabel}>{t('delivery')}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                 <Ionicons name="location-outline" size={14} color="#e74c3c" style={{ marginRight: 6 }} />
                 <Text style={ss.chatInfoText} numberOfLines={1}>{address}</Text>
@@ -882,7 +916,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             removeClippedSubviews={true}
             renderItem={({ item }) => (
               <View style={[ss.chatBubble, item.from === 'me' ? ss.chatBubbleMe : ss.chatBubbleClient]}>
-                <Text style={[ss.chatBubbleText, item.from === 'me' && { color: '#fff' }]}>{item.text}</Text>
+                <Text style={[ss.chatBubbleText, item.from === 'me' && { color: '#fff' }]}>
+                  {item.textKey ? t(item.textKey) : (item.text ?? '')}
+                </Text>
                 <Text style={[ss.chatBubbleTime, item.from === 'me' && { color: 'rgba(255,255,255,0.7)' }]}>
                   {new Date(item.time).getHours()}h{String(new Date(item.time).getMinutes()).padStart(2, '0')}
                 </Text>
@@ -890,19 +926,16 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             )}
           />
 
-          {/* Input + quick chips */}
+          {/* Input + quick chips (keys so the label follows the language) */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={ss.quickChipsRow} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingVertical: 8 }}>
-            {[...QUICK_MSGS.filter(m => !sentQuicks.includes(m)), ...sentQuicks].map((msg, i) => {
-              const isSent = sentQuicks.includes(msg);
+            {[...QUICK_MSG_KEYS.filter(k => !sentQuickKeys.includes(k)), ...sentQuickKeys].map((msgKey) => {
+              const isSent = sentQuickKeys.includes(msgKey);
               return (
-                <Pressable key={i} style={[ss.quickChipSmall, isSent && ss.quickChipSent]} onPress={() => {
+                <Pressable key={msgKey} style={[ss.quickChipSmall, isSent && ss.quickChipSent]} onPress={() => {
                   if (isSent) return;
-                  const m = { id: Date.now(), text: msg, from: 'me', time: new Date() };
-                  setChatMessages(prev => [...prev, m]);
-                  setSentQuicks(prev => [...prev, msg]);
-                  setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 100);
+                  pushClientMessage({ id: Date.now(), textKey: msgKey, from: 'me', time: Date.now() });
                 }} disabled={isSent}>
-                  <Text style={[ss.quickChipSmallText, isSent && ss.quickChipSentText]}>{msg}</Text>
+                  <Text style={[ss.quickChipSmallText, isSent && ss.quickChipSentText]}>{t(msgKey)}</Text>
                   {isSent && <Ionicons name="checkmark" size={14} color="#999" style={{ marginLeft: 4 }} />}
                 </Pressable>
               );
@@ -919,10 +952,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               if (!chatInput.trim()) return;
               const sanitized = sanitizeInput(chatInput);
               if (!sanitized) return;
-              const m = { id: Date.now(), text: sanitized, from: 'me', time: new Date() };
-              setChatMessages(prev => [...prev, m]);
+              pushClientMessage({ id: Date.now(), text: sanitized, from: 'me', time: Date.now() });
               setChatInput('');
-              setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 100);
             }}>
               <Ionicons name="send" size={18} color="#fff" />
             </Pressable>

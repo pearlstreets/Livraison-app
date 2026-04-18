@@ -58,6 +58,8 @@ export function AuthProvider({ children }) {
   const [readOpportunities, setReadOpportunities] = useState([]);
   const [ticketMessages, setTicketMessages] = useState({});
   const [ticketReadCounts, setTicketReadCounts] = useState({}); // { ticketId: lastReadCount }
+  // Driver-to-client chat drafts, keyed by orderId. Cleared on delivery completion.
+  const [clientChats, setClientChats] = useState({}); // { orderId: Message[] }
   const MAX_WEEKLY_CANCELS = 5;
 
   // Login attempt tracking
@@ -227,13 +229,9 @@ export function AuthProvider({ children }) {
 
   const adminReplyTimers = useRef({});
 
-  const ADMIN_REPLIES = [
-    'Nous avons bien pris en compte votre demande. Un membre de l\'équipe va vous répondre sous peu.',
-    'Merci pour votre patience. Nous analysons votre dossier.',
-    'Votre demande est en cours de traitement par notre équipe.',
-    'Nous revenons vers vous très rapidement avec une solution.',
-    'Bien noté. Notre équipe travaille sur votre demande.',
-  ];
+  // Reply keys — resolved at render time via t() so the chat follows the
+  // current language even for auto-generated messages already in storage.
+  const ADMIN_REPLY_KEYS = ['chatReply1', 'chatReply2', 'chatReply3', 'chatReply4', 'chatReply5'];
 
   function getTicketMessages(ticketId) {
     return ticketMessages[ticketId] || null;
@@ -254,18 +252,37 @@ export function AuthProvider({ children }) {
     if (adminReplyTimers.current[ticketId]) clearTimeout(adminReplyTimers.current[ticketId]);
     const delay = 3000 + Math.random() * 4000;
     adminReplyTimers.current[ticketId] = setTimeout(() => {
-      const reply = ADMIN_REPLIES[Math.floor(Math.random() * ADMIN_REPLIES.length)];
+      const textKey = ADMIN_REPLY_KEYS[Math.floor(Math.random() * ADMIN_REPLY_KEYS.length)];
       setTicketMessages(prev => {
         const msgs = prev[ticketId] || [];
         return { ...prev, [ticketId]: [...msgs, {
           id: `admin-auto-${Date.now()}`,
           type: 'admin',
-          text: reply,
+          textKey, // resolved at render via t(); old messages still use `text`
           time: new Date().toISOString(),
         }] };
       });
       delete adminReplyTimers.current[ticketId];
     }, delay);
+  }
+
+  function getClientChat(orderId) {
+    if (!orderId) return [];
+    return clientChats[orderId] || [];
+  }
+
+  function saveClientChat(orderId, msgs) {
+    if (!orderId) return;
+    setClientChats(prev => ({ ...prev, [orderId]: msgs }));
+  }
+
+  function clearClientChat(orderId) {
+    if (!orderId) return;
+    setClientChats(prev => {
+      if (!(orderId in prev)) return prev;
+      const { [orderId]: _removed, ...rest } = prev;
+      return rest;
+    });
   }
 
   function cancelAdminReply(ticketId) {
@@ -317,7 +334,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, updateUser, warnings, accountActive, rating, totalDeliveries, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount, deliveryHistory, addToHistory, markOrderReported, getTicketMessages, saveTicketMessages, currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban, isOnline, setIsOnline, warningsList, markTicketRead, getUnreadTicketCount, scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts, readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount }}>
+    <AuthContext.Provider value={{ user, login, register, logout, updateUser, warnings, accountActive, rating, totalDeliveries, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount, deliveryHistory, addToHistory, markOrderReported, getTicketMessages, saveTicketMessages, currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban, isOnline, setIsOnline, warningsList, markTicketRead, getUnreadTicketCount, scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts, readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount, getClientChat, saveClientChat, clearClientChat }}>
       {children}
     </AuthContext.Provider>
   );
