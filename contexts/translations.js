@@ -410,6 +410,7 @@ const translations = {
     helpVehicle_q2: 'Puis-je utiliser plusieurs véhicules ?', helpVehicle_a2: 'Non, un seul véhicule actif à la fois. Changement possible à tout moment.',
     helpSecurity_q1: 'Signaler un problème de sécurité', helpSecurity_a1: 'En cas d\'urgence, appelez le 112. Sinon contactez le support.',
     helpSecurity_q2: 'Assurance pendant les courses', helpSecurity_a2: 'Couvert par votre RC Pro. Vérifiez que votre attestation est à jour.',
+    loginCooldown: 'Trop de tentatives. Veuillez patienter 30 secondes.', errorInvalidEmail: 'Format email invalide', accountLocked: 'Compte temporairement verrouillé. Réessayez dans quelques minutes.', errorPasswordWeak: 'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre', cannotGoOfflineTitle: 'Impossible', cannotGoOfflineMsg: 'Vous avez une commande en cours. Terminez-la avant de passer hors ligne.',
   },
 
   en: {
@@ -775,6 +776,7 @@ const translations = {
     helpVehicle_q2: 'Can I use multiple vehicles?', helpVehicle_a2: 'No, only one active vehicle at a time. Change possible anytime.',
     helpSecurity_q1: 'Report a security issue', helpSecurity_a1: 'In an emergency, call 112. Otherwise contact support.',
     helpSecurity_q2: 'Insurance during rides', helpSecurity_a2: 'Covered by your professional liability insurance. Check that your certificate is up to date.',
+    loginCooldown: 'Too many attempts. Please wait 30 seconds.', errorInvalidEmail: 'Invalid email format', accountLocked: 'Account temporarily locked. Try again in a few minutes.', errorPasswordWeak: 'Password must be at least 8 characters and include an uppercase, a lowercase and a digit', cannotGoOfflineTitle: 'Unable', cannotGoOfflineMsg: 'You have an order in progress. Finish it before going offline.',
   },
 
   es: {
@@ -839,6 +841,7 @@ const translations = {
     helpVehicle_q2: '¿Puedo usar varios vehículos?', helpVehicle_a2: 'No, solo un vehículo activo a la vez. Cambio posible en cualquier momento.',
     helpSecurity_q1: 'Informar de un problema de seguridad', helpSecurity_a1: 'En caso de emergencia, llame al 112. Si no, contacte con el soporte.',
     helpSecurity_q2: 'Seguro durante las entregas', helpSecurity_a2: 'Cubierto por su RC Profesional. Verifique que su certificado esté actualizado.',
+    loginCooldown: 'Demasiados intentos. Espere 30 segundos.', errorInvalidEmail: 'Formato de email inválido', accountLocked: 'Cuenta bloqueada temporalmente. Inténtelo de nuevo en unos minutos.', errorPasswordWeak: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un dígito', cannotGoOfflineTitle: 'Imposible', cannotGoOfflineMsg: 'Tiene un pedido en curso. Termínelo antes de desconectarse.',
   },
 
   zh: {
@@ -903,6 +906,7 @@ const translations = {
     helpVehicle_q2: '我可以使用多辆车吗？', helpVehicle_a2: '不，同时只能激活一辆车。可随时更换。',
     helpSecurity_q1: '报告安全问题', helpSecurity_a1: '紧急情况下请拨打112。否则联系客服。',
     helpSecurity_q2: '配送期间的保险', helpSecurity_a2: '由您的职业责任保险承保。请确保证书有效。',
+    loginCooldown: '尝试次数过多，请等待30秒。', errorInvalidEmail: '邮箱格式无效', accountLocked: '账户暂时被锁定，请在几分钟后重试。', errorPasswordWeak: '密码必须至少8个字符，包含大写字母、小写字母和数字', cannotGoOfflineTitle: '无法操作', cannotGoOfflineMsg: '您有一个订单进行中，请完成后再离线。',
   },
 
   ar: {
@@ -967,6 +971,7 @@ const translations = {
     helpVehicle_q2: 'هل يمكنني استخدام عدة مركبات؟', helpVehicle_a2: 'لا، مركبة واحدة نشطة في كل مرة. يمكن التغيير في أي وقت.',
     helpSecurity_q1: 'الإبلاغ عن مشكلة أمنية', helpSecurity_a1: 'في حالة الطوارئ، اتصل برقم 112. وإلا، اتصل بالدعم.',
     helpSecurity_q2: 'التأمين أثناء التوصيل', helpSecurity_a2: 'مغطى بتأمين RC المهني. تأكد من تحديث شهادتك.',
+    loginCooldown: 'محاولات كثيرة. يرجى الانتظار 30 ثانية.', errorInvalidEmail: 'صيغة البريد الإلكتروني غير صحيحة', accountLocked: 'الحساب مقفل مؤقتاً. حاول مرة أخرى بعد بضع دقائق.', errorPasswordWeak: 'يجب أن تحتوي كلمة المرور على 8 أحرف على الأقل وحرف كبير وحرف صغير ورقم', cannotGoOfflineTitle: 'غير ممكن', cannotGoOfflineMsg: 'لديك طلب قيد التنفيذ. أكمله قبل الانتقال إلى وضع عدم الاتصال.',
   },
 
   de: {
@@ -1031,6 +1036,7 @@ const translations = {
     helpVehicle_q2: 'Kann ich mehrere Fahrzeuge nutzen?', helpVehicle_a2: 'Nein, nur ein aktives Fahrzeug gleichzeitig. Wechsel jederzeit möglich.',
     helpSecurity_q1: 'Sicherheitsproblem melden', helpSecurity_a1: 'Im Notfall wählen Sie 112. Ansonsten Support kontaktieren.',
     helpSecurity_q2: 'Versicherung während Fahrten', helpSecurity_a2: 'Durch Ihre Berufshaftpflichtversicherung abgedeckt. Prüfen Sie, dass Ihre Bescheinigung aktuell ist.',
+    loginCooldown: 'Zu viele Versuche. Bitte warten Sie 30 Sekunden.', errorInvalidEmail: 'Ungültiges E-Mail-Format', accountLocked: 'Konto vorübergehend gesperrt. Versuchen Sie es in wenigen Minuten erneut.', errorPasswordWeak: 'Passwort muss mindestens 8 Zeichen, einen Großbuchstaben, einen Kleinbuchstaben und eine Ziffer enthalten', cannotGoOfflineTitle: 'Nicht möglich', cannotGoOfflineMsg: 'Sie haben eine laufende Bestellung. Schließen Sie sie ab, bevor Sie offline gehen.',
   },
 
   nl: {
@@ -1095,6 +1101,7 @@ const translations = {
     helpVehicle_q2: 'Kan ik meerdere voertuigen gebruiken?', helpVehicle_a2: 'Nee, slechts één actief voertuig tegelijk. Wisselen kan altijd.',
     helpSecurity_q1: 'Meld een veiligheidsprobleem', helpSecurity_a1: 'In noodgevallen bel 112. Anders support contacteren.',
     helpSecurity_q2: 'Verzekering tijdens ritten', helpSecurity_a2: 'Gedekt door uw beroepsaansprakelijkheidsverzekering. Controleer of uw certificaat actueel is.',
+    loginCooldown: 'Te veel pogingen. Wacht 30 seconden.', errorInvalidEmail: 'Ongeldig e-mailformaat', accountLocked: 'Account tijdelijk geblokkeerd. Probeer over enkele minuten opnieuw.', errorPasswordWeak: 'Wachtwoord moet minstens 8 tekens, een hoofdletter, een kleine letter en een cijfer bevatten', cannotGoOfflineTitle: 'Niet mogelijk', cannotGoOfflineMsg: 'U heeft een lopende bestelling. Voltooi deze voordat u offline gaat.',
   },
 
   it: {
@@ -1159,6 +1166,7 @@ const translations = {
     helpVehicle_q2: 'Posso usare più veicoli?', helpVehicle_a2: 'No, un solo veicolo attivo alla volta. Cambio possibile in qualsiasi momento.',
     helpSecurity_q1: 'Segnala un problema di sicurezza', helpSecurity_a1: 'In caso di emergenza, chiama il 112. Altrimenti contatta il supporto.',
     helpSecurity_q2: 'Assicurazione durante le consegne', helpSecurity_a2: 'Coperto dalla tua RC professionale. Verifica che il certificato sia aggiornato.',
+    loginCooldown: 'Troppi tentativi. Attendi 30 secondi.', errorInvalidEmail: 'Formato email non valido', accountLocked: 'Account temporaneamente bloccato. Riprova tra qualche minuto.', errorPasswordWeak: 'La password deve contenere almeno 8 caratteri, una maiuscola, una minuscola e una cifra', cannotGoOfflineTitle: 'Impossibile', cannotGoOfflineMsg: 'Hai un ordine in corso. Completalo prima di passare offline.',
   },
 
   pt: {
@@ -1223,6 +1231,7 @@ const translations = {
     helpVehicle_q2: 'Posso usar vários veículos?', helpVehicle_a2: 'Não, apenas um veículo ativo de cada vez. Mudança possível a qualquer momento.',
     helpSecurity_q1: 'Reportar um problema de segurança', helpSecurity_a1: 'Em caso de emergência, ligue 112. Caso contrário, contacte o suporte.',
     helpSecurity_q2: 'Seguro durante entregas', helpSecurity_a2: 'Coberto pelo seu seguro RC profissional. Verifique que o certificado está atualizado.',
+    loginCooldown: 'Demasiadas tentativas. Aguarde 30 segundos.', errorInvalidEmail: 'Formato de email inválido', accountLocked: 'Conta temporariamente bloqueada. Tente novamente dentro de alguns minutos.', errorPasswordWeak: 'A palavra-passe deve ter pelo menos 8 caracteres, uma maiúscula, uma minúscula e um dígito', cannotGoOfflineTitle: 'Impossível', cannotGoOfflineMsg: 'Tem um pedido em curso. Termine-o antes de ficar offline.',
   },
 
   ja: {
@@ -1287,6 +1296,7 @@ const translations = {
     helpVehicle_q2: '複数の車両を使用できますか？', helpVehicle_a2: 'いいえ、一度に1台のみアクティブです。いつでも変更可能です。',
     helpSecurity_q1: 'セキュリティ問題を報告', helpSecurity_a1: '緊急時は112に電話してください。それ以外はサポートに連絡してください。',
     helpSecurity_q2: '配達中の保険', helpSecurity_a2: '職業賠償責任保険でカバーされています。証明書が最新であることを確認してください。',
+    loginCooldown: '試行回数が多すぎます。30秒お待ちください。', errorInvalidEmail: 'メールアドレスの形式が無効です', accountLocked: 'アカウントが一時的にロックされました。数分後に再試行してください。', errorPasswordWeak: 'パスワードは8文字以上で、大文字、小文字、数字を含める必要があります', cannotGoOfflineTitle: '不可能', cannotGoOfflineMsg: '進行中の注文があります。オフラインにする前に完了してください。',
   },
 
   th: {
@@ -1351,6 +1361,7 @@ const translations = {
     helpVehicle_q2: 'ฉันสามารถใช้หลายยานพาหนะได้ไหม?', helpVehicle_a2: 'ไม่ มีเพียงคันเดียวที่ใช้งานได้ต่อครั้ง สามารถเปลี่ยนได้ตลอดเวลา',
     helpSecurity_q1: 'รายงานปัญหาความปลอดภัย', helpSecurity_a1: 'ในกรณีฉุกเฉิน โทร 112 หรือติดต่อฝ่ายสนับสนุน',
     helpSecurity_q2: 'ประกันภัยระหว่างส่งของ', helpSecurity_a2: 'ครอบคลุมโดยประกันภัยวิชาชีพของคุณ ตรวจสอบว่าใบรับรองของคุณเป็นปัจจุบัน',
+    loginCooldown: 'ลองเข้ามากเกินไป โปรดรอ 30 วินาที', errorInvalidEmail: 'รูปแบบอีเมลไม่ถูกต้อง', accountLocked: 'บัญชีถูกล็อกชั่วคราว โปรดลองอีกครั้งในอีกไม่กี่นาที', errorPasswordWeak: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร มีตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลข', cannotGoOfflineTitle: 'ไม่สามารถทำได้', cannotGoOfflineMsg: 'คุณมีคำสั่งซื้อที่กำลังดำเนินการอยู่ ทำให้เสร็จก่อนออฟไลน์',
   },
 
   sv: {
@@ -1415,6 +1426,7 @@ const translations = {
     helpVehicle_q2: 'Kan jag använda flera fordon?', helpVehicle_a2: 'Nej, endast ett aktivt fordon åt gången. Byte möjligt när som helst.',
     helpSecurity_q1: 'Rapportera säkerhetsproblem', helpSecurity_a1: 'Vid nödsituation, ring 112. Annars kontakta supporten.',
     helpSecurity_q2: 'Försäkring under leveranser', helpSecurity_a2: 'Täcks av din yrkesansvarsförsäkring. Kontrollera att intyget är aktuellt.',
+    loginCooldown: 'För många försök. Vänta 30 sekunder.', errorInvalidEmail: 'Ogiltigt e-postformat', accountLocked: 'Kontot är tillfälligt låst. Försök igen om några minuter.', errorPasswordWeak: 'Lösenordet måste innehålla minst 8 tecken, en stor bokstav, en liten bokstav och en siffra', cannotGoOfflineTitle: 'Inte möjligt', cannotGoOfflineMsg: 'Du har en pågående beställning. Avsluta den innan du går offline.',
   },
 
   ru: {
@@ -1479,6 +1491,7 @@ const translations = {
     helpVehicle_q2: 'Можно ли использовать несколько транспортных средств?', helpVehicle_a2: 'Нет, только один активный транспорт одновременно. Смена возможна в любой момент.',
     helpSecurity_q1: 'Сообщить о проблеме безопасности', helpSecurity_a1: 'В экстренной ситуации звоните 112. Иначе свяжитесь с поддержкой.',
     helpSecurity_q2: 'Страхование во время доставок', helpSecurity_a2: 'Покрывается вашей профессиональной страховкой. Убедитесь, что сертификат актуален.',
+    loginCooldown: 'Слишком много попыток. Подождите 30 секунд.', errorInvalidEmail: 'Неверный формат email', accountLocked: 'Аккаунт временно заблокирован. Попробуйте через несколько минут.', errorPasswordWeak: 'Пароль должен содержать не менее 8 символов, заглавную букву, строчную букву и цифру', cannotGoOfflineTitle: 'Невозможно', cannotGoOfflineMsg: 'У вас есть активный заказ. Завершите его перед переходом в офлайн.',
   },
 };
 
