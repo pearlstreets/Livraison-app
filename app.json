@@ -35,13 +35,7 @@
     "jsEngine": "hermes",
     "plugins": [
       "expo-notifications",
-      "expo-localization",
-      [
-        "onesignal-expo-plugin",
-        {
-          "mode": "development"
-        }
-      ]
+      "expo-localization"
     ]
   }
 }

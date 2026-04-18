@@ -54,8 +54,15 @@ const INITIAL_HISTORY = [
   { id: 'ORD-2984', restaurant: 'La Terrasse, Meaux', address: '3 Bd Barbès, Meaux', distanceText: '2.1 km', priceText: '9.20 €', tip: null, date: '29 mars', time: '13h18', status: 'completed', completedAt: '2026-03-29T13:18:00' },
 ];
 
+// Demo user rehydrated in dev if no real session is found. In production
+// (`__DEV__ === false`) we start with user = null so the LoginScreen is
+// the first thing a fresh install sees — no "logged in as demo" flash.
+const DEMO_USER = __DEV__
+  ? { email: 'remsko@live.fr', firstName: 'Ganja', lastName: 'Remsko', pseudo: 'Remsko', phone: '06 12 34 56 78', vehicle: 'Scooter', photo: null }
+  : null;
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState({ email: 'remsko@live.fr', firstName: 'Ganja', lastName: 'Remsko', pseudo: 'Remsko', phone: '06 12 34 56 78', vehicle: 'Scooter', photo: null });
+  const [user, setUser] = useState(DEMO_USER);
   const [warnings, setWarnings] = useState(0);
   const [accountActive, setAccountActive] = useState(true);
   const [rating, setRating] = useState(4.8);
@@ -102,7 +109,9 @@ export function AuthProvider({ children }) {
         const parsed = JSON.parse(rawUser);
         if (!parsed || typeof parsed !== 'object') return;
         // Accept either the normalized shape we persist after login or the
-        // raw DeliveryDriverProfileSerializer payload.
+        // raw DeliveryDriverProfileSerializer payload. Mount the stored
+        // value first so the UI renders instantly; the refresh below then
+        // reconciles any stale field with the backend.
         setUser({
           email: parsed.email,
           firstName: parsed.firstName || parsed.first_name || '',
@@ -115,6 +124,35 @@ export function AuthProvider({ children }) {
           role: parsed.role || 'driver',
           driverId: parsed.driverId || parsed.id,
         });
+
+        // Background refresh: pull a fresh profile from /profile/ so
+        // rating / total_deliveries / verification / account_active are
+        // up to date. Any failure (network, 401 → auto-refresh via the
+        // axios interceptor, or final auth loss) leaves the cached user
+        // in place; it does NOT clear the session here.
+        try {
+          const fresh = await authService.getProfile();
+          if (cancelled || !fresh) return;
+          const remote = fresh?.data || fresh;
+          if (remote && typeof remote === 'object') {
+            setUser(prev => prev ? {
+              ...prev,
+              email: remote.email || prev.email,
+              phone: remote.phone || prev.phone,
+              phoneCode: remote.phoneCode || prev.phoneCode,
+              pseudo: remote.userName || remote.username || prev.pseudo,
+              vehicle: remote.vehicle_type || prev.vehicle,
+              rating: remote.rating ?? prev.rating,
+              totalDeliveries: remote.total_deliveries ?? prev.totalDeliveries,
+              isVerified: remote.is_verified ?? prev.isVerified,
+              driverId: remote.id ?? prev.driverId,
+            } : prev);
+            // Persist the refreshed snapshot so next boot starts even fresher.
+            try {
+              await AsyncStorage.setItem('userData', JSON.stringify(remote));
+            } catch { /* ignore */ }
+          }
+        } catch { /* keep cached user */ }
       } catch { /* silent — falls back to logged-out state */ }
     })();
     return () => { cancelled = true; };
