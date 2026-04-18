@@ -1,7 +1,52 @@
 import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 import secureStorage from './secureStorage';
 import { isValidEmail, sanitizeForApi } from '../utils/validation';
+
+// Lazy-loaded so unit tests / web builds don't explode on the native modules.
+let _Notifications = null;
+let _Device = null;
+function loadNotificationDeps() {
+  if (_Notifications !== null) return { Notifications: _Notifications, Device: _Device };
+  try {
+    _Notifications = require('expo-notifications');
+    _Device = require('expo-device');
+  } catch (e) {
+    _Notifications = false; // sentinel: not available
+    _Device = false;
+  }
+  return { Notifications: _Notifications, Device: _Device };
+}
+
+// Register the device's Expo push token with the backend so the driver
+// can receive new-order pushes even if OneSignal isn't configured.
+// Never throws — a push-token failure must NEVER block login.
+async function registerPushTokenSafe() {
+  try {
+    const { Notifications, Device } = loadNotificationDeps();
+    if (!Notifications || !Device) return;
+    if (!Device.isDevice) return;
+
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    let finalStatus = existing;
+    if (existing !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') return;
+
+    const tokenResult = await Notifications.getExpoPushTokenAsync().catch(() => null);
+    const token = tokenResult && tokenResult.data;
+    if (!token) return;
+
+    const platform = Platform.OS === 'ios' || Platform.OS === 'android' ? Platform.OS : 'unknown';
+    await api.post('/api/v1/delivery/push-token/', { token, platform });
+  } catch (e) {
+    // Intentionally silent — the backend will still work via OneSignal
+    // segment broadcasts, and the next login attempt will retry.
+  }
+}
 
 // Session timeout: auto-logout after 30 minutes of inactivity
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
@@ -77,6 +122,9 @@ export const authService = {
 
     refreshCount = 0;
     resetSessionTimer();
+    // Fire-and-forget: register the Expo push token with the backend.
+    // Any failure here is silent (see registerPushTokenSafe).
+    registerPushTokenSafe();
     return data;
   },
 
