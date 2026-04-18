@@ -21,6 +21,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import { initOneSignalOnce } from './services/oneSignalInit';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import LoginScreen from './screens/LoginScreen';
@@ -52,6 +53,13 @@ import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import OpportunityDetailScreen from './screens/OpportunityDetailScreen';
 import VersementsListScreen from './screens/VersementsListScreen';
 import VersementDetailScreen from './screens/VersementDetailScreen';
+
+// Initialize OneSignal once at module load. The helper is a no-op when the
+// native module isn't bundled or when expo.extra.oneSignalAppId is empty,
+// so the app continues to boot identically until a build with credentials
+// ships. Required to be called before render so OneSignal can attach its
+// notification handlers ahead of the first user interaction.
+initOneSignalOnce();
 
 const BRAND = '#00C29B';
 const Tab = createBottomTabNavigator();
