@@ -8,7 +8,35 @@ import DetailsSheet from '../components/DetailsSheet';
 import { getMeauxSeed } from '../constants/mockOrders';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { deliveryService } from '../services/deliveryService';
 import filtersUI from '../constants/filters-ui.json';
+
+// Normalize a backend-shaped order into the fields the OrderCard renders.
+// Tolerant of missing fields so a thin backend payload still shows something.
+function normalizeRemoteOrder(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = raw.id || raw.code || raw.assignment_id || raw.assignmentId;
+  if (!id) return null;
+  const km = Number(raw.distance_km ?? raw.distanceKm ?? raw.distance ?? 0);
+  return {
+    _uid: `api-${id}`,
+    id: String(id),
+    assignmentId: raw.assignment_id || raw.assignmentId || id,
+    category: raw.category || 'Food & Drink',
+    restaurant: raw.restaurant || raw.merchant_name || raw.merchantName || raw.pickup_label || 'Restaurant',
+    address: raw.dropoff_address || raw.address || raw.delivery_address || '',
+    dropoffAddress: raw.dropoff_address || raw.address || raw.delivery_address || '',
+    distanceText: km ? `${km.toFixed(1)} km` : (raw.distance_text || ''),
+    etaText: raw.eta_text || (raw.eta_min ? `${raw.eta_min} min` : ''),
+    priceText: raw.price_text || (raw.price_cents != null ? `${(raw.price_cents/100).toFixed(2)} €` : (raw.price ? `${raw.price} €` : '')),
+    itemsCount: raw.items_count ?? raw.itemsCount ?? (Array.isArray(raw.items) ? raw.items.length : 0),
+    items: Array.isArray(raw.items) ? raw.items : [],
+    dropoffLat: raw.dropoff_lat ?? raw.dropoffLat,
+    dropoffLng: raw.dropoff_lng ?? raw.dropoffLng,
+    clientPhone: raw.client_phone || raw.customer_phone || raw.phone || null,
+    _source: 'api',
+  };
+}
 
 /* === Filtres inline (unique) === */
 const OrdersInlineFilters = React.memo(({ selected, onChange, filters = [] }) => {
@@ -247,12 +275,49 @@ export default function OrdersScreen({ navigation, route }) {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = null; };
   }, [online]);
 
+  // Real API polling — runs in parallel with the mock feed so the driver sees
+  // both demo orders and real assignments pushed by the marketplace. Silent
+  // fallback on any error (offline, 4xx/5xx, empty payload) means the mock
+  // flow is never interrupted.
+  useEffect(() => {
+    if (!online) return undefined;
+    let cancelled = false;
+    const pollRealOrders = async () => {
+      try {
+        const raw = await deliveryService.getAvailableOrders();
+        if (cancelled) return;
+        // Tolerate either {results:[…]} DRF pagination or a bare array.
+        const list = Array.isArray(raw) ? raw : Array.isArray(raw?.results) ? raw.results : [];
+        if (list.length === 0) return;
+        const normalized = list.map(normalizeRemoteOrder).filter(Boolean);
+        if (normalized.length === 0) return;
+        setAvailable(prev => {
+          const existingIds = new Set(prev.map(o => o._uid || o.id));
+          const added = normalized.filter(o => !existingIds.has(o._uid) && !existingIds.has(o.id));
+          if (added.length === 0) return prev;
+          return [...added, ...prev].slice(0, 20);
+        });
+      } catch { /* silent — mock continues */ }
+    };
+    pollRealOrders();
+    const iv = setInterval(pollRealOrders, 15000); // every 15s
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [online]);
+
   const onAccept = useCallback((order) => {
     const key = orderKey(order);
+    // Optimistic local update first so the navigation feels instant.
     setAvailable(prev => prev.filter(o => orderKey(o) !== key));
     setActive(prev => [{ ...order, status: 'active' }, ...prev]);
     setActiveSteps(prev => ({ ...prev, [key]: { stepIndex: 0, stepLabel: 'Récupération' } }));
     navigation.navigate('DeliveryFlow', { order });
+    // Fire-and-forget real accept. Only runs when the order came from the API
+    // (has an assignmentId). Any error is silently swallowed — the driver keeps
+    // the local flow even if the backend is unreachable.
+    const assignmentId = order.assignmentId || (order._source === 'api' ? order.id : null);
+    if (assignmentId) {
+      deliveryService.acceptDelivery(assignmentId).catch(() => { /* ignore */ });
+    }
   }, [navigation]);
 
   const onResumeActive = useCallback((order) => {

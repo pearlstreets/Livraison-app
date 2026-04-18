@@ -5,6 +5,7 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { sanitizeInput, createRateLimiter } from '../utils/validation';
+import { deliveryService } from '../services/deliveryService';
 
 // Rate limiter for slide buttons (prevent double triggers)
 const slideRateLimiter = createRateLimiter(2000);
@@ -283,8 +284,14 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     if (stepIndex < STEPS.length - 1) {
       const next = stepIndex + 1;
       setStepIndex(next);
+      // Fire-and-forget status push for API-sourced assignments. Silently
+      // ignores errors so local UX never stalls on a bad network.
+      const assignmentId = order.assignmentId || (order._source === 'api' ? order.id : null);
+      if (assignmentId && STEPS[next]) {
+        deliveryService.updateDeliveryStatus(assignmentId, STEPS[next]).catch(() => { /* ignore */ });
+      }
     }
-  }, [stepIndex]);
+  }, [stepIndex, order]);
 
   // Sync step to OrdersScreen params whenever stepIndex changes (without navigating away)
   useEffect(() => {

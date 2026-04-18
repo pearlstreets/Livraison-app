@@ -15,7 +15,7 @@ if (!__DEV__) {
 //   </domain-config>
 // </network-security-config>
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer, DefaultTheme, getFocusedRouteNameFromRoute } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, getFocusedRouteNameFromRoute, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -67,6 +67,15 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+// Navigation ref used by push-notification handlers to route the driver to
+// the Orders tab when a new-assignment notification is received/tapped.
+export const navigationRef = createNavigationContainerRef();
+function focusOrdersTab() {
+  try {
+    if (navigationRef.isReady()) navigationRef.navigate('Home');
+  } catch { /* ignore */ }
+}
 
 function HomeStackScreen() {
   return (
@@ -144,6 +153,27 @@ function Main() {
     })();
   }, []);
 
+  // Foreground + response listeners for push notifications. When a new order
+  // is delivered to the device (either while the app is open, or when the
+  // driver taps a background notification), route them to the Orders tab so
+  // the new assignment card is visible immediately.
+  useEffect(() => {
+    const isOrderPush = (n) => {
+      const type = n?.request?.content?.data?.type;
+      return type === 'new_order' || type === 'delivery_assignment';
+    };
+    const receivedSub = Notifications.addNotificationReceivedListener((n) => {
+      if (isOrderPush(n)) focusOrdersTab();
+    });
+    const responseSub = Notifications.addNotificationResponseReceivedListener((resp) => {
+      if (isOrderPush(resp?.notification)) focusOrdersTab();
+    });
+    return () => {
+      try { receivedSub.remove(); } catch { /* ignore */ }
+      try { responseSub.remove(); } catch { /* ignore */ }
+    };
+  }, []);
+
   if (!user) return <LoginScreen />;
 
   return (
@@ -184,7 +214,7 @@ export default function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <NavigationContainer theme={navTheme}>
+        <NavigationContainer theme={navTheme} ref={navigationRef}>
           <StatusBar style="dark" />
           <Main />
         </NavigationContainer>
