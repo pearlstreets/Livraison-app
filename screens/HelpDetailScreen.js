@@ -21,8 +21,19 @@ const FAQ_KEYS = {
 export default function HelpDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { topicKey } = route.params;
-  const questions = FAQ_KEYS[topicKey] || [];
+  const params = route?.params || {};
+
+  // Accept either the new `topicKey` or the legacy `topic` (translated label).
+  let topicKey = params.topicKey;
+  if (!topicKey && typeof params.topic === 'string') {
+    // Try matching the translated label for every known topic.
+    for (const k of Object.keys(FAQ_KEYS)) {
+      if (t(k) === params.topic) { topicKey = k; break; }
+    }
+  }
+
+  const questions = (topicKey && FAQ_KEYS[topicKey]) || [];
+  const title = topicKey ? t(topicKey) : (params.topic || t('helpTitle'));
 
   return (
     <View style={s.container}>
@@ -31,20 +42,26 @@ export default function HelpDetailScreen({ navigation, route }) {
           <Pressable onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#111" />
           </Pressable>
-          <Text style={s.headerTitle}>{t(topicKey)}</Text>
+          <Text style={s.headerTitle}>{title}</Text>
           <View style={{ width: 24 }} />
         </View>
 
-        {questions.map(([qKey, aKey], i) => (
-          <View key={i} style={s.faqCard}>
-            <Text style={s.question}>{t(qKey)}</Text>
-            <Text style={s.answer}>{t(aKey)}</Text>
+        {questions.length === 0 ? (
+          <View style={s.faqCard}>
+            <Text style={s.answer}>{t('helpSubtitle')}</Text>
           </View>
-        ))}
+        ) : (
+          questions.map(([qKey, aKey], i) => (
+            <View key={i} style={s.faqCard}>
+              <Text style={s.question}>{t(qKey)}</Text>
+              <Text style={s.answer}>{t(aKey)}</Text>
+            </View>
+          ))
+        )}
       </ScrollView>
 
       <View style={[s.contactWrap, { paddingBottom: insets.bottom || 16 }]}>
-        <Pressable style={s.contactBtn} onPress={() => navigation.navigate('ContactSupport', { subject: t(topicKey) })}>
+        <Pressable style={s.contactBtn} onPress={() => navigation.navigate('ContactSupport', { subject: title })}>
           <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
           <Text style={s.contactTxt}>{t('contactSupport')}</Text>
         </Pressable>

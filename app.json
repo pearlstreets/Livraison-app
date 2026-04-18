@@ -34,7 +34,8 @@
     },
     "jsEngine": "hermes",
     "plugins": [
-      "expo-notifications"
+      "expo-notifications",
+      "expo-localization"
     ]
   }
 }

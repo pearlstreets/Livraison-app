@@ -13,7 +13,12 @@ export default function ProfileScreen({ navigation }) {
   const { t } = useLanguage();
   const [earn, setEarn] = useState({ earningsCents: 0, earnings: '0.00 €' });
 
-  async function refresh() { setEarn(await api.getEarnings()); }
+  async function refresh() {
+    try {
+      const data = await api.getEarnings();
+      if (data && typeof data === 'object') setEarn(data);
+    } catch { /* keep previous value on failure */ }
+  }
   useEffect(() => { refresh(); const id = setInterval(refresh, 3000); return () => clearInterval(id); }, []);
 
   function withdraw() { Alert.alert(t('requestSent'), t('payoutRequestedMsg')); }
@@ -26,10 +31,22 @@ export default function ProfileScreen({ navigation }) {
   }
 
   async function testNotification() {
-    await Notifications.scheduleNotificationAsync({
-      content: { title: 'Test Pearl Delivery', body: t('testNotifBody') },
-      trigger: null,
-    });
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') {
+        const req = await Notifications.requestPermissionsAsync();
+        if (req.status !== 'granted') {
+          Alert.alert(t('permissionRequired'));
+          return;
+        }
+      }
+      await Notifications.scheduleNotificationAsync({
+        content: { title: 'Test Pearl Delivery', body: t('testNotifBody') },
+        trigger: null,
+      });
+    } catch {
+      // Silently ignore — test button must never crash the app.
+    }
   }
 
   return (
