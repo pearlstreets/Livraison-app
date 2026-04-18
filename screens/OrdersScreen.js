@@ -9,6 +9,7 @@ import { getMeauxSeed } from '../constants/mockOrders';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { deliveryService } from '../services/deliveryService';
+import * as Location from 'expo-location';
 import filtersUI from '../constants/filters-ui.json';
 
 // Normalize a backend-shaped order into the fields the OrderCard renders.
@@ -291,6 +292,44 @@ export default function OrdersScreen({ navigation, route }) {
     };
     schedule();
     return () => { if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = null; };
+  }, [online]);
+
+  // Background location updates while online so the marketplace can route
+  // nearby orders. Requests foreground permission once, then pushes
+  // location every 30 seconds. Permission denial or any other failure is
+  // silent — the app still works, backend just doesn't see the driver's
+  // position.
+  useEffect(() => {
+    if (!online) return undefined;
+    let cancelled = false;
+    let intervalId = null;
+
+    (async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        let finalStatus = status;
+        if (status !== 'granted') {
+          const req = await Location.requestForegroundPermissionsAsync();
+          finalStatus = req.status;
+        }
+        if (finalStatus !== 'granted' || cancelled) return;
+
+        const pushCurrent = async () => {
+          try {
+            const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            if (!pos?.coords || cancelled) return;
+            deliveryService.updateLocation(pos.coords.latitude, pos.coords.longitude).catch(() => { /* ignore */ });
+          } catch { /* ignore individual failures */ }
+        };
+        pushCurrent();
+        intervalId = setInterval(pushCurrent, 30000);
+      } catch { /* ignore permission errors */ }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [online]);
 
   // Real API polling — runs in parallel with the mock feed so the driver sees

@@ -1,9 +1,11 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useMemo, useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { ticketService } from '../services/ticketService';
 
 const BRAND = '#00C29B';
 
@@ -43,10 +45,61 @@ const MOCK_TICKETS = [
   { id: 'TK-2981', orderId: 'ORD-2981', subject: 'Retard au restaurant', date: '18 mars 2025', status: 'resolved', lastMessage: 'Une compensation a été ajoutée à votre solde.' },
 ];
 
+// Normalize a DeliveryTicketSerializer row into the card shape above.
+function normalizeRemoteTicket(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = raw.id ?? raw.ticket_id;
+  const orderId = raw.assignment?.order_id ?? raw.order_id ?? raw.assignment_id ?? raw.assignmentId;
+  const ticketId = id ? `TK-${id}` : (orderId ? `TK-${orderId}` : null);
+  if (!ticketId) return null;
+  const statusRaw = String(raw.status || '').toLowerCase();
+  const isResolved = statusRaw === 'resolved' || statusRaw === 'closed';
+  const last = Array.isArray(raw.messages) && raw.messages.length
+    ? raw.messages[raw.messages.length - 1]
+    : null;
+  const created = raw.created_at || raw.updated_at || last?.created_at;
+  const dateObj = created ? new Date(created) : new Date();
+  const months = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+  return {
+    id: ticketId,
+    orderId: orderId ? `ORD-${orderId}` : ticketId,
+    subject: raw.problem_type || raw.description || 'Ticket',
+    date: `${dateObj.getDate()} ${months[dateObj.getMonth()]} ${dateObj.getFullYear()}`,
+    status: isResolved ? 'resolved' : 'open',
+    lastMessage: last?.text || raw.description || '',
+    hasUnread: false,
+    remote: true,
+  };
+}
+
 export default function TicketsListScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const { getTicketMessages, getUnreadTicketCount } = useAuth();
+  const [remoteTickets, setRemoteTickets] = useState([]);
+
+  // Fetch real tickets from the backend on focus. Silent on failure — the
+  // screen still shows local / dynamic tickets from AuthContext, so offline
+  // users aren't left with a blank page.
+  useFocusEffect(useCallback(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await ticketService.getTickets();
+        if (cancelled) return;
+        const list = Array.isArray(data?.results)
+          ? data.results
+          : Array.isArray(data?.data)
+            ? data.data
+            : Array.isArray(data)
+              ? data
+              : [];
+        const normalized = list.map(normalizeRemoteTicket).filter(Boolean);
+        setRemoteTickets(normalized);
+      } catch { /* keep previous list */ }
+    })();
+    return () => { cancelled = true; };
+  }, []));
 
   // Build dynamic tickets from AuthContext
   const authTicketIds = [];
@@ -78,9 +131,17 @@ export default function TicketsListScreen({ navigation }) {
     };
   }).filter(Boolean);
 
-  // Merge: dynamic first, then mock (excluding any that overlap)
-  const mockFiltered = MOCK_TICKETS.filter(mt => !authTicketIds.includes(mt.orderId));
-  const allTickets = [...dynamicTickets, ...mockFiltered];
+  // Merge priority: dynamic (local in-progress chats) → remote (real backend
+  // tickets) → mocks (demo fallback). Dedupe by orderId so the same ticket
+  // doesn't appear twice.
+  const seenOrderIds = new Set(authTicketIds);
+  const remoteFiltered = remoteTickets.filter(rt => {
+    if (seenOrderIds.has(rt.orderId)) return false;
+    seenOrderIds.add(rt.orderId);
+    return true;
+  });
+  const mockFiltered = MOCK_TICKETS.filter(mt => !seenOrderIds.has(mt.orderId));
+  const allTickets = [...dynamicTickets, ...remoteFiltered, ...mockFiltered];
 
   // Memoize ticket filtering to avoid recomputation on every render
   const { openTickets, resolvedTickets } = useMemo(() => ({

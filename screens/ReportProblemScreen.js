@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { ticketService } from '../services/ticketService';
 
 const BRAND = '#00C29B';
 
@@ -37,17 +38,33 @@ export default function ReportProblemScreen({ navigation, route }) {
         text: t('ok'),
         onPress: () => {
           markOrderReported(order.id);
-          // Save the problem as initial message in the ticket
           const problem = PROBLEMS.find(p => p.id === selectedProblem);
           const problemLabel = problem ? t(problem.labelKey) : selectedProblem;
           const now = new Date();
+          // Seed the local ticket UI with the user report + placeholder admin
+          // openers (translated via keys — see TicketChatScreen for the same
+          // textKey-based shape). These stay in sync with the current lang.
           const initialMsgs = [
-            { id: '0', type: 'system', text: `Ticket ouvert pour la commande ${order.id || 'N/A'}` },
-            { id: `user-report-${Date.now()}`, type: 'user', text: `Problème signalé : ${problemLabel}${comment ? `\n${comment}` : ''}`, time: now.toISOString() },
-            { id: 'admin-0', type: 'admin', text: 'Bonjour ! Merci de nous contacter. Un agent va prendre en charge votre demande.', time: new Date(now.getTime() + 1500).toISOString() },
-            { id: 'admin-1', type: 'admin', text: 'Je consulte les détails de votre course. Un instant s\'il vous plaît...', time: new Date(now.getTime() + 4000).toISOString() },
+            { id: '0', type: 'system', textKey: 'ticketOpenedFor', orderId: order.id || 'N/A' },
+            { id: `user-report-${Date.now()}`, type: 'user', text: `${t('reportProblem')} : ${problemLabel}${comment ? `\n${comment}` : ''}`, time: now.toISOString() },
+            { id: 'admin-0', type: 'admin', textKey: 'chatOpening1', time: new Date(now.getTime() + 1500).toISOString() },
+            { id: 'admin-1', type: 'admin', textKey: 'chatOpening2', time: new Date(now.getTime() + 4000).toISOString() },
           ];
           saveTicketMessages(order.id, initialMsgs);
+
+          // Mirror on the backend so Pearl Streets support sees the ticket.
+          // assignment_id is the preferred handle (from the active
+          // delivery); fall back to the order id if that's all we have.
+          // Fire-and-forget — local UX never waits on the network.
+          const assignmentId = order.assignmentId || order.assignment_id || order.id;
+          if (assignmentId) {
+            ticketService.createTicket({
+              assignment_id: assignmentId,
+              problem_type: selectedProblem,
+              description: `${problemLabel}${comment ? `\n${comment}` : ''}`.slice(0, 2000),
+            }).catch(() => { /* ignore */ });
+          }
+
           navigation.goBack();
         },
       }]
