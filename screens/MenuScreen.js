@@ -87,7 +87,7 @@ export default function MenuScreen({ navigation }) {
 
       {/* Gains */}
       <View style={{flexDirection:'row', paddingHorizontal:16, marginTop:10, gap:8}}>
-        <Pressable style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}} onPress={() => navigation.navigate('DeliveryHistory')}>
+        <Pressable style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}} onPress={() => navigation.navigate('Wallet')}>
           <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{thisDayTotal.toFixed(2)} €</Text>
           <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('today') || "Aujourd'hui"}</Text>
         </Pressable>
@@ -167,7 +167,7 @@ export default function MenuScreen({ navigation }) {
       <View style={s.divider} />
 
       <View style={s.section}>
-        <MenuItem icon="chatbubbles-outline" label="Tickets" onPress={() => navigation.navigate('TicketsList')} badge={getUnreadTicketCount() > 0 ? String(getUnreadTicketCount()) : null} />
+        <MenuItem icon="chatbubbles-outline" label={t('tickets') || 'Tickets'} onPress={() => navigation.navigate('TicketsList')} badge={getUnreadTicketCount() > 0 ? String(getUnreadTicketCount()) : null} />
         <MenuItem icon="document-text-outline" label={t('documents')} onPress={() => navigation.navigate('Documents')} />
         <MenuItem icon="car-outline" label={t('vehicle')} onPress={() => navigation.navigate('Vehicle')} detail={user?.vehicle || 'Vélo'} />
         <MenuItem icon="star-outline" label={t('ratings')} onPress={() => navigation.navigate('Ratings')} />
