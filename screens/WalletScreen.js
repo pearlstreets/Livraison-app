@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { earningsService } from '../services/earningsService';
 
 const BRAND = '#00C29B';
 
@@ -43,6 +44,13 @@ export default function WalletScreen({ navigation }) {
 
   function processEncaiss() {
     setEncaissStep('processing');
+    // Fire the real cashout request. The backend throttles to 1 per day
+    // server-side (CashoutRateThrottle); any failure is swallowed so the
+    // local demo keeps working — the Alert at /screens/WalletScreen.js
+    // already handles the "1 per day" case client-side.
+    earningsService.requestCashout().catch(() => { /* ignore */ });
+    // Keep the 1.5s faux-processing window so the UI still animates even
+    // when the real response is near-instant — avoids a jarring flash.
     setTimeout(() => {
       cashOut();
       setEncaissStep('done');

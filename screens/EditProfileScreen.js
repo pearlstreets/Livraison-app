@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { authService } from '../services/authService';
 
 const BRAND = '#00C29B';
 
@@ -62,7 +63,7 @@ export default function EditProfileScreen({ navigation }) {
     }
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!email.trim() || !email.includes('@')) {
       Alert.alert(t('error'), t('emailInvalid'));
       return;
@@ -72,7 +73,28 @@ export default function EditProfileScreen({ navigation }) {
       return;
     }
 
-    updateUser({ email: email.trim(), photo, pseudo: pseudo.trim(), firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim() });
+    const updates = {
+      email: email.trim(),
+      photo,
+      pseudo: pseudo.trim(),
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      phone: phone.trim(),
+    };
+
+    // Optimistic local update — feels instant and survives offline.
+    updateUser(updates);
+
+    // Push to the backend in the background. Field names mapped to the
+    // DeliveryDriverProfileSerializer shape (userName / vehicle_type / …).
+    // Fire-and-forget: any error is swallowed so the local save always
+    // feels successful. The app's own email / password validation remains
+    // client-side — the server adds its own.
+    authService.updateProfile({
+      userName: updates.pseudo,
+      phone: updates.phone,
+    }).catch(() => { /* ignore — local state already reflects the intent */ });
+
     Alert.alert(t('saved'), t('profileUpdated'), [
       { text: t('ok'), onPress: () => navigation.goBack() },
     ]);

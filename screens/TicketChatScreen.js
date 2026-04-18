@@ -64,6 +64,47 @@ export default function TicketChatScreen({ navigation, route }) {
     };
   }, [messages, isResolvedState]);
 
+  // Fetch the real ticket detail from the backend on mount so driver sees
+  // actual support replies (not just the local placeholder auto-replies).
+  // Only runs for tickets whose id is numeric — our mock TK- identifiers
+  // obviously don't exist server-side. Silent on any failure.
+  useEffect(() => {
+    const numericId = typeof ticketId === 'number'
+      ? ticketId
+      : (typeof ticketId === 'string' && /^\d+$/.test(ticketId) ? Number(ticketId) : null);
+    if (!numericId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await ticketService.getTicketDetail(numericId);
+        if (cancelled || !data) return;
+        const remoteMsgs = Array.isArray(data?.messages) ? data.messages : [];
+        if (remoteMsgs.length === 0) return;
+        // Map backend TicketMessage rows onto the local render shape. Each
+        // remote id is prefixed so it never collides with locally-generated
+        // ids like `user-<timestamp>` or `admin-reply-<timestamp>`.
+        const mapped = remoteMsgs.map(m => ({
+          id: `remote-${m.id}`,
+          type: m.sender_type === 'admin' || m.is_admin ? 'admin' : 'user',
+          text: m.text || m.message || '',
+          time: m.created_at || m.time || new Date().toISOString(),
+        }));
+        setMessages(prev => {
+          const existingIds = new Set(prev.map(x => x.id));
+          const toAdd = mapped.filter(m => !existingIds.has(m.id));
+          if (toAdd.length === 0) return prev;
+          return [...prev, ...toAdd].sort((a, b) =>
+            new Date(a.time || 0) - new Date(b.time || 0)
+          );
+        });
+        if (data.status && ['resolved', 'closed'].includes(String(data.status).toLowerCase())) {
+          setIsResolvedState(true);
+        }
+      } catch { /* silent — local placeholder stays */ }
+    })();
+    return () => { cancelled = true; };
+  }, [ticketId]);
+
   function sendMessage() {
     const text = input.trim();
     if (!text || isResolvedState) return;
