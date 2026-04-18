@@ -423,6 +423,10 @@ export default function OrdersScreen({ navigation, route }) {
                 return;
               }
               setOnline(val);
+              // Tell the backend so it starts / stops routing orders to
+              // this driver. Fire-and-forget — if the call fails, local
+              // state still reflects the driver's intent.
+              deliveryService.toggleOnline(val).catch(() => { /* ignore */ });
             }}
             trackColor={{ true: '#00C29B', false: '#E6E8EB' }}
             thumbColor={online ? '#fff' : '#fff'}

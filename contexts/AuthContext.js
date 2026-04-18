@@ -1,14 +1,21 @@
-import React, { createContext, useContext, useState, useRef } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sanitizeInput, isValidEmail } from '../utils/validation';
 import { authService } from '../services/authService';
+import secureStorage from '../services/secureStorage';
+import api from '../services/api';
 
-// An axios error counts as a "network" failure (backend unreachable, DNS,
-// timeout, aborted) when there is no response object attached. In that case
-// it's safe to fall back to the local USERS list so the demo account still
-// works offline or while the backend isn't live. Any HTTP response — even a
-// 401 / 404 / 500 — is treated as authoritative and NOT masked by the mock.
+// An error counts as "network-level" (backend unreachable, DNS, timeout,
+// aborted) when no HTTP response came back. In that case it's safe to fall
+// back to the local USERS list so the demo account still works offline.
+// Any HTTP response — 401/404/500/… — is treated as authoritative and NOT
+// masked by the mock. Handles BOTH raw axios errors (err.response) and the
+// sanitised ones produced by services/api.js createSafeError (err.isNetworkError).
 function isNetworkLevelError(err) {
-  return !!err && !err.response;
+  if (!err) return false;
+  if (err.isNetworkError === true) return true;
+  if (err.isNetworkError === false) return false;
+  return !err.response && !err.status;
 }
 
 const USERS = [
@@ -75,6 +82,42 @@ export function AuthProvider({ children }) {
   // Login attempt tracking
   const loginAttemptsRef = useRef(0);
   const lockoutUntilRef = useRef(null);
+
+  // Session restoration on boot: if authService.login previously stored a
+  // token pair + userData, rehydrate the user state without forcing a
+  // re-login. If the stored access token has expired, the first authenticated
+  // request will trigger the refresh interceptor in services/api.js; if the
+  // refresh fails the interceptor clears the session and the user lands on
+  // LoginScreen — no crash, no data loss beyond the session itself.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [token, rawUser] = await Promise.all([
+          secureStorage.getSecure('accessToken').catch(() => null),
+          AsyncStorage.getItem('userData').catch(() => null),
+        ]);
+        if (cancelled || !token || !rawUser) return;
+        const parsed = JSON.parse(rawUser);
+        if (!parsed || typeof parsed !== 'object') return;
+        // Accept either the normalized shape we persist after login or the
+        // raw DeliveryDriverProfileSerializer payload.
+        setUser({
+          email: parsed.email,
+          firstName: parsed.firstName || parsed.first_name || '',
+          lastName: parsed.lastName || parsed.last_name || '',
+          pseudo: parsed.pseudo || parsed.userName || parsed.username || parsed.email,
+          phone: parsed.phone || '',
+          phoneCode: parsed.phoneCode || '',
+          vehicle: parsed.vehicle || parsed.vehicle_type || 'Scooter',
+          photo: parsed.photo || null,
+          role: parsed.role || 'driver',
+          driverId: parsed.driverId || parsed.id,
+        });
+      } catch { /* silent — falls back to logged-out state */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   async function login(email, password) {
     // Check lockout
@@ -179,11 +222,22 @@ export function AuthProvider({ children }) {
     return true;
   }
 
-  function logout() {
-    // Fire-and-forget so logout UX never stalls on a slow backend. authService
-    // already clears secure storage even if the remote POST fails.
-    authService.logout().catch(() => { /* ignore */ });
+  async function logout() {
+    // Surgical session cleanup: wipe only the auth artefacts so non-session
+    // preferences (language, notifications read state, …) survive logout.
+    // authService.logout calls secureStorage.clearAll() which nukes the whole
+    // store — we don't want that here.
     setUser(null);
+    try {
+      const refreshToken = await secureStorage.getSecure('refreshToken').catch(() => null);
+      if (refreshToken) {
+        // Fire-and-forget so logout UX never stalls on a slow backend.
+        api.post('/api/v1/delivery/logout/', { refresh: refreshToken }).catch(() => { /* ignore */ });
+      }
+    } catch { /* ignore */ }
+    try { await secureStorage.removeSecure('accessToken'); } catch { /* ignore */ }
+    try { await secureStorage.removeSecure('refreshToken'); } catch { /* ignore */ }
+    try { await AsyncStorage.removeItem('userData'); } catch { /* ignore */ }
   }
 
   function updateUser(updates) { setUser(prev => prev ? { ...prev, ...updates } : prev); }

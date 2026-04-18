@@ -750,6 +750,13 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             <Pressable style={ss.cancelConfirmBtn} onPress={() => {
               const result = cancelOrder();
               setShowCancelPopup(false);
+              // Mirror the cancellation on the backend for API-sourced
+              // assignments. Fire-and-forget: local cancel UX never blocks
+              // on the network.
+              const cancelAssignmentId = route?.params?.assignmentId || order.assignmentId || null;
+              if (cancelAssignmentId) {
+                deliveryService.cancelDelivery(cancelAssignmentId, '').catch(() => { /* ignore */ });
+              }
               const cancelledOrder = { ...order, status: 'cancelled', priceText: '0,00 €', cancelledAt: new Date().toISOString() };
               if (result.warning) {
                 Alert.alert(t('warning'), t('warningAdded'), [
