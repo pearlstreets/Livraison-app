@@ -12,27 +12,45 @@ import { deliveryService } from '../services/deliveryService';
 import filtersUI from '../constants/filters-ui.json';
 
 // Normalize a backend-shaped order into the fields the OrderCard renders.
-// Tolerant of missing fields so a thin backend payload still shows something.
+// Backend reference (AvailableDeliveriesView in DeliveryApp/views.py):
+//   order_id (int), customer_name, order_price (string "12.34"),
+//   order_status, order_date, delivery_method,
+//   pickup_address, dropoff_address, delivery_notes.
+// Note: backend does NOT expose distance_km, eta, client phone, or itemised
+// products on this endpoint — we fill what we can and default the rest so
+// the existing OrderCard layout still renders without gaps.
 function normalizeRemoteOrder(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  const id = raw.id || raw.code || raw.assignment_id || raw.assignmentId;
-  if (!id) return null;
+  const orderId = raw.order_id ?? raw.id ?? raw.code ?? raw.assignment_id ?? raw.assignmentId;
+  if (!orderId && orderId !== 0) return null;
   const km = Number(raw.distance_km ?? raw.distanceKm ?? raw.distance ?? 0);
+  const priceNum = Number(raw.order_price ?? raw.price);
+  const priceText = Number.isFinite(priceNum)
+    ? `${priceNum.toFixed(2)} €`
+    : (raw.price_text || '');
   return {
-    _uid: `api-${id}`,
-    id: String(id),
-    assignmentId: raw.assignment_id || raw.assignmentId || id,
+    _uid: `api-${orderId}`,
+    id: String(orderId),
+    orderId: Number(orderId),
+    assignmentId: raw.assignment_id || raw.assignmentId || null,
     category: raw.category || 'Food & Drink',
-    restaurant: raw.restaurant || raw.merchant_name || raw.merchantName || raw.pickup_label || 'Restaurant',
+    restaurant: raw.restaurant || raw.merchant_name || raw.merchantName || raw.pickup_address || raw.pickup_label || 'Restaurant',
+    merchantName: raw.merchant_name || raw.merchantName || raw.pickup_address || '',
+    customerName: raw.customer_name || '',
     address: raw.dropoff_address || raw.address || raw.delivery_address || '',
     dropoffAddress: raw.dropoff_address || raw.address || raw.delivery_address || '',
+    pickupAddress: raw.pickup_address || '',
+    deliveryNotes: raw.delivery_notes || '',
     distanceText: km ? `${km.toFixed(1)} km` : (raw.distance_text || ''),
     etaText: raw.eta_text || (raw.eta_min ? `${raw.eta_min} min` : ''),
-    priceText: raw.price_text || (raw.price_cents != null ? `${(raw.price_cents/100).toFixed(2)} €` : (raw.price ? `${raw.price} €` : '')),
+    priceText,
     itemsCount: raw.items_count ?? raw.itemsCount ?? (Array.isArray(raw.items) ? raw.items.length : 0),
     items: Array.isArray(raw.items) ? raw.items : [],
     dropoffLat: raw.dropoff_lat ?? raw.dropoffLat,
     dropoffLng: raw.dropoff_lng ?? raw.dropoffLng,
+    // Backend does not currently expose the customer phone on /available/;
+    // keep the field so a future payload change lights up the "Call client"
+    // button without code churn.
     clientPhone: raw.client_phone || raw.customer_phone || raw.phone || null,
     _source: 'api',
   };
@@ -286,8 +304,14 @@ export default function OrdersScreen({ navigation, route }) {
       try {
         const raw = await deliveryService.getAvailableOrders();
         if (cancelled) return;
-        // Tolerate either {results:[…]} DRF pagination or a bare array.
-        const list = Array.isArray(raw) ? raw : Array.isArray(raw?.results) ? raw.results : [];
+        // Tolerate: bare array | DRF {results:[]} | DeliveryApp {status,count,data:[]}.
+        const list = Array.isArray(raw)
+          ? raw
+          : Array.isArray(raw?.results)
+            ? raw.results
+            : Array.isArray(raw?.data)
+              ? raw.data
+              : [];
         if (list.length === 0) return;
         const normalized = list.map(normalizeRemoteOrder).filter(Boolean);
         if (normalized.length === 0) return;
@@ -311,13 +335,27 @@ export default function OrdersScreen({ navigation, route }) {
     setActive(prev => [{ ...order, status: 'active' }, ...prev]);
     setActiveSteps(prev => ({ ...prev, [key]: { stepIndex: 0, stepLabel: 'Récupération' } }));
     navigation.navigate('DeliveryFlow', { order });
-    // Fire-and-forget real accept. Only runs when the order came from the API
-    // (has an assignmentId). Any error is silently swallowed — the driver keeps
-    // the local flow even if the backend is unreachable.
-    const assignmentId = order.assignmentId || (order._source === 'api' ? order.id : null);
-    if (assignmentId) {
-      deliveryService.acceptDelivery(assignmentId).catch(() => { /* ignore */ });
-    }
+
+    // Real accept, only for API-sourced orders (has an orderId / _source='api').
+    // Fire it in the background so nav feels instant; when the backend returns
+    // the fresh DeliveryAssignment, push its id into DeliveryFlow's route params
+    // so subsequent status PATCHs target the correct assignment.
+    const orderId = order.orderId ?? (order._source === 'api' ? Number(order.id) : null);
+    if (!orderId) return;
+    (async () => {
+      try {
+        const resp = await deliveryService.acceptDelivery(orderId, {
+          pickup_address: order.pickupAddress || '',
+          dropoff_address: order.dropoffAddress || '',
+        });
+        const assignmentId = resp?.data?.id ?? resp?.id;
+        if (assignmentId) {
+          setActive(prev => prev.map(o => orderKey(o) === key ? { ...o, assignmentId } : o));
+          // Only update params if DeliveryFlow is still the active route for this order.
+          try { navigation.setParams({ assignmentId }); } catch { /* ignore */ }
+        }
+      } catch { /* silent — local flow continues regardless */ }
+    })();
   }, [navigation]);
 
   const onResumeActive = useCallback((order) => {

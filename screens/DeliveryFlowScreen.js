@@ -284,14 +284,20 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     if (stepIndex < STEPS.length - 1) {
       const next = stepIndex + 1;
       setStepIndex(next);
-      // Fire-and-forget status push for API-sourced assignments. Silently
-      // ignores errors so local UX never stalls on a bad network.
-      const assignmentId = order.assignmentId || (order._source === 'api' ? order.id : null);
-      if (assignmentId && STEPS[next]) {
-        deliveryService.updateDeliveryStatus(assignmentId, STEPS[next]).catch(() => { /* ignore */ });
+      // Fire-and-forget status chain for API-sourced assignments. The route
+      // may set `assignmentId` after the accept response arrives (see
+      // OrdersScreen.onAccept), so we read it from route.params too.
+      const assignmentId = route?.params?.assignmentId || order.assignmentId || null;
+      const nextStepName = STEPS[next];
+      if (assignmentId && nextStepName) {
+        // For the 'done' step, include the 4-digit code the driver entered.
+        const extra = nextStepName === 'done' && code?.length === 4
+          ? { delivery_code: code.join('') }
+          : {};
+        deliveryService.advanceToStep(assignmentId, nextStepName, extra).catch(() => { /* ignore */ });
       }
     }
-  }, [stepIndex, order]);
+  }, [stepIndex, order, route?.params?.assignmentId, code]);
 
   // Sync step to OrdersScreen params whenever stepIndex changes (without navigating away)
   useEffect(() => {

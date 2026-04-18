@@ -89,6 +89,10 @@ export function AuthProvider({ children }) {
     if (!password || typeof password !== 'string') return false;
 
     // 1) Try the real backend first.
+    // Shape reference: DeliveryDriverProfileSerializer (Marketplace repo) —
+    // fields: email, userName, phone, phoneCode, vehicle_type, rating,
+    // total_deliveries, total_earnings, warnings_count, account_active,
+    // is_verified. No first/last name or photo fields exist server-side.
     try {
       const data = await authService.login(cleanEmail, password);
       const remoteUser = data?.user || {};
@@ -96,11 +100,16 @@ export function AuthProvider({ children }) {
         email: remoteUser.email || cleanEmail,
         firstName: remoteUser.first_name || remoteUser.firstName || '',
         lastName: remoteUser.last_name || remoteUser.lastName || '',
-        pseudo: remoteUser.pseudo || remoteUser.username || remoteUser.userName || remoteUser.email || cleanEmail,
+        pseudo: remoteUser.userName || remoteUser.username || remoteUser.pseudo || remoteUser.email || cleanEmail,
         phone: remoteUser.phone || '',
-        vehicle: remoteUser.vehicle || 'Scooter',
+        phoneCode: remoteUser.phoneCode || '',
+        vehicle: remoteUser.vehicle_type || remoteUser.vehicle || 'Scooter',
         photo: remoteUser.photo || remoteUser.photo_url || null,
         role: remoteUser.role || 'driver',
+        driverId: remoteUser.id,
+        rating: remoteUser.rating,
+        totalDeliveries: remoteUser.total_deliveries,
+        isVerified: remoteUser.is_verified,
       });
       loginAttemptsRef.current = 0;
       lockoutUntilRef.current = null;
