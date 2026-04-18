@@ -4,28 +4,30 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../components/api';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BRAND = '#00C29B';
 
 export default function ProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
   const [earn, setEarn] = useState({ earningsCents: 0, earnings: '0.00 €' });
 
   async function refresh() { setEarn(await api.getEarnings()); }
-  useEffect(() => { refresh(); const t = setInterval(refresh, 3000); return () => clearInterval(t); }, []);
+  useEffect(() => { refresh(); const id = setInterval(refresh, 3000); return () => clearInterval(id); }, []);
 
-  function withdraw() { Alert.alert('Demande envoyée', 'Votre demande de virement a été transmise.'); }
+  function withdraw() { Alert.alert(t('requestSent'), t('payoutRequestedMsg')); }
 
   function confirmLogout() {
-    Alert.alert('Déconnexion', 'Voulez-vous vous déconnecter ?', [
-      { text: 'Annuler', style: 'cancel' },
-      { text: 'Déconnexion', style: 'destructive', onPress: logout },
+    Alert.alert(t('logoutTitle'), t('logoutMsg'), [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('logout'), style: 'destructive', onPress: logout },
     ]);
   }
 
   async function testNotification() {
     await Notifications.scheduleNotificationAsync({
-      content: { title: 'Test Pearl Delivery', body: 'Ceci est une notification locale ✅' },
+      content: { title: 'Test Pearl Delivery', body: t('testNotifBody') },
       trigger: null,
     });
   }
@@ -58,34 +60,34 @@ export default function ProfileScreen({ navigation }) {
         </View>
         <Pressable style={s.editBtn} onPress={() => navigation.navigate('EditProfile')}>
           <Ionicons name="create-outline" size={18} color={BRAND} />
-          <Text style={s.editTxt}>Modifier le profil</Text>
+          <Text style={s.editTxt}>{t('editProfile')}</Text>
         </Pressable>
       </View>
 
       {/* Solde */}
       <View style={s.card}>
-        <Text style={s.title}>Solde</Text>
+        <Text style={s.title}>{t('balance')}</Text>
         <Text style={s.amount}>{earn.earnings}</Text>
         <Pressable style={[s.btn, s.fill]} onPress={withdraw}>
-          <Text style={s.btnTxt}>Demander virement</Text>
+          <Text style={s.btnTxt}>{t('requestPayout')}</Text>
         </Pressable>
       </View>
 
       {/* Documents */}
       <View style={s.card}>
-        <Text style={s.title}>Documents</Text>
-        <Text style={{ color: '#333', marginTop: 6 }}>Identité validée</Text>
-        <Text style={{ color: '#333', marginTop: 2 }}>Assurance en règle</Text>
+        <Text style={s.title}>{t('documents')}</Text>
+        <Text style={{ color: '#333', marginTop: 6 }}>{t('idValidated')}</Text>
+        <Text style={{ color: '#333', marginTop: 2 }}>{t('insuranceInOrder')}</Text>
       </View>
 
       <Pressable style={[s.btn, s.fill]} onPress={testNotification}>
-        <Text style={s.btnTxt}>Tester notification</Text>
+        <Text style={s.btnTxt}>{t('testNotification')}</Text>
       </Pressable>
 
       {/* Déconnexion */}
       <Pressable style={[s.btn, s.logoutBtn]} onPress={confirmLogout}>
         <Ionicons name="log-out-outline" size={18} color="#e74c3c" />
-        <Text style={s.logoutTxt}>Se déconnecter</Text>
+        <Text style={s.logoutTxt}>{t('logout')}</Text>
       </Pressable>
     </ScrollView>
   );

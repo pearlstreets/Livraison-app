@@ -36,7 +36,7 @@ export default function HelpScreen({ navigation }) {
       <Text style={s.sectionTitle}>{t('helpSubtitle')}</Text>
 
       {TOPICS.map((topic, i) => (
-        <Pressable key={i} style={s.topicRow} onPress={() => navigation.navigate('HelpDetail', { topic: t(topic.labelKey) })}>
+        <Pressable key={i} style={s.topicRow} onPress={() => navigation.navigate('HelpDetail', { topicKey: topic.labelKey })}>
           <Ionicons name={topic.icon} size={22} color={BRAND} style={{ marginRight: 14 }} />
           <View style={{ flex: 1 }}>
             <Text style={s.topicLabel}>{t(topic.labelKey)}</Text>

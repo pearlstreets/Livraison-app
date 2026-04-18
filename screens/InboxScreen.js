@@ -5,34 +5,24 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useFocusEffect } from '@react-navigation/native';
 
 const BRAND = '#00C29B';
-const FILTERS = [
-  { key: 'Tout', tKey: 'all' },
-  { key: 'Messages', tKey: 'messages' },
-  { key: 'Alertes', tKey: 'alerts' },
-  { key: 'Nouveautés', tKey: 'news' },
-];
+const FILTER_KEYS = ['all', 'messages', 'alerts', 'news'];
 
+// Mock notifications: translation keys resolved at render time.
+// type matches one of the FILTER_KEYS; section is 'today' or 'older'.
 const MOCK_NOTIFS = [
-  { id: '1', icon: 'megaphone', color: BRAND, title: 'Bienvenue sur Pearl Delivery !', subtitle: 'Votre compte livreur est actif.', time: "aujourd'hui", section: "Aujourd'hui", type: 'Nouveautés',
-    detail: 'Bienvenue sur Pearl Delivery !\n\nVotre compte livreur a été activé avec succès. Vous pouvez dès maintenant recevoir des commandes dans votre zone.\n\nPensez à vérifier vos documents et vos informations de paiement dans le menu.' },
-  { id: '2', icon: 'trophy', color: '#f5a623', title: 'Vous avez reçu un pourboire de 2.50€ !', subtitle: 'Appuyez ici pour voir le reçu.', time: "aujourd'hui", section: "Aujourd'hui", type: 'Alertes',
-    detail: 'Pourboire reçu : 2.50€\n\nCommande ORD-3012\nRestaurant : Pizzeria Roma, Meaux\nClient : Marc D.\n\nLe montant a été ajouté à votre solde.' },
-  { id: '3', icon: 'notifications', color: '#888', title: 'Nouvelle zone de boost activée', subtitle: 'Meaux centre - x1.3 jusqu\'à 14h', time: 'il y a 2 jours', section: 'Plus anciens', type: 'Alertes',
-    detail: 'Zone de boost active !\n\nZone : Meaux centre\nMultiplicateur : x1.3\nPériode : 11h - 14h\n\nToutes les courses dans cette zone bénéficient automatiquement du boost.' },
-  { id: '4', icon: 'trophy', color: '#f5a623', title: 'Vous avez reçu un pourboire de 1.80€ !', subtitle: 'Appuyez ici pour voir le reçu.', time: 'il y a 3 jours', section: 'Plus anciens', type: 'Alertes',
-    detail: 'Pourboire reçu : 1.80€\n\nCommande ORD-3008\nRestaurant : Le Bistrot, Meaux\nClient : Sophie M.\n\nLe montant a été ajouté à votre solde.' },
-  { id: '5', icon: 'warning', color: '#e74c3c', title: 'Quel est votre niveau de satisfaction ?', subtitle: 'Donnez-nous votre avis en tant que livreur.', time: 'il y a 4 jours', section: 'Plus anciens', type: 'Messages',
-    detail: 'Enquête de satisfaction\n\nNous aimerions connaître votre niveau de satisfaction en tant que livreur Pearl Delivery.\n\nVotre avis nous aide à améliorer notre plateforme pour tous les livreurs.\n\nMerci de prendre quelques minutes pour répondre.' },
-  { id: '6', icon: 'chatbubble', color: '#3498db', title: 'Support Pearl Streets', subtitle: 'Votre document a été vérifié avec succès.', time: 'il y a 5 jours', section: 'Plus anciens', type: 'Messages',
-    detail: 'Message du support\n\nBonjour,\n\nVotre pièce d\'identité a été vérifiée et validée. Vous n\'avez aucune action supplémentaire à effectuer.\n\nCordialement,\nL\'équipe Pearl Streets' },
-  { id: '7', icon: 'flash', color: BRAND, title: 'Quête du week-end disponible !', subtitle: '20 courses = 25€ de bonus', time: 'il y a 6 jours', section: 'Plus anciens', type: 'Nouveautés',
-    detail: 'Quête du week-end\n\nObjectif : Complétez 20 courses ce week-end\nRécompense : 25€ de bonus\nPériode : Samedi 00h - Dimanche 23h59\n\nLe bonus sera automatiquement crédité sur votre solde.' },
+  { id: '1', icon: 'megaphone', color: BRAND, titleKey: 'welcomeNotifTitle', bodyKey: 'welcomeNotifBody', time: 'todayRel', section: 'today', type: 'news' },
+  { id: '2', icon: 'trophy', color: '#f5a623', titleKey: 'tipNotifTitle', bodyKey: 'tipNotifBody', time: 'todayRel', section: 'today', type: 'alerts' },
+  { id: '3', icon: 'notifications', color: '#888', titleKey: 'boostZoneNotifTitle', bodyKey: 'boostZoneNotifBody', time: 'todayRel', section: 'older', type: 'alerts' },
+  { id: '4', icon: 'trophy', color: '#f5a623', titleKey: 'tipNotifTitle', bodyKey: 'tipNotifBody', time: 'todayRel', section: 'older', type: 'alerts' },
+  { id: '5', icon: 'warning', color: '#e74c3c', titleKey: 'surveyNotifTitle', bodyKey: 'surveyNotifBody', time: 'todayRel', section: 'older', type: 'messages' },
+  { id: '6', icon: 'chatbubble', color: '#3498db', titleKey: 'docVerifNotifTitle', bodyKey: 'docVerifNotifBody', time: 'todayRel', section: 'older', type: 'messages' },
+  { id: '7', icon: 'flash', color: BRAND, titleKey: 'questNotifTitle', bodyKey: 'questNotifBody', time: 'todayRel', section: 'older', type: 'news' },
 ];
 
 export default function InboxScreen() {
   const { t } = useLanguage();
   const scrollRef = useRef(null);
-  const [filter, setFilter] = useState('Tout');
+  const [filter, setFilter] = useState('all');
   const [selectedNotif, setSelectedNotif] = useState(null);
   const [readIds, setReadIds] = useState([]);
 
@@ -40,7 +30,7 @@ export default function InboxScreen() {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []));
 
-  const filtered = filter === 'Tout' ? MOCK_NOTIFS : MOCK_NOTIFS.filter(n => n.type === FILTERS.find(f => f.key === filter)?.key);
+  const filtered = filter === 'all' ? MOCK_NOTIFS : MOCK_NOTIFS.filter(n => n.type === filter);
 
   const sections = {};
   filtered.forEach(n => {
@@ -59,9 +49,9 @@ export default function InboxScreen() {
         <Text style={s.header}>{t('inbox')}</Text>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filtersRow} contentContainerStyle={{ gap: 8 }}>
-          {FILTERS.map(f => (
-            <Pressable key={f.key} style={[s.filterChip, filter === f.key && s.filterChipActive]} onPress={() => setFilter(f.key)}>
-              <Text style={[s.filterText, filter === f.key && s.filterTextActive]}>{t(f.tKey)}</Text>
+          {FILTER_KEYS.map(k => (
+            <Pressable key={k} style={[s.filterChip, filter === k && s.filterChipActive]} onPress={() => setFilter(k)}>
+              <Text style={[s.filterText, filter === k && s.filterTextActive]}>{t(k)}</Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -72,16 +62,16 @@ export default function InboxScreen() {
 
         {Object.entries(sections).map(([section, items]) => (
           <View key={section}>
-            <Text style={s.sectionTitle}>{section === "Aujourd'hui" ? t('today') : section === 'Plus anciens' ? t('older') : section}</Text>
+            <Text style={s.sectionTitle}>{section === 'today' ? t('today') : t('older')}</Text>
             {items.map(item => (
               <Pressable key={item.id} style={[s.notifRow, !readIds.includes(item.id) && s.notifUnread]} onPress={() => openNotif(item)}>
                 <View style={[s.notifIcon, { backgroundColor: item.color + '20' }]}>
                   <Ionicons name={item.icon} size={20} color={item.color} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[s.notifTitle, !readIds.includes(item.id) && { fontWeight: '900' }]} numberOfLines={2}>{item.title}</Text>
-                  <Text style={s.notifSub} numberOfLines={1}>{item.subtitle}</Text>
-                  <Text style={s.notifTime}>{item.time}</Text>
+                  <Text style={[s.notifTitle, !readIds.includes(item.id) && { fontWeight: '900' }]} numberOfLines={2}>{t(item.titleKey)}</Text>
+                  <Text style={s.notifSub} numberOfLines={1}>{t(item.bodyKey)}</Text>
+                  <Text style={s.notifTime}>{t(item.time)}</Text>
                 </View>
                 {!readIds.includes(item.id) && <View style={s.unreadDot} />}
                 <Ionicons name="chevron-forward" size={16} color="#ccc" />
@@ -108,10 +98,10 @@ export default function InboxScreen() {
                 <View style={[s.modalIcon, { backgroundColor: selectedNotif.color + '20' }]}>
                   <Ionicons name={selectedNotif.icon} size={32} color={selectedNotif.color} />
                 </View>
-                <Text style={s.modalTitle}>{selectedNotif.title}</Text>
-                <Text style={s.modalTime}>{selectedNotif.time}</Text>
+                <Text style={s.modalTitle}>{t(selectedNotif.titleKey)}</Text>
+                <Text style={s.modalTime}>{t(selectedNotif.time)}</Text>
                 <View style={s.modalDivider} />
-                <Text style={s.modalBody}>{selectedNotif.detail}</Text>
+                <Text style={s.modalBody}>{t(selectedNotif.bodyKey)}</Text>
               </>
             )}
           </ScrollView>

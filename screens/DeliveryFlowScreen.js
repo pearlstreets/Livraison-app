@@ -457,7 +457,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 <View style={{ flex: 1 }}>
                   <Text style={ss.enrouteLabel}>Récupération</Text>
                   <Text style={ss.enrouteAddr}>{restaurant}</Text>
-                  <Pressable style={ss.enrouteAddrCopyRow} onPress={() => Alert.alert('Copié', 'Adresse copiée dans le presse-papier')}>
+                  <Pressable style={ss.enrouteAddrCopyRow} onPress={() => Alert.alert(t('copied'), t('addressCopied'))}>
                     <Text style={ss.enrouteAddrBold} selectable>{order.pickupAddress || '12 Rue du Commerce, Meaux'}</Text>
                     <Ionicons name="copy-outline" size={14} color="#555" />
                   </Pressable>
@@ -755,7 +755,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
                 <View style={ss.sheetSep} />
 
-                <Pressable style={ss.sheetOption} onPress={() => { closeMapSheet(); Alert.alert('Copié', 'Adresse copiée dans le presse-papier'); }}>
+                <Pressable style={ss.sheetOption} onPress={() => { closeMapSheet(); Alert.alert(t('copied'), t('addressCopied')); }}>
                   <View style={[ss.sheetIconWrap, { backgroundColor: '#f2f2f7' }]}>
                     <Ionicons name="copy-outline" size={20} color="#8e8e93" />
                   </View>
@@ -801,7 +801,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             {selectedCodeProblem && (
               <TextInput
                 style={ss.codeProblemInput}
-                placeholder="Description (optionnel)"
+                placeholder={t('descOptional')}
                 placeholderTextColor="#aaa"
                 multiline
                 numberOfLines={3}
@@ -911,7 +911,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           <View style={[ss.chatInputRow, { paddingBottom: insets.bottom || 16 }]}>
             <TextInput
               style={ss.chatInputField}
-              placeholder="Écrire un message..."
+              placeholder={t('writeAMessage')}
               value={chatInput}
               onChangeText={setChatInput}
             />

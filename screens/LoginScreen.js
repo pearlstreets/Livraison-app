@@ -264,7 +264,7 @@ export default function LoginScreen() {
           {/* === LOGIN === */}
           {mode === 'login' && (
             <>
-              <Text style={s.label}>Email</Text>
+              <Text style={s.label}>{t('email')}</Text>
               <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
               <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
               <View style={s.pwdRow}>
@@ -311,8 +311,8 @@ export default function LoginScreen() {
           {/* === SIGNUP STEP 1: Email + Password === */}
           {mode === 'signup' && step === 1 && (
             <>
-              <Text style={s.label}>Email</Text>
-              <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder="email@exemple.com" placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+              <Text style={s.label}>{t('email')}</Text>
+              <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder={t('loginEmail')} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
               <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
               <View style={s.pwdRow}>
                 <TextInput style={[s.input, {flex:1, marginBottom:0}]} value={password} onChangeText={setPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />

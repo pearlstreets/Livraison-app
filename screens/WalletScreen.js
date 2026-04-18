@@ -33,7 +33,7 @@ export default function WalletScreen({ navigation }) {
   function startEncaiss() {
     if (earn.earningsCents <= 0) return;
     if (alreadyCashedToday) {
-      Alert.alert('Limite atteinte', 'Vous ne pouvez effectuer qu\'un seul encaissement par jour.');
+      Alert.alert(t('limitReached'), t('onlyOneCashoutPerDay'));
       return;
     }
     setCashedAmount(earn.earnings);
@@ -66,7 +66,7 @@ export default function WalletScreen({ navigation }) {
             <Text style={s.balanceAmount}>{earn.earnings}</Text>
             <Ionicons name="chevron-forward" size={22} color="#999" />
           </View>
-          <Text style={s.nextPayout}>Versement planifié : 31 mars</Text>
+          <Text style={s.nextPayout}>{t('plannedPayout')} : 31/03</Text>
           <Pressable style={[s.encaissBtn, earn.earningsCents <= 0 && { opacity: 0.4 }]} onPress={startEncaiss}>
             <Ionicons name="flash" size={16} color="#111" />
             <Text style={s.encaissTxt}>{t('cashout')}</Text>

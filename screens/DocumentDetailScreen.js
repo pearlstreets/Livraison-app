@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BRAND = '#00C29B';
 
@@ -16,6 +17,7 @@ const DOC_DETAILS = {
 
 export default function DocumentDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const { t } = useLanguage();
   const { doc } = route.params;
   const detail = DOC_DETAILS[doc.label] || {};
   const isWarning = doc.status === 'À renouveler';
@@ -38,19 +40,19 @@ export default function DocumentDetailScreen({ navigation, route }) {
 
       <View style={s.detailCard}>
         <View style={s.detailRow}>
-          <Text style={s.detailLabel}>Type</Text>
+          <Text style={s.detailLabel}>{t('type')}</Text>
           <Text style={s.detailValue}>{detail.type}</Text>
         </View>
         <View style={s.detailRow}>
-          <Text style={s.detailLabel}>Numéro</Text>
+          <Text style={s.detailLabel}>{t('number')}</Text>
           <Text style={s.detailValue}>{detail.number}</Text>
         </View>
         <View style={s.detailRow}>
-          <Text style={s.detailLabel}>Expiration</Text>
+          <Text style={s.detailLabel}>{t('expiration')}</Text>
           <Text style={[s.detailValue, isWarning && { color: '#f5a623', fontWeight: '800' }]}>{detail.expiry}</Text>
         </View>
         <View style={[s.detailRow, { borderBottomWidth: 0 }]}>
-          <Text style={s.detailLabel}>Soumis le</Text>
+          <Text style={s.detailLabel}>{t('submittedOn')}</Text>
           <Text style={s.detailValue}>{detail.submitted}</Text>
         </View>
       </View>
@@ -58,13 +60,13 @@ export default function DocumentDetailScreen({ navigation, route }) {
       {isWarning && (
         <View style={s.warningCard}>
           <Ionicons name="warning" size={22} color="#f5a623" style={{ marginRight: 10 }} />
-          <Text style={s.warningText}>Ce document arrive à expiration. Veuillez le renouveler pour continuer à livrer.</Text>
+          <Text style={s.warningText}>{t('renewWarning')}</Text>
         </View>
       )}
 
       <Pressable style={[s.updateBtn, isAccepted && { opacity: 0.4 }]} disabled={isAccepted}>
         <Ionicons name="cloud-upload-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-        <Text style={s.updateTxt}>Mettre à jour le document</Text>
+        <Text style={s.updateTxt}>{t('updateDocument')}</Text>
       </Pressable>
     </ScrollView>
   );
