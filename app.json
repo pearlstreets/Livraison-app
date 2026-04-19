@@ -34,13 +34,7 @@
     },
     "jsEngine": "hermes",
     "plugins": [
-      "expo-notifications",
-      [
-        "onesignal-expo-plugin",
-        {
-          "mode": "production"
-        }
-      ]
+      "expo-notifications"
     ],
     "owner": "localidad",
     "extra": {
