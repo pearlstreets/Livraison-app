@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
@@ -17,9 +17,21 @@
         "NSLocationWhenInUseUsageDescription": "Votre position est utilisée pour optimiser vos livraisons en temps réel.",
         "NSCameraUsageDescription": "La caméra est utilisée pour la preuve de livraison.",
         "NSPhotoLibraryAddUsageDescription": "Enregistrement des preuves de livraison dans la galerie.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSExceptionDomains": {
+            "api.pearlstreets.com": {
+              "NSExceptionMinimumTLSVersion": "TLSv1.2",
+              "NSExceptionRequiresForwardSecrecy": true,
+              "NSIncludesSubdomains": false
+            }
+          }
+        }
       },
-      "bundleIdentifier": "com.pearlstreets.delivery"
+      "bundleIdentifier": "com.pearlstreets.delivery",
+      "buildNumber": "3",
+      "appleTeamId": "5R8LA6469V"
     },
     "android": {
       "package": "com.pearlstreets.delivery",
@@ -30,18 +42,14 @@
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
-      ]
+      ],
+      "usesCleartextTraffic": false
     },
     "jsEngine": "hermes",
     "plugins": [
-      "expo-notifications"
-    ],
-    "extra": {
-      "oneSignalAppId": "0c4d0c76-eedd-426a-9d48-156cc6f879c7",
-      "eas": {
-        "projectId": "3be79991-dd51-479d-8ff7-d6c45a1af111"
-      }
-    },
-    "owner": "localidad"
+      "expo-notifications",
+      "sentry-expo",
+      "@sentry/react-native"
+    ]
   }
 }
