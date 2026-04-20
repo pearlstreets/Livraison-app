@@ -19,7 +19,8 @@
         "NSPhotoLibraryAddUsageDescription": "Enregistrement des preuves de livraison dans la galerie.",
         "ITSAppUsesNonExemptEncryption": false
       },
-      "bundleIdentifier": "com.pearlstreets.delivery"
+      "bundleIdentifier": "com.pearlstreets.delivery",
+      "buildNumber": "10"
     },
     "android": {
       "package": "com.pearlstreets.delivery",
