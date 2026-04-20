@@ -35,6 +35,13 @@
     "jsEngine": "hermes",
     "plugins": [
       "expo-notifications"
-    ]
+    ],
+    "owner": "localidad",
+    "extra": {
+      "oneSignalAppId": "",
+      "eas": {
+        "projectId": "3be79991-dd51-479d-8ff7-d6c45a1af111"
+      }
+    }
   }
 }

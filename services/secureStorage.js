@@ -7,6 +7,22 @@ try {
   // expo-secure-store not available, fallback to AsyncStorage
 }
 
+// Warn exactly once when the obfuscation fallback is active so the
+// degraded-security state is visible in logs instead of invisible. We
+// keep the fallback (removing it would crash on edge devices without
+// SecureStore) but flag the risk so a rebuild with the secure-store
+// dependency happens sooner rather than later.
+let _fallbackWarned = false;
+function warnFallbackOnce() {
+  if (_fallbackWarned) return;
+  _fallbackWarned = true;
+  console.warn(
+    '[secureStorage] expo-secure-store unavailable — ' +
+      'tokens stored with XOR obfuscation only. ' +
+      'Install expo-secure-store and rebuild for real device security.'
+  );
+}
+
 const EXPIRY_SUFFIX = '__expiry';
 
 // Simple XOR-based obfuscation for sensitive data in AsyncStorage fallback
@@ -59,6 +75,7 @@ const secureStorage = {
     if (SecureStore) {
       await SecureStore.setItemAsync(key, value);
     } else {
+      warnFallbackOnce();
       await AsyncStorage.setItem(key, obfuscate(value));
     }
 

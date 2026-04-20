@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { isValidEmail, sanitizeInput, isStrongPassword } from '../utils/validation';
 import * as ImagePicker from 'expo-image-picker';
+import { uploadService } from '../services/uploadService';
 
 // NOTE: To prevent screen capture in production, consider using
 // expo-screen-capture: ScreenCapture.preventScreenCaptureAsync()
@@ -155,7 +156,7 @@ export default function LoginScreen() {
   };
 
   // Signup
-  const handleSignup = () => {
+  const handleSignup = async () => {
     setError('');
     // Step 1: email + password
     if (step === 1) {
@@ -182,7 +183,59 @@ export default function LoginScreen() {
     // Step 3: documents (pro)
     if (!docIdFront || !docIdBack || !docIban || !docKbiss) { setError(t('errorDocsRequired') || "Carte d'identité, IBAN et KBISS sont obligatoires"); return; }
     setLoading(true);
-    register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), role: 'professionaluser', isVerified: false, documents: { idFront: docIdFront, idBack: docIdBack, iban: docIban, kbiss: docKbiss } });
+
+    // Upload the 4 docs in parallel to S3 via the unauth presign
+    // endpoint. If any upload fails, surface the error and stay on
+    // step 3 so the driver can retry without losing the rest of the
+    // form data (no data loss on a flaky network).
+    let uploads;
+    try {
+      uploads = await Promise.all([
+        uploadService.uploadDriverDoc({ uri: docIdFront, slot: 'id_front' }),
+        uploadService.uploadDriverDoc({ uri: docIdBack, slot: 'id_back' }),
+        uploadService.uploadDriverDoc({ uri: docIban, slot: 'iban' }),
+        uploadService.uploadDriverDoc({ uri: docKbiss, slot: 'kbis' }),
+      ]);
+    } catch (e) {
+      setLoading(false);
+      setError(t('errorUploadFailed') || `Échec de l'envoi des documents: ${e?.message || ''}`);
+      return;
+    }
+
+    const [idFrontRes, idBackRes, ibanRes, kbisRes] = uploads;
+
+    try {
+      await register({
+        email: email.trim(),
+        password,
+        nom: nom.trim(),
+        prenom: prenom.trim(),
+        pseudo: pseudo.trim(),
+        phone: phone.trim(),
+        phoneCode: selectedPhoneCountry.phoneCode,
+        country,
+        companyName: companyName.trim(),
+        role: 'professionaluser',
+        isVerified: false,
+        // Keys match the DeliveryApp/register/ whitelist (PR #927).
+        id_card_front_url: idFrontRes.publicUrl,
+        id_card_back_url: idBackRes.publicUrl,
+        iban_doc_url: ibanRes.publicUrl,
+        kbis_doc_url: kbisRes.publicUrl,
+        // Legacy client-side shape kept for any local consumers.
+        documents: {
+          idFront: idFrontRes.publicUrl,
+          idBack: idBackRes.publicUrl,
+          iban: ibanRes.publicUrl,
+          kbiss: kbisRes.publicUrl,
+        },
+      });
+    } catch (e) {
+      setLoading(false);
+      setError(t('errorRegisterFailed') || `Inscription échouée: ${e?.message || ''}`);
+      return;
+    }
+
     setLoading(false);
     setPendingValidation(true);
   };
