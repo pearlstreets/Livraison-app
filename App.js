@@ -21,7 +21,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { initOneSignalOnce } from './services/oneSignalInit';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import LoginScreen from './screens/LoginScreen';
@@ -68,11 +67,6 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
-
-// Initialize OneSignal once at module load. The helper is a no-op when
-// the native module is missing or no app id is configured, so this is
-// safe to call regardless of build profile.
-initOneSignalOnce();
 
 function HomeStackScreen() {
   return (
