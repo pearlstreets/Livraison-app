@@ -55,6 +55,9 @@ function openItinerary(order) {
 function CountdownBar({ seconds, onExpire }) {
   const [remaining, setRemaining] = useState(seconds);
   const progress = useRef(new Animated.Value(1)).current;
+  // Ref keeps the latest onExpire without re-running the expiration effect.
+  const onExpireRef = useRef(onExpire);
+  useEffect(() => { onExpireRef.current = onExpire; }, [onExpire]);
 
   useEffect(() => {
     Animated.timing(progress, {
@@ -67,7 +70,6 @@ function CountdownBar({ seconds, onExpire }) {
       setRemaining(prev => {
         if (prev <= 1) {
           clearInterval(interval);
-          onExpire?.();
           return 0;
         }
         return prev - 1;
@@ -76,6 +78,15 @@ function CountdownBar({ seconds, onExpire }) {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Fire onExpire AFTER the commit (not inside the setRemaining updater),
+  // otherwise React warns: "Cannot update a component (OrdersScreen) while
+  // rendering a different component (CountdownBar)".
+  useEffect(() => {
+    if (remaining === 0) {
+      onExpireRef.current?.();
+    }
+  }, [remaining]);
 
   const barColor = remaining > 10 ? BRAND : remaining > 5 ? '#f5a623' : '#e74c3c';
 
