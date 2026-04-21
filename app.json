@@ -36,7 +36,7 @@
     "jsEngine": "hermes",
     "plugins": [
       "expo-notifications",
-      ["onesignal-expo-plugin", { "mode": "production" }]
+      ["onesignal-expo-plugin", { "mode": "production", "disableNSE": true }]
     ],
     "extra": {
       "oneSignalAppId": "0c4d0c76-eedd-426a-9d48-156cc6f879c7",
