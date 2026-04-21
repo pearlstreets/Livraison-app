@@ -1,6 +1,10 @@
 import React, { createContext, useContext, useState, useRef } from 'react';
 import { sanitizeInput, isValidEmail } from '../utils/validation';
 
+function _getOneSignal() {
+  try { const m = require('react-native-onesignal'); return m.OneSignal || m.default || m; } catch { return null; }
+}
+
 const USERS = [
   { email: 'remsko@live.fr', password: 'Test@123', firstName: 'Ganja', lastName: 'Remsko', pseudo: 'Remsko', phone: '06 12 34 56 78', vehicle: 'Scooter' },
 ];
@@ -93,6 +97,7 @@ export function AuthProvider({ children }) {
     lockoutUntilRef.current = null;
     const { password: _, ...profile } = found;
     setUser({ ...profile, photo: null });
+    try { const OS = _getOneSignal(); if (OS) OS.login(cleanEmail); } catch {}
     return true;
   }
 
@@ -126,7 +131,10 @@ export function AuthProvider({ children }) {
     return true;
   }
 
-  function logout() { setUser(null); }
+  function logout() {
+    try { const OS = _getOneSignal(); if (OS) OS.logout(); } catch {}
+    setUser(null);
+  }
 
   function updateUser(updates) { setUser(prev => prev ? { ...prev, ...updates } : prev); }
 
