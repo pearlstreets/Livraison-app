@@ -146,7 +146,7 @@ export default function ForgotPasswordScreen({ onBack }) {
                 placeholder="123456"
                 placeholderTextColor="#aaa"
                 keyboardType="number-pad"
-                maxLength={8}
+                maxLength={6}
               />
               <Text style={s.label}>{t('forgotNewPwd')}</Text>
               <View style={s.pwdRow}>

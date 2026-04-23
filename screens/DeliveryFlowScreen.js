@@ -5,6 +5,7 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { sanitizeInput, createRateLimiter } from '../utils/validation';
+import { deliveryService } from '../services/deliveryService';
 
 // Rate limiter for slide buttons (prevent double triggers)
 const slideRateLimiter = createRateLimiter(2000);
@@ -241,8 +242,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const distance = order.distanceText || '—';
   const eta = order.etaText || '—';
   const orderId = order.id || order.code || 'Commande';
+  const assignmentId = order.assignment_id || order.id;
 
-  const REAL_CODE = '4521';
+  const [verifyingCode, setVerifyingCode] = useState(false);
 
   // Code step timer (10 min)
   useEffect(() => {
@@ -309,7 +311,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     })
   ).current;
 
-  const handleCodeInput = useCallback((text, index) => {
+  const handleCodeInput = useCallback(async (text, index) => {
     // Validate: only accept single digits
     const digit = text.replace(/[^0-9]/g, '').slice(0, 1);
     const newCode = [...code];
@@ -320,15 +322,31 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     }
     if (index === 3 && digit) {
       const entered = newCode.join('');
-      if (entered === REAL_CODE) {
-        setTimeout(nextStep, 300);
-      } else {
+      if (!assignmentId) {
         Alert.alert(t('wrongCode'), t('wrongCodeMsg'));
         setCode(['', '', '', '']);
         codeRefs[0].current?.focus();
+        return;
+      }
+      setVerifyingCode(true);
+      try {
+        await deliveryService.updateDeliveryStatus(assignmentId, 'delivered', entered);
+        setTimeout(nextStep, 300);
+      } catch (err) {
+        const backendMsg = err?.response?.data?.message || '';
+        const isInvalidCode = err?.response?.status === 400 && /invalid delivery code/i.test(backendMsg);
+        if (isInvalidCode) {
+          Alert.alert(t('wrongCode'), t('wrongCodeMsg'));
+        } else {
+          Alert.alert(t('wrongCode'), backendMsg || t('wrongCodeMsg'));
+        }
+        setCode(['', '', '', '']);
+        codeRefs[0].current?.focus();
+      } finally {
+        setVerifyingCode(false);
       }
     }
-  }, [code, nextStep, t]);
+  }, [code, nextStep, t, assignmentId]);
 
   // Progress indicator (memoized)
   const progress = useMemo(() => stepIndex / (STEPS.length - 1), [stepIndex]);
@@ -572,8 +590,6 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 />
               ))}
             </View>
-
-            <Text style={ss.codeHint}>{t('demoCode')} : {REAL_CODE}</Text>
 
             {/* Décompte 10 min */}
             <View style={ss.codeTimerWrap}>

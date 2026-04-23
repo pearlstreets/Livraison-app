@@ -21,8 +21,10 @@ export const deliveryService = {
     return data;
   },
 
-  async updateDeliveryStatus(assignmentId, status) {
-    const { data } = await api.patch(`/api/v1/delivery/assignments/${assignmentId}/status/`, { status });
+  async updateDeliveryStatus(assignmentId, status, deliveryCode) {
+    const payload = { status };
+    if (deliveryCode) payload.delivery_code = deliveryCode;
+    const { data } = await api.patch(`/api/v1/delivery/assignments/${assignmentId}/status/`, payload);
     return data;
   },
 
