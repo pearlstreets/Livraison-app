@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { isValidEmail, sanitizeInput, isStrongPassword } from '../utils/validation';
 import * as ImagePicker from 'expo-image-picker';
+import ForgotPasswordScreen from './ForgotPasswordScreen';
 
 // NOTE: To prevent screen capture in production, consider using
 // expo-screen-capture: ScreenCapture.preventScreenCaptureAsync()
@@ -226,6 +227,12 @@ export default function LoginScreen() {
 
   const isSignup = mode === 'signup' || mode === 'choose';
 
+  // Forgot-password flow renders its own self-contained screen (email → code +
+  // new password → done). Wires authService.forgotPassword / resetPassword.
+  if (mode === 'forgot') {
+    return <ForgotPasswordScreen onBack={() => { setMode('login'); setError(''); }} />;
+  }
+
   return (
     <KeyboardAvoidingView style={{flex:1, backgroundColor:'#fff'}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <SafeAreaView style={{flex:1}}>
@@ -273,6 +280,9 @@ export default function LoginScreen() {
                   <Ionicons name={showPwd ? 'eye-off' : 'eye'} size={22} color="#888" />
                 </Pressable>
               </View>
+              <TouchableOpacity onPress={() => { setMode('forgot'); setError(''); }} style={{alignSelf:'flex-end', paddingTop:6, paddingHorizontal:4}}>
+                <Text style={{color:BRAND, fontSize:13, fontWeight:'600'}}>{t('forgotPasswordLink')}</Text>
+              </TouchableOpacity>
               <Pressable style={[s.btn, loginDisabled && { opacity: 0.5 }]} onPress={handleLogin} disabled={loginDisabled}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{t('loginButton') || 'Se connecter'}</Text>}
               </Pressable>

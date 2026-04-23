@@ -379,6 +379,64 @@ const translations = {
 
     // Details Sheet
     orderLabel: 'Commande',
+
+    // Auth OTP + Forgot password (session C — 2026-04-23)
+    errorInvalidEmail: 'Format email invalide',
+    errorPasswordWeak: 'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre',
+    errorNoPhone: 'Veuillez saisir votre numéro de téléphone',
+    loginCooldown: 'Trop de tentatives. Veuillez patienter 30 secondes.',
+    accountLocked: 'Compte temporairement verrouillé. Réessayez dans quelques minutes.',
+    loginWithPhone: 'Se connecter avec un numéro de téléphone',
+    phoneOtpTitle: 'Connexion par téléphone',
+    phoneOtpSubtitle: 'Vous recevrez un code de vérification par SMS.',
+    phoneOtpSendFailed: 'Impossible d\'envoyer le code. Réessayez.',
+    phoneOtpUnavailable: 'Connexion par téléphone indisponible. Veuillez utiliser votre email.',
+    phoneOtpUnavailableSignup: 'Vérification du numéro indisponible pour le moment. Merci de réessayer dans quelques minutes.',
+    otpCodeTooShort: 'Code trop court',
+    otpVerifyTitle: 'Entrez le code',
+    otpSentTo: 'Code envoyé au',
+    otpCodeLabel: 'Code de vérification',
+    otpVerifyFailed: 'Code invalide. Réessayez.',
+    otpLoginFailed: 'Connexion impossible. Réessayez.',
+    driverNotFound: 'Aucun compte livreur trouvé pour ce numéro. Veuillez vous inscrire.',
+    sendCode: 'Envoyer le code',
+    verifyCode: 'Vérifier',
+    changeNumber: 'Changer de numéro',
+    signupVerifyTitle: 'Vérifier votre numéro',
+    signupOtpHint: 'Un code de vérification vous sera envoyé par SMS.',
+    verifyAndContinue: 'Vérifier le numéro',
+
+    // OTP v2 error discrimination (session C — 2026-04-23)
+    otpErrorRateLimited: 'Trop de tentatives. Réessayez plus tard.',
+    otpErrorWrongCode: 'Code incorrect.',
+    otpErrorExpired: 'Code expiré. Demandez-en un nouveau.',
+    otpErrorTooManyAttempts: 'Trop d\'essais sur ce code. Demandez-en un nouveau.',
+    otpErrorSessionInvalid: 'Session expirée. Veuillez recommencer.',
+    otpErrorInvalidPhone: 'Numéro de téléphone invalide.',
+    otpErrorServiceDown: 'Service temporairement indisponible.',
+
+    // Forgot password (session C — 2026-04-23)
+    forgotPasswordLink: 'Mot de passe oublié ?',
+    forgotTitle: 'Mot de passe oublié',
+    forgotSubtitleEmail: 'Entrez votre email pour recevoir un code de réinitialisation.',
+    forgotSubtitleReset: 'Entrez le code reçu par email et votre nouveau mot de passe.',
+    forgotEmailLabel: 'Email',
+    forgotSendCode: 'Envoyer le code',
+    forgotCodeLabel: 'Code reçu',
+    forgotNewPwd: 'Nouveau mot de passe',
+    forgotConfirmNewPwd: 'Confirmer le nouveau mot de passe',
+    forgotResetBtn: 'Réinitialiser',
+    forgotBackToLogin: 'Retour à la connexion',
+    forgotChangeEmail: 'Modifier l\'email',
+    forgotCodeSent: 'Un code vient d\'être envoyé à votre email.',
+    forgotSuccessTitle: 'Mot de passe modifié',
+    forgotSuccessMsg: 'Vous pouvez maintenant vous reconnecter avec votre nouveau mot de passe.',
+    forgotEmailNotFound: 'Aucun compte trouvé pour cet email.',
+    forgotCodeInvalid: 'Code invalide ou expiré.',
+    forgotRateLimit: 'Trop de tentatives. Veuillez patienter quelques minutes.',
+    forgotBadRequest: 'Requête invalide. Vérifiez les informations saisies.',
+    forgotNetworkError: 'Problème de connexion. Vérifiez votre réseau.',
+    forgotUnexpectedError: 'Erreur inattendue. Réessayez.',
   },
 
   en: {
@@ -713,6 +771,64 @@ const translations = {
     resolved: 'Resolved',
     writeYourMessage: 'Write your message...',
     orderLabel: 'Order',
+
+    // Auth OTP + Forgot password (session C — 2026-04-23)
+    errorInvalidEmail: 'Invalid email format',
+    errorPasswordWeak: 'Password must be at least 8 characters with an uppercase letter, a lowercase letter and a digit',
+    errorNoPhone: 'Please enter your phone number',
+    loginCooldown: 'Too many attempts. Please wait 30 seconds.',
+    accountLocked: 'Account temporarily locked. Try again in a few minutes.',
+    loginWithPhone: 'Sign in with phone number',
+    phoneOtpTitle: 'Phone sign-in',
+    phoneOtpSubtitle: 'You will receive a verification code by SMS.',
+    phoneOtpSendFailed: 'Could not send the code. Please try again.',
+    phoneOtpUnavailable: 'Phone sign-in unavailable. Please use your email.',
+    phoneOtpUnavailableSignup: 'Phone verification unavailable right now. Please try again in a few minutes.',
+    otpCodeTooShort: 'Code too short',
+    otpVerifyTitle: 'Enter the code',
+    otpSentTo: 'Code sent to',
+    otpCodeLabel: 'Verification code',
+    otpVerifyFailed: 'Invalid code. Please try again.',
+    otpLoginFailed: 'Sign-in failed. Please try again.',
+    driverNotFound: 'No driver account found for this number. Please sign up.',
+    sendCode: 'Send code',
+    verifyCode: 'Verify',
+    changeNumber: 'Change number',
+    signupVerifyTitle: 'Verify your number',
+    signupOtpHint: 'A verification code will be sent to you by SMS.',
+    verifyAndContinue: 'Verify number',
+
+    // OTP v2 error discrimination (session C — 2026-04-23)
+    otpErrorRateLimited: 'Too many attempts. Please try again later.',
+    otpErrorWrongCode: 'Incorrect code.',
+    otpErrorExpired: 'Code expired. Request a new one.',
+    otpErrorTooManyAttempts: 'Too many attempts on this code. Request a new one.',
+    otpErrorSessionInvalid: 'Session expired. Please start over.',
+    otpErrorInvalidPhone: 'Invalid phone number.',
+    otpErrorServiceDown: 'Service temporarily unavailable.',
+
+    // Forgot password (session C — 2026-04-23)
+    forgotPasswordLink: 'Forgot password?',
+    forgotTitle: 'Forgot password',
+    forgotSubtitleEmail: 'Enter your email to receive a reset code.',
+    forgotSubtitleReset: 'Enter the code sent to your email and your new password.',
+    forgotEmailLabel: 'Email',
+    forgotSendCode: 'Send code',
+    forgotCodeLabel: 'Received code',
+    forgotNewPwd: 'New password',
+    forgotConfirmNewPwd: 'Confirm new password',
+    forgotResetBtn: 'Reset',
+    forgotBackToLogin: 'Back to sign-in',
+    forgotChangeEmail: 'Change email',
+    forgotCodeSent: 'A code has just been sent to your email.',
+    forgotSuccessTitle: 'Password updated',
+    forgotSuccessMsg: 'You can now sign in with your new password.',
+    forgotEmailNotFound: 'No account found for this email.',
+    forgotCodeInvalid: 'Invalid or expired code.',
+    forgotRateLimit: 'Too many attempts. Please wait a few minutes.',
+    forgotBadRequest: 'Invalid request. Please check your input.',
+    forgotNetworkError: 'Connection problem. Please check your network.',
+    forgotUnexpectedError: 'Unexpected error. Please try again.',
   },
 
   es: {
@@ -739,6 +855,9 @@ const translations = {
     historyTitle: 'Historial de entregas', gains: 'Ganancias', yesterday: 'Ayer',
     ticketSupport: 'Soporte Pearl Streets', ticketTitle: 'Ticket', resolved: 'Resuelto', writeYourMessage: 'Escriba su mensaje...',
     orderLabel: 'Pedido',
+    errorInvalidEmail: 'Formato de email inválido', errorPasswordWeak: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un dígito', errorNoPhone: 'Por favor, introduzca su número de teléfono', loginCooldown: 'Demasiados intentos. Espere 30 segundos.', accountLocked: 'Cuenta bloqueada temporalmente. Inténtelo de nuevo en unos minutos.', loginWithPhone: 'Iniciar sesión con número de teléfono', phoneOtpTitle: 'Inicio de sesión por teléfono', phoneOtpSubtitle: 'Recibirá un código de verificación por SMS.', phoneOtpSendFailed: 'No se pudo enviar el código. Inténtelo de nuevo.', phoneOtpUnavailable: 'Inicio por teléfono no disponible. Use su email.', phoneOtpUnavailableSignup: 'Verificación de número no disponible en este momento. Inténtelo de nuevo en unos minutos.', otpCodeTooShort: 'Código demasiado corto', otpVerifyTitle: 'Introduzca el código', otpSentTo: 'Código enviado a', otpCodeLabel: 'Código de verificación', otpVerifyFailed: 'Código inválido. Inténtelo de nuevo.', otpLoginFailed: 'No se pudo iniciar sesión. Inténtelo de nuevo.', driverNotFound: 'No se encontró cuenta de repartidor para este número. Regístrese.', sendCode: 'Enviar código', verifyCode: 'Verificar', changeNumber: 'Cambiar número', signupVerifyTitle: 'Verificar su número', signupOtpHint: 'Se le enviará un código de verificación por SMS.', verifyAndContinue: 'Verificar número',
+    otpErrorRateLimited: 'Demasiados intentos. Inténtelo más tarde.', otpErrorWrongCode: 'Código incorrecto.', otpErrorExpired: 'Código caducado. Solicite uno nuevo.', otpErrorTooManyAttempts: 'Demasiados intentos con este código. Solicite uno nuevo.', otpErrorSessionInvalid: 'Sesión expirada. Por favor, empiece de nuevo.', otpErrorInvalidPhone: 'Número de teléfono inválido.', otpErrorServiceDown: 'Servicio temporalmente no disponible.',
+    forgotPasswordLink: '¿Olvidó su contraseña?', forgotTitle: 'Contraseña olvidada', forgotSubtitleEmail: 'Introduzca su email para recibir un código de restablecimiento.', forgotSubtitleReset: 'Introduzca el código recibido por email y su nueva contraseña.', forgotEmailLabel: 'Email', forgotSendCode: 'Enviar código', forgotCodeLabel: 'Código recibido', forgotNewPwd: 'Nueva contraseña', forgotConfirmNewPwd: 'Confirmar nueva contraseña', forgotResetBtn: 'Restablecer', forgotBackToLogin: 'Volver al inicio de sesión', forgotChangeEmail: 'Cambiar email', forgotCodeSent: 'Se acaba de enviar un código a su email.', forgotSuccessTitle: 'Contraseña actualizada', forgotSuccessMsg: 'Ahora puede iniciar sesión con su nueva contraseña.', forgotEmailNotFound: 'No se encontró cuenta para este email.', forgotCodeInvalid: 'Código inválido o caducado.', forgotRateLimit: 'Demasiados intentos. Espere unos minutos.', forgotBadRequest: 'Solicitud inválida. Compruebe los datos introducidos.', forgotNetworkError: 'Problema de conexión. Verifique su red.', forgotUnexpectedError: 'Error inesperado. Inténtelo de nuevo.',
   },
 
   zh: {
@@ -765,6 +884,9 @@ const translations = {
     historyTitle: '配送历史', gains: '收入', yesterday: '昨天',
     ticketSupport: 'Pearl Streets客服', ticketTitle: '工单', resolved: '已解决', writeYourMessage: '写下您的消息...',
     orderLabel: '订单',
+    errorInvalidEmail: '邮箱格式无效', errorPasswordWeak: '密码至少需要8个字符，包含大写字母、小写字母和数字', errorNoPhone: '请输入您的电话号码', loginCooldown: '尝试次数过多。请等待30秒。', accountLocked: '账户暂时被锁定。请几分钟后重试。', loginWithPhone: '使用电话号码登录', phoneOtpTitle: '电话登录', phoneOtpSubtitle: '您将通过短信收到验证码。', phoneOtpSendFailed: '无法发送验证码。请重试。', phoneOtpUnavailable: '电话登录不可用。请使用邮箱。', phoneOtpUnavailableSignup: '目前无法验证号码。请稍后再试。', otpCodeTooShort: '验证码过短', otpVerifyTitle: '输入验证码', otpSentTo: '验证码已发送至', otpCodeLabel: '验证码', otpVerifyFailed: '验证码无效。请重试。', otpLoginFailed: '登录失败。请重试。', driverNotFound: '未找到此号码对应的骑手账户。请注册。', sendCode: '发送验证码', verifyCode: '验证', changeNumber: '更改号码', signupVerifyTitle: '验证您的号码', signupOtpHint: '将通过短信向您发送验证码。', verifyAndContinue: '验证号码',
+    otpErrorRateLimited: '尝试次数过多。请稍后再试。', otpErrorWrongCode: '验证码错误。', otpErrorExpired: '验证码已过期。请重新请求。', otpErrorTooManyAttempts: '此验证码尝试次数过多。请请求新的验证码。', otpErrorSessionInvalid: '会话已过期。请重新开始。', otpErrorInvalidPhone: '电话号码无效。', otpErrorServiceDown: '服务暂时不可用。',
+    forgotPasswordLink: '忘记密码？', forgotTitle: '忘记密码', forgotSubtitleEmail: '输入您的邮箱以接收重置验证码。', forgotSubtitleReset: '输入通过邮件收到的验证码和您的新密码。', forgotEmailLabel: '邮箱', forgotSendCode: '发送验证码', forgotCodeLabel: '收到的验证码', forgotNewPwd: '新密码', forgotConfirmNewPwd: '确认新密码', forgotResetBtn: '重置', forgotBackToLogin: '返回登录', forgotChangeEmail: '更改邮箱', forgotCodeSent: '验证码已发送到您的邮箱。', forgotSuccessTitle: '密码已更新', forgotSuccessMsg: '您现在可以使用新密码登录了。', forgotEmailNotFound: '未找到此邮箱对应的账户。', forgotCodeInvalid: '验证码无效或已过期。', forgotRateLimit: '尝试次数过多。请等待几分钟。', forgotBadRequest: '请求无效。请检查您输入的信息。', forgotNetworkError: '连接问题。请检查您的网络。', forgotUnexpectedError: '意外错误。请重试。',
   },
 
   ar: {
@@ -791,6 +913,9 @@ const translations = {
     historyTitle: 'سجل التوصيلات', gains: 'الأرباح', yesterday: 'أمس',
     ticketSupport: 'دعم Pearl Streets', ticketTitle: 'تذكرة', resolved: 'محلول', writeYourMessage: 'اكتب رسالتك...',
     orderLabel: 'طلب',
+    errorInvalidEmail: 'صيغة البريد الإلكتروني غير صالحة', errorPasswordWeak: 'يجب أن تتكون كلمة المرور من 8 أحرف على الأقل، وتحتوي على حرف كبير وصغير ورقم', errorNoPhone: 'يرجى إدخال رقم الهاتف', loginCooldown: 'محاولات كثيرة. يرجى الانتظار 30 ثانية.', accountLocked: 'الحساب مقفل مؤقتاً. حاول مرة أخرى بعد بضع دقائق.', loginWithPhone: 'تسجيل الدخول برقم الهاتف', phoneOtpTitle: 'تسجيل الدخول بالهاتف', phoneOtpSubtitle: 'ستتلقى رمز التحقق عبر الرسائل القصيرة.', phoneOtpSendFailed: 'تعذر إرسال الرمز. حاول مرة أخرى.', phoneOtpUnavailable: 'تسجيل الدخول بالهاتف غير متاح. يرجى استخدام البريد الإلكتروني.', phoneOtpUnavailableSignup: 'التحقق من الرقم غير متاح حالياً. حاول مرة أخرى بعد بضع دقائق.', otpCodeTooShort: 'الرمز قصير جداً', otpVerifyTitle: 'أدخل الرمز', otpSentTo: 'تم إرسال الرمز إلى', otpCodeLabel: 'رمز التحقق', otpVerifyFailed: 'رمز غير صالح. حاول مرة أخرى.', otpLoginFailed: 'فشل تسجيل الدخول. حاول مرة أخرى.', driverNotFound: 'لم يتم العثور على حساب سائق لهذا الرقم. يرجى التسجيل.', sendCode: 'إرسال الرمز', verifyCode: 'تحقق', changeNumber: 'تغيير الرقم', signupVerifyTitle: 'تحقق من رقمك', signupOtpHint: 'سيتم إرسال رمز التحقق إليك عبر الرسائل القصيرة.', verifyAndContinue: 'تحقق من الرقم',
+    otpErrorRateLimited: 'محاولات كثيرة. حاول لاحقاً.', otpErrorWrongCode: 'رمز غير صحيح.', otpErrorExpired: 'انتهت صلاحية الرمز. اطلب رمزاً جديداً.', otpErrorTooManyAttempts: 'محاولات كثيرة على هذا الرمز. اطلب رمزاً جديداً.', otpErrorSessionInvalid: 'انتهت صلاحية الجلسة. ابدأ من جديد.', otpErrorInvalidPhone: 'رقم هاتف غير صالح.', otpErrorServiceDown: 'الخدمة غير متاحة مؤقتاً.',
+    forgotPasswordLink: 'نسيت كلمة المرور؟', forgotTitle: 'نسيت كلمة المرور', forgotSubtitleEmail: 'أدخل بريدك الإلكتروني لتلقي رمز إعادة التعيين.', forgotSubtitleReset: 'أدخل الرمز المستلم عبر البريد وكلمة المرور الجديدة.', forgotEmailLabel: 'البريد الإلكتروني', forgotSendCode: 'إرسال الرمز', forgotCodeLabel: 'الرمز المستلم', forgotNewPwd: 'كلمة مرور جديدة', forgotConfirmNewPwd: 'تأكيد كلمة المرور الجديدة', forgotResetBtn: 'إعادة تعيين', forgotBackToLogin: 'العودة لتسجيل الدخول', forgotChangeEmail: 'تغيير البريد الإلكتروني', forgotCodeSent: 'تم إرسال رمز إلى بريدك الإلكتروني.', forgotSuccessTitle: 'تم تحديث كلمة المرور', forgotSuccessMsg: 'يمكنك الآن تسجيل الدخول بكلمة المرور الجديدة.', forgotEmailNotFound: 'لا يوجد حساب لهذا البريد الإلكتروني.', forgotCodeInvalid: 'رمز غير صالح أو منتهي.', forgotRateLimit: 'محاولات كثيرة. انتظر بضع دقائق.', forgotBadRequest: 'طلب غير صالح. تحقق من المدخلات.', forgotNetworkError: 'مشكلة في الاتصال. تحقق من الشبكة.', forgotUnexpectedError: 'خطأ غير متوقع. حاول مرة أخرى.',
   },
 
   de: {
@@ -817,6 +942,9 @@ const translations = {
     historyTitle: 'Lieferverlauf', gains: 'Einnahmen', yesterday: 'Gestern',
     ticketSupport: 'Pearl Streets Support', ticketTitle: 'Ticket', resolved: 'Gelöst', writeYourMessage: 'Schreiben Sie Ihre Nachricht...',
     orderLabel: 'Bestellung',
+    errorInvalidEmail: 'Ungültiges E-Mail-Format', errorPasswordWeak: 'Das Passwort muss mindestens 8 Zeichen lang sein und einen Großbuchstaben, einen Kleinbuchstaben und eine Ziffer enthalten', errorNoPhone: 'Bitte geben Sie Ihre Telefonnummer ein', loginCooldown: 'Zu viele Versuche. Bitte warten Sie 30 Sekunden.', accountLocked: 'Konto vorübergehend gesperrt. Versuchen Sie es in wenigen Minuten erneut.', loginWithPhone: 'Mit Telefonnummer anmelden', phoneOtpTitle: 'Anmeldung per Telefon', phoneOtpSubtitle: 'Sie erhalten einen Bestätigungscode per SMS.', phoneOtpSendFailed: 'Code konnte nicht gesendet werden. Bitte erneut versuchen.', phoneOtpUnavailable: 'Anmeldung per Telefon nicht verfügbar. Bitte verwenden Sie Ihre E-Mail.', phoneOtpUnavailableSignup: 'Telefon-Verifizierung derzeit nicht verfügbar. Bitte versuchen Sie es in wenigen Minuten erneut.', otpCodeTooShort: 'Code zu kurz', otpVerifyTitle: 'Geben Sie den Code ein', otpSentTo: 'Code gesendet an', otpCodeLabel: 'Bestätigungscode', otpVerifyFailed: 'Ungültiger Code. Bitte erneut versuchen.', otpLoginFailed: 'Anmeldung fehlgeschlagen. Bitte erneut versuchen.', driverNotFound: 'Kein Fahrerkonto für diese Nummer gefunden. Bitte registrieren.', sendCode: 'Code senden', verifyCode: 'Bestätigen', changeNumber: 'Nummer ändern', signupVerifyTitle: 'Nummer bestätigen', signupOtpHint: 'Ein Bestätigungscode wird Ihnen per SMS gesendet.', verifyAndContinue: 'Nummer bestätigen',
+    otpErrorRateLimited: 'Zu viele Versuche. Bitte später erneut versuchen.', otpErrorWrongCode: 'Falscher Code.', otpErrorExpired: 'Code abgelaufen. Fordern Sie einen neuen an.', otpErrorTooManyAttempts: 'Zu viele Versuche mit diesem Code. Fordern Sie einen neuen an.', otpErrorSessionInvalid: 'Sitzung abgelaufen. Bitte von vorn beginnen.', otpErrorInvalidPhone: 'Ungültige Telefonnummer.', otpErrorServiceDown: 'Dienst vorübergehend nicht verfügbar.',
+    forgotPasswordLink: 'Passwort vergessen?', forgotTitle: 'Passwort vergessen', forgotSubtitleEmail: 'Geben Sie Ihre E-Mail ein, um einen Zurücksetzungscode zu erhalten.', forgotSubtitleReset: 'Geben Sie den an Ihre E-Mail gesendeten Code und Ihr neues Passwort ein.', forgotEmailLabel: 'E-Mail', forgotSendCode: 'Code senden', forgotCodeLabel: 'Erhaltener Code', forgotNewPwd: 'Neues Passwort', forgotConfirmNewPwd: 'Neues Passwort bestätigen', forgotResetBtn: 'Zurücksetzen', forgotBackToLogin: 'Zurück zur Anmeldung', forgotChangeEmail: 'E-Mail ändern', forgotCodeSent: 'Ein Code wurde soeben an Ihre E-Mail gesendet.', forgotSuccessTitle: 'Passwort aktualisiert', forgotSuccessMsg: 'Sie können sich jetzt mit Ihrem neuen Passwort anmelden.', forgotEmailNotFound: 'Kein Konto für diese E-Mail gefunden.', forgotCodeInvalid: 'Ungültiger oder abgelaufener Code.', forgotRateLimit: 'Zu viele Versuche. Bitte warten Sie einige Minuten.', forgotBadRequest: 'Ungültige Anfrage. Bitte überprüfen Sie Ihre Eingabe.', forgotNetworkError: 'Verbindungsproblem. Bitte überprüfen Sie Ihr Netzwerk.', forgotUnexpectedError: 'Unerwarteter Fehler. Bitte erneut versuchen.',
   },
 
   nl: {
@@ -843,6 +971,9 @@ const translations = {
     historyTitle: 'Bezorggeschiedenis', gains: 'Inkomsten', yesterday: 'Gisteren',
     ticketSupport: 'Pearl Streets Support', ticketTitle: 'Ticket', resolved: 'Opgelost', writeYourMessage: 'Schrijf uw bericht...',
     orderLabel: 'Bestelling',
+    errorInvalidEmail: 'Ongeldig e-mailformaat', errorPasswordWeak: 'Wachtwoord moet minimaal 8 tekens bevatten met een hoofdletter, een kleine letter en een cijfer', errorNoPhone: 'Voer uw telefoonnummer in', loginCooldown: 'Te veel pogingen. Wacht 30 seconden.', accountLocked: 'Account tijdelijk vergrendeld. Probeer het over een paar minuten opnieuw.', loginWithPhone: 'Inloggen met telefoonnummer', phoneOtpTitle: 'Inloggen via telefoon', phoneOtpSubtitle: 'U ontvangt een verificatiecode per sms.', phoneOtpSendFailed: 'Kon de code niet verzenden. Probeer het opnieuw.', phoneOtpUnavailable: 'Telefoon-login niet beschikbaar. Gebruik uw e-mail.', phoneOtpUnavailableSignup: 'Telefoonverificatie momenteel niet beschikbaar. Probeer het over een paar minuten opnieuw.', otpCodeTooShort: 'Code te kort', otpVerifyTitle: 'Voer de code in', otpSentTo: 'Code verzonden naar', otpCodeLabel: 'Verificatiecode', otpVerifyFailed: 'Ongeldige code. Probeer het opnieuw.', otpLoginFailed: 'Inloggen mislukt. Probeer het opnieuw.', driverNotFound: 'Geen bezorgersaccount gevonden voor dit nummer. Registreer u.', sendCode: 'Code verzenden', verifyCode: 'Verifiëren', changeNumber: 'Nummer wijzigen', signupVerifyTitle: 'Uw nummer verifiëren', signupOtpHint: 'Er wordt u een verificatiecode per sms gestuurd.', verifyAndContinue: 'Nummer verifiëren',
+    otpErrorRateLimited: 'Te veel pogingen. Probeer het later opnieuw.', otpErrorWrongCode: 'Onjuiste code.', otpErrorExpired: 'Code verlopen. Vraag een nieuwe aan.', otpErrorTooManyAttempts: 'Te veel pogingen met deze code. Vraag een nieuwe aan.', otpErrorSessionInvalid: 'Sessie verlopen. Begin opnieuw.', otpErrorInvalidPhone: 'Ongeldig telefoonnummer.', otpErrorServiceDown: 'Dienst tijdelijk niet beschikbaar.',
+    forgotPasswordLink: 'Wachtwoord vergeten?', forgotTitle: 'Wachtwoord vergeten', forgotSubtitleEmail: 'Voer uw e-mail in om een resetcode te ontvangen.', forgotSubtitleReset: 'Voer de code in die naar uw e-mail is gestuurd en uw nieuwe wachtwoord.', forgotEmailLabel: 'E-mail', forgotSendCode: 'Code verzenden', forgotCodeLabel: 'Ontvangen code', forgotNewPwd: 'Nieuw wachtwoord', forgotConfirmNewPwd: 'Nieuw wachtwoord bevestigen', forgotResetBtn: 'Resetten', forgotBackToLogin: 'Terug naar inloggen', forgotChangeEmail: 'E-mail wijzigen', forgotCodeSent: 'Er is zojuist een code naar uw e-mail gestuurd.', forgotSuccessTitle: 'Wachtwoord bijgewerkt', forgotSuccessMsg: 'U kunt nu inloggen met uw nieuwe wachtwoord.', forgotEmailNotFound: 'Geen account gevonden voor deze e-mail.', forgotCodeInvalid: 'Ongeldige of verlopen code.', forgotRateLimit: 'Te veel pogingen. Wacht een paar minuten.', forgotBadRequest: 'Ongeldige aanvraag. Controleer uw invoer.', forgotNetworkError: 'Verbindingsprobleem. Controleer uw netwerk.', forgotUnexpectedError: 'Onverwachte fout. Probeer het opnieuw.',
   },
 
   it: {
@@ -869,6 +1000,9 @@ const translations = {
     historyTitle: 'Cronologia consegne', gains: 'Guadagni', yesterday: 'Ieri',
     ticketSupport: 'Supporto Pearl Streets', ticketTitle: 'Ticket', resolved: 'Risolto', writeYourMessage: 'Scrivi il tuo messaggio...',
     orderLabel: 'Ordine',
+    errorInvalidEmail: 'Formato email non valido', errorPasswordWeak: 'La password deve avere almeno 8 caratteri con una maiuscola, una minuscola e una cifra', errorNoPhone: 'Inserisci il tuo numero di telefono', loginCooldown: 'Troppi tentativi. Attendi 30 secondi.', accountLocked: 'Account temporaneamente bloccato. Riprova tra qualche minuto.', loginWithPhone: 'Accedi con numero di telefono', phoneOtpTitle: 'Accesso con telefono', phoneOtpSubtitle: 'Riceverai un codice di verifica via SMS.', phoneOtpSendFailed: 'Impossibile inviare il codice. Riprova.', phoneOtpUnavailable: 'Accesso telefonico non disponibile. Usa la tua email.', phoneOtpUnavailableSignup: 'Verifica telefonica non disponibile al momento. Riprova tra qualche minuto.', otpCodeTooShort: 'Codice troppo corto', otpVerifyTitle: 'Inserisci il codice', otpSentTo: 'Codice inviato a', otpCodeLabel: 'Codice di verifica', otpVerifyFailed: 'Codice non valido. Riprova.', otpLoginFailed: 'Accesso fallito. Riprova.', driverNotFound: 'Nessun account corriere trovato per questo numero. Registrati.', sendCode: 'Invia codice', verifyCode: 'Verifica', changeNumber: 'Cambia numero', signupVerifyTitle: 'Verifica il tuo numero', signupOtpHint: 'Un codice di verifica ti sarà inviato via SMS.', verifyAndContinue: 'Verifica numero',
+    otpErrorRateLimited: 'Troppi tentativi. Riprova più tardi.', otpErrorWrongCode: 'Codice errato.', otpErrorExpired: 'Codice scaduto. Richiedine uno nuovo.', otpErrorTooManyAttempts: 'Troppi tentativi su questo codice. Richiedine uno nuovo.', otpErrorSessionInvalid: 'Sessione scaduta. Ricomincia.', otpErrorInvalidPhone: 'Numero di telefono non valido.', otpErrorServiceDown: 'Servizio temporaneamente non disponibile.',
+    forgotPasswordLink: 'Password dimenticata?', forgotTitle: 'Password dimenticata', forgotSubtitleEmail: 'Inserisci la tua email per ricevere un codice di reset.', forgotSubtitleReset: 'Inserisci il codice inviato alla tua email e la nuova password.', forgotEmailLabel: 'Email', forgotSendCode: 'Invia codice', forgotCodeLabel: 'Codice ricevuto', forgotNewPwd: 'Nuova password', forgotConfirmNewPwd: 'Conferma nuova password', forgotResetBtn: 'Reimposta', forgotBackToLogin: 'Torna all\'accesso', forgotChangeEmail: 'Cambia email', forgotCodeSent: 'È stato appena inviato un codice alla tua email.', forgotSuccessTitle: 'Password aggiornata', forgotSuccessMsg: 'Ora puoi accedere con la tua nuova password.', forgotEmailNotFound: 'Nessun account trovato per questa email.', forgotCodeInvalid: 'Codice non valido o scaduto.', forgotRateLimit: 'Troppi tentativi. Attendi qualche minuto.', forgotBadRequest: 'Richiesta non valida. Controlla l\'input.', forgotNetworkError: 'Problema di connessione. Controlla la rete.', forgotUnexpectedError: 'Errore inaspettato. Riprova.',
   },
 
   pt: {
@@ -895,6 +1029,9 @@ const translations = {
     historyTitle: 'Histórico de entregas', gains: 'Ganhos', yesterday: 'Ontem',
     ticketSupport: 'Suporte Pearl Streets', ticketTitle: 'Ticket', resolved: 'Resolvido', writeYourMessage: 'Escreva a sua mensagem...',
     orderLabel: 'Pedido',
+    errorInvalidEmail: 'Formato de email inválido', errorPasswordWeak: 'A senha deve ter pelo menos 8 caracteres com uma maiúscula, uma minúscula e um dígito', errorNoPhone: 'Introduza o seu número de telefone', loginCooldown: 'Demasiadas tentativas. Aguarde 30 segundos.', accountLocked: 'Conta temporariamente bloqueada. Tente novamente em alguns minutos.', loginWithPhone: 'Entrar com número de telefone', phoneOtpTitle: 'Entrada por telefone', phoneOtpSubtitle: 'Receberá um código de verificação por SMS.', phoneOtpSendFailed: 'Não foi possível enviar o código. Tente novamente.', phoneOtpUnavailable: 'Entrada por telefone indisponível. Use o seu email.', phoneOtpUnavailableSignup: 'Verificação por telefone indisponível no momento. Tente novamente em alguns minutos.', otpCodeTooShort: 'Código muito curto', otpVerifyTitle: 'Introduza o código', otpSentTo: 'Código enviado para', otpCodeLabel: 'Código de verificação', otpVerifyFailed: 'Código inválido. Tente novamente.', otpLoginFailed: 'Entrada falhou. Tente novamente.', driverNotFound: 'Nenhuma conta de estafeta encontrada para este número. Registe-se.', sendCode: 'Enviar código', verifyCode: 'Verificar', changeNumber: 'Alterar número', signupVerifyTitle: 'Verificar o seu número', signupOtpHint: 'Um código de verificação ser-lhe-á enviado por SMS.', verifyAndContinue: 'Verificar número',
+    otpErrorRateLimited: 'Demasiadas tentativas. Tente novamente mais tarde.', otpErrorWrongCode: 'Código incorreto.', otpErrorExpired: 'Código expirado. Solicite um novo.', otpErrorTooManyAttempts: 'Demasiadas tentativas neste código. Solicite um novo.', otpErrorSessionInvalid: 'Sessão expirada. Recomece.', otpErrorInvalidPhone: 'Número de telefone inválido.', otpErrorServiceDown: 'Serviço temporariamente indisponível.',
+    forgotPasswordLink: 'Esqueceu a senha?', forgotTitle: 'Esqueci a senha', forgotSubtitleEmail: 'Introduza o seu email para receber um código de redefinição.', forgotSubtitleReset: 'Introduza o código enviado para o seu email e a nova senha.', forgotEmailLabel: 'Email', forgotSendCode: 'Enviar código', forgotCodeLabel: 'Código recebido', forgotNewPwd: 'Nova senha', forgotConfirmNewPwd: 'Confirmar nova senha', forgotResetBtn: 'Redefinir', forgotBackToLogin: 'Voltar ao login', forgotChangeEmail: 'Alterar email', forgotCodeSent: 'Um código acaba de ser enviado para o seu email.', forgotSuccessTitle: 'Senha atualizada', forgotSuccessMsg: 'Já pode entrar com a sua nova senha.', forgotEmailNotFound: 'Nenhuma conta encontrada para este email.', forgotCodeInvalid: 'Código inválido ou expirado.', forgotRateLimit: 'Demasiadas tentativas. Aguarde alguns minutos.', forgotBadRequest: 'Pedido inválido. Verifique os dados.', forgotNetworkError: 'Problema de ligação. Verifique a sua rede.', forgotUnexpectedError: 'Erro inesperado. Tente novamente.',
   },
 
   ja: {
@@ -921,6 +1058,9 @@ const translations = {
     historyTitle: '配達履歴', gains: '収入', yesterday: '昨日',
     ticketSupport: 'Pearl Streetsサポート', ticketTitle: 'チケット', resolved: '解決済み', writeYourMessage: 'メッセージを入力...',
     orderLabel: '注文',
+    errorInvalidEmail: 'メール形式が無効です', errorPasswordWeak: 'パスワードは大文字、小文字、数字を含む8文字以上にしてください', errorNoPhone: '電話番号を入力してください', loginCooldown: '試行回数が多すぎます。30秒お待ちください。', accountLocked: 'アカウントが一時的にロックされました。数分後に再試行してください。', loginWithPhone: '電話番号でログイン', phoneOtpTitle: '電話でログイン', phoneOtpSubtitle: 'SMSで確認コードが送信されます。', phoneOtpSendFailed: 'コードを送信できませんでした。もう一度お試しください。', phoneOtpUnavailable: '電話ログインは利用できません。メールをご利用ください。', phoneOtpUnavailableSignup: '電話確認は現在利用できません。数分後に再試行してください。', otpCodeTooShort: 'コードが短すぎます', otpVerifyTitle: 'コードを入力', otpSentTo: 'コード送信先', otpCodeLabel: '確認コード', otpVerifyFailed: 'コードが無効です。もう一度お試しください。', otpLoginFailed: 'ログインに失敗しました。もう一度お試しください。', driverNotFound: 'この番号のドライバーアカウントが見つかりません。登録してください。', sendCode: 'コード送信', verifyCode: '確認', changeNumber: '番号を変更', signupVerifyTitle: '番号を確認', signupOtpHint: '確認コードがSMSで送信されます。', verifyAndContinue: '番号を確認',
+    otpErrorRateLimited: '試行回数が多すぎます。後で再試行してください。', otpErrorWrongCode: 'コードが正しくありません。', otpErrorExpired: 'コードの有効期限が切れました。新しいコードを要求してください。', otpErrorTooManyAttempts: 'このコードで試行回数が多すぎます。新しいコードを要求してください。', otpErrorSessionInvalid: 'セッションの有効期限が切れました。最初からやり直してください。', otpErrorInvalidPhone: '無効な電話番号です。', otpErrorServiceDown: 'サービスは一時的に利用できません。',
+    forgotPasswordLink: 'パスワードをお忘れですか？', forgotTitle: 'パスワードを忘れた', forgotSubtitleEmail: 'リセットコードを受け取るメールアドレスを入力してください。', forgotSubtitleReset: 'メールに送信されたコードと新しいパスワードを入力してください。', forgotEmailLabel: 'メール', forgotSendCode: 'コード送信', forgotCodeLabel: '受信コード', forgotNewPwd: '新しいパスワード', forgotConfirmNewPwd: '新しいパスワードを確認', forgotResetBtn: 'リセット', forgotBackToLogin: 'ログインに戻る', forgotChangeEmail: 'メールを変更', forgotCodeSent: 'コードがメールに送信されました。', forgotSuccessTitle: 'パスワード更新済み', forgotSuccessMsg: '新しいパスワードでログインできます。', forgotEmailNotFound: 'このメールのアカウントが見つかりません。', forgotCodeInvalid: 'コードが無効または期限切れです。', forgotRateLimit: '試行回数が多すぎます。数分お待ちください。', forgotBadRequest: '無効なリクエストです。入力を確認してください。', forgotNetworkError: '接続の問題があります。ネットワークを確認してください。', forgotUnexpectedError: '予期しないエラー。もう一度お試しください。',
   },
 
   th: {
@@ -947,6 +1087,9 @@ const translations = {
     historyTitle: 'ประวัติการจัดส่ง', gains: 'รายได้', yesterday: 'เมื่อวาน',
     ticketSupport: 'สนับสนุน Pearl Streets', ticketTitle: 'ตั๋ว', resolved: 'แก้ไขแล้ว', writeYourMessage: 'เขียนข้อความ...',
     orderLabel: 'คำสั่งซื้อ',
+    errorInvalidEmail: 'รูปแบบอีเมลไม่ถูกต้อง', errorPasswordWeak: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร รวมตัวพิมพ์ใหญ่ ตัวพิมพ์เล็ก และตัวเลข', errorNoPhone: 'กรุณาใส่หมายเลขโทรศัพท์', loginCooldown: 'พยายามมากเกินไป กรุณารอ 30 วินาที', accountLocked: 'บัญชีถูกล็อคชั่วคราว ลองอีกครั้งในอีกไม่กี่นาที', loginWithPhone: 'เข้าสู่ระบบด้วยหมายเลขโทรศัพท์', phoneOtpTitle: 'เข้าสู่ระบบด้วยโทรศัพท์', phoneOtpSubtitle: 'คุณจะได้รับรหัสยืนยันทาง SMS', phoneOtpSendFailed: 'ส่งรหัสไม่สำเร็จ กรุณาลองอีกครั้ง', phoneOtpUnavailable: 'ไม่สามารถเข้าสู่ระบบด้วยโทรศัพท์ กรุณาใช้อีเมลของคุณ', phoneOtpUnavailableSignup: 'การยืนยันทางโทรศัพท์ไม่พร้อมใช้งานในขณะนี้ ลองอีกครั้งในอีกไม่กี่นาที', otpCodeTooShort: 'รหัสสั้นเกินไป', otpVerifyTitle: 'ใส่รหัส', otpSentTo: 'ส่งรหัสไปยัง', otpCodeLabel: 'รหัสยืนยัน', otpVerifyFailed: 'รหัสไม่ถูกต้อง กรุณาลองอีกครั้ง', otpLoginFailed: 'การเข้าสู่ระบบล้มเหลว กรุณาลองอีกครั้ง', driverNotFound: 'ไม่พบบัญชีไรเดอร์สำหรับหมายเลขนี้ กรุณาลงทะเบียน', sendCode: 'ส่งรหัส', verifyCode: 'ยืนยัน', changeNumber: 'เปลี่ยนหมายเลข', signupVerifyTitle: 'ยืนยันหมายเลขของคุณ', signupOtpHint: 'รหัสยืนยันจะถูกส่งถึงคุณทาง SMS', verifyAndContinue: 'ยืนยันหมายเลข',
+    otpErrorRateLimited: 'พยายามมากเกินไป กรุณาลองอีกครั้งภายหลัง', otpErrorWrongCode: 'รหัสไม่ถูกต้อง', otpErrorExpired: 'รหัสหมดอายุ ขอรหัสใหม่', otpErrorTooManyAttempts: 'พยายามมากเกินไปกับรหัสนี้ ขอรหัสใหม่', otpErrorSessionInvalid: 'เซสชันหมดอายุ กรุณาเริ่มใหม่', otpErrorInvalidPhone: 'หมายเลขโทรศัพท์ไม่ถูกต้อง', otpErrorServiceDown: 'บริการไม่พร้อมใช้งานชั่วคราว',
+    forgotPasswordLink: 'ลืมรหัสผ่าน?', forgotTitle: 'ลืมรหัสผ่าน', forgotSubtitleEmail: 'ใส่อีเมลของคุณเพื่อรับรหัสรีเซ็ต', forgotSubtitleReset: 'ใส่รหัสที่ส่งไปยังอีเมลและรหัสผ่านใหม่ของคุณ', forgotEmailLabel: 'อีเมล', forgotSendCode: 'ส่งรหัส', forgotCodeLabel: 'รหัสที่ได้รับ', forgotNewPwd: 'รหัสผ่านใหม่', forgotConfirmNewPwd: 'ยืนยันรหัสผ่านใหม่', forgotResetBtn: 'รีเซ็ต', forgotBackToLogin: 'กลับไปเข้าสู่ระบบ', forgotChangeEmail: 'เปลี่ยนอีเมล', forgotCodeSent: 'เพิ่งส่งรหัสไปยังอีเมลของคุณ', forgotSuccessTitle: 'อัปเดตรหัสผ่านแล้ว', forgotSuccessMsg: 'คุณสามารถเข้าสู่ระบบด้วยรหัสผ่านใหม่ได้แล้ว', forgotEmailNotFound: 'ไม่พบบัญชีสำหรับอีเมลนี้', forgotCodeInvalid: 'รหัสไม่ถูกต้องหรือหมดอายุ', forgotRateLimit: 'พยายามมากเกินไป กรุณารอสักครู่', forgotBadRequest: 'คำขอไม่ถูกต้อง กรุณาตรวจสอบข้อมูล', forgotNetworkError: 'ปัญหาการเชื่อมต่อ กรุณาตรวจสอบเครือข่าย', forgotUnexpectedError: 'ข้อผิดพลาดที่ไม่คาดคิด กรุณาลองอีกครั้ง',
   },
 
   sv: {
@@ -973,6 +1116,9 @@ const translations = {
     historyTitle: 'Leveranshistorik', gains: 'Inkomster', yesterday: 'Igår',
     ticketSupport: 'Pearl Streets Support', ticketTitle: 'Ärende', resolved: 'Löst', writeYourMessage: 'Skriv ditt meddelande...',
     orderLabel: 'Beställning',
+    errorInvalidEmail: 'Ogiltigt e-postformat', errorPasswordWeak: 'Lösenordet måste vara minst 8 tecken med en stor bokstav, en liten bokstav och en siffra', errorNoPhone: 'Ange ditt telefonnummer', loginCooldown: 'För många försök. Vänta 30 sekunder.', accountLocked: 'Kontot tillfälligt låst. Försök igen om några minuter.', loginWithPhone: 'Logga in med telefonnummer', phoneOtpTitle: 'Telefoninloggning', phoneOtpSubtitle: 'Du får en bekräftelsekod via SMS.', phoneOtpSendFailed: 'Kunde inte skicka koden. Försök igen.', phoneOtpUnavailable: 'Telefoninloggning ej tillgänglig. Använd din e-post.', phoneOtpUnavailableSignup: 'Telefonverifiering ej tillgänglig just nu. Försök igen om några minuter.', otpCodeTooShort: 'Koden är för kort', otpVerifyTitle: 'Ange koden', otpSentTo: 'Kod skickad till', otpCodeLabel: 'Bekräftelsekod', otpVerifyFailed: 'Ogiltig kod. Försök igen.', otpLoginFailed: 'Inloggning misslyckades. Försök igen.', driverNotFound: 'Inget budkonto hittades för detta nummer. Vänligen registrera dig.', sendCode: 'Skicka kod', verifyCode: 'Verifiera', changeNumber: 'Ändra nummer', signupVerifyTitle: 'Verifiera ditt nummer', signupOtpHint: 'En bekräftelsekod skickas till dig via SMS.', verifyAndContinue: 'Verifiera nummer',
+    otpErrorRateLimited: 'För många försök. Försök igen senare.', otpErrorWrongCode: 'Felaktig kod.', otpErrorExpired: 'Koden har gått ut. Begär en ny.', otpErrorTooManyAttempts: 'För många försök på denna kod. Begär en ny.', otpErrorSessionInvalid: 'Sessionen har gått ut. Börja om.', otpErrorInvalidPhone: 'Ogiltigt telefonnummer.', otpErrorServiceDown: 'Tjänsten är tillfälligt otillgänglig.',
+    forgotPasswordLink: 'Glömt lösenord?', forgotTitle: 'Glömt lösenord', forgotSubtitleEmail: 'Ange din e-post för att få en återställningskod.', forgotSubtitleReset: 'Ange koden som skickats till din e-post och ditt nya lösenord.', forgotEmailLabel: 'E-post', forgotSendCode: 'Skicka kod', forgotCodeLabel: 'Mottagen kod', forgotNewPwd: 'Nytt lösenord', forgotConfirmNewPwd: 'Bekräfta nytt lösenord', forgotResetBtn: 'Återställ', forgotBackToLogin: 'Tillbaka till inloggning', forgotChangeEmail: 'Ändra e-post', forgotCodeSent: 'En kod har just skickats till din e-post.', forgotSuccessTitle: 'Lösenord uppdaterat', forgotSuccessMsg: 'Du kan nu logga in med ditt nya lösenord.', forgotEmailNotFound: 'Inget konto hittades för denna e-post.', forgotCodeInvalid: 'Ogiltig eller utgången kod.', forgotRateLimit: 'För många försök. Vänta några minuter.', forgotBadRequest: 'Ogiltig begäran. Kontrollera dina uppgifter.', forgotNetworkError: 'Anslutningsproblem. Kontrollera ditt nätverk.', forgotUnexpectedError: 'Oväntat fel. Försök igen.',
   },
 
   ru: {
@@ -999,6 +1145,9 @@ const translations = {
     historyTitle: 'История доставок', gains: 'Заработки', yesterday: 'Вчера',
     ticketSupport: 'Поддержка Pearl Streets', ticketTitle: 'Тикет', resolved: 'Решено', writeYourMessage: 'Напишите сообщение...',
     orderLabel: 'Заказ',
+    errorInvalidEmail: 'Неверный формат email', errorPasswordWeak: 'Пароль должен содержать не менее 8 символов, включая заглавную букву, строчную букву и цифру', errorNoPhone: 'Введите номер телефона', loginCooldown: 'Слишком много попыток. Подождите 30 секунд.', accountLocked: 'Аккаунт временно заблокирован. Попробуйте через несколько минут.', loginWithPhone: 'Войти по номеру телефона', phoneOtpTitle: 'Вход по телефону', phoneOtpSubtitle: 'Вы получите код подтверждения по SMS.', phoneOtpSendFailed: 'Не удалось отправить код. Попробуйте снова.', phoneOtpUnavailable: 'Вход по телефону недоступен. Используйте email.', phoneOtpUnavailableSignup: 'Проверка по телефону сейчас недоступна. Попробуйте через несколько минут.', otpCodeTooShort: 'Код слишком короткий', otpVerifyTitle: 'Введите код', otpSentTo: 'Код отправлен на', otpCodeLabel: 'Код подтверждения', otpVerifyFailed: 'Неверный код. Попробуйте снова.', otpLoginFailed: 'Вход не удался. Попробуйте снова.', driverNotFound: 'Аккаунт курьера для этого номера не найден. Зарегистрируйтесь.', sendCode: 'Отправить код', verifyCode: 'Подтвердить', changeNumber: 'Изменить номер', signupVerifyTitle: 'Подтвердите номер', signupOtpHint: 'Код подтверждения будет отправлен вам по SMS.', verifyAndContinue: 'Подтвердить номер',
+    otpErrorRateLimited: 'Слишком много попыток. Попробуйте позже.', otpErrorWrongCode: 'Неверный код.', otpErrorExpired: 'Срок действия кода истёк. Запросите новый.', otpErrorTooManyAttempts: 'Слишком много попыток ввода этого кода. Запросите новый.', otpErrorSessionInvalid: 'Сессия истекла. Начните заново.', otpErrorInvalidPhone: 'Неверный номер телефона.', otpErrorServiceDown: 'Сервис временно недоступен.',
+    forgotPasswordLink: 'Забыли пароль?', forgotTitle: 'Забыли пароль', forgotSubtitleEmail: 'Введите email для получения кода сброса.', forgotSubtitleReset: 'Введите код, отправленный на ваш email, и новый пароль.', forgotEmailLabel: 'Email', forgotSendCode: 'Отправить код', forgotCodeLabel: 'Полученный код', forgotNewPwd: 'Новый пароль', forgotConfirmNewPwd: 'Подтвердите новый пароль', forgotResetBtn: 'Сбросить', forgotBackToLogin: 'Вернуться ко входу', forgotChangeEmail: 'Изменить email', forgotCodeSent: 'Код только что отправлен на ваш email.', forgotSuccessTitle: 'Пароль обновлён', forgotSuccessMsg: 'Теперь вы можете войти с новым паролем.', forgotEmailNotFound: 'Аккаунт с таким email не найден.', forgotCodeInvalid: 'Код недействителен или истёк.', forgotRateLimit: 'Слишком много попыток. Подождите несколько минут.', forgotBadRequest: 'Неверный запрос. Проверьте ввод.', forgotNetworkError: 'Проблема соединения. Проверьте сеть.', forgotUnexpectedError: 'Неожиданная ошибка. Попробуйте снова.',
   },
 };
 
