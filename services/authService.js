@@ -22,22 +22,16 @@ function clearSessionTimer() {
   }
 }
 
-// Simple SHA-256 hash using SubtleCrypto (available in React Native via expo-crypto or polyfill)
+// SHA-256 via SubtleCrypto (Hermes/JSC polyfill available in Expo SDK ≥ 49)
 async function hashPassword(password) {
   try {
-    // Use a simple hash approach compatible with React Native
-    // In production, use expo-crypto or a proper library
-    let hash = 0;
-    const str = password + 'pearl_salt_v1';
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    // Convert to hex-like string for transmission
-    return 'ph_' + Math.abs(hash).toString(16).padStart(8, '0');
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + 'pearl_salt_v1');
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   } catch {
-    // Fallback: return as-is (server should still hash)
+    // Fallback: send plain password — server must hash (HTTPS enforced)
     return password;
   }
 }
