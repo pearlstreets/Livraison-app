@@ -28,19 +28,7 @@ const INITIAL_WEEKS = [
   { start: '2026-02-16', range: '16 fév. - 22 fév.', total: 427.92, bars: [40, 20, 55, 70, 45, 80, 17] },
 ];
 
-const INITIAL_HISTORY = [
-  { id: 'ORD-3005', restaurant: 'Pizzeria Roma, Meaux', address: '12 Rue Voltaire, Meaux', distanceText: '2.3 km', priceText: '8.50 €', tip: '1.50 €', date: '2 avr', time: '12h15', status: 'completed', completedAt: '2026-04-02T12:15:00' },
-  { id: 'ORD-3004', restaurant: 'Sushi Zen, Meaux', address: '3 Bd Barbès, Meaux', distanceText: '3.1 km', priceText: '11.40 €', tip: '2.00 €', date: '2 avr', time: '11h30', status: 'completed', completedAt: '2026-04-02T11:30:00' },
-  { id: 'ORD-3003', restaurant: 'Le Bistrot, Meaux', address: 'Place Carnot, Meaux', distanceText: '1.8 km', priceText: '6.20 €', tip: null, date: '2 avr', time: '10h45', status: 'completed', completedAt: '2026-04-02T10:45:00' },
-  { id: 'ORD-3001', restaurant: 'Chez Marcel, Meaux', address: '18 Rue de Verdun, Meaux', distanceText: '0.9 km', priceText: '9.80 €', tip: '1.00 €', date: '1 avr', time: '20h10', status: 'completed', completedAt: '2026-04-01T20:10:00' },
-  { id: 'ORD-3000', restaurant: 'Café du Pont, Meaux', address: '2 Rue de la République, Meaux', distanceText: '1.5 km', priceText: '7.50 €', tip: null, date: '1 avr', time: '19h22', status: 'completed', completedAt: '2026-04-01T19:22:00' },
-  { id: 'ORD-2998', restaurant: 'La Terrasse, Meaux', address: '6 Rue Trivalle, Meaux', distanceText: '2.7 km', priceText: '9.90 €', tip: '1.00 €', date: '31 mars', time: '19h32', status: 'completed', completedAt: '2026-03-31T19:32:00' },
-  { id: 'ORD-2996', restaurant: 'Café du Pont, Meaux', address: '2 Rue de la République, Meaux', distanceText: '1.4 km', priceText: '0,00 €', tip: null, date: '31 mars', time: '18h50', status: 'cancelled', cancelledAt: '2026-03-31T18:50:00' },
-  { id: 'ORD-2995', restaurant: 'Pizzeria Roma, Meaux', address: 'Place Carnot, Meaux', distanceText: '2.0 km', priceText: '8.10 €', tip: null, date: '30 mars', time: '20h45', status: 'completed', completedAt: '2026-03-30T20:45:00' },
-  { id: 'ORD-2991', restaurant: 'Le Bistrot, Meaux', address: '12 Rue Voltaire, Meaux', distanceText: '1.2 km', priceText: '7.30 €', tip: null, date: '30 mars', time: '12h30', status: 'completed', completedAt: '2026-03-30T12:30:00' },
-  { id: 'ORD-2987', restaurant: 'Sushi Zen, Meaux', address: '18 Rue de Verdun, Meaux', distanceText: '3.5 km', priceText: '12.60 €', tip: '2.50 €', date: '29 mars', time: '19h55', status: 'completed', completedAt: '2026-03-29T19:55:00' },
-  { id: 'ORD-2984', restaurant: 'La Terrasse, Meaux', address: '3 Bd Barbès, Meaux', distanceText: '2.1 km', priceText: '9.20 €', tip: null, date: '29 mars', time: '13h18', status: 'completed', completedAt: '2026-03-29T13:18:00' },
-];
+const INITIAL_HISTORY = [];
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState({ email: 'remsko@live.fr', firstName: 'Ganja', lastName: 'Remsko', pseudo: 'Remsko', phone: '06 12 34 56 78', vehicle: 'Scooter', photo: null });
