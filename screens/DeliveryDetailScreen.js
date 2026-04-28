@@ -53,7 +53,16 @@ export default function DeliveryDetailScreen({ navigation, route }) {
             <View style={s.dotRed} />
             <View style={{ flex: 1 }}>
               <Text style={s.routeLabel}>{t('delivery')}</Text>
-              <Text style={s.routeAddr}>{order.address}</Text>
+              <Text style={s.routeAddr}>{
+                (order?.user_address && [
+                  order.user_address.house_building || order.user_address.address1,
+                  order.user_address.road_area_colony || order.user_address.address2,
+                  order.user_address.pincode || order.user_address.postalCode,
+                  order.user_address.city,
+                  order.user_address.country,
+                ].filter(Boolean).join(', '))
+                || order.address
+              }</Text>
             </View>
           </View>
         </View>

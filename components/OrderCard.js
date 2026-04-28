@@ -145,7 +145,20 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
   const code = pickHybrid(order, ['code','id','orderId'], /(code|order.?id)$/i) || t('order');
   const category = pickHybrid(order, ['category','type','service'], /(category|type|service)/i);
   const merchant = pickHybrid(order, ['restaurant','merchantName','storeName','pickupName'], /(restaurant|merchant|store|pickup).*name/i);
-  const address = pickHybrid(order, ['address','dropoffAddress','destinationAddress','dropoff.address'], /(address$|dropoff.*address|destination.*address)/i);
+  // Snapshot first: prefer the UserAddress that was pinned at order creation
+  // (Pearl Streets multi-address feature). Falls back to legacy fields for
+  // older orders. The driver MUST route to the snapshot — buyer's current
+  // default may have changed after the order was placed.
+  const _ua = order?.user_address;
+  const _uaStr = _ua && [
+    _ua.house_building || _ua.address1,
+    _ua.road_area_colony || _ua.address2,
+    _ua.pincode || _ua.postalCode,
+    _ua.city,
+    _ua.country,
+  ].filter(Boolean).join(', ');
+  const address = _uaStr
+    || pickHybrid(order, ['address','dropoffAddress','destinationAddress','dropoff.address'], /(address$|dropoff.*address|destination.*address)/i);
 
   const distance = fmtKm(pickHybrid(order, ['distanceText','distanceKm','distance'], /(distance|km)/i));
   const eta = fmtMin(pickHybrid(order, ['etaText','etaMinutes','duration','time'], /(eta|duration|time|min)/i));

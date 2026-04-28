@@ -40,7 +40,13 @@ const HistoryOrderItem = React.memo(({ order, navigation, t }) => {
         </View>
         <View style={s.detailRow}>
           <Ionicons name="location-outline" size={14} color="#888" />
-          <Text style={s.detailText} numberOfLines={1}>{order.address}</Text>
+          <Text style={s.detailText} numberOfLines={1}>{
+            (order?.user_address && [
+              order.user_address.house_building || order.user_address.address1,
+              order.user_address.city,
+            ].filter(Boolean).join(', '))
+            || order.address
+          }</Text>
         </View>
         {!!distance && (
           <View style={s.detailRow}>

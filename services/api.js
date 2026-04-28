@@ -2,7 +2,20 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sanitizeForApi } from '../utils/validation';
 
-const API_BASE = 'https://pythonapi.digiexports.in';
+// API_BASE — désormais lu depuis env (EXPO_PUBLIC_API_BASE).
+// Audit 2026-04-25 : marketplace Django DeliveryApp expose strictement les
+// mêmes endpoints (`/api/v1/delivery/login/`, `/available/`, `/accept/`,
+// `/earnings/`, `/tickets/...`) que ceux consommés par cette app. Donc
+// pointer sur le Django marketplace (localhost:8000 en dev, prod sinon)
+// connecte directement pearl-delivery à la même DB que les 4 apps marketplace
+// (WebsitePro, WebsiteUser, AppPro, AppUser) → un order food créé dans
+// WebsiteUser apparaît dans /available/ pour les drivers en ligne.
+//
+// Fallback historique `pythonapi.digiexports.in` = ancien deploy avant
+// unification. Gardé en fallback mais env override prioritaire.
+const API_BASE =
+  process.env.EXPO_PUBLIC_API_BASE ||
+  'https://pythonapi.digiexports.in';
 
 // Request ID generator for tracing
 const generateRequestId = () =>

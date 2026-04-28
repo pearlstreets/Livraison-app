@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sanitizeInput, isValidEmail } from '../utils/validation';
+import secureStorage from '../services/secureStorage';
 
 function _getOneSignal() {
   try { const m = require('react-native-onesignal'); return m.OneSignal || m.default || m; } catch { return null; }
@@ -133,7 +135,53 @@ export function AuthProvider({ children }) {
 
   function logout() {
     try { const OS = _getOneSignal(); if (OS) OS.logout(); } catch {}
+    // Clear OTP-login tokens if present (best-effort; legacy login path has its own cleanup)
+    secureStorage.removeSecure('accessToken').catch(() => {});
+    secureStorage.removeSecure('refreshToken').catch(() => {});
+    AsyncStorage.removeItem('userData').catch(() => {});
     setUser(null);
+  }
+
+  /**
+   * Set session state after a successful OTP v2 phone verify.
+   * Stores tokens in secureStorage (same keys as authService.login so
+   * axios interceptors / refresh logic keep working) and sets the
+   * driver profile in the React context.
+   *
+   * @param {Object} otpResult — the `verifyOtp()` return value from
+   *   `services/otpauth/useOtpSender.js` — must contain accessToken,
+   *   refreshToken, userId, phoneE164, userType ("delivery_driver").
+   */
+  async function loginWithOtp(otpResult) {
+    if (!otpResult?.accessToken || !otpResult?.refreshToken) return false;
+    try {
+      await secureStorage.setSecure('accessToken', otpResult.accessToken);
+      await secureStorage.setSecure('refreshToken', otpResult.refreshToken);
+    } catch {}
+    const driverProfile = {
+      id: otpResult.userId || null,
+      email: '',
+      firstName: '',
+      lastName: '',
+      pseudo: '',
+      phone: otpResult.phoneE164 || '',
+      vehicle: 'Scooter',
+      photo: null,
+      role: 'deliverydriver',
+      isVerified: true,
+    };
+    try {
+      await AsyncStorage.setItem('userData', JSON.stringify(driverProfile));
+    } catch {}
+    setUser(driverProfile);
+    try {
+      const OS = _getOneSignal();
+      if (OS && otpResult.userId) OS.login(String(otpResult.userId));
+    } catch {}
+    // Reset login lockout state on successful OTP login
+    loginAttemptsRef.current = 0;
+    lockoutUntilRef.current = null;
+    return true;
   }
 
   function updateUser(updates) { setUser(prev => prev ? { ...prev, ...updates } : prev); }
@@ -325,7 +373,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, updateUser, warnings, accountActive, rating, totalDeliveries, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount, deliveryHistory, addToHistory, markOrderReported, getTicketMessages, saveTicketMessages, currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban, isOnline, setIsOnline, warningsList, markTicketRead, getUnreadTicketCount, scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts, readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loginWithOtp, updateUser, warnings, accountActive, rating, totalDeliveries, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount, deliveryHistory, addToHistory, markOrderReported, getTicketMessages, saveTicketMessages, currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban, isOnline, setIsOnline, warningsList, markTicketRead, getUnreadTicketCount, scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts, readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount }}>
       {children}
     </AuthContext.Provider>
   );

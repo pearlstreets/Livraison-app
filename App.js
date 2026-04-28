@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense } from 'react';
+import React, { useEffect, useRef, lazy, Suspense } from 'react';
 import { Platform } from 'react-native';
 
 // Security: Disable React DevTools in production
@@ -71,7 +71,7 @@ const navTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: B
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-    shouldPlaySound: false,
+    shouldPlaySound: true,
     shouldSetBadge: false,
   }),
 });

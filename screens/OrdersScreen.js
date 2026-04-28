@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity, Pressable, Dimensions, Alert } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity, Pressable, Dimensions, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import OrderCard from '../components/OrderCard';
 import DetailsSheet from '../components/DetailsSheet';
-import { getMeauxSeed } from '../constants/mockOrders';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { deliveryService } from '../services/deliveryService';
 import filtersUI from '../constants/filters-ui.json';
 
 /* === Filtres inline (unique) === */
@@ -36,73 +36,53 @@ const OrdersInlineFilters = React.memo(({ selected, onChange, filters = [] }) =>
   );
 });
 
-/* ---------- Génération aléatoire ---------- */
-const CATEGORIES = ['Food & Drink', 'Product Purchase', 'Groceries'];
-const RESTOS = [
-  'Pizzeria Roma, Meaux',
-  'Le Bistrot, Meaux',
-  'Chez Marcel, Meaux',
-  'La Terrasse, Meaux',
-  'Café du Pont, Meaux',
-  'Sushi Zen, Meaux'
-];
-const ADDR = [
-  '12 Rue Voltaire, Meaux',
-  'Place Carnot, Meaux',
-  '3 Bd Barbès, Meaux',
-  '18 Rue de Verdun, Meaux',
-  '6 Rue Trivalle, Meaux',
-  '2 Rue de la République, Meaux'
-];
-const FOOD_ITEMS = [
-  'Pizza Margherita', 'Burger Classic', 'Salade César', 'Pâtes Carbonara', 'Sushi Mix 12p',
-  'Tacos Poulet', 'Wrap Végétarien', 'Tiramisu', 'Coca-Cola 33cl', 'Frites Maison',
-  'Nems x4', 'Pad Thaï', 'Crêpe Nutella', 'Smoothie Fruits', 'Croissant Beurre',
-];
-const PRODUCT_ITEMS = [
-  'Colis petit', 'Colis moyen', 'Enveloppe A4', 'Paquet fragile', 'Sac courses',
-];
-
-const rpick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const rfloat = (min, max, d=1) => (Math.random()*(max-min)+min).toFixed(d);
-const rint = (min, max) => Math.floor(Math.random()*(max-min+1))+min;
-
-let seq = 3000;
-function genOrder() {
-  const idNum = ++seq;
-  const restaurant = rpick(RESTOS);
-  const address = rpick(ADDR);
-  const category = rpick(CATEGORIES);
-
-  const km = Number(rfloat(0.8, 4.5, 1));
-  const min = rint(6, 20);
-  const price = Number((Math.random()*12 + 6).toFixed(2));
-
-  // Fake coords (pas nécessaires mais utiles pour Itinéraire si dispo)
-  const lat = 43.21 + Math.random()*0.02;
-  const lng = 2.34 + Math.random()*0.03;
-
-  const itemCount = rint(1, 5);
-  const itemPool = category === 'Product Purchase' ? PRODUCT_ITEMS : FOOD_ITEMS;
-  const orderItems = [];
-  for (let j = 0; j < itemCount; j++) {
-    const name = rpick(itemPool);
-    const qty = category === 'Product Purchase' ? 1 : rint(1, 3);
-    if (!orderItems.find(it => it.name === name)) orderItems.push({ name, qty });
-  }
+/* ---------- Normalise une commande API Django → format UI ---------- */
+function normalizeApiOrder(raw) {
+  const addr = raw.user_address
+    ? [raw.user_address.house_building, raw.user_address.city, raw.user_address.country]
+        .filter(Boolean).join(', ')
+    : (raw.delivery_address || raw.dropoffAddress || raw.address || '');
 
   return {
-    id: `ORD-${idNum}`,
-    category,
-    restaurant,
-    address,
-    distanceText: `${km.toFixed(1)} km`,
-    etaText: `${min} min`,
-    priceText: `${price.toFixed(2)} €`,
-    itemsCount: orderItems.reduce((s, it) => s + it.qty, 0),
-    items: orderItems,
-    dropoffAddress: address,
-    dropoffLat: lat, dropoffLng: lng
+    id: raw.id ? `ORD-${raw.id}` : (raw.code || String(raw.id)),
+    _apiId: raw.id,                           // id numérique brut pour acceptDelivery
+    category: raw.category || 'Food & Drink',
+    restaurant: raw.merchantName || raw.restaurant || raw.pickup_address || '',
+    address: addr,
+    dropoffAddress: addr,
+    distanceText: raw.distance_km ? `${raw.distance_km} km` : (raw.distanceText || ''),
+    etaText: raw.eta_min ? `${raw.eta_min} min` : (raw.etaText || ''),
+    priceText: raw.orderPrice
+      ? `${parseFloat(raw.orderPrice).toFixed(2)} €`
+      : (raw.priceText || raw.price || ''),
+    itemsCount: raw.itemsCount || 0,
+    items: raw.items || [],
+    dropoffLat: raw.dropoffLat || null,
+    dropoffLng: raw.dropoffLng || null,
+    orderStatus: raw.orderStatus || raw.status || '',
+    user_address: raw.user_address || null,
+  };
+}
+
+/* ---------- Normalise un enregistrement historique API ---------- */
+function normalizeHistoryItem(raw) {
+  const addr = raw.user_address
+    ? [raw.user_address.house_building, raw.user_address.city, raw.user_address.country]
+        .filter(Boolean).join(', ')
+    : (raw.delivery_address || raw.dropoffAddress || raw.address || '');
+  const isCancelled = (raw.status || '').toLowerCase().includes('cancel');
+  return {
+    id: raw.id ? `ORD-${raw.id}` : (raw.code || String(raw.id)),
+    restaurant: raw.merchantName || raw.restaurant || raw.pickup_address || '',
+    address: addr,
+    dropoffAddress: addr,
+    distanceText: raw.distance_km ? `${raw.distance_km} km` : (raw.distanceText || ''),
+    priceText: isCancelled ? '0,00 €' : (raw.orderPrice
+      ? `${parseFloat(raw.orderPrice).toFixed(2)} €`
+      : (raw.priceText || raw.price || '')),
+    status: isCancelled ? 'cancelled' : 'completed',
+    completedAt: raw.completedAt || raw.completed_at || (!isCancelled ? raw.updated_at : null),
+    cancelledAt: raw.cancelledAt || raw.cancelled_at || (isCancelled ? raw.updated_at : null),
   };
 }
 
@@ -117,47 +97,7 @@ export default function OrdersScreen({ navigation, route }) {
   const [selectedFilter, setSelectedFilter] = useState('smart');
   const filters = [{id:'smart',label:'Smart'},{id:'highpay',label:'€'},{id:'nearest',label:'Proche'}];
 
-  useFocusEffect(useCallback(() => {
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, []));
-
-  // --- Simulateur Meaux (startMeauxFeed peut ne pas exister) ---
-  React.useEffect(() => {
-    try {
-      if (typeof startMeauxFeed === 'function') {
-        const stop = startMeauxFeed(setAvailable, 4000);
-        return () => typeof stop==='function' && stop();
-      }
-    } catch {}
-  }, []);
-
-  React.useEffect(() => { //__SIM_MEAUX_FEED
-    if (!__SIM_MEAUX) return;
-    const seed = (typeof getMeauxSeed==='function' ? getMeauxSeed() : []);
-    let i = 0;
-    const tick = () => {
-      const raw = seed[i % seed.length];
-      i++;
-      if (!raw) return;
-      // Give each seed item a unique ID to avoid duplicate keys
-      const item = { ...raw, id: raw.id || raw.code, _uid: `MX-${Date.now()}-${i}` };
-      try {
-        if (typeof setAvailable === 'function') {
-          setAvailable(prev => {
-            const key = item._uid;
-            if (prev.find(o => o._uid === key)) return prev;
-            const arr = [item, ...prev];
-            return arr.slice(0, 12);
-          });
-        }
-      } catch {}
-    };
-    tick();
-    const iv = setInterval(tick, 5000 + Math.floor(Math.random()*3000));
-    return () => clearInterval(iv);
-  }, []);
-
-  const __SIM_MEAUX = true;
+  // scroll-to-top est intégré dans le useFocusEffect principal ci-dessous
 
   const [detailsOrder, setDetailsOrder] = useState(null);
   const [detailsVisible, setDetailsVisible] = useState(false); //__DETAILS_STATE_ANCHOR
@@ -168,7 +108,11 @@ export default function OrdersScreen({ navigation, route }) {
   const [available, setAvailable] = useState([]);     // Disponibles
   const [history, setHistory] = useState([]);          // Historique
   const [activeSteps, setActiveSteps] = useState({}); // { orderId: { stepIndex, stepLabel } }
-  const timerRef = useRef(null);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [ordersError, setOrdersError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const pollRef = useRef(null);
 
   // Handle completed order from DeliveryFlow
   useEffect(() => {
@@ -218,33 +162,64 @@ export default function OrdersScreen({ navigation, route }) {
     return unsubscribe;
   }, [navigation]);
 
-  // Seed initial si vide
-  useEffect(() => {
-    if (available.length === 0) {
-      setAvailable([genOrder(), genOrder(), genOrder()]);
+  // --- Chargement des commandes disponibles depuis l'API Django ---
+  const fetchAvailableOrders = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoadingOrders(true);
+    setOrdersError(null);
+    try {
+      const data = await deliveryService.getAvailableOrders();
+      // L'API peut retourner { results: [...] } (paginé) ou directement un tableau
+      const raw = Array.isArray(data) ? data : (data.results || data.orders || []);
+      const normalized = raw.map(normalizeApiOrder);
+      setAvailable(normalized);
+    } catch (err) {
+      setOrdersError(err?.message || 'Erreur lors du chargement des commandes');
+    } finally {
+      if (isRefresh) setRefreshing(false);
+      else setLoadingOrders(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Flux continu quand "En ligne" — throttled to reduce state updates
-  useEffect(() => {
-    if (!online) { if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = null; return; }
+  // --- Chargement de l'historique depuis l'API Django ---
+  const fetchHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    try {
+      const data = await deliveryService.getDeliveryHistory();
+      const raw = Array.isArray(data) ? data : (data.results || data.history || []);
+      const normalized = raw.map(normalizeHistoryItem);
+      setHistory(normalized);
+    } catch {
+      // Historique optionnel — pas d'erreur bloquante
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, []);
 
-    const schedule = () => {
-      const delay = rint(6000, 10000); // 6–10s (throttled from 4–7s)
-      timerRef.current = setTimeout(() => {
-        setAvailable(prev => {
-          // Cap à 12 éléments, pas de doublon d'id
-          const next = genOrder();
-          if (prev.find(o => o.id === next.id)) return prev;
-          const arr = [next, ...prev];
-          return arr.slice(0, 12);
-        });
-        schedule();
-      }, delay);
+  // Chargement initial + focus (retour depuis DeliveryFlow) + scroll-to-top
+  useFocusEffect(useCallback(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    if (online) {
+      fetchAvailableOrders();
+      fetchHistory();
+      // Polling toutes les 15s quand en ligne
+      pollRef.current = setInterval(() => fetchAvailableOrders(), 15000);
+    }
+    return () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
-    schedule();
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = null; };
+  }, [online, fetchAvailableOrders, fetchHistory]));
+
+  // Recharger quand le driver passe en ligne
+  useEffect(() => {
+    if (online) {
+      fetchAvailableOrders();
+      fetchHistory();
+    } else {
+      setAvailable([]);
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online]);
 
   const onAccept = useCallback((order) => {
@@ -304,6 +279,14 @@ export default function OrdersScreen({ navigation, route }) {
       contentContainerStyle={[styles.container, { paddingTop: insets.top + 12 }]}
       alwaysBounceVertical={Platform.OS === 'ios'}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => { fetchAvailableOrders(true); fetchHistory(); }}
+          tintColor="#00C29B"
+          colors={['#00C29B']}
+        />
+      }
     >
       {/* Bandeau En ligne / Hors ligne */}
       <View style={[styles.onlineCard, !online && { borderWidth: 1, borderColor: '#E6E8EB' }]}>
@@ -397,7 +380,17 @@ export default function OrdersScreen({ navigation, route }) {
             {t('available')}
           </Text>
           <View style={styles.cardsBlock}>
-            {available.length > 0 ? (
+            {loadingOrders ? (
+              <ActivityIndicator size="small" color="#00C29B" style={{ marginVertical: 16 }} />
+            ) : ordersError ? (
+              <View style={styles.errorWrap}>
+                <Ionicons name="wifi-outline" size={20} color="#e74c3c" />
+                <Text style={styles.errorText}>{ordersError}</Text>
+                <TouchableOpacity onPress={() => fetchAvailableOrders()} style={styles.retryBtn}>
+                  <Text style={styles.retryBtnTxt}>Réessayer</Text>
+                </TouchableOpacity>
+              </View>
+            ) : available.length > 0 ? (
               available.map((order, i) => (
                 <View key={keyOf(order, i)} style={styles.cardWrap}>
                   <OrderCard
@@ -409,7 +402,7 @@ export default function OrdersScreen({ navigation, route }) {
                 </View>
               ))
             ) : (
-              <Text style={styles.emptyText}>{t('noOrders')}</Text>
+              <Text style={styles.emptyText}>{t('noOrders') || 'Pas de commandes disponibles'}</Text>
             )}
           </View>
         </>
@@ -520,4 +513,10 @@ const styles = StyleSheet.create({
   historyDetails: { marginLeft: 30 },
   historyDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
   historyDetailText: { fontSize: 13, color: '#666', flexShrink: 1 },
+
+  // Error / retry
+  errorWrap: { flexDirection: 'column', alignItems: 'center', paddingVertical: 16, gap: 8 },
+  errorText: { fontSize: 13, color: '#e74c3c', textAlign: 'center' },
+  retryBtn: { backgroundColor: '#00C29B', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 18, marginTop: 4 },
+  retryBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
 });

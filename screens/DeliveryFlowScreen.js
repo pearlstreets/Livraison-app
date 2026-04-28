@@ -237,7 +237,17 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const step = STEPS[stepIndex];
 
   const restaurant = order.restaurant || order.merchantName || 'Restaurant';
-  const address = order.dropoffAddress || order.address || 'Adresse de livraison';
+  // Snapshot first: order.user_address is what the buyer chose at checkout.
+  // The driver MUST route here — never to whatever default they set later.
+  const _ua = order?.user_address;
+  const _uaStr = _ua && [
+    _ua.house_building || _ua.address1,
+    _ua.road_area_colony || _ua.address2,
+    _ua.pincode || _ua.postalCode,
+    _ua.city,
+    _ua.country,
+  ].filter(Boolean).join(', ');
+  const address = _uaStr || order.dropoffAddress || order.address || 'Adresse de livraison';
   const price = order.priceText || order.price || '—';
   const distance = order.distanceText || '—';
   const eta = order.etaText || '—';
