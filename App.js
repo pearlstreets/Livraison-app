@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { initOneSignalOnce } from './services/oneSignalInit';
+import offlineQueue from './services/offlineQueue';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import LoginScreen from './screens/LoginScreen';
@@ -60,6 +61,9 @@ import VersementDetailScreen from './screens/VersementDetailScreen';
 // ships. Required to be called before render so OneSignal can attach its
 // notification handlers ahead of the first user interaction.
 initOneSignalOnce();
+// Boot the offline queue: replays buffered non-critical writes when the
+// network comes back. No-op when network is up.
+offlineQueue.start().catch(() => {});
 
 const BRAND = '#00C29B';
 const Tab = createBottomTabNavigator();

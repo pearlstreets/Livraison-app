@@ -22,26 +22,17 @@ function clearSessionTimer() {
   }
 }
 
-// SHA-256 via SubtleCrypto (Hermes/JSC polyfill available in Expo SDK ≥ 49)
-async function hashPassword(password) {
-  try {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password + 'pearl_salt_v1');
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  } catch {
-    // Fallback: send plain password — server must hash (HTTPS enforced)
-    return password;
-  }
-}
+// Password is sent in plain text over HTTPS — the Django backend uses
+// `check_password()` (bcrypt/argon2 hashing) on its side, so client-side
+// hashing breaks login when SubtleCrypto succeeds (mismatched algos).
+// HTTPS already protects confidentiality in transit.
 
 // Token rotation: track refresh count to detect abuse
 let refreshCount = 0;
 const MAX_REFRESHES_PER_SESSION = 50;
 
-// Biometric auth placeholder
-// TODO: Implement with expo-local-authentication
+// Biometric auth — NOTE: placeholder volontaire. À activer avec
+// expo-local-authentication quand le produit ouvrira la feature opt-in.
 // import * as LocalAuthentication from 'expo-local-authentication';
 // async function authenticateWithBiometrics() {
 //   const hasHardware = await LocalAuthentication.hasHardwareAsync();
@@ -57,10 +48,9 @@ export const authService = {
       throw new Error('Invalid email format');
     }
 
-    const hashedPwd = await hashPassword(password);
     const { data } = await api.post('/api/v1/delivery/login/', {
       email: sanitizeForApi(email),
-      password: hashedPwd,
+      password, // sent over HTTPS, hashed server-side (Django check_password)
     });
 
     // Store tokens securely
@@ -80,12 +70,12 @@ export const authService = {
       throw new Error('Invalid email format');
     }
 
-    // Hash password before sending
+    // Send password in plain over HTTPS — backend hashes via Django.
     const sanitizedPayload = {
       ...payload,
       email: sanitizeForApi(payload.email),
       userName: payload.userName ? sanitizeForApi(payload.userName) : undefined,
-      password: await hashPassword(payload.password),
+      password: payload.password,
     };
 
     const { data } = await api.post('/api/v1/delivery/register/', sanitizedPayload);
@@ -94,7 +84,7 @@ export const authService = {
 
   async logout() {
     try {
-      const refreshToken = await AsyncStorage.getItem('refreshToken');
+      const refreshToken = await secureStorage.getSecure('refreshToken').catch(() => null);
       if (refreshToken) {
         await api.post('/api/v1/delivery/logout/', { refresh: refreshToken });
       }
@@ -115,7 +105,7 @@ export const authService = {
       throw new Error('Session expired. Please log in again.');
     }
 
-    const refreshToken = await AsyncStorage.getItem('refreshToken');
+    const refreshToken = await secureStorage.getSecure('refreshToken').catch(() => null);
     if (!refreshToken) throw new Error('No refresh token');
 
     const { data } = await api.post('/api/v1/delivery/token/refresh/', { refresh: refreshToken });
@@ -160,8 +150,8 @@ export const authService = {
 
   async updatePassword(oldPassword, newPassword) {
     const { data } = await api.post('/api/v1/delivery/update-password/', {
-      old_password: await hashPassword(oldPassword),
-      new_password: await hashPassword(newPassword),
+      old_password: oldPassword,
+      new_password: newPassword,
     });
     return data;
   },
