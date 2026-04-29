@@ -14,6 +14,7 @@ export default function EditIbanScreen({ navigation }) {
   const [newTitulaire, setNewTitulaire] = useState('');
   const [newIban, setNewIban] = useState('');
   const [newBic, setNewBic] = useState('');
+  const [showIban, setShowIban] = useState(false);
 
   function handleSave() {
     if (!newIban.trim() || !newTitulaire.trim()) return;
@@ -66,15 +67,32 @@ export default function EditIbanScreen({ navigation }) {
         />
 
         <Text style={s.fieldLabel}>IBAN</Text>
-        <TextInput
-          style={s.input}
-          placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX"
-          placeholderTextColor="#bbb"
-          value={newIban}
-          onChangeText={setNewIban}
-          autoCapitalize="characters"
-          keyboardType="default"
-        />
+        <View style={{ position: 'relative' }}>
+          <TextInput
+            style={[s.input, { paddingRight: 44 }]}
+            placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX"
+            placeholderTextColor="#bbb"
+            value={newIban}
+            onChangeText={setNewIban}
+            autoCapitalize="characters"
+            keyboardType="default"
+            secureTextEntry={!showIban}
+            autoCorrect={false}
+            autoComplete="off"
+            textContentType="none"
+            spellCheck={false}
+            contextMenuHidden={true}
+          />
+          <Pressable
+            onPress={() => setShowIban((v) => !v)}
+            style={{ position: 'absolute', right: 12, top: 14, padding: 4 }}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={showIban ? 'Masquer IBAN' : 'Afficher IBAN'}
+          >
+            <Ionicons name={showIban ? 'eye-off-outline' : 'eye-outline'} size={20} color="#888" />
+          </Pressable>
+        </View>
 
         <Text style={s.fieldLabel}>BIC / SWIFT</Text>
         <TextInput
