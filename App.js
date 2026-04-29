@@ -18,6 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import * as Linking from 'expo-linking';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
@@ -192,11 +193,99 @@ function Main() {
   );
 }
 
+// ── Deep link config ─────────────────────────────────────────────────────────
+// Scheme `pearldelivery://` is declared in app.json. We accept a small,
+// hand-validated set of routes — every param is checked before navigation so
+// a malicious link cannot push arbitrary IDs into the stack. Anything that
+// fails validation is dropped silently (no crash, no nav).
+
+const POSITIVE_INT_RE = /^\d{1,12}$/;
+const ORDER_ID_RE = /^(?:ORD-)?\d{1,12}$/;
+
+function parseDeepLink(url) {
+  if (!url || typeof url !== 'string') return null;
+  let parsed;
+  try {
+    parsed = Linking.parse(url);
+  } catch {
+    return null;
+  }
+  const path = (parsed?.path || '').replace(/^\/+|\/+$/g, '');
+  const params = parsed?.queryParams || {};
+  if (!path) return null;
+
+  // /home  → root tab
+  if (path === 'home') return { type: 'tab', name: 'Accueil' };
+
+  // /order/:orderId  → orders list focused on a specific order
+  // We only accept ORD-1234 or 1234 — discard anything else.
+  if (path.startsWith('order/')) {
+    const raw = String(path.slice('order/'.length));
+    if (!ORDER_ID_RE.test(raw)) return null;
+    return { type: 'order', orderId: raw };
+  }
+
+  // /delivery/:id  → delivery detail view (numeric id only)
+  if (path.startsWith('delivery/')) {
+    const raw = String(path.slice('delivery/'.length));
+    if (!POSITIVE_INT_RE.test(raw)) return null;
+    return { type: 'delivery', id: raw };
+  }
+
+  // /ticket/:id  → support ticket chat
+  if (path.startsWith('ticket/')) {
+    const raw = String(path.slice('ticket/'.length));
+    if (!POSITIVE_INT_RE.test(raw)) return null;
+    return { type: 'ticket', id: raw };
+  }
+
+  return null;
+}
+
+const linking = {
+  prefixes: [Linking.createURL('/'), 'pearldelivery://'],
+  config: {
+    screens: {
+      Accueil: {
+        screens: {
+          OrdersMain: 'home',
+          DeliveryFlow: 'order/:orderId',
+        },
+      },
+      Profil: {
+        screens: {
+          DeliveryDetail: 'delivery/:id',
+          TicketChat: 'ticket/:id',
+        },
+      },
+    },
+  },
+  // Custom subscribe so we can validate before React Navigation fires.
+  // If parseDeepLink rejects the URL we never propagate it.
+  subscribe(listener) {
+    const onReceive = ({ url }) => {
+      const parsed = parseDeepLink(url);
+      if (parsed) listener(url);
+    };
+    const sub = Linking.addEventListener('url', onReceive);
+    return () => {
+      try { sub?.remove?.(); } catch {}
+    };
+  },
+  async getInitialURL() {
+    const url = await Linking.getInitialURL();
+    if (!url) return null;
+    return parseDeepLink(url) ? url : null;
+  },
+};
+
+export { parseDeepLink };
+
 export default function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <NavigationContainer theme={navTheme}>
+        <NavigationContainer theme={navTheme} linking={linking}>
           <StatusBar style="dark" />
           <Main />
         </NavigationContainer>

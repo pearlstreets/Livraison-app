@@ -2,6 +2,10 @@
 // jest-expo provides preset transforms, but we mock platform-only modules
 // here so unit tests stay node-pure.
 
+// React Native / Expo expose __DEV__ as a global. Default to true in tests
+// so dev-only branches stay reachable (matches a Metro dev bundle).
+global.__DEV__ = true;
+
 jest.mock('@react-native-async-storage/async-storage', () => {
   let store = {};
   return {
