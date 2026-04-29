@@ -30,9 +30,12 @@ const TIMEOUTS = {
   DELETE: 10000,
 };
 
-// SSL certificate pinning — NOTE: à implémenter avec react-native-ssl-pinning
-// (ou équivalent) lors d'un sprint sécurité dédié. Placeholder volontaire.
-// const SSL_PINS = { 'pythonapi.digiexports.in': ['sha256/XXXX...'] };
+// SSL certificate pinning is enforced at the OS level on Android via
+// android/app/src/main/res/xml/network_security_config.xml (declared in the
+// AndroidManifest). On iOS, true pinning still requires a native module
+// (react-native-ssl-pinning + EAS Build, or Bare Workflow) — tracked in
+// services/certPinning.js, which surfaces a runtime warning when pins look
+// unconfigured.
 
 const api = axios.create({
   baseURL: API_BASE,

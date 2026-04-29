@@ -24,6 +24,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { initOneSignalOnce } from './services/oneSignalInit';
 import offlineQueue from './services/offlineQueue';
+import { verifyPinningHealth } from './services/certPinning';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import LoginScreen from './screens/LoginScreen';
@@ -65,6 +66,9 @@ initOneSignalOnce();
 // Boot the offline queue: replays buffered non-critical writes when the
 // network comes back. No-op when network is up.
 offlineQueue.start().catch(() => {});
+// Surface a console warning when this build ships without configured cert
+// pins. No-op in dev or when pins look real (see services/certPinning.js).
+try { verifyPinningHealth(); } catch {}
 
 const BRAND = '#00C29B';
 const Tab = createBottomTabNavigator();

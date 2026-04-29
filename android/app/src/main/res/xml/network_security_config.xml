@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android Network Security Configuration for Pearl Delivery.
+
+  Goals
+  -----
+  1. Disable cleartext (HTTP) traffic in release builds. Any plain
+     http://… request crashes immediately on Android 9+ instead of
+     silently exfiltrating tokens.
+  2. Pin the production API certificate. Replace the placeholder
+     SHA-256 fingerprints with the live cert + a backup cert before
+     the next release. Use:
+         openssl s_client -connect pythonapi.digiexports.in:443 -servername pythonapi.digiexports.in </dev/null \
+           | openssl x509 -pubkey -noout \
+           | openssl pkey -pubin -outform der \
+           | openssl dgst -sha256 -binary \
+           | openssl enc -base64
+  3. Allow cleartext on debug builds against Metro / 10.0.2.2 (emulator)
+     so dev still works.
+-->
+<network-security-config>
+  <base-config cleartextTrafficPermitted="false">
+    <trust-anchors>
+      <certificates src="system" />
+    </trust-anchors>
+  </base-config>
+
+  <domain-config cleartextTrafficPermitted="false">
+    <domain includeSubdomains="true">pythonapi.digiexports.in</domain>
+    <pin-set expiration="2027-04-28">
+      <!-- Primary leaf cert (replace before release) -->
+      <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
+      <!-- Backup pin so a single rotation does not brick old clients -->
+      <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
+    </pin-set>
+  </domain-config>
+
+  <debug-overrides>
+    <trust-anchors>
+      <certificates src="system" />
+      <certificates src="user" />
+    </trust-anchors>
+  </debug-overrides>
+</network-security-config>
