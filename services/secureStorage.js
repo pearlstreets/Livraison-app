@@ -1,38 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-let SecureStore = null;
-try {
-  SecureStore = require('expo-secure-store');
-} catch (e) {
-  // expo-secure-store not available, fallback to AsyncStorage
-}
+import * as SecureStore from 'expo-secure-store';
 
 const EXPIRY_SUFFIX = '__expiry';
-
-// Simple XOR-based obfuscation for sensitive data in AsyncStorage fallback
-// Not true encryption -- use expo-secure-store for real security
-function obfuscate(text) {
-  const key = 'pearl_k3y';
-  let result = '';
-  for (let i = 0; i < text.length; i++) {
-    result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-  }
-  return btoa(result);
-}
-
-function deobfuscate(encoded) {
-  try {
-    const key = 'pearl_k3y';
-    const decoded = atob(encoded);
-    let result = '';
-    for (let i = 0; i < decoded.length; i++) {
-      result += String.fromCharCode(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-    }
-    return result;
-  } catch {
-    return null;
-  }
-}
 
 // Blocked keys -- never store passwords
 const BLOCKED_KEYS = ['password', 'pwd', 'passwd'];
@@ -42,10 +11,26 @@ function isBlockedKey(key) {
   return BLOCKED_KEYS.some((b) => lower.includes(b));
 }
 
+// Hard requirement: expo-secure-store must be available. The previous
+// implementation fell back to a Base64+XOR scheme with a static key
+// ('pearl_k3y'), which is not encryption — anyone with the bundle can decrypt
+// the AsyncStorage blob. We now refuse to operate without the native module
+// rather than offering a placebo.
+function assertSecureStoreAvailable() {
+  if (!SecureStore || typeof SecureStore.setItemAsync !== 'function') {
+    throw new Error(
+      '[secureStorage] expo-secure-store is required for sensitive storage. ' +
+        'Install it (`npx expo install expo-secure-store`) before continuing.',
+    );
+  }
+}
+
 const secureStorage = {
   /**
-   * Store a sensitive value. Uses expo-secure-store if available, otherwise
-   * falls back to AsyncStorage with obfuscation.
+   * Store a sensitive value via the platform Keychain/Keystore.
+   * Throws if expo-secure-store is unavailable rather than degrading
+   * silently to an unencrypted AsyncStorage path.
+   *
    * @param {string} key
    * @param {string} value
    * @param {number} [ttlMs] - optional time-to-live in milliseconds
@@ -55,13 +40,8 @@ const secureStorage = {
       console.warn('[secureStorage] Refusing to store password-like key:', key);
       return;
     }
-
-    if (SecureStore) {
-      await SecureStore.setItemAsync(key, value);
-    } else {
-      await AsyncStorage.setItem(key, obfuscate(value));
-    }
-
+    assertSecureStoreAvailable();
+    await SecureStore.setItemAsync(key, value);
     if (ttlMs) {
       const expiry = Date.now() + ttlMs;
       await AsyncStorage.setItem(key + EXPIRY_SUFFIX, String(expiry));
@@ -72,27 +52,21 @@ const secureStorage = {
    * Retrieve a sensitive value. Returns null if expired or missing.
    */
   async getSecure(key) {
+    assertSecureStoreAvailable();
     // Check expiry
     const expiryStr = await AsyncStorage.getItem(key + EXPIRY_SUFFIX);
     if (expiryStr && Date.now() > Number(expiryStr)) {
       await this.removeSecure(key);
       return null;
     }
-
-    if (SecureStore) {
-      return await SecureStore.getItemAsync(key);
-    }
-
-    const raw = await AsyncStorage.getItem(key);
-    if (!raw) return null;
-    return deobfuscate(raw);
+    return await SecureStore.getItemAsync(key);
   },
 
   /**
    * Remove a secure value and its expiry marker.
    */
   async removeSecure(key) {
-    if (SecureStore) {
+    if (SecureStore && typeof SecureStore.deleteItemAsync === 'function') {
       await SecureStore.deleteItemAsync(key).catch(() => {});
     }
     await AsyncStorage.multiRemove([key, key + EXPIRY_SUFFIX]).catch(() => {});
@@ -106,8 +80,7 @@ const secureStorage = {
     if (keys.length > 0) {
       await AsyncStorage.multiRemove(keys);
     }
-    if (SecureStore) {
-      // SecureStore does not have a "clear all", so remove known keys
+    if (SecureStore && typeof SecureStore.deleteItemAsync === 'function') {
       const secureKeys = ['accessToken', 'refreshToken'];
       for (const k of secureKeys) {
         await SecureStore.deleteItemAsync(k).catch(() => {});

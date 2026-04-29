@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import secureStorage from './secureStorage';
 import { sanitizeForApi } from '../utils/validation';
 
 // API_BASE — désormais lu depuis env (EXPO_PUBLIC_API_BASE).
@@ -29,8 +30,8 @@ const TIMEOUTS = {
   DELETE: 10000,
 };
 
-// SSL certificate pinning placeholder
-// TODO: Implement cert pinning with react-native-ssl-pinning or similar
+// SSL certificate pinning — NOTE: à implémenter avec react-native-ssl-pinning
+// (ou équivalent) lors d'un sprint sécurité dédié. Placeholder volontaire.
 // const SSL_PINS = { 'pythonapi.digiexports.in': ['sha256/XXXX...'] };
 
 const api = axios.create({
@@ -61,7 +62,9 @@ function sanitizeRequestData(data) {
 
 // Request interceptor - attach token, sanitize, add headers
 api.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem('accessToken');
+  // Tokens live in expo-secure-store (Keychain/Keystore) — not AsyncStorage,
+  // which is unencrypted plain JSON readable by other apps on a rooted device.
+  const token = await secureStorage.getSecure('accessToken').catch(() => null);
   if (token) config.headers.Authorization = `Bearer ${token}`;
 
   // Request ID for tracing
@@ -93,18 +96,22 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const refreshToken = await AsyncStorage.getItem('refreshToken');
+        const refreshToken = await secureStorage.getSecure('refreshToken').catch(() => null);
         if (!refreshToken) {
-          await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userData']);
+          await secureStorage.removeSecure('accessToken').catch(() => {});
+          await secureStorage.removeSecure('refreshToken').catch(() => {});
+          await AsyncStorage.removeItem('userData').catch(() => {});
           return Promise.reject(createSafeError('Session expired'));
         }
         const { data } = await axios.post(`${API_BASE}/api/v1/delivery/token/refresh/`, { refresh: refreshToken });
-        await AsyncStorage.setItem('accessToken', data.access);
-        if (data.refresh) await AsyncStorage.setItem('refreshToken', data.refresh);
+        await secureStorage.setSecure('accessToken', data.access);
+        if (data.refresh) await secureStorage.setSecure('refreshToken', data.refresh);
         originalRequest.headers.Authorization = `Bearer ${data.access}`;
         return api(originalRequest);
       } catch (refreshError) {
-        await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userData']);
+        await secureStorage.removeSecure('accessToken').catch(() => {});
+        await secureStorage.removeSecure('refreshToken').catch(() => {});
+        await AsyncStorage.removeItem('userData').catch(() => {});
         return Promise.reject(createSafeError('Session expired'));
       }
     }

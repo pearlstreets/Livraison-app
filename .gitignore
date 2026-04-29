@@ -11,3 +11,7 @@ historique/
 retry.txt
 
 historique/reverts/*.bak
+
+.env
+.env.local
+.env.*.local
