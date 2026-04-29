@@ -7,9 +7,10 @@ function _getOneSignal() {
   try { const m = require('react-native-onesignal'); return m.OneSignal || m.default || m; } catch { return null; }
 }
 
-const USERS = [
-  { email: 'remsko@live.fr', password: 'Test@123', firstName: 'Ganja', lastName: 'Remsko', pseudo: 'Remsko', phone: '06 12 34 56 78', vehicle: 'Scooter' },
-];
+// Mock user list for legacy local-login path. Empty in release builds —
+// production auth goes through OTP via loginWithOtp(). Dev-only seed kept
+// behind __DEV__ so creds never ship in the bundle.
+const USERS = __DEV__ ? [] : [];
 
 const AuthContext = createContext(null);
 
@@ -31,7 +32,7 @@ const INITIAL_WEEKS = [
 const INITIAL_HISTORY = [];
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState({ email: 'remsko@live.fr', firstName: 'Ganja', lastName: 'Remsko', pseudo: 'Remsko', phone: '06 12 34 56 78', vehicle: 'Scooter', photo: null });
+  const [user, setUser] = useState(null);
   const [warnings, setWarnings] = useState(0);
   const [accountActive, setAccountActive] = useState(true);
   const [rating, setRating] = useState(4.8);
@@ -41,14 +42,9 @@ export function AuthProvider({ children }) {
   const [warningsList, setWarningsList] = useState([]);
   const [deliveryHistory, setDeliveryHistory] = useState(INITIAL_HISTORY);
   const [currentEarningsCents, setCurrentEarningsCents] = useState(0);
-  const [currentIban, setCurrentIban] = useState('FR76 •••• •••• •••• •••• •••• 15');
+  const [currentIban, setCurrentIban] = useState(null);
   const [weeklyEarnings, setWeeklyEarnings] = useState(INITIAL_WEEKS);
-  const [versements, setVersements] = useState([
-    { label: 'Paiements hebdomadaires', date: 'Initié : 24 mars', amount: '312.50 €', iban: 'FR76 •••• •••• •••• •••• •••• 15', detail: { net: '305.20 €', tips: '7.30 €', courses: 64, status: 'Versé' } },
-    { label: 'Paiements hebdomadaires', date: 'Initié : 17 mars', amount: '447.40 €', iban: 'FR76 •••• •••• •••• •••• •••• 15', detail: { net: '440.29 €', tips: '7.11 €', courses: 82, status: 'Versé' } },
-    { label: 'Paiements hebdomadaires', date: 'Initié : 10 mars', amount: '518.20 €', iban: 'FR76 •••• •••• •••• •••• •••• 15', detail: { net: '512.80 €', tips: '5.40 €', courses: 95, status: 'Versé' } },
-    { label: 'Paiements hebdomadaires', date: 'Initié : 3 mars', amount: '369.37 €', iban: 'FR76 •••• •••• •••• •••• •••• 15', detail: { net: '362.17 €', tips: '7.20 €', courses: 71, status: 'Versé' } },
-  ]);
+  const [versements, setVersements] = useState([]);
   const [readOpportunities, setReadOpportunities] = useState([]);
   const [ticketMessages, setTicketMessages] = useState({});
   const [ticketReadCounts, setTicketReadCounts] = useState({}); // { ticketId: lastReadCount }
