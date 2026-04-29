@@ -6,6 +6,7 @@ import MapView from 'react-native-maps';
 import * as Location from 'expo-location';
 import secureStorage from '../services/secureStorage';
 import { deliveryService } from '../services/deliveryService';
+import { useAuth } from '../contexts/AuthContext';
 
 const MARGIN_H = 16;
 const GAP_TOP = 8;
@@ -28,6 +29,9 @@ export default function MapScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = typeof useHeaderHeight === 'function' ? useHeaderHeight() : 0;
   const bannerTop = (headerHeight > 0 ? 0 : (insets?.top ?? 0)) + GAP_TOP;
+  const auth = useAuth() || {};
+  const isOnline = auth.isOnline;
+  const dutyHydrated = auth.dutyHydrated;
 
   const [region, setRegion] = useState(FALLBACK_REGION);
   const [permissionStatus, setPermissionStatus] = useState('pending');
@@ -39,6 +43,27 @@ export default function MapScreen() {
   const cancelledRef = useRef(false);
 
   useEffect(() => {
+    // Gate the whole tracking pipeline on duty status:
+    // - wait until AsyncStorage hydration is done (avoid flicker on cold start)
+    // - bail out completely when off-duty (no location watch, no WS connect)
+    if (!dutyHydrated || !isOnline) {
+      cancelledRef.current = true;
+      if (watcherRef.current?.remove) {
+        try { watcherRef.current.remove(); } catch {}
+        watcherRef.current = null;
+      }
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+      if (wsRef.current) {
+        try { wsRef.current.close(); } catch {}
+        wsRef.current = null;
+      }
+      setWsStatus('off-duty');
+      return undefined;
+    }
+
     cancelledRef.current = false;
 
     const connectWs = async () => {
@@ -130,14 +155,15 @@ export default function MapScreen() {
         wsRef.current = null;
       }
     };
-  }, []);
+  }, [isOnline, dutyHydrated]);
 
-  const bannerMessage =
-    permissionStatus === 'denied'
-      ? 'Géolocalisation refusée\nActivez-la pour recevoir des courses'
-      : permissionStatus === 'granted'
-      ? "Aucune commande active\nBoost auto appliqué selon zone"
-      : 'Localisation en cours…';
+  const bannerMessage = !isOnline
+    ? 'Hors-service\nActivez-vous depuis l\'écran d\'accueil pour recevoir des courses'
+    : permissionStatus === 'denied'
+    ? 'Géolocalisation refusée\nActivez-la pour recevoir des courses'
+    : permissionStatus === 'granted'
+    ? "Aucune commande active\nBoost auto appliqué selon zone"
+    : 'Localisation en cours…';
 
   return (
     <View style={{ flex: 1 }}>

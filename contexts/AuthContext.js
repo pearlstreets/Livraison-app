@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useState, useRef } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sanitizeInput, isValidEmail } from '../utils/validation';
 import secureStorage from '../services/secureStorage';
+
+const DUTY_STATUS_KEY = '@duty_status';
 
 function _getOneSignal() {
   try { const m = require('react-native-onesignal'); return m.OneSignal || m.default || m; } catch { return null; }
@@ -38,7 +40,31 @@ export function AuthProvider({ children }) {
   const [rating, setRating] = useState(4.8);
   const [totalDeliveries, setTotalDeliveries] = useState(127);
   const [weeklyCancels, setWeeklyCancels] = useState(0);
-  const [isOnline, setIsOnline] = useState(true);
+  // `isOnline` aka duty status. Persisted to AsyncStorage under @duty_status so
+  // a driver who toggles off-duty does not start tracking again on next launch.
+  const [isOnline, setIsOnlineState] = useState(true);
+  const [dutyHydrated, setDutyHydrated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    AsyncStorage.getItem(DUTY_STATUS_KEY)
+      .then((raw) => {
+        if (cancelled) return;
+        if (raw === 'off') setIsOnlineState(false);
+        else if (raw === 'on') setIsOnlineState(true);
+        setDutyHydrated(true);
+      })
+      .catch(() => {
+        if (!cancelled) setDutyHydrated(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const setIsOnline = useCallback((next) => {
+    const v = typeof next === 'function' ? next(isOnline) : !!next;
+    setIsOnlineState(v);
+    AsyncStorage.setItem(DUTY_STATUS_KEY, v ? 'on' : 'off').catch(() => {});
+  }, [isOnline]);
   const [warningsList, setWarningsList] = useState([]);
   const [deliveryHistory, setDeliveryHistory] = useState(INITIAL_HISTORY);
   const [currentEarningsCents, setCurrentEarningsCents] = useState(0);
@@ -357,7 +383,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loginWithOtp, updateUser, warnings, accountActive, rating, totalDeliveries, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount, deliveryHistory, addToHistory, markOrderReported, getTicketMessages, saveTicketMessages, currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban, isOnline, setIsOnline, warningsList, markTicketRead, getUnreadTicketCount, scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts, readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loginWithOtp, updateUser, warnings, accountActive, rating, totalDeliveries, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount, deliveryHistory, addToHistory, markOrderReported, getTicketMessages, saveTicketMessages, currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban, isOnline, setIsOnline, dutyHydrated, warningsList, markTicketRead, getUnreadTicketCount, scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts, readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount }}>
       {children}
     </AuthContext.Provider>
   );
