@@ -1,10 +1,17 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert, Modal, FlatList } from 'react-native';
+import React, { useState, useRef, useCallback, useMemo, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert, Modal, FlatList, Switch } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFocusEffect } from '@react-navigation/native';
+import {
+  isBiometricSupported,
+  isBiometricEnrolled,
+  isBiometricEnabled,
+  setBiometricEnabled,
+  authenticateBiometric,
+} from '../services/biometricAuth';
 
 const BRAND = '#00C29B';
 
@@ -32,6 +39,39 @@ export default function MenuScreen({ navigation }) {
   }, []));
 
   const currentLang = LANGUAGES.find(l => l.code === lang);
+
+  const [bioSupported, setBioSupported] = useState(false);
+  const [bioEnabled, setBioEnabledState] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [hw, enrolled, enabled] = await Promise.all([
+        isBiometricSupported(),
+        isBiometricEnrolled(),
+        isBiometricEnabled(),
+      ]);
+      if (cancelled) return;
+      setBioSupported(hw && enrolled);
+      setBioEnabledState(enabled);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const onToggleBio = useCallback(async (val) => {
+    if (val) {
+      // Confirm the user actually has working biometrics before enabling.
+      const res = await authenticateBiometric({
+        promptMessage: 'Activer l\'authentification biométrique',
+      });
+      if (!res.success) {
+        Alert.alert('Biométrie', 'Échec de l\'authentification. Le verrouillage biométrique reste désactivé.');
+        return;
+      }
+    }
+    await setBiometricEnabled(val);
+    setBioEnabledState(val);
+  }, []);
 
   const parsePrice = useCallback((p) => { const n = parseFloat(String(p).replace(',', '.').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; }, []);
 
@@ -180,6 +220,24 @@ export default function MenuScreen({ navigation }) {
       </View>
 
       <View style={s.divider} />
+
+      {bioSupported && (
+        <>
+          <View style={s.section}>
+            <View style={s.menuItem}>
+              <Ionicons name="finger-print-outline" size={22} color="#111" style={{ marginRight: 14 }} />
+              <Text style={[s.menuLabel, { color: '#111' }]}>{t('biometricUnlock') || 'Verrouillage biométrique'}</Text>
+              <Switch
+                value={bioEnabled}
+                onValueChange={onToggleBio}
+                trackColor={{ true: BRAND, false: '#E6E8EB' }}
+                thumbColor="#fff"
+              />
+            </View>
+          </View>
+          <View style={s.divider} />
+        </>
+      )}
 
       <View style={s.section}>
         <Pressable style={s.menuItem} onPress={() => { setPendingLang(lang); setLangModal(true); }}>

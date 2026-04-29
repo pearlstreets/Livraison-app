@@ -2,6 +2,10 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sanitizeInput, isValidEmail } from '../utils/validation';
 import secureStorage from '../services/secureStorage';
+import {
+  isBiometricEnabled,
+  authenticateBiometric,
+} from '../services/biometricAuth';
 
 const DUTY_STATUS_KEY = '@duty_status';
 
@@ -65,6 +69,44 @@ export function AuthProvider({ children }) {
     setIsOnlineState(v);
     AsyncStorage.setItem(DUTY_STATUS_KEY, v ? 'on' : 'off').catch(() => {});
   }, [isOnline]);
+
+  // ── Session hydration ─────────────────────────────────────────────────────
+  // On cold start: if a token is in SecureStore, restore the cached profile.
+  // If the user opted into biometric unlock, gate restoration on a successful
+  // prompt — failure wipes the SecureStore entry and forces a fresh login.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await secureStorage.getSecure('accessToken').catch(() => null);
+        if (cancelled || !token) return;
+
+        const useBio = await isBiometricEnabled();
+        if (useBio) {
+          const res = await authenticateBiometric({
+            promptMessage: 'Déverrouiller Pearl Delivery',
+            cancelLabel: 'Annuler',
+          });
+          if (cancelled) return;
+          if (!res.success) {
+            // Biometric refused / cancelled / locked → clear session.
+            await secureStorage.removeSecure('accessToken').catch(() => {});
+            await secureStorage.removeSecure('refreshToken').catch(() => {});
+            await AsyncStorage.removeItem('userData').catch(() => {});
+            return;
+          }
+        }
+
+        const stored = await AsyncStorage.getItem('userData').catch(() => null);
+        if (cancelled || !stored) return;
+        try {
+          const profile = JSON.parse(stored);
+          if (profile && typeof profile === 'object') setUser(profile);
+        } catch {}
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
   const [warningsList, setWarningsList] = useState([]);
   const [deliveryHistory, setDeliveryHistory] = useState(INITIAL_HISTORY);
   const [currentEarningsCents, setCurrentEarningsCents] = useState(0);

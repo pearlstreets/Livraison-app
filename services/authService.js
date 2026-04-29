@@ -31,15 +31,10 @@ function clearSessionTimer() {
 let refreshCount = 0;
 const MAX_REFRESHES_PER_SESSION = 50;
 
-// Biometric auth — NOTE: placeholder volontaire. À activer avec
-// expo-local-authentication quand le produit ouvrira la feature opt-in.
-// import * as LocalAuthentication from 'expo-local-authentication';
-// async function authenticateWithBiometrics() {
-//   const hasHardware = await LocalAuthentication.hasHardwareAsync();
-//   if (!hasHardware) return false;
-//   const result = await LocalAuthentication.authenticateAsync({ promptMessage: 'Authenticate' });
-//   return result.success;
-// }
+// Biometric auth lives in services/biometricAuth.js (expo-local-authentication
+// wrapper). It is wired into AuthContext on app open: when a token is in
+// SecureStore and the user opted into biometric unlock, the prompt is shown
+// before the cached profile is restored. Failure clears SecureStore.
 
 export const authService = {
   async login(email, password) {
