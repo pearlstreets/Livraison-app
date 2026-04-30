@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, DeviceEventEmitter } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useHeaderHeight } from '@react-navigation/elements';
 import MapView from 'react-native-maps';
@@ -7,6 +7,7 @@ import * as Location from 'expo-location';
 import secureStorage from '../services/secureStorage';
 import { deliveryService } from '../services/deliveryService';
 import { useAuth } from '../contexts/AuthContext';
+import { createDeliveryEventHandler } from '../services/wsDeliveryEvents';
 
 const MARGIN_H = 16;
 const GAP_TOP = 8;
@@ -78,6 +79,14 @@ export default function MapScreen() {
         wsRef.current = ws;
         setWsStatus('connecting');
         ws.onopen = () => setWsStatus('open');
+        ws.onmessage = createDeliveryEventHandler({
+          onNewOrder: (order) => {
+            DeviceEventEmitter.emit('DELIVERY_NEW_ORDER', order);
+          },
+          onCancelled: (orderId) => {
+            DeviceEventEmitter.emit('DELIVERY_ORDER_CANCELLED', { orderId });
+          },
+        });
         ws.onclose = () => {
           setWsStatus('closed');
           wsRef.current = null;

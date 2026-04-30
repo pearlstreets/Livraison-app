@@ -700,9 +700,41 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       {/* Fixed bottom slide button + cancel */}
       {(step === 'pickup' || step === 'enroute' || step === 'arrived') && (
         <View style={ss.bottomBar}>
-          {step === 'pickup' && <SlideButton label={t('orderPickedUp')} onComplete={() => slideRateLimiter(nextStep)} />}
-          {step === 'enroute' && <SlideButton label={t('iArrived')} onComplete={() => slideRateLimiter(nextStep)} color="#2196F3" />}
-          {step === 'arrived' && <SlideButton label={t('orderGiven')} onComplete={() => slideRateLimiter(nextStep)} color="#f5a623" />}
+          {step === 'pickup' && (
+            <SlideButton
+              label={t('orderPickedUp')}
+              onComplete={() => slideRateLimiter(async () => {
+                if (assignmentId) {
+                  try { await deliveryService.updateDeliveryStatus(assignmentId, 'picked_up'); } catch {}
+                }
+                nextStep();
+              })}
+            />
+          )}
+          {step === 'enroute' && (
+            <SlideButton
+              label={t('iArrived')}
+              color="#2196F3"
+              onComplete={() => slideRateLimiter(async () => {
+                if (assignmentId) {
+                  try { await deliveryService.updateDeliveryStatus(assignmentId, 'in_transit'); } catch {}
+                }
+                nextStep();
+              })}
+            />
+          )}
+          {step === 'arrived' && (
+            <SlideButton
+              label={t('orderGiven')}
+              color="#f5a623"
+              onComplete={() => slideRateLimiter(async () => {
+                if (assignmentId) {
+                  try { await deliveryService.updateDeliveryStatus(assignmentId, 'arrived'); } catch {}
+                }
+                nextStep();
+              })}
+            />
+          )}
           <Pressable style={ss.cancelBtn} onPress={() => setShowCancelPopup(true)}>
             <Text style={ss.cancelBtnTxt}>{t('cancelOrder')}</Text>
           </Pressable>

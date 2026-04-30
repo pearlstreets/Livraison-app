@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity, Pressable, Dimensions, Alert, ActivityIndicator, RefreshControl } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity, Pressable, Dimensions, Alert, ActivityIndicator, RefreshControl, DeviceEventEmitter } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -196,14 +196,33 @@ export default function OrdersScreen({ navigation, route }) {
     }
   }, []);
 
+  // Écoute des events WebSocket temps-réel (push depuis MapScreen via DeviceEventEmitter)
+  useEffect(() => {
+    const subNew = DeviceEventEmitter.addListener('DELIVERY_NEW_ORDER', (order) => {
+      if (!order) return;
+      const normalized = normalizeApiOrder(order);
+      const key = orderKey(normalized);
+      setAvailable(prev => {
+        if (prev.find(o => orderKey(o) === key)) return prev;
+        // Urgent (food_drink) en tête, sinon à la fin
+        return order.is_urgent ? [normalized, ...prev] : [...prev, normalized];
+      });
+    });
+    const subCancel = DeviceEventEmitter.addListener('DELIVERY_ORDER_CANCELLED', ({ orderId }) => {
+      if (!orderId) return;
+      setAvailable(prev => prev.filter(o => o._apiId !== orderId && o.id !== `ORD-${orderId}`));
+    });
+    return () => { subNew.remove(); subCancel.remove(); };
+  }, []);
+
   // Chargement initial + focus (retour depuis DeliveryFlow) + scroll-to-top
+  // Polling réduit à 60s : le WS couvre le temps-réel, le poll est un filet de sécurité
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
     if (online) {
       fetchAvailableOrders();
       fetchHistory();
-      // Polling toutes les 15s quand en ligne
-      pollRef.current = setInterval(() => fetchAvailableOrders(), 15000);
+      pollRef.current = setInterval(() => fetchAvailableOrders(), 60000);
     }
     return () => {
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -222,13 +241,34 @@ export default function OrdersScreen({ navigation, route }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online]);
 
-  const onAccept = useCallback((order) => {
+  const onAccept = useCallback(async (order) => {
     const key = orderKey(order);
+    // Retire immédiatement de la liste dispo (optimistic UI)
     setAvailable(prev => prev.filter(o => orderKey(o) !== key));
-    setActive(prev => [{ ...order, status: 'active' }, ...prev]);
+
+    let enrichedOrder = { ...order, status: 'active' };
+    try {
+      const res = await deliveryService.acceptDelivery(order._apiId);
+      // Le backend retourne { data: { id: <assignment_id>, ... } }
+      const assignmentId = res?.data?.id || res?.id;
+      if (assignmentId) {
+        enrichedOrder = { ...enrichedOrder, assignment_id: assignmentId };
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 409) {
+        // Un autre driver a déjà accepté — on ré-affiche la liste
+        Alert.alert('Déjà prise', 'Cette course vient d\'être acceptée par un autre livreur.');
+        fetchAvailableOrders();
+        return;
+      }
+      // Pour les autres erreurs, on continue en mode local (le driver verra l'erreur au code)
+    }
+
+    setActive(prev => [enrichedOrder, ...prev]);
     setActiveSteps(prev => ({ ...prev, [key]: { stepIndex: 0, stepLabel: 'Récupération' } }));
-    navigation.navigate('DeliveryFlow', { order });
-  }, [navigation]);
+    navigation.navigate('DeliveryFlow', { order: enrichedOrder });
+  }, [navigation, fetchAvailableOrders]);
 
   const onResumeActive = useCallback((order) => {
     const key = orderKey(order);
