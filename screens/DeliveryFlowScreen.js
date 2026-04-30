@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { sanitizeInput, createRateLimiter } from '../utils/validation';
 import { deliveryService } from '../services/deliveryService';
+import { capturePickupPhoto, captureDeliveryPhoto } from '../services/photoService';
 
 // Rate limiter for slide buttons (prevent double triggers)
 const slideRateLimiter = createRateLimiter(2000);
@@ -706,6 +707,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               onComplete={() => slideRateLimiter(async () => {
                 if (assignmentId) {
                   try { await deliveryService.updateDeliveryStatus(assignmentId, 'picked_up'); } catch {}
+                  capturePickupPhoto(assignmentId).catch(() => {});
                 }
                 nextStep();
               })}
@@ -730,6 +732,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               onComplete={() => slideRateLimiter(async () => {
                 if (assignmentId) {
                   try { await deliveryService.updateDeliveryStatus(assignmentId, 'arrived'); } catch {}
+                  captureDeliveryPhoto(assignmentId).catch(() => {});
                 }
                 nextStep();
               })}
