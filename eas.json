@@ -6,7 +6,11 @@
       "distribution": "internal"
     },
     "preview": { "distribution": "internal" },
-    "production": {}
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_API_BASE": "https://api.pearlstreets.com"
+      }
+    }
   },
   "submit": { "production": { "ios": { "ascAppId": "6749835609" } } }
 }
