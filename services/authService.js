@@ -151,6 +151,12 @@ export const authService = {
     return data;
   },
 
+  async createStripeConnect() {
+    resetSessionTimer();
+    const { data } = await api.post('/api/v1/delivery/stripe/connect/');
+    return data;
+  },
+
   // Session management
   resetSessionTimer,
   clearSessionTimer,
