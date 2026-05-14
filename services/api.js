@@ -12,11 +12,13 @@ import { sanitizeForApi } from '../utils/validation';
 // (WebsitePro, WebsiteUser, AppPro, AppUser) → un order food créé dans
 // WebsiteUser apparaît dans /available/ pour les drivers en ligne.
 //
-// Fallback historique `pythonapi.digiexports.in` = ancien deploy avant
-// unification. Gardé en fallback mais env override prioritaire.
+// Pas de fallback vers serveur tiers : si EXPO_PUBLIC_API_BASE manque,
+// on utilise l'IP dev locale en __DEV__, sinon string vide (les requêtes
+// échouent avec une erreur réseau explicite plutôt que d'envoyer les
+// données vers un serveur inconnu).
 const API_BASE =
   process.env.EXPO_PUBLIC_API_BASE ||
-  'https://pythonapi.digiexports.in';
+  (__DEV__ ? 'http://192.168.1.15:8000' : '');
 
 // Request ID generator for tracing
 const generateRequestId = () =>
@@ -91,6 +93,22 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Token refresh singleton — empêche que deux requêtes 401 simultanées
+// déclenchent deux refresh concurrents (le 2e invalide le 1er → logout
+// prématuré mid-delivery). Toutes les 401 attendent la même Promise.
+let _refreshPromise = null;
+
+async function _refreshAccessToken() {
+  const refreshToken = await secureStorage.getSecure('refreshToken').catch(() => null);
+  if (!refreshToken) {
+    throw new Error('No refresh token');
+  }
+  const { data } = await axios.post(`${API_BASE}/api/v1/delivery/token/refresh/`, { refresh: refreshToken });
+  await secureStorage.setSecure('accessToken', data.access);
+  if (data.refresh) await secureStorage.setSecure('refreshToken', data.refresh);
+  return data.access;
+}
+
 // Response interceptor - handle 401, sanitize errors
 api.interceptors.response.use(
   (response) => response,
@@ -99,17 +117,16 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const refreshToken = await secureStorage.getSecure('refreshToken').catch(() => null);
-        if (!refreshToken) {
-          await secureStorage.removeSecure('accessToken').catch(() => {});
-          await secureStorage.removeSecure('refreshToken').catch(() => {});
-          await AsyncStorage.removeItem('userData').catch(() => {});
-          return Promise.reject(createSafeError('Session expired'));
+        // Réutilise la promise en cours si déjà en train de refresh ;
+        // sinon en démarre une et la stocke pour les autres requêtes 401
+        // simultanées. Le finally clear le singleton dans tous les cas.
+        if (!_refreshPromise) {
+          _refreshPromise = _refreshAccessToken().finally(() => {
+            _refreshPromise = null;
+          });
         }
-        const { data } = await axios.post(`${API_BASE}/api/v1/delivery/token/refresh/`, { refresh: refreshToken });
-        await secureStorage.setSecure('accessToken', data.access);
-        if (data.refresh) await secureStorage.setSecure('refreshToken', data.refresh);
-        originalRequest.headers.Authorization = `Bearer ${data.access}`;
+        const access = await _refreshPromise;
+        originalRequest.headers.Authorization = `Bearer ${access}`;
         return api(originalRequest);
       } catch (refreshError) {
         await secureStorage.removeSecure('accessToken').catch(() => {});
