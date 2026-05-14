@@ -6,6 +6,7 @@ import {
   isBiometricEnabled,
   authenticateBiometric,
 } from '../services/biometricAuth';
+import api from '../services/api';
 
 const DUTY_STATUS_KEY = '@duty_status';
 
@@ -25,15 +26,26 @@ const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
 
-const INITIAL_WEEKS = [
-  { start: '2026-03-30', range: '30 mars - 5 avr.', total: 284.30, bars: [55, 70, 80, 65, 0, 0, 0] },
-  { start: '2026-03-23', range: '23 mars - 29 mars', total: 447.40, bars: [30, 55, 48, 72, 65, 80, 47] },
-  { start: '2026-03-16', range: '16 mars - 22 mars', total: 518.20, bars: [10, 40, 65, 85, 50, 70, 58] },
-  { start: '2026-03-09', range: '9 mars - 15 mars', total: 369.37, bars: [60, 20, 50, 30, 75, 45, 49] },
-  { start: '2026-03-02', range: '2 mars - 8 mars', total: 312.50, bars: [45, 62, 38, 70, 55, 42, 48] },
-  { start: '2026-02-23', range: '23 fév. - 1 mars', total: 272.07, bars: [15, 45, 10, 60, 35, 55, 52] },
-  { start: '2026-02-16', range: '16 fév. - 22 fév.', total: 427.92, bars: [40, 20, 55, 70, 45, 80, 17] },
-];
+const INITIAL_WEEKS = []; // données réelles chargées depuis /api/v1/delivery/earnings/
+
+const MONTH_NAMES_FR = ['jan.', 'fév.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sep.', 'oct.', 'nov.', 'déc.'];
+
+function _formatWeekRange(periodStart, periodEnd) {
+  const s = new Date(periodStart);
+  const e = new Date(periodEnd);
+  return `${s.getDate()} ${MONTH_NAMES_FR[s.getMonth()]} - ${e.getDate()} ${MONTH_NAMES_FR[e.getMonth()]}`;
+}
+
+function _earningsToWeek(item) {
+  const total = parseFloat(item.net_amount || 0) + parseFloat(item.tips_amount || 0);
+  const dailyAvg = total / 7;
+  return {
+    start: item.period_start,
+    range: _formatWeekRange(item.period_start, item.period_end),
+    total: Math.round(total * 100) / 100,
+    bars: [dailyAvg, dailyAvg, dailyAvg, dailyAvg, dailyAvg, dailyAvg, dailyAvg],
+  };
+}
 
 const INITIAL_HISTORY = [];
 
@@ -117,6 +129,25 @@ export function AuthProvider({ children }) {
   const [ticketMessages, setTicketMessages] = useState({});
   const [ticketReadCounts, setTicketReadCounts] = useState({}); // { ticketId: lastReadCount }
   const MAX_WEEKLY_CANCELS = 5;
+
+  const fetchEarnings = useCallback(async () => {
+    try {
+      const res = await api.get('/api/v1/delivery/earnings/');
+      const items = res?.data?.results || res?.data || [];
+      if (Array.isArray(items) && items.length > 0) {
+        setWeeklyEarnings(items.map(_earningsToWeek));
+        const pending = items.find(i => i.status === 'pending');
+        if (pending) {
+          const cents = Math.round(
+            (parseFloat(pending.net_amount || 0) + parseFloat(pending.tips_amount || 0)) * 100
+          );
+          setCurrentEarningsCents(cents);
+        }
+      }
+    } catch (err) {
+      if (__DEV__) console.warn('[AuthContext] fetchEarnings failed:', err?.message);
+    }
+  }, []);
 
   // Login attempt tracking
   const loginAttemptsRef = useRef(0);
@@ -226,6 +257,7 @@ export function AuthProvider({ children }) {
       await AsyncStorage.setItem('userData', JSON.stringify(driverProfile));
     } catch {}
     setUser(driverProfile);
+    fetchEarnings().catch(() => {});
     try {
       const OS = _getOneSignal();
       if (OS && otpResult.userId) OS.login(String(otpResult.userId));
@@ -405,27 +437,26 @@ export function AuthProvider({ children }) {
     setDeliveryHistory(prev => prev.map(o => o.id === orderId ? { ...o, reported: true } : o));
   }
 
-  function cashOut() {
-    if (currentEarningsCents <= 0) return;
-    const amountStr = (currentEarningsCents / 100).toFixed(2) + ' €';
-    const now = new Date();
-    const day = now.getDate();
-    const months = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
-    const dateStr = `Initié : ${day} ${months[now.getMonth()]}`;
-    const entry = {
-      label: 'Versement exceptionnel',
-      date: dateStr,
-      amount: amountStr,
-      iban: currentIban,
-      cashedAt: now.toISOString(),
-      detail: { net: amountStr, tips: '0.00 €', courses: '-', status: 'Versé' },
-    };
-    setVersements(prev => [entry, ...prev]);
-    setCurrentEarningsCents(0);
-  }
+  const cashOut = useCallback(async () => {
+    if (currentEarningsCents <= 0) return { success: false, reason: 'no_balance' };
+    try {
+      const res = await api.post('/api/v1/delivery/earnings/cashout/');
+      if (res?.data) {
+        setCurrentEarningsCents(0);
+        fetchEarnings().catch(() => {});
+        return { success: true };
+      }
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 429) return { success: false, reason: 'already_today' };
+      if (__DEV__) console.warn('[cashOut] error:', err?.message);
+      return { success: false, reason: 'error' };
+    }
+    return { success: false, reason: 'error' };
+  }, [currentEarningsCents, fetchEarnings]);
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loginWithOtp, updateUser, warnings, accountActive, rating, totalDeliveries, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount, deliveryHistory, addToHistory, markOrderReported, getTicketMessages, saveTicketMessages, currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban, isOnline, setIsOnline, dutyHydrated, warningsList, markTicketRead, getUnreadTicketCount, scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts, readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loginWithOtp, updateUser, warnings, accountActive, rating, totalDeliveries, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount, deliveryHistory, addToHistory, markOrderReported, getTicketMessages, saveTicketMessages, currentEarningsCents, cashOut, fetchEarnings, versements, weeklyEarnings, currentIban, setCurrentIban, isOnline, setIsOnline, dutyHydrated, warningsList, markTicketRead, getUnreadTicketCount, scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts, readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount }}>
       {children}
     </AuthContext.Provider>
   );

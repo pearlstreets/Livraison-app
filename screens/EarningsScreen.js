@@ -30,16 +30,19 @@ function MiniChart({ bars }) {
 export default function EarningsScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { currentEarningsCents, cashOut, weeklyEarnings } = useAuth();
+  const { currentEarningsCents, cashOut, weeklyEarnings, fetchEarnings } = useAuth();
   const scrollRef = useRef(null);
   const earn = { earningsCents: currentEarningsCents, earnings: (currentEarningsCents / 100).toFixed(2) + ' €' };
   const [encaissModal, setEncaissModal] = useState(false);
   const [encaissStep, setEncaissStep] = useState('confirm');
   const [cashedAmount, setCashedAmount] = useState('');
+  const [loadingEarnings, setLoadingEarnings] = useState(false);
 
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, []));
+    setLoadingEarnings(true);
+    fetchEarnings().finally(() => setLoadingEarnings(false));
+  }, [fetchEarnings]));
 
   function startEncaiss() {
     if (earn.earningsCents <= 0) return;
@@ -48,12 +51,14 @@ export default function EarningsScreen({ navigation }) {
     setEncaissModal(true);
   }
 
-  function processEncaiss() {
+  async function processEncaiss() {
     setEncaissStep('processing');
-    setTimeout(() => {
-      cashOut();
-      setEncaissStep('done');
-    }, 1500);
+    const result = await cashOut();
+    if (result?.reason === 'already_today') {
+      setEncaissStep('error_today');
+      return;
+    }
+    setEncaissStep(result?.success ? 'done' : 'error');
   }
 
   return (
@@ -128,6 +133,16 @@ export default function EarningsScreen({ navigation }) {
                   <Text style={s.popupBtnPrimaryTxt}>{t('close')}</Text>
                 </Pressable>
               </>
+            )}
+            {encaissStep === 'error_today' && (
+              <Text style={{ color: '#dc2626', textAlign: 'center', padding: 16 }}>
+                Vous avez déjà encaissé aujourd'hui. Réessayez demain.
+              </Text>
+            )}
+            {encaissStep === 'error' && (
+              <Text style={{ color: '#dc2626', textAlign: 'center', padding: 16 }}>
+                Erreur lors de l'encaissement. Réessayez.
+              </Text>
             )}
           </View>
         </View>
