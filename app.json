@@ -43,7 +43,8 @@
           "disableNSE": true
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@sentry/react-native"
     ],
     "extra": {
       "oneSignalAppId": "0c4d0c76-eedd-426a-9d48-156cc6f879c7",

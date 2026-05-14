@@ -16,3 +16,10 @@ historique/reverts/*.bak
 .env.local
 .env.production
 .env.*.local
+.env.production.template
+*.mobileprovision
+*.p12
+*.cer
+google-services.json
+android/app/google-services.json
+GoogleService-Info.plist

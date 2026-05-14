@@ -176,11 +176,53 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
     }
   };
 
+  // Dispatch metadata venant du backend Uber Eats-like (cf. delivery_dispatch.py)
+  const priority = pickHybrid(order, ['priority'], /^priority$/i);
+  const slaMinutes = pickHybrid(order, ['sla_minutes', 'slaMinutes'], /sla.*min/i);
+  const isUrgent = pickHybrid(order, ['is_urgent', 'isUrgent'], /^is.?urgent$/i) || priority === 'urgent';
+  const dispatchCategories = pickHybrid(order, ['categories'], /^categories$/i) || [];
+  const isFoodDrink = Array.isArray(dispatchCategories) && dispatchCategories.includes('food_drink');
+  const isProductPurchase = Array.isArray(dispatchCategories) && dispatchCategories.includes('product_purchase');
+
   return (
     <View style={[styles.card, !accepted && styles.cardPending]}>
       {/* Countdown for pending orders */}
       {!accepted && (
         <CountdownBar seconds={COUNTDOWN_SECONDS} onExpire={handleExpire} />
+      )}
+
+      {/* Priority badges — Uber Eats-like (food_drink urgent, product_purchase standard) */}
+      {(priority || isUrgent) && (
+        <View style={styles.priorityRow}>
+          {isUrgent && (
+            <View style={[styles.priorityBadge, styles.priorityBadgeUrgent]}>
+              <Ionicons name="flame" size={12} color="#fff" />
+              <Text style={styles.priorityBadgeText}>
+                URGENT{slaMinutes ? ` · ${slaMinutes} min` : ''}
+              </Text>
+            </View>
+          )}
+          {!isUrgent && priority === 'standard' && (
+            <View style={[styles.priorityBadge, styles.priorityBadgeStandard]}>
+              <Ionicons name="time-outline" size={12} color="#fff" />
+              <Text style={styles.priorityBadgeText}>
+                STANDARD{slaMinutes ? ` · ${slaMinutes} min` : ''}
+              </Text>
+            </View>
+          )}
+          {isFoodDrink && (
+            <View style={[styles.categoryChip, { backgroundColor: '#fde6d4' }]}>
+              <Ionicons name="restaurant-outline" size={11} color="#c2410c" />
+              <Text style={[styles.categoryChipText, { color: '#c2410c' }]}>Food & drink</Text>
+            </View>
+          )}
+          {isProductPurchase && (
+            <View style={[styles.categoryChip, { backgroundColor: '#dbeafe' }]}>
+              <Ionicons name="bag-handle-outline" size={11} color="#1e40af" />
+              <Text style={[styles.categoryChipText, { color: '#1e40af' }]}>Product</Text>
+            </View>
+          )}
+        </View>
       )}
 
       <View style={styles.header}>
@@ -282,6 +324,21 @@ const styles = StyleSheet.create({
   },
   code: { fontSize: 18, fontWeight: '800', color: '#111' },
   category: { color: BRAND, fontWeight: '700', fontSize: 13 },
+
+  // Priority badges (Uber Eats-like)
+  priorityRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 10 },
+  priorityBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999,
+  },
+  priorityBadgeUrgent: { backgroundColor: '#dc2626' }, // rouge — food_drink, 30 min
+  priorityBadgeStandard: { backgroundColor: '#2563eb' }, // bleu — product_purchase, 2h
+  priorityBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.4 },
+  categoryChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999,
+  },
+  categoryChipText: { fontSize: 10, fontWeight: '700' },
 
   // Countdown
   countdownWrap: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },

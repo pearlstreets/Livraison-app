@@ -201,6 +201,8 @@ export default function MenuScreen({ navigation }) {
         <MenuItem icon="time-outline" label={t('deliveryHistory')} onPress={() => navigation.navigate('DeliveryHistory')} />
         <MenuItem icon="flash-outline" label={t('opportunities')} onPress={() => navigation.navigate('Opportunities')} badge={getUnreadOpportunitiesCount(4) > 0 ? String(getUnreadOpportunitiesCount(4)) : null} />
         <MenuItem icon="wallet-outline" label={t('wallet')} onPress={() => navigation.navigate('Wallet')} />
+        <MenuItem icon="receipt-outline" label={t('invoices.title')} onPress={() => navigation.navigate('MyInvoices')} />
+        <MenuItem icon="document-attach-outline" label={t('vatInfo.title')} onPress={() => navigation.navigate('MyVatInfo')} />
         <MenuItem icon="person-outline" label={t('account')} onPress={() => navigation.navigate('EditProfile')} />
       </View>
 

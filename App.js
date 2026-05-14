@@ -25,6 +25,24 @@ import * as Device from 'expo-device';
 import { initOneSignalOnce } from './services/oneSignalInit';
 import offlineQueue from './services/offlineQueue';
 import { verifyPinningHealth } from './services/certPinning';
+import * as Sentry from '@sentry/react-native';
+
+// Sentry — init au module-load. No-op si DSN absent (dev). Envoie les
+// erreurs vers projet `pearl-delivery` sur sentry.io (org `localidad`) en prod.
+const _sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (_sentryDsn && _sentryDsn.startsWith('https://') && !_sentryDsn.includes('YOUR_')) {
+  try {
+    Sentry.init({
+      dsn: _sentryDsn,
+      environment: __DEV__ ? 'development' : 'production',
+      enableAutoSessionTracking: true,
+      tracesSampleRate: 0.1,
+      attachStacktrace: true,
+    });
+  } catch (e) {
+    if (__DEV__) console.info('[sentry] init failed:', e?.message);
+  }
+}
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import LoginScreen from './screens/LoginScreen';
@@ -56,6 +74,8 @@ import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import OpportunityDetailScreen from './screens/OpportunityDetailScreen';
 import VersementsListScreen from './screens/VersementsListScreen';
 import VersementDetailScreen from './screens/VersementDetailScreen';
+import MyInvoicesScreen from './screens/MyInvoicesScreen';
+import MyVatInfoScreen from './screens/MyVatInfoScreen';
 
 // Initialize OneSignal once at module load. The helper is a no-op when the
 // native module isn't bundled or when expo.extra.oneSignalAppId is empty,
@@ -133,6 +153,8 @@ function MenuStackScreen() {
       <MenuStack.Screen name="VersementDetail" component={VersementDetailScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="Warnings" component={WarningsScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="MyInvoices" component={MyInvoicesScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="MyVatInfo" component={MyVatInfoScreen} options={{ headerShown: false }} />
     </MenuStack.Navigator>
   );
 }
