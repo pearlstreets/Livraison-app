@@ -49,8 +49,6 @@ export default function TicketsListScreen({ navigation }) {
   const { getTicketMessages, getUnreadTicketCount } = useAuth();
 
   // Build dynamic tickets from AuthContext
-  const authTicketIds = [];
-  // We need to access ticketMessages keys - use a helper
   const { ticketMessages = {}, ticketReadCounts = {} } = useAuth();
 
   const dynamicTickets = Object.keys(ticketMessages).map(orderId => {
@@ -64,7 +62,6 @@ export default function TicketsListScreen({ navigation }) {
     const lastTime = lastMsg?.time ? new Date(lastMsg.time) : new Date();
     const months = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
     const dateStr = `${lastTime.getDate()} ${months[lastTime.getMonth()]} ${lastTime.getFullYear()}`;
-    authTicketIds.push(orderId);
     return {
       id: `TK-${orderId.replace('ORD-', '')}`,
       orderId,
@@ -78,9 +75,10 @@ export default function TicketsListScreen({ navigation }) {
     };
   }).filter(Boolean);
 
-  // Merge: dynamic first, then mock (excluding any that overlap)
-  const mockFiltered = MOCK_TICKETS.filter(mt => !authTicketIds.includes(mt.orderId));
-  const allTickets = [...dynamicTickets, ...mockFiltered];
+  // MOCK_TICKETS = fallback offline seulement. En production, dynamicTickets
+  // vient du context (alimenté par /api/v1/delivery/tickets/).
+  // Ne jamais mélanger mocks + vrais tickets côté driver.
+  const allTickets = dynamicTickets.length > 0 ? dynamicTickets : MOCK_TICKETS;
 
   // Memoize ticket filtering to avoid recomputation on every render
   const { openTickets, resolvedTickets } = useMemo(() => ({
