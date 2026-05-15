@@ -6,7 +6,9 @@ package-lock.json
 dist/
 ios/
 .claude/
+# Backup folders archived outside repo (~/.claude/backups/pearl-delivery-archives/)
 backup_*/
+SAUVEGARDE_*/
 historique/
 retry.txt
 
