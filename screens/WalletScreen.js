@@ -1,10 +1,11 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Dimensions, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { deliveryService } from '../services/deliveryService';
 
 const BRAND = '#00C29B';
 
@@ -14,6 +15,7 @@ export default function WalletScreen({ navigation }) {
   const { currentEarningsCents, cashOut, versements, currentIban } = useAuth();
   const insets = useSafeAreaInsets();
   const earn = { earningsCents: currentEarningsCents, earnings: (currentEarningsCents / 100).toFixed(2) + ' €' };
+  const [stripeLoading, setStripeLoading] = useState(false);
   const [encaissModal, setEncaissModal] = useState(false);
   const [encaissStep, setEncaissStep] = useState('confirm'); // confirm | processing | done
   const [cashedAmount, setCashedAmount] = useState('');
@@ -39,6 +41,25 @@ export default function WalletScreen({ navigation }) {
     setCashedAmount(earn.earnings);
     setEncaissStep('confirm');
     setEncaissModal(true);
+  }
+
+  async function handleStripeConnect() {
+    setStripeLoading(true);
+    try {
+      const res = await deliveryService.requestStripeConnect();
+      if (res && res.url) {
+        await Linking.openURL(res.url);
+      } else if (res && res.payout_method === 'sepa_manual') {
+        Alert.alert(
+          'Versements par virement',
+          'Votre pays ne dispose pas encore de Stripe Connect. Les versements sont effectués par virement bancaire manuel.'
+        );
+      }
+    } catch {
+      Alert.alert('Erreur', 'Impossible de configurer les paiements pour le moment. Réessayez plus tard.');
+    } finally {
+      setStripeLoading(false);
+    }
   }
 
   function processEncaiss() {
@@ -118,6 +139,15 @@ export default function WalletScreen({ navigation }) {
             <Text style={s.pmEditTxt}>{t('changeBankAccount')}</Text>
           </Pressable>
         </View>
+
+        <Pressable
+          style={[s.stripeBtn, stripeLoading && { opacity: 0.6 }]}
+          onPress={handleStripeConnect}
+          disabled={stripeLoading}
+        >
+          <Ionicons name="card-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+          <Text style={s.stripeBtnTxt}>{stripeLoading ? 'Chargement...' : 'Configurer les paiements'}</Text>
+        </Pressable>
 
         <Pressable style={s.helpRow} onPress={() => navigation.navigate('Help')}>
           <Ionicons name="help-circle-outline" size={22} color="#666" style={{ marginRight: 12 }} />
@@ -207,6 +237,8 @@ const s = StyleSheet.create({
   pmIbanValue: { fontSize: 15, fontWeight: '800', color: '#111', marginTop: 2, letterSpacing: 0.5 },
   pmEditBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, paddingVertical: 12 },
   pmEditTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  stripeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#6772e5', borderRadius: 12, marginHorizontal: 16, marginBottom: 12, paddingVertical: 14 },
+  stripeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
   helpRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 16, padding: 16 },
   helpText: { fontWeight: '700', fontSize: 15, color: '#111', flex: 1 },
 

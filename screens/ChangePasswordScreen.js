@@ -1,18 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { authService } from '../services/authService';
 
 const BRAND = '#00C29B';
-const USERS_DB = [
-  { email: 'remsko@live.fr', password: 'Test@123' },
-];
 
 export default function ChangePasswordScreen({ navigation }) {
   const { t } = useLanguage();
-  const { user } = useAuth();
   const insets = useSafeAreaInsets();
 
   const [currentPwd, setCurrentPwd] = useState('');
@@ -21,15 +17,11 @@ export default function ChangePasswordScreen({ navigation }) {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  function handleSave() {
-    const entry = USERS_DB.find(u => u.email.toLowerCase() === user.email.toLowerCase());
+  async function handleSave() {
     if (!currentPwd) {
-      Alert.alert(t('error'), t('currentPassword') ? 'Veuillez saisir votre mot de passe actuel' : 'Veuillez saisir votre mot de passe actuel');
-      return;
-    }
-    if (entry && entry.password !== currentPwd) {
-      Alert.alert(t('error'), t('passwordWrong') || 'Mot de passe actuel incorrect');
+      Alert.alert(t('error'), 'Veuillez saisir votre mot de passe actuel');
       return;
     }
     if (newPwd.length < 6) {
@@ -40,10 +32,18 @@ export default function ChangePasswordScreen({ navigation }) {
       Alert.alert(t('error'), t('passwordMismatch') || 'Les mots de passe ne correspondent pas');
       return;
     }
-    if (entry) entry.password = newPwd;
-    Alert.alert('Succès', 'Mot de passe modifié avec succès', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+    setSaving(true);
+    try {
+      await authService.updatePassword(currentPwd, newPwd);
+      Alert.alert('Succès', 'Mot de passe modifié avec succès', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.response?.data?.detail || 'Mot de passe actuel incorrect ou erreur serveur';
+      Alert.alert(t('error'), msg);
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -140,9 +140,14 @@ export default function ChangePasswordScreen({ navigation }) {
         )}
 
         {/* Save button */}
-        <Pressable style={s.saveBtn} onPress={handleSave}>
-          <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={s.saveTxt}>{t('save') || 'Enregistrer'}</Text>
+        <Pressable style={[s.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
+          {saving
+            ? <ActivityIndicator size="small" color="#fff" />
+            : <>
+                <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={s.saveTxt}>{t('save') || 'Enregistrer'}</Text>
+              </>
+          }
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>

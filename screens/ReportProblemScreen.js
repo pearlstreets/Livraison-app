@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { ticketService } from '../services/ticketService';
 
 const BRAND = '#00C29B';
 
@@ -19,39 +20,36 @@ const PROBLEMS = [
 
 export default function ReportProblemScreen({ navigation, route }) {
   const { t } = useLanguage();
-  const { markOrderReported, saveTicketMessages } = useAuth();
+  const { markOrderReported } = useAuth();
   const insets = useSafeAreaInsets();
   const order = route.params?.order || {};
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!selectedProblem) {
       Alert.alert(t('error'), t('selectProblem'));
       return;
     }
-    Alert.alert(
-      t('reportSent'),
-      t('reportSentMsg'),
-      [{
-        text: t('ok'),
-        onPress: () => {
-          markOrderReported(order.id);
-          // Save the problem as initial message in the ticket
-          const problem = PROBLEMS.find(p => p.id === selectedProblem);
-          const problemLabel = problem ? t(problem.labelKey) : selectedProblem;
-          const now = new Date();
-          const initialMsgs = [
-            { id: '0', type: 'system', text: `Ticket ouvert pour la commande ${order.id || 'N/A'}` },
-            { id: `user-report-${Date.now()}`, type: 'user', text: `Problème signalé : ${problemLabel}${comment ? `\n${comment}` : ''}`, time: now.toISOString() },
-            { id: 'admin-0', type: 'admin', text: 'Bonjour ! Merci de nous contacter. Un agent va prendre en charge votre demande.', time: new Date(now.getTime() + 1500).toISOString() },
-            { id: 'admin-1', type: 'admin', text: 'Je consulte les détails de votre course. Un instant s\'il vous plaît...', time: new Date(now.getTime() + 4000).toISOString() },
-          ];
-          saveTicketMessages(order.id, initialMsgs);
-          navigation.goBack();
-        },
-      }]
-    );
+    setSubmitting(true);
+    try {
+      await ticketService.createTicket({
+        problem_type: selectedProblem,
+        description: comment || undefined,
+        assignment_id: order.id || undefined,
+      });
+      markOrderReported(order.id);
+      Alert.alert(
+        t('reportSent'),
+        t('reportSentMsg'),
+        [{ text: t('ok'), onPress: () => navigation.goBack() }]
+      );
+    } catch {
+      Alert.alert(t('error'), 'Une erreur est survenue. Veuillez réessayer.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -73,7 +71,7 @@ export default function ReportProblemScreen({ navigation, route }) {
 
       <Text style={s.sectionTitle}>{t('problemType')}</Text>
 
-      {/* Problem list line by line */}
+      {/* Problem list */}
       {PROBLEMS.map(p => (
         <Pressable
           key={p.id}
@@ -99,9 +97,18 @@ export default function ReportProblemScreen({ navigation, route }) {
       />
 
       {/* Submit */}
-      <Pressable style={[s.submitBtn, !selectedProblem && { opacity: 0.4 }]} onPress={handleSubmit} disabled={!selectedProblem}>
-        <Ionicons name="send" size={16} color="#fff" style={{ marginRight: 6 }} />
-        <Text style={s.submitBtnTxt}>{t('sendReport')}</Text>
+      <Pressable
+        style={[s.submitBtn, (!selectedProblem || submitting) && { opacity: 0.4 }]}
+        onPress={handleSubmit}
+        disabled={!selectedProblem || submitting}
+      >
+        {submitting
+          ? <ActivityIndicator size="small" color="#fff" />
+          : <>
+              <Ionicons name="send" size={16} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={s.submitBtnTxt}>{t('sendReport')}</Text>
+            </>
+        }
       </Pressable>
     </View>
   );

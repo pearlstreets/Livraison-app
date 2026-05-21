@@ -1,25 +1,49 @@
-import React, { useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
-import { useAuth } from '../contexts/AuthContext';
+import { ticketService } from '../services/ticketService';
 
 const BRAND = '#00C29B';
 
+const MONTHS = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  } catch {
+    return '';
+  }
+}
+
+function mapTicket(ticket) {
+  const isOpen = ticket.status === 'open' || ticket.status === 'in_progress';
+  return {
+    id: ticket.id,
+    displayId: `TK-${ticket.id}`,
+    orderId: ticket.assignment_id ? `ORD-${ticket.assignment_id}` : `TK-${ticket.id}`,
+    subject: ticket.problem_type || ticket.description?.split('\n')[0] || 'Ticket support',
+    date: formatDate(ticket.updated_at || ticket.created_at),
+    status: isOpen ? 'open' : 'resolved',
+    lastMessage: ticket.description || '',
+  };
+}
+
 const TicketCard = React.memo(({ ticket, navigation, t }) => {
   const isOpen = ticket.status === 'open';
-  const hasUnread = ticket.hasUnread || false;
   return (
     <Pressable
       style={s.ticketCard}
-      onPress={() => navigation.navigate('TicketChat', { order: { id: ticket.orderId }, resolved: ticket.status === 'resolved' })}
+      onPress={() => navigation.navigate('TicketChat', { ticketId: ticket.id, resolved: ticket.status === 'resolved' })}
     >
       <View style={s.ticketHeader}>
         <View style={s.ticketIdRow}>
           <Ionicons name={isOpen ? 'chatbubble-ellipses' : 'checkmark-circle'} size={18} color={isOpen ? '#f5a623' : BRAND} />
-          <Text style={s.ticketId}>{ticket.id}</Text>
-          {hasUnread && <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{ticket.unreadCount || ''}</Text></View>}
+          <Text style={s.ticketId}>{ticket.displayId}</Text>
         </View>
         <View style={[s.statusBadge, isOpen ? s.statusOpen : s.statusResolved]}>
           <Text style={[s.statusText, isOpen ? s.statusOpenText : s.statusResolvedText]}>
@@ -30,94 +54,38 @@ const TicketCard = React.memo(({ ticket, navigation, t }) => {
       <Text style={s.ticketSubject}>{ticket.subject}</Text>
       <Text style={s.ticketOrder}>{t('order')} {ticket.orderId}</Text>
       <View style={s.ticketFooter}>
-        <Text style={[s.ticketLastMsg, hasUnread && { color: '#111', fontWeight: '700' }]} numberOfLines={1}>{ticket.lastMessage}</Text>
+        <Text style={s.ticketLastMsg} numberOfLines={1}>{ticket.lastMessage}</Text>
         <Text style={s.ticketDate}>{ticket.date}</Text>
       </View>
     </Pressable>
   );
 });
 
-const MOCK_TICKETS = [
-  { id: 'TK-3038', orderId: 'ORD-3038', subject: 'Commande endommagée', date: '26 mars 2025', status: 'resolved', lastMessage: 'Votre problème a été traité avec succès.' },
-  { id: 'TK-2996', orderId: 'ORD-2996', subject: 'Adresse incorrecte', date: '22 mars 2025', status: 'resolved', lastMessage: 'Nous avons mis à jour l\'adresse. Merci.' },
-  { id: 'TK-2981', orderId: 'ORD-2981', subject: 'Retard au restaurant', date: '18 mars 2025', status: 'resolved', lastMessage: 'Une compensation a été ajoutée à votre solde.' },
-];
-
 export default function TicketsListScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { getTicketMessages, getUnreadTicketCount } = useAuth();
+  const [tickets, setTickets] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Build dynamic tickets from AuthContext
-  const authTicketIds = [];
-  // We need to access ticketMessages keys - use a helper
-  const { ticketMessages = {}, ticketReadCounts = {} } = useAuth();
+  const fetchTickets = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res = await ticketService.getTickets();
+      const raw = res?.results || res?.data || [];
+      setTickets(Array.isArray(raw) ? raw.map(mapTicket) : []);
+    } catch {
+      setTickets([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const dynamicTickets = Object.keys(ticketMessages).map(orderId => {
-    const msgs = ticketMessages[orderId] || [];
-    if (msgs.length === 0) return null;
-    const readCount = ticketReadCounts[orderId] || 0;
-    const hasUnread = msgs.length > readCount;
-    const lastMsg = [...msgs].reverse().find(m => m.type === 'admin' || m.type === 'user');
-    const firstUserMsg = msgs.find(m => m.type === 'user');
-    const subject = firstUserMsg ? firstUserMsg.text.split('\n')[0] : 'Ticket support';
-    const lastTime = lastMsg?.time ? new Date(lastMsg.time) : new Date();
-    const months = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
-    const dateStr = `${lastTime.getDate()} ${months[lastTime.getMonth()]} ${lastTime.getFullYear()}`;
-    authTicketIds.push(orderId);
-    return {
-      id: `TK-${orderId.replace('ORD-', '')}`,
-      orderId,
-      subject: subject.length > 60 ? subject.substring(0, 60) + '...' : subject,
-      date: dateStr,
-      status: 'open',
-      lastMessage: lastMsg?.text || '',
-      hasUnread,
-      unreadCount: hasUnread ? msgs.length - readCount : 0,
-      dynamic: true,
-    };
-  }).filter(Boolean);
+  useFocusEffect(useCallback(() => {
+    fetchTickets();
+  }, [fetchTickets]));
 
-  // Merge: dynamic first, then mock (excluding any that overlap)
-  const mockFiltered = MOCK_TICKETS.filter(mt => !authTicketIds.includes(mt.orderId));
-  const allTickets = [...dynamicTickets, ...mockFiltered];
-
-  // Memoize ticket filtering to avoid recomputation on every render
-  const { openTickets, resolvedTickets } = useMemo(() => ({
-    openTickets: allTickets.filter(tk => tk.status === 'open'),
-    resolvedTickets: allTickets.filter(tk => tk.status === 'resolved'),
-  }), [allTickets]);
-
-  function renderTicket(ticket) {
-    const isOpen = ticket.status === 'open';
-    const hasUnread = ticket.hasUnread || false;
-    return (
-      <Pressable
-        key={ticket.id}
-        style={s.ticketCard}
-        onPress={() => navigation.navigate('TicketChat', { order: { id: ticket.orderId }, resolved: ticket.status === 'resolved' })}
-      >
-        <View style={s.ticketHeader}>
-          <View style={s.ticketIdRow}>
-            <Ionicons name={isOpen ? 'chatbubble-ellipses' : 'checkmark-circle'} size={18} color={isOpen ? '#f5a623' : BRAND} />
-            <Text style={s.ticketId}>{ticket.id}</Text>
-            {hasUnread && <View style={s.unreadBadge}><Text style={s.unreadBadgeText}>{ticket.unreadCount || ''}</Text></View>}
-          </View>
-          <View style={[s.statusBadge, isOpen ? s.statusOpen : s.statusResolved]}>
-            <Text style={[s.statusText, isOpen ? s.statusOpenText : s.statusResolvedText]}>
-              {isOpen ? t('inProgress') : t('resolved')}
-            </Text>
-          </View>
-        </View>
-        <Text style={s.ticketSubject}>{ticket.subject}</Text>
-        <Text style={s.ticketOrder}>{t('order')} {ticket.orderId}</Text>
-        <View style={s.ticketFooter}>
-          <Text style={[s.ticketLastMsg, hasUnread && { color: '#111', fontWeight: '700' }]} numberOfLines={1}>{ticket.lastMessage}</Text>
-          <Text style={s.ticketDate}>{ticket.date}</Text>
-        </View>
-      </Pressable>
-    );
-  }
+  const openTickets = tickets.filter(tk => tk.status === 'open');
+  const resolvedTickets = tickets.filter(tk => tk.status === 'resolved');
 
   return (
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -140,13 +108,15 @@ export default function TicketsListScreen({ navigation }) {
           <Text style={s.statLabel}>{t('resolved')}</Text>
         </View>
         <View style={s.statCard}>
-          <Text style={s.statValue}>{allTickets.length}</Text>
+          <Text style={s.statValue}>{tickets.length}</Text>
           <Text style={s.statLabel}>{t('total')}</Text>
         </View>
       </View>
 
+      {loading && <ActivityIndicator size="small" color={BRAND} style={{ marginTop: 20 }} />}
+
       {/* Open tickets */}
-      {openTickets.length > 0 && (
+      {!loading && openTickets.length > 0 && (
         <>
           <Text style={s.sectionTitle}>{t('inProgress')}</Text>
           {openTickets.map(ticket => (
@@ -156,7 +126,7 @@ export default function TicketsListScreen({ navigation }) {
       )}
 
       {/* Resolved tickets */}
-      {resolvedTickets.length > 0 && (
+      {!loading && resolvedTickets.length > 0 && (
         <>
           <Text style={s.sectionTitle}>{t('resolved')}</Text>
           {resolvedTickets.map(ticket => (
@@ -195,6 +165,4 @@ const s = StyleSheet.create({
   ticketFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 8 },
   ticketLastMsg: { flex: 1, fontSize: 13, color: '#999', marginRight: 8 },
   ticketDate: { fontSize: 12, color: '#bbb', fontWeight: '600' },
-  unreadBadge: { backgroundColor: '#e74c3c', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 6 },
-  unreadBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
 });

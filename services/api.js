@@ -1,8 +1,11 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import secureStorage from './secureStorage';
 import { sanitizeForApi } from '../utils/validation';
 
-const API_BASE = 'https://pythonapi.digiexports.in';
+// Pearl Streets backend. Dev → local Django (port 8000); prod → public API.
+// Testing on a physical device in dev: replace localhost with your LAN IP.
+const API_BASE = __DEV__ ? 'http://localhost:8000' : 'https://api.pearlstreets.com';
 
 // Request ID generator for tracing
 const generateRequestId = () =>
@@ -48,7 +51,7 @@ function sanitizeRequestData(data) {
 
 // Request interceptor - attach token, sanitize, add headers
 api.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem('accessToken');
+  const token = await secureStorage.getSecure('accessToken');
   if (token) config.headers.Authorization = `Bearer ${token}`;
 
   // Request ID for tracing
@@ -80,18 +83,22 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const refreshToken = await AsyncStorage.getItem('refreshToken');
+        const refreshToken = await secureStorage.getSecure('refreshToken');
         if (!refreshToken) {
-          await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userData']);
+          await secureStorage.removeSecure('accessToken');
+          await secureStorage.removeSecure('refreshToken');
+          await AsyncStorage.removeItem('userData');
           return Promise.reject(createSafeError('Session expired'));
         }
         const { data } = await axios.post(`${API_BASE}/api/v1/delivery/token/refresh/`, { refresh: refreshToken });
-        await AsyncStorage.setItem('accessToken', data.access);
-        if (data.refresh) await AsyncStorage.setItem('refreshToken', data.refresh);
+        await secureStorage.setSecure('accessToken', data.access);
+        if (data.refresh) await secureStorage.setSecure('refreshToken', data.refresh);
         originalRequest.headers.Authorization = `Bearer ${data.access}`;
         return api(originalRequest);
       } catch (refreshError) {
-        await AsyncStorage.multiRemove(['accessToken', 'refreshToken', 'userData']);
+        await secureStorage.removeSecure('accessToken');
+        await secureStorage.removeSecure('refreshToken');
+        await AsyncStorage.removeItem('userData');
         return Promise.reject(createSafeError('Session expired'));
       }
     }

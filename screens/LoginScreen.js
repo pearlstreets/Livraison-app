@@ -124,7 +124,7 @@ export default function LoginScreen() {
   };
 
   // Login with rate limiting and validation
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError('');
     if (loginDisabled) {
       setError(t('loginCooldown') || 'Trop de tentatives. Veuillez patienter 30 secondes.');
@@ -134,28 +134,25 @@ export default function LoginScreen() {
     if (!email.trim()) { setError(t('errorNoEmail') || 'Veuillez saisir votre email'); return; }
     if (!isValidEmail(email.trim())) { setError(t('errorInvalidEmail') || 'Format email invalide'); return; }
     if (!password.trim()) { setError(t('errorNoPassword') || 'Veuillez saisir votre mot de passe'); return; }
-    const result = login(email.trim(), password);
-    if (result && typeof result === 'object' && result.locked) {
-      setError(t('accountLocked') || 'Compte temporairement verrouill\u00e9. R\u00e9essayez dans quelques minutes.');
-      return;
-    }
-    if (!result) {
-      loginFailsRef.current += 1;
-      if (loginFailsRef.current >= MAX_LOGIN_FAILS) {
-        setLoginDisabled(true);
-        setError(t('loginCooldown') || 'Trop de tentatives. Veuillez patienter 30 secondes.');
-        cooldownTimerRef.current = setTimeout(() => {
-          setLoginDisabled(false);
-          loginFailsRef.current = 0;
-        }, LOGIN_COOLDOWN_MS);
-      } else {
-        setError(t('loginErrorCredentials') || 'Email ou mot de passe incorrect');
-      }
+    setLoading(true);
+    const result = await login(email.trim(), password);
+    setLoading(false);
+    if (result && result.ok) return; // AuthContext sets the user -> navigation happens
+    loginFailsRef.current += 1;
+    if (loginFailsRef.current >= MAX_LOGIN_FAILS) {
+      setLoginDisabled(true);
+      setError(t('loginCooldown') || 'Trop de tentatives. Veuillez patienter 30 secondes.');
+      cooldownTimerRef.current = setTimeout(() => {
+        setLoginDisabled(false);
+        loginFailsRef.current = 0;
+      }, LOGIN_COOLDOWN_MS);
+    } else {
+      setError(t('loginErrorCredentials') || 'Email ou mot de passe incorrect');
     }
   };
 
   // Signup
-  const handleSignup = () => {
+  const handleSignup = async () => {
     setError('');
     // Step 1: email + password
     if (step === 1) {
@@ -173,18 +170,19 @@ export default function LoginScreen() {
       if (isPro) { setStep(3); return; }
       // Particulier: register directly
       setLoading(true);
-      const success = register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, role: 'user' });
+      const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, role: 'user' });
       setLoading(false);
-      if (success) return; // AuthContext handles navigation
-      setError(t('errorEmailExists') || 'Un compte avec cet email existe déjà');
+      if (result && result.ok) return; // AuthContext handles navigation
+      setError((result && result.error) || t('errorEmailExists') || 'Un compte avec cet email existe déjà');
       return;
     }
     // Step 3: documents (pro)
     if (!docIdFront || !docIdBack || !docIban || !docKbiss) { setError(t('errorDocsRequired') || "Carte d'identité, IBAN et KBISS sont obligatoires"); return; }
     setLoading(true);
-    register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), role: 'professionaluser', isVerified: false, documents: { idFront: docIdFront, idBack: docIdBack, iban: docIban, kbiss: docKbiss } });
+    const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), role: 'professionaluser', isVerified: false, documents: { idFront: docIdFront, idBack: docIdBack, iban: docIban, kbiss: docKbiss } });
     setLoading(false);
-    setPendingValidation(true);
+    if (result && result.ok) { setPendingValidation(true); return; }
+    setError((result && result.error) || 'Une erreur est survenue. Veuillez réessayer.');
   };
 
   // Pending validation page

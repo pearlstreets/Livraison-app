@@ -5,10 +5,49 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import OrderCard from '../components/OrderCard';
 import DetailsSheet from '../components/DetailsSheet';
-import { getMeauxSeed } from '../constants/mockOrders';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import filtersUI from '../constants/filters-ui.json';
+import { deliveryService } from '../services/deliveryService';
+
+/* === Adaptateur backend assignment → forme attendue par OrderCard === */
+function adaptAssignment(a) {
+  const fee = typeof a.delivery_fee === 'number' ? a.delivery_fee : 0;
+  const tip = typeof a.tip_amount === 'number' ? a.tip_amount : 0;
+  const total = fee + tip;
+  const items = Array.isArray(a.order_items)
+    ? a.order_items.map(it => ({ name: it.name || '', qty: typeof it.quantity === 'number' ? it.quantity : 1 }))
+    : [];
+  return {
+    // identifiants
+    id: String(a.order_id || a.id || ''),
+    _assignmentId: a.id,          // conservé pour les appels updateDeliveryStatus
+    order_id: a.order_id,
+    // affichage
+    restaurant: a.pickup_address || '',
+    address: a.dropoff_address || '',
+    dropoffAddress: a.dropoff_address || '',
+    pickupAddress: a.pickup_address || '',
+    distanceText: typeof a.distance_km === 'number' ? `${a.distance_km.toFixed(1)} km` : '',
+    etaText: typeof a.estimated_time_minutes === 'number' ? `${a.estimated_time_minutes} min` : '',
+    priceText: `${total.toFixed(2)} €`,
+    delivery_fee: fee,
+    tip_amount: tip,
+    itemsCount: items.reduce((s, it) => s + it.qty, 0),
+    items,
+    // coordonnées
+    dropoffLat: a.dropoff_lat,
+    dropoffLng: a.dropoff_lng,
+    pickupLat: a.pickup_lat,
+    pickupLng: a.pickup_lng,
+    // méta
+    status: a.status || '',
+    delivery_code: a.delivery_code || '',
+    customer_name: a.customer_name || '',
+    user_address: a.user_address || {},
+    created_at: a.created_at || '',
+  };
+}
 
 /* === Filtres inline (unique) === */
 const OrdersInlineFilters = React.memo(({ selected, onChange, filters = [] }) => {
@@ -36,75 +75,8 @@ const OrdersInlineFilters = React.memo(({ selected, onChange, filters = [] }) =>
   );
 });
 
-/* ---------- Génération aléatoire ---------- */
-const CATEGORIES = ['Food & Drink', 'Product Purchase', 'Groceries'];
-const RESTOS = [
-  'Pizzeria Roma, Meaux',
-  'Le Bistrot, Meaux',
-  'Chez Marcel, Meaux',
-  'La Terrasse, Meaux',
-  'Café du Pont, Meaux',
-  'Sushi Zen, Meaux'
-];
-const ADDR = [
-  '12 Rue Voltaire, Meaux',
-  'Place Carnot, Meaux',
-  '3 Bd Barbès, Meaux',
-  '18 Rue de Verdun, Meaux',
-  '6 Rue Trivalle, Meaux',
-  '2 Rue de la République, Meaux'
-];
-const FOOD_ITEMS = [
-  'Pizza Margherita', 'Burger Classic', 'Salade César', 'Pâtes Carbonara', 'Sushi Mix 12p',
-  'Tacos Poulet', 'Wrap Végétarien', 'Tiramisu', 'Coca-Cola 33cl', 'Frites Maison',
-  'Nems x4', 'Pad Thaï', 'Crêpe Nutella', 'Smoothie Fruits', 'Croissant Beurre',
-];
-const PRODUCT_ITEMS = [
-  'Colis petit', 'Colis moyen', 'Enveloppe A4', 'Paquet fragile', 'Sac courses',
-];
-
-const rpick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const rfloat = (min, max, d=1) => (Math.random()*(max-min)+min).toFixed(d);
+/* ---------- Helpers clé ---------- */
 const rint = (min, max) => Math.floor(Math.random()*(max-min+1))+min;
-
-let seq = 3000;
-function genOrder() {
-  const idNum = ++seq;
-  const restaurant = rpick(RESTOS);
-  const address = rpick(ADDR);
-  const category = rpick(CATEGORIES);
-
-  const km = Number(rfloat(0.8, 4.5, 1));
-  const min = rint(6, 20);
-  const price = Number((Math.random()*12 + 6).toFixed(2));
-
-  // Fake coords (pas nécessaires mais utiles pour Itinéraire si dispo)
-  const lat = 43.21 + Math.random()*0.02;
-  const lng = 2.34 + Math.random()*0.03;
-
-  const itemCount = rint(1, 5);
-  const itemPool = category === 'Product Purchase' ? PRODUCT_ITEMS : FOOD_ITEMS;
-  const orderItems = [];
-  for (let j = 0; j < itemCount; j++) {
-    const name = rpick(itemPool);
-    const qty = category === 'Product Purchase' ? 1 : rint(1, 3);
-    if (!orderItems.find(it => it.name === name)) orderItems.push({ name, qty });
-  }
-
-  return {
-    id: `ORD-${idNum}`,
-    category,
-    restaurant,
-    address,
-    distanceText: `${km.toFixed(1)} km`,
-    etaText: `${min} min`,
-    priceText: `${price.toFixed(2)} €`,
-    itemsCount: orderItems.reduce((s, it) => s + it.qty, 0),
-    items: orderItems,
-    dropoffAddress: address,
-    dropoffLat: lat, dropoffLng: lng
-  };
-}
 
 /* ---------- Écran ---------- */
 const orderKey = (o) => o?._uid || o?.id || o?.code;
@@ -121,43 +93,18 @@ export default function OrdersScreen({ navigation, route }) {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []));
 
-  // --- Simulateur Meaux (startMeauxFeed peut ne pas exister) ---
-  React.useEffect(() => {
+  // --- Poll commandes disponibles toutes les 15s quand En ligne ---
+  const pollRef = useRef(null);
+
+  const fetchAvailableOrders = useCallback(async () => {
     try {
-      if (typeof startMeauxFeed === 'function') {
-        const stop = startMeauxFeed(setAvailable, 4000);
-        return () => typeof stop==='function' && stop();
-      }
-    } catch {}
+      const res = await deliveryService.getAvailableOrders();
+      const data = Array.isArray(res?.data) ? res.data : [];
+      setAvailable(data.map(adaptAssignment));
+    } catch {
+      // Silencieux : on garde la liste actuelle plutôt que de crasher
+    }
   }, []);
-
-  React.useEffect(() => { //__SIM_MEAUX_FEED
-    if (!__SIM_MEAUX) return;
-    const seed = (typeof getMeauxSeed==='function' ? getMeauxSeed() : []);
-    let i = 0;
-    const tick = () => {
-      const raw = seed[i % seed.length];
-      i++;
-      if (!raw) return;
-      // Give each seed item a unique ID to avoid duplicate keys
-      const item = { ...raw, id: raw.id || raw.code, _uid: `MX-${Date.now()}-${i}` };
-      try {
-        if (typeof setAvailable === 'function') {
-          setAvailable(prev => {
-            const key = item._uid;
-            if (prev.find(o => o._uid === key)) return prev;
-            const arr = [item, ...prev];
-            return arr.slice(0, 12);
-          });
-        }
-      } catch {}
-    };
-    tick();
-    const iv = setInterval(tick, 5000 + Math.floor(Math.random()*3000));
-    return () => clearInterval(iv);
-  }, []);
-
-  const __SIM_MEAUX = true;
 
   const [detailsOrder, setDetailsOrder] = useState(null);
   const [detailsVisible, setDetailsVisible] = useState(false); //__DETAILS_STATE_ANCHOR
@@ -168,7 +115,6 @@ export default function OrdersScreen({ navigation, route }) {
   const [available, setAvailable] = useState([]);     // Disponibles
   const [history, setHistory] = useState([]);          // Historique
   const [activeSteps, setActiveSteps] = useState({}); // { orderId: { stepIndex, stepLabel } }
-  const timerRef = useRef(null);
 
   // Handle completed order from DeliveryFlow
   useEffect(() => {
@@ -218,41 +164,38 @@ export default function OrdersScreen({ navigation, route }) {
     return unsubscribe;
   }, [navigation]);
 
-  // Seed initial si vide
+  // Poll toutes les 15s quand En ligne
   useEffect(() => {
-    if (available.length === 0) {
-      setAvailable([genOrder(), genOrder(), genOrder()]);
+    if (!online) {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
+      setAvailable([]);
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Flux continu quand "En ligne" — throttled to reduce state updates
-  useEffect(() => {
-    if (!online) { if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = null; return; }
-
-    const schedule = () => {
-      const delay = rint(6000, 10000); // 6–10s (throttled from 4–7s)
-      timerRef.current = setTimeout(() => {
-        setAvailable(prev => {
-          // Cap à 12 éléments, pas de doublon d'id
-          const next = genOrder();
-          if (prev.find(o => o.id === next.id)) return prev;
-          const arr = [next, ...prev];
-          return arr.slice(0, 12);
-        });
-        schedule();
-      }, delay);
+    // Premier fetch immédiat
+    fetchAvailableOrders();
+    pollRef.current = setInterval(fetchAvailableOrders, 15000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
     };
-    schedule();
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); timerRef.current = null; };
-  }, [online]);
+  }, [online, fetchAvailableOrders]);
 
-  const onAccept = useCallback((order) => {
+  const onAccept = useCallback(async (order) => {
     const key = orderKey(order);
+    // Retrait optimiste de la liste disponible
     setAvailable(prev => prev.filter(o => orderKey(o) !== key));
-    setActive(prev => [{ ...order, status: 'active' }, ...prev]);
-    setActiveSteps(prev => ({ ...prev, [key]: { stepIndex: 0, stepLabel: 'Récupération' } }));
-    navigation.navigate('DeliveryFlow', { order });
+    try {
+      const res = await deliveryService.acceptDelivery(order.order_id);
+      const assignment = res?.data ? adaptAssignment(res.data) : { ...order, status: 'accepted' };
+      setActive(prev => [{ ...assignment, status: 'active' }, ...prev]);
+      setActiveSteps(prev => ({ ...prev, [orderKey(assignment)]: { stepIndex: 0, stepLabel: 'Récupération' } }));
+      navigation.navigate('DeliveryFlow', { order: assignment });
+    } catch {
+      // Remettre la commande dans la liste si l'accept échoue
+      setAvailable(prev => [order, ...prev]);
+      Alert.alert('Erreur', 'Impossible d\'accepter la commande. Veuillez réessayer.');
+    }
   }, [navigation]);
 
   const onResumeActive = useCallback((order) => {

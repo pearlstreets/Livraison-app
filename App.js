@@ -23,6 +23,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { initOneSignalOnce } from './services/oneSignalInit';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { useLocationTracking } from './hooks/useLocationTracking';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import LoginScreen from './screens/LoginScreen';
 import OrdersScreen from './screens/OrdersScreen';
@@ -129,7 +130,8 @@ function MenuStackScreen() {
 }
 
 function Main() {
-  const { user, getUnreadTicketCount, getUnreadOpportunitiesCount } = useAuth();
+  const { user, bootstrapping, isOnline, getUnreadTicketCount, getUnreadOpportunitiesCount } = useAuth();
+  useLocationTracking(isOnline);
   const totalProfileNotifs = getUnreadTicketCount() + getUnreadOpportunitiesCount(4);
   const { t } = useLanguage();
 
@@ -152,6 +154,7 @@ function Main() {
     })();
   }, []);
 
+  if (bootstrapping) return null;
   if (!user) return <LoginScreen />;
 
   return (

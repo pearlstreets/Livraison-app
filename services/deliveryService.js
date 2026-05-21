@@ -16,13 +16,17 @@ export const deliveryService = {
     return data;
   },
 
-  async acceptDelivery(assignmentId) {
-    const { data } = await api.post('/api/v1/delivery/accept/', { assignment_id: assignmentId });
+  async acceptDelivery(orderId) {
+    // Backend expects `order_id` (the order to assign), not the assignment id.
+    const { data } = await api.post('/api/v1/delivery/accept/', { order_id: orderId });
     return data;
   },
 
-  async updateDeliveryStatus(assignmentId, status) {
-    const { data } = await api.patch(`/api/v1/delivery/assignments/${assignmentId}/status/`, { status });
+  async updateDeliveryStatus(assignmentId, status, deliveryCode) {
+    // The final `delivered` transition requires the customer's 4-digit code.
+    const body = { status };
+    if (deliveryCode) body.delivery_code = deliveryCode;
+    const { data } = await api.patch(`/api/v1/delivery/assignments/${assignmentId}/status/`, body);
     return data;
   },
 
@@ -33,6 +37,16 @@ export const deliveryService = {
 
   async getDeliveryHistory(page = 1) {
     const { data } = await api.get('/api/v1/delivery/history/', { params: { page } });
+    return data;
+  },
+
+  async getPenalties() {
+    const { data } = await api.get('/api/v1/delivery/penalties/');
+    return data;
+  },
+
+  async requestStripeConnect() {
+    const { data } = await api.post('/api/v1/delivery/stripe/connect/');
     return data;
   },
 };

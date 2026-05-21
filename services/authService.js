@@ -22,26 +22,6 @@ function clearSessionTimer() {
   }
 }
 
-// Simple SHA-256 hash using SubtleCrypto (available in React Native via expo-crypto or polyfill)
-async function hashPassword(password) {
-  try {
-    // Use a simple hash approach compatible with React Native
-    // In production, use expo-crypto or a proper library
-    let hash = 0;
-    const str = password + 'pearl_salt_v1';
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    // Convert to hex-like string for transmission
-    return 'ph_' + Math.abs(hash).toString(16).padStart(8, '0');
-  } catch {
-    // Fallback: return as-is (server should still hash)
-    return password;
-  }
-}
-
 // Token rotation: track refresh count to detect abuse
 let refreshCount = 0;
 const MAX_REFRESHES_PER_SESSION = 50;
@@ -63,10 +43,9 @@ export const authService = {
       throw new Error('Invalid email format');
     }
 
-    const hashedPwd = await hashPassword(password);
     const { data } = await api.post('/api/v1/delivery/login/', {
       email: sanitizeForApi(email),
-      password: hashedPwd,
+      password,
     });
 
     // Store tokens securely
@@ -91,7 +70,7 @@ export const authService = {
       ...payload,
       email: sanitizeForApi(payload.email),
       userName: payload.userName ? sanitizeForApi(payload.userName) : undefined,
-      password: await hashPassword(payload.password),
+      password: payload.password,
     };
 
     const { data } = await api.post('/api/v1/delivery/register/', sanitizedPayload);
@@ -100,7 +79,7 @@ export const authService = {
 
   async logout() {
     try {
-      const refreshToken = await AsyncStorage.getItem('refreshToken');
+      const refreshToken = await secureStorage.getSecure('refreshToken');
       if (refreshToken) {
         await api.post('/api/v1/delivery/logout/', { refresh: refreshToken });
       }
@@ -121,7 +100,7 @@ export const authService = {
       throw new Error('Session expired. Please log in again.');
     }
 
-    const refreshToken = await AsyncStorage.getItem('refreshToken');
+    const refreshToken = await secureStorage.getSecure('refreshToken');
     if (!refreshToken) throw new Error('No refresh token');
 
     const { data } = await api.post('/api/v1/delivery/token/refresh/', { refresh: refreshToken });
@@ -166,8 +145,8 @@ export const authService = {
 
   async updatePassword(oldPassword, newPassword) {
     const { data } = await api.post('/api/v1/delivery/update-password/', {
-      old_password: await hashPassword(oldPassword),
-      new_password: await hashPassword(newPassword),
+      old_password: oldPassword,
+      new_password: newPassword,
     });
     return data;
   },

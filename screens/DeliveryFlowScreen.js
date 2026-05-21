@@ -5,6 +5,15 @@ import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context'
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { sanitizeInput, createRateLimiter } from '../utils/validation';
+import { deliveryService } from '../services/deliveryService';
+
+// Mapping étapes UI → statuts backend
+const STEP_TO_STATUS = {
+  pickup:  'picked_up',
+  enroute: 'in_transit',
+  arrived: 'arrived',
+  // 'delivered' est envoyé séparément avec le code
+};
 
 // Rate limiter for slide buttons (prevent double triggers)
 const slideRateLimiter = createRateLimiter(2000);
@@ -241,8 +250,10 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const distance = order.distanceText || '—';
   const eta = order.etaText || '—';
   const orderId = order.id || order.code || 'Commande';
-
-  const REAL_CODE = '4521';
+  // ID de l'assignment backend (pour updateDeliveryStatus / cancelDelivery)
+  const assignmentId = order._assignmentId || order.id || null;
+  // Code de livraison fourni par le backend (4 chiffres)
+  const REAL_CODE = String(order.delivery_code || '');
 
   // Code step timer (10 min)
   useEffect(() => {
@@ -260,12 +271,19 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     }
   }, [step]);
 
-  const nextStep = useCallback(() => {
-    if (stepIndex < STEPS.length - 1) {
-      const next = stepIndex + 1;
-      setStepIndex(next);
+  const nextStep = useCallback(async () => {
+    if (stepIndex >= STEPS.length - 1) return;
+    const currentStep = STEPS[stepIndex];
+    const backendStatus = STEP_TO_STATUS[currentStep];
+    if (backendStatus && assignmentId) {
+      try {
+        await deliveryService.updateDeliveryStatus(assignmentId, backendStatus);
+      } catch {
+        // Non bloquant : on avance dans le flow UI même en cas d'erreur réseau
+      }
     }
-  }, [stepIndex]);
+    setStepIndex(stepIndex + 1);
+  }, [stepIndex, assignmentId]);
 
   // Sync step to OrdersScreen params whenever stepIndex changes (without navigating away)
   useEffect(() => {
@@ -321,6 +339,10 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     if (index === 3 && digit) {
       const entered = newCode.join('');
       if (entered === REAL_CODE) {
+        // Appel backend avec le code avant de passer à 'done'
+        if (assignmentId) {
+          deliveryService.updateDeliveryStatus(assignmentId, 'delivered', entered).catch(() => {});
+        }
         setTimeout(nextStep, 300);
       } else {
         Alert.alert(t('wrongCode'), t('wrongCodeMsg'));
@@ -328,7 +350,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
         codeRefs[0].current?.focus();
       }
     }
-  }, [code, nextStep, t]);
+  }, [code, nextStep, t, assignmentId]);
 
   // Progress indicator (memoized)
   const progress = useMemo(() => stepIndex / (STEPS.length - 1), [stepIndex]);
@@ -573,7 +595,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               ))}
             </View>
 
-            <Text style={ss.codeHint}>{t('demoCode')} : {REAL_CODE}</Text>
+            {!!REAL_CODE && <Text style={ss.codeHint}>{t('deliveryCode')} : {REAL_CODE}</Text>}
 
             {/* Décompte 10 min */}
             <View style={ss.codeTimerWrap}>
@@ -700,9 +722,13 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 <Text style={ss.cancelWarningText}>⚠️ Avertissement sera ajouté</Text>
               </View>
             )}
-            <Pressable style={ss.cancelConfirmBtn} onPress={() => {
+            <Pressable style={ss.cancelConfirmBtn} onPress={async () => {
               const result = cancelOrder();
               setShowCancelPopup(false);
+              // Appel backend annulation (fire-and-forget, ne bloque pas l'UI)
+              if (assignmentId) {
+                deliveryService.cancelDelivery(assignmentId).catch(() => {});
+              }
               const cancelledOrder = { ...order, status: 'cancelled', priceText: '0,00 €', cancelledAt: new Date().toISOString() };
               if (result.warning) {
                 Alert.alert(t('warning'), t('warningAdded'), [

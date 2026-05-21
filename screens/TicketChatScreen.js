@@ -1,106 +1,104 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TextInput, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { ticketService } from '../services/ticketService';
 
 const BRAND = '#00C29B';
 
-const AUTO_REPLIES = [
-  { delay: 1500, text: 'Bonjour ! Merci de nous contacter. Un agent va prendre en charge votre demande.' },
-  { delay: 4000, text: 'Je consulte les détails de votre course. Un instant s\'il vous plaît...' },
-  { delay: 8000, text: 'J\'ai bien retrouvé votre course. Comment puis-je vous aider exactement ?' },
-];
+function formatTime(dateStr) {
+  if (!dateStr) return '';
+  try {
+    const d = new Date(dateStr);
+    return `${d.getHours()}h${String(d.getMinutes()).padStart(2, '0')}`;
+  } catch {
+    return '';
+  }
+}
 
-function buildInitialMessages(orderId) {
-  const now = new Date();
-  return [
-    { id: '0', type: 'system', text: `Ticket ouvert pour la commande ${orderId || 'N/A'}` },
-    ...AUTO_REPLIES.map((reply, i) => ({
-      id: `admin-${i}`,
-      type: 'admin',
-      text: reply.text,
-      time: new Date(now.getTime() - (AUTO_REPLIES.length - i) * 60000).toISOString(),
-    })),
-  ];
+function mapMessage(msg) {
+  // sender_type: 'user' = livreur, 'admin'/'system' = support
+  const type = msg.sender_type === 'user' ? 'user' : msg.sender_type === 'system' ? 'system' : 'admin';
+  return {
+    id: String(msg.id),
+    type,
+    text: msg.text || '',
+    time: msg.created_at || null,
+  };
 }
 
 export default function TicketChatScreen({ navigation, route }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { user, getTicketMessages, saveTicketMessages, markTicketRead, scheduleAdminReply, cancelAdminReply } = useAuth();
-  const order = route.params?.order || {};
-  const ticketId = order.id || 'unknown';
+  const ticketId = route.params?.ticketId || route.params?.order?.id || null;
   const flatListRef = useRef();
   const [input, setInput] = useState('');
-
-  // Load saved messages or create initial ones
-  const saved = getTicketMessages(ticketId);
-  const [messages, setMessages] = useState(saved || buildInitialMessages(ticketId));
-  const autoIndex = useRef(0);
-
-  // Check if ticket was already resolved (from TicketsList)
+  const [messages, setMessages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const initialResolved = route.params?.resolved || false;
   const [isResolvedState, setIsResolvedState] = useState(initialResolved);
 
-  // Save messages to AuthContext whenever they change
-  useEffect(() => {
-    saveTicketMessages(ticketId, messages);
-    markTicketRead(ticketId);
-  }, [messages]);
+  const loadMessages = useCallback(async () => {
+    if (!ticketId) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await ticketService.getTicketDetail(ticketId);
+      const ticket = res?.data?.ticket || res?.ticket || {};
+      const rawMsgs = res?.data?.messages || res?.messages || [];
+      const mapped = Array.isArray(rawMsgs) ? rawMsgs.map(mapMessage) : [];
 
-  // Mark as read on mount, schedule admin reply on unmount only if last msg is from user
-  useEffect(() => {
-    cancelAdminReply(ticketId);
-    markTicketRead(ticketId);
-    return () => {
-      const lastMsg = messages[messages.length - 1];
-      if (!isResolvedState && lastMsg?.type === 'user') {
-        scheduleAdminReply(ticketId);
+      // Derive resolved state from ticket status
+      const status = ticket.status || '';
+      if (status === 'resolved' || status === 'closed') {
+        setIsResolvedState(true);
       }
-    };
-  }, [messages, isResolvedState]);
 
-  function sendMessage() {
+      // Prepend system header if no system message present
+      if (mapped.length === 0 || mapped[0].type !== 'system') {
+        const orderId = ticket.assignment_id ? `ORD-${ticket.assignment_id}` : `TK-${ticketId}`;
+        mapped.unshift({ id: 'system-header', type: 'system', text: `Ticket ouvert pour la commande ${orderId}`, time: null });
+      }
+      setMessages(mapped);
+    } catch {
+      setMessages([{ id: 'system-error', type: 'system', text: 'Impossible de charger les messages', time: null }]);
+    } finally {
+      setLoading(false);
+    }
+  }, [ticketId]);
+
+  useEffect(() => {
+    loadMessages();
+  }, [loadMessages]);
+
+  async function sendMessage() {
     const text = input.trim();
-    if (!text || isResolvedState) return;
-    setMessages(prev => [...prev, {
-      id: `user-${Date.now()}`,
-      type: 'user',
-      text,
-      time: new Date().toISOString(),
-    }]);
+    if (!text || isResolvedState || sending) return;
+    setSending(true);
     setInput('');
-
-    // Auto reply after user message
-    setTimeout(() => {
-      const replies = [
-        'Merci pour cette information. Je note votre demande.',
-        'Je comprends. Laissez-moi vérifier cela pour vous.',
-        'Bien reçu. Notre équipe va traiter votre demande dans les plus brefs délais.',
-        'D\'accord, je transmets cela à notre équipe technique.',
-        'Merci de votre patience. Nous faisons le nécessaire.',
-        'Je vais vérifier cela avec notre équipe et revenir vers vous.',
-        'Votre demande est bien prise en compte. Merci.',
-        'Nous analysons la situation. Un instant s\'il vous plaît.',
-      ];
-      const idx = autoIndex.current % replies.length;
-      autoIndex.current++;
-
-      setMessages(prev => [...prev, {
-        id: `admin-reply-${Date.now()}`,
-        type: 'admin',
-        text: replies[idx],
-        time: new Date().toISOString(),
-      }]);
-    }, 2000 + Math.random() * 2000);
-  }
-
-  function formatTime(date) {
-    if (!date) return '';
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return `${d.getHours()}h${String(d.getMinutes()).padStart(2, '0')}`;
+    try {
+      const res = await ticketService.sendMessage(ticketId, text);
+      const newMsg = res?.data || res;
+      if (newMsg && newMsg.id) {
+        setMessages(prev => [...prev, mapMessage(newMsg)]);
+      } else {
+        // Optimistic fallback
+        setMessages(prev => [...prev, {
+          id: `user-${Date.now()}`,
+          type: 'user',
+          text,
+          time: new Date().toISOString(),
+        }]);
+      }
+    } catch {
+      // Restore input on error
+      setInput(text);
+    } finally {
+      setSending(false);
+    }
   }
 
   const renderMessage = ({ item }) => {
@@ -138,7 +136,7 @@ export default function TicketChatScreen({ navigation, route }) {
         </Pressable>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={s.headerTitle}>{t('ticketSupport')}</Text>
-          <Text style={s.headerSub}>{t('ticketTitle')} #{order.id || 'N/A'}</Text>
+          <Text style={s.headerSub}>{t('ticketTitle')} #{ticketId || 'N/A'}</Text>
         </View>
         {isResolvedState ? (
           <>
@@ -154,14 +152,18 @@ export default function TicketChatScreen({ navigation, route }) {
       </View>
 
       {/* Messages */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        renderItem={renderMessage}
-        keyExtractor={item => item.id}
-        contentContainerStyle={s.messagesList}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-      />
+      {loading ? (
+        <ActivityIndicator size="small" color={BRAND} style={{ flex: 1, alignSelf: 'center' }} />
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={item => item.id}
+          contentContainerStyle={s.messagesList}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        />
+      )}
 
       {/* Input or closed banner */}
       {isResolvedState ? (
@@ -179,9 +181,10 @@ export default function TicketChatScreen({ navigation, route }) {
             onChangeText={setInput}
             onSubmitEditing={sendMessage}
             returnKeyType="send"
+            editable={!sending}
           />
-          <Pressable style={[s.sendBtn, !input.trim() && { opacity: 0.4 }]} onPress={sendMessage} disabled={!input.trim()}>
-            <Ionicons name="send" size={20} color="#fff" />
+          <Pressable style={[s.sendBtn, (!input.trim() || sending) && { opacity: 0.4 }]} onPress={sendMessage} disabled={!input.trim() || sending}>
+            {sending ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={20} color="#fff" />}
           </Pressable>
         </View>
       )}
