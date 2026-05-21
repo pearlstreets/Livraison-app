@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { isValidEmail, sanitizeInput, isStrongPassword } from '../utils/validation';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { uploadService } from '../services/uploadService';
 
 // NOTE: To prevent screen capture in production, consider using
@@ -153,7 +154,20 @@ export default function LoginScreen() {
   const selectedPhoneCountry = COUNTRIES.find(c => c.code === phoneCountry) || COUNTRIES[0];
   const phoneFmt = phoneFmtFor(phoneCountry);
 
-  const pickDocument = async (setter) => {
+  // Photos (selfie, ID card) use the image library; paperwork (KBIS, RIB,
+  // proof of address, RC Pro, URSSAF) also accepts a PDF via the file picker.
+  const pickDocument = async (setter, allowPdf = false) => {
+    if (allowPdf) {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*', 'application/pdf'],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets?.length > 0) {
+        const asset = result.assets[0];
+        setter({ uri: asset.uri, size: asset.size ?? null, type: asset.mimeType ?? 'application/octet-stream' });
+      }
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (!result.canceled && result.assets?.length > 0) {
       const asset = result.assets[0];
@@ -162,17 +176,18 @@ export default function LoginScreen() {
   };
 
   // Mandatory registration documents. Same base set for every driver;
-  // pros also provide their company paperwork.
+  // pros also provide their company paperwork. `pdf: true` → the file
+  // picker also accepts a PDF; photos (selfie, ID card) stay image-only.
   const docFields = [
-    { slot: 'profile_photo', url: 'profile_photo_url', label: 'Photo de profil (votre visage, de face)', value: docPhoto, setter: setDocPhoto, icon: 'person-circle-outline' },
-    { slot: 'id_front', url: 'id_card_front_url', label: "Pièce d'identité (recto)", value: docIdFront, setter: setDocIdFront, icon: 'card-outline' },
-    { slot: 'id_back', url: 'id_card_back_url', label: "Pièce d'identité (verso)", value: docIdBack, setter: setDocIdBack, icon: 'card-outline' },
-    { slot: 'proof_of_address', url: 'proof_of_address_url', label: 'Justificatif de domicile (- 3 mois)', value: docProofAddress, setter: setDocProofAddress, icon: 'home-outline' },
-    { slot: 'iban', url: 'iban_doc_url', label: 'RIB', value: docIban, setter: setDocIban, icon: 'wallet-outline' },
+    { slot: 'profile_photo', url: 'profile_photo_url', label: 'Photo de profil (votre visage, de face)', value: docPhoto, setter: setDocPhoto, icon: 'person-circle-outline', pdf: false },
+    { slot: 'id_front', url: 'id_card_front_url', label: "Pièce d'identité (recto)", value: docIdFront, setter: setDocIdFront, icon: 'card-outline', pdf: false },
+    { slot: 'id_back', url: 'id_card_back_url', label: "Pièce d'identité (verso)", value: docIdBack, setter: setDocIdBack, icon: 'card-outline', pdf: false },
+    { slot: 'proof_of_address', url: 'proof_of_address_url', label: 'Justificatif de domicile (- 3 mois)', value: docProofAddress, setter: setDocProofAddress, icon: 'home-outline', pdf: true },
+    { slot: 'iban', url: 'iban_doc_url', label: 'RIB', value: docIban, setter: setDocIban, icon: 'wallet-outline', pdf: true },
     ...(isPro ? [
-      { slot: 'rc_pro', url: 'rc_pro_url', label: 'Attestation RC Pro', value: docRcPro, setter: setDocRcPro, icon: 'shield-checkmark-outline' },
-      { slot: 'urssaf', url: 'urssaf_doc_url', label: 'Attestation URSSAF', value: docUrssaf, setter: setDocUrssaf, icon: 'document-text-outline' },
-      { slot: 'kbis', url: 'kbis_doc_url', label: 'KBIS', value: docKbiss, setter: setDocKbiss, icon: 'document-text-outline' },
+      { slot: 'rc_pro', url: 'rc_pro_url', label: 'Attestation RC Pro', value: docRcPro, setter: setDocRcPro, icon: 'shield-checkmark-outline', pdf: true },
+      { slot: 'urssaf', url: 'urssaf_doc_url', label: 'Attestation URSSAF', value: docUrssaf, setter: setDocUrssaf, icon: 'document-text-outline', pdf: true },
+      { slot: 'kbis', url: 'kbis_doc_url', label: 'KBIS', value: docKbiss, setter: setDocKbiss, icon: 'document-text-outline', pdf: true },
     ] : []),
   ];
 
@@ -440,7 +455,7 @@ export default function LoginScreen() {
           {mode === 'signup' && step === 3 && (
             <>
               {docFields.map((doc, i) => (
-                <TouchableOpacity key={doc.slot} onPress={() => pickDocument(doc.setter)} style={{
+                <TouchableOpacity key={doc.slot} onPress={() => pickDocument(doc.setter, doc.pdf)} style={{
                   flexDirection:'row', alignItems:'center', padding:14, borderWidth:1,
                   borderColor: doc.value?.uri ? BRAND : '#E5E7EB', borderRadius:12, marginBottom:10,
                   backgroundColor: doc.value?.uri ? '#F0FDF4' : '#fff'
