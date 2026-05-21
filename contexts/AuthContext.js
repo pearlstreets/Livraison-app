@@ -232,21 +232,15 @@ export function AuthProvider({ children }) {
       if (data.companyName) payload.legal_name = data.companyName;
       if (data.documents) {
         const d = data.documents;
-        if (d.id_card_front_url) payload.id_card_front_url = d.id_card_front_url;
-        if (d.id_card_back_url) payload.id_card_back_url = d.id_card_back_url;
-        if (d.iban_doc_url) payload.iban_doc_url = d.iban_doc_url;
-        if (d.kbis_doc_url) payload.kbis_doc_url = d.kbis_doc_url;
+        [
+          'id_card_front_url', 'id_card_back_url', 'iban_doc_url', 'kbis_doc_url',
+          'rc_pro_url', 'urssaf_doc_url', 'proof_of_address_url', 'profile_photo_url',
+        ].forEach((k) => { if (d[k]) payload[k] = d[k]; });
       }
-      const res = await authService.register(payload);
-      // Particulier drivers are usable immediately -> open a session.
-      // Pro drivers wait for document validation -> no auto-login.
-      if (!isPro && res?.access_token) {
-        await secureStorage.setSecure('accessToken', res.access_token);
-        await secureStorage.setSecure('refreshToken', res.refresh_token);
-        applyProfile(res.user);
-        await refreshAll();
-      }
-      return { ok: true, pending: isPro };
+      await authService.register(payload);
+      // Every new driver starts pending admin validation of their
+      // documents — no auto-login; the app shows the pending screen.
+      return { ok: true, pending: true };
     } catch (e) {
       return { ok: false, error: e?.message || 'register_failed' };
     }

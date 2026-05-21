@@ -131,6 +131,10 @@ export default function LoginScreen() {
   const [docIdBack, setDocIdBack] = useState(null);
   const [docIban, setDocIban] = useState(null);
   const [docKbiss, setDocKbiss] = useState(null);
+  const [docPhoto, setDocPhoto] = useState(null);
+  const [docProofAddress, setDocProofAddress] = useState(null);
+  const [docRcPro, setDocRcPro] = useState(null);
+  const [docUrssaf, setDocUrssaf] = useState(null);
 
   // Modals
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
@@ -156,6 +160,21 @@ export default function LoginScreen() {
       setter({ uri: asset.uri, size: asset.fileSize ?? null, type: asset.mimeType ?? 'image/jpeg' });
     }
   };
+
+  // Mandatory registration documents. Same base set for every driver;
+  // pros also provide their company paperwork.
+  const docFields = [
+    { slot: 'profile_photo', url: 'profile_photo_url', label: 'Photo de profil (votre visage, de face)', value: docPhoto, setter: setDocPhoto, icon: 'person-circle-outline' },
+    { slot: 'id_front', url: 'id_card_front_url', label: "Pièce d'identité (recto)", value: docIdFront, setter: setDocIdFront, icon: 'card-outline' },
+    { slot: 'id_back', url: 'id_card_back_url', label: "Pièce d'identité (verso)", value: docIdBack, setter: setDocIdBack, icon: 'card-outline' },
+    { slot: 'proof_of_address', url: 'proof_of_address_url', label: 'Justificatif de domicile (- 3 mois)', value: docProofAddress, setter: setDocProofAddress, icon: 'home-outline' },
+    { slot: 'iban', url: 'iban_doc_url', label: 'RIB', value: docIban, setter: setDocIban, icon: 'wallet-outline' },
+    ...(isPro ? [
+      { slot: 'rc_pro', url: 'rc_pro_url', label: 'Attestation RC Pro', value: docRcPro, setter: setDocRcPro, icon: 'shield-checkmark-outline' },
+      { slot: 'urssaf', url: 'urssaf_doc_url', label: 'Attestation URSSAF', value: docUrssaf, setter: setDocUrssaf, icon: 'document-text-outline' },
+      { slot: 'kbis', url: 'kbis_doc_url', label: 'KBIS', value: docKbiss, setter: setDocKbiss, icon: 'document-text-outline' },
+    ] : []),
+  ];
 
   // Back navigation
   const handleBack = () => {
@@ -212,36 +231,26 @@ export default function LoginScreen() {
     if (step === 2) {
       if (!nom.trim() || !prenom.trim() || !phone.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
       if (isPro && !companyName.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
-      if (isPro) { setStep(3); return; }
-      // Particulier: register directly
-      setLoading(true);
-      const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, role: 'user' });
-      setLoading(false);
-      if (result && result.ok) return; // AuthContext handles navigation
-      setError((result && result.error) || t('errorEmailExists') || 'Un compte avec cet email existe déjà');
+      // Every driver (individual + pro) continues to the documents step.
+      setStep(3);
       return;
     }
-    // Step 3: documents (pro)
-    if (!docIdFront?.uri || !docIdBack?.uri || !docIban?.uri || !docKbiss?.uri) { setError(t('errorDocsRequired') || "Carte d'identité, IBAN et KBISS sont obligatoires"); return; }
+    // Step 3: documents (every driver)
+    if (docFields.some(f => !f.value?.uri)) { setError(t('errorDocsRequired') || 'Tous les documents sont obligatoires.'); return; }
     setLoading(true);
     let docUrls;
     try {
-      const uploadSlots = [
-        { doc: docIdFront, slot: 'id_front' },
-        { doc: docIdBack, slot: 'id_back' },
-        { doc: docIban, slot: 'iban' },
-        { doc: docKbiss, slot: 'kbis' },
-      ];
-      const urls = await Promise.all(uploadSlots.map(({ doc, slot }) =>
-        uploadService.uploadDriverDoc({ fileUri: doc.uri, slot, size: doc.size, contentType: doc.type })
+      const urls = await Promise.all(docFields.map(f =>
+        uploadService.uploadDriverDoc({ fileUri: f.value.uri, slot: f.slot, size: f.value.size, contentType: f.value.type })
       ));
-      docUrls = { id_card_front_url: urls[0], id_card_back_url: urls[1], iban_doc_url: urls[2], kbis_doc_url: urls[3] };
+      docUrls = {};
+      docFields.forEach((f, i) => { docUrls[f.url] = urls[i]; });
     } catch (uploadErr) {
       setLoading(false);
       setError(t('errorUploadFailed') || "Échec de l'envoi des documents. Veuillez réessayer.");
       return;
     }
-    const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), role: 'professionaluser', isVerified: false, documents: docUrls });
+    const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), role: isPro ? 'professionaluser' : 'user', documents: docUrls });
     setLoading(false);
     if (result && result.ok) { setPendingValidation(true); return; }
     setError((result && result.error) || 'Une erreur est survenue. Veuillez réessayer.');
@@ -427,16 +436,11 @@ export default function LoginScreen() {
             </>
           )}
 
-          {/* === SIGNUP STEP 3: Documents (Pro) === */}
+          {/* === SIGNUP STEP 3: Documents (every driver) === */}
           {mode === 'signup' && step === 3 && (
             <>
-              {[
-                { label: t('docIdFront') || "Carte d'identité (recto)", value: docIdFront, setter: setDocIdFront, icon: 'card-outline' },
-                { label: t('docIdBack') || "Carte d'identité (verso)", value: docIdBack, setter: setDocIdBack, icon: 'card-outline' },
-                { label: t('docIban') || 'IBAN / RIB', value: docIban, setter: setDocIban, icon: 'wallet-outline' },
-                { label: t('docKbiss') || 'KBISS', value: docKbiss, setter: setDocKbiss, icon: 'document-text-outline' },
-              ].map((doc, i) => (
-                <TouchableOpacity key={i} onPress={() => pickDocument(doc.setter)} style={{
+              {docFields.map((doc, i) => (
+                <TouchableOpacity key={doc.slot} onPress={() => pickDocument(doc.setter)} style={{
                   flexDirection:'row', alignItems:'center', padding:14, borderWidth:1,
                   borderColor: doc.value?.uri ? BRAND : '#E5E7EB', borderRadius:12, marginBottom:10,
                   backgroundColor: doc.value?.uri ? '#F0FDF4' : '#fff'
