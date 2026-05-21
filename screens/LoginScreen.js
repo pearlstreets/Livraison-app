@@ -62,6 +62,46 @@ const COUNTRIES = [
   { code: 'HT', flag: '🇭🇹', name: 'Haïti', phoneCode: '+509' },
 ];
 
+// National phone format per country: len = national digit count, groups = spacing.
+const PHONE_FMT = {
+  FR:{len:9,groups:[1,2,2,2,2]}, BE:{len:9,groups:[3,2,2,2]}, GB:{len:10,groups:[4,3,3]},
+  DE:{len:11,groups:[4,7]}, IT:{len:10,groups:[3,3,4]}, ES:{len:9,groups:[3,3,3]},
+  PT:{len:9,groups:[3,3,3]}, NL:{len:9,groups:[1,4,4]}, CH:{len:9,groups:[2,3,2,2]},
+  LU:{len:9,groups:[3,2,2,2]}, AT:{len:10,groups:[3,3,4]}, IE:{len:9,groups:[2,3,4]},
+  SE:{len:9,groups:[2,3,2,2]}, DK:{len:8,groups:[2,2,2,2]}, NO:{len:8,groups:[3,2,3]},
+  FI:{len:9,groups:[2,3,4]}, PL:{len:9,groups:[3,3,3]}, MA:{len:9,groups:[3,3,3]},
+  TN:{len:8,groups:[2,3,3]}, DZ:{len:9,groups:[3,2,2,2]}, SN:{len:9,groups:[2,3,2,2]},
+  CI:{len:10,groups:[2,2,2,2,2]}, CM:{len:9,groups:[3,3,3]}, CD:{len:9,groups:[3,3,3]},
+  EG:{len:10,groups:[3,3,4]}, LB:{len:8,groups:[2,3,3]}, AE:{len:9,groups:[2,3,4]},
+  SA:{len:9,groups:[2,3,4]}, TR:{len:10,groups:[3,3,4]}, US:{len:10,groups:[3,3,4]},
+  CA:{len:10,groups:[3,3,4]}, MX:{len:10,groups:[2,4,4]}, BR:{len:11,groups:[2,5,4]},
+  AU:{len:9,groups:[3,3,3]}, JP:{len:10,groups:[2,4,4]}, IN:{len:10,groups:[5,5]},
+  RU:{len:10,groups:[3,3,2,2]}, ZA:{len:9,groups:[2,3,4]}, NG:{len:10,groups:[3,3,4]},
+  KE:{len:9,groups:[3,3,3]}, GP:{len:9,groups:[3,2,2,2]}, MQ:{len:9,groups:[3,2,2,2]},
+  RE:{len:9,groups:[3,2,2,2]}, GF:{len:9,groups:[3,2,2,2]}, HT:{len:8,groups:[2,2,2,2]},
+};
+const DEFAULT_PHONE_FMT = { len: 10, groups: [3, 3, 4] };
+const phoneFmtFor = (code) => PHONE_FMT[code] || DEFAULT_PHONE_FMT;
+
+// Group raw digits with spaces following the selected country's pattern.
+function formatPhone(value, fmt) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, fmt.len);
+  const parts = [];
+  let i = 0;
+  for (const g of fmt.groups) {
+    if (i >= digits.length) break;
+    parts.push(digits.slice(i, i + g));
+    i += g;
+  }
+  if (i < digits.length) parts.push(digits.slice(i));
+  return parts.join(' ');
+}
+
+// Placeholder showing the country shape, e.g. FR -> "6 12 34 56 78".
+function phonePlaceholder(fmt) {
+  return formatPhone('6123456789012345'.slice(0, fmt.len), fmt);
+}
+
 export default function LoginScreen() {
   const { t, lang, setLang, LANGUAGES } = useLanguage();
   const { login, register } = useAuth();
@@ -107,6 +147,7 @@ export default function LoginScreen() {
 
   const selectedCountry = COUNTRIES.find(c => c.code === country) || COUNTRIES[0];
   const selectedPhoneCountry = COUNTRIES.find(c => c.code === phoneCountry) || COUNTRIES[0];
+  const phoneFmt = phoneFmtFor(phoneCountry);
 
   const pickDocument = async (setter) => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
@@ -378,7 +419,7 @@ export default function LoginScreen() {
                   <Text style={{fontSize:14, fontWeight:'600', color:'#111'}}>{selectedPhoneCountry.phoneCode}</Text>
                   <Ionicons name="chevron-down" size={14} color="#9CA3AF" style={{marginLeft:4}} />
                 </TouchableOpacity>
-                <TextInput style={[s.input, {flex:1}]} value={phone} onChangeText={setPhone} placeholder="6 12 34 56 78" placeholderTextColor="#aaa" keyboardType="phone-pad" />
+                <TextInput style={[s.input, {flex:1}]} value={formatPhone(phone, phoneFmt)} onChangeText={(txt) => setPhone(txt.replace(/\D/g, '').slice(0, phoneFmt.len))} placeholder={phonePlaceholder(phoneFmt)} placeholderTextColor="#aaa" keyboardType="phone-pad" maxLength={phoneFmt.len + phoneFmt.groups.length} />
               </View>
               <Pressable style={s.btn} onPress={handleSignup}>
                 <Text style={s.btnTxt}>{isPro ? (t('next') || 'Suivant') : (t('signUp') || "S'inscrire")}</Text>
@@ -451,7 +492,7 @@ export default function LoginScreen() {
                 <TouchableOpacity onPress={() => setCountryPickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
               </View>
               <FlatList data={COUNTRIES} keyExtractor={c => c.code} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: c}) => (
-                <TouchableOpacity onPress={() => { setCountry(c.code); setPhoneCountry(c.code); setCountryPickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: country === c.code ? '#F0FDF4' : '#fff'}}>
+                <TouchableOpacity onPress={() => { setCountry(c.code); setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setCountryPickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: country === c.code ? '#F0FDF4' : '#fff'}}>
                   <Text style={{fontSize:24, marginRight:14}}>{c.flag}</Text>
                   <Text style={{flex:1, fontSize:16, fontWeight: country === c.code ? '700' : '500', color: country === c.code ? BRAND : '#111'}}>{c.name}</Text>
                   {country === c.code && <Ionicons name="checkmark-circle" size={20} color={BRAND} />}
@@ -470,7 +511,7 @@ export default function LoginScreen() {
                 <TouchableOpacity onPress={() => setPhonePickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
               </View>
               <FlatList data={COUNTRIES} keyExtractor={c => c.code + '_p'} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: c}) => (
-                <TouchableOpacity onPress={() => { setPhoneCountry(c.code); setPhonePickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: phoneCountry === c.code ? '#F0FDF4' : '#fff'}}>
+                <TouchableOpacity onPress={() => { setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setPhonePickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: phoneCountry === c.code ? '#F0FDF4' : '#fff'}}>
                   <Text style={{fontSize:24, marginRight:14}}>{c.flag}</Text>
                   <Text style={{flex:1, fontSize:16, fontWeight: phoneCountry === c.code ? '700' : '500', color: phoneCountry === c.code ? BRAND : '#111'}}>{c.name}</Text>
                   <Text style={{fontSize:14, fontWeight:'700', color:'#374151'}}>{c.phoneCode}</Text>
