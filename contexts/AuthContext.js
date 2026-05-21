@@ -230,6 +230,13 @@ export function AuthProvider({ children }) {
         legal_status: isPro ? 'societe' : 'particulier',
       };
       if (data.companyName) payload.legal_name = data.companyName;
+      if (data.documents) {
+        const d = data.documents;
+        if (d.id_card_front_url) payload.id_card_front_url = d.id_card_front_url;
+        if (d.id_card_back_url) payload.id_card_back_url = d.id_card_back_url;
+        if (d.iban_doc_url) payload.iban_doc_url = d.iban_doc_url;
+        if (d.kbis_doc_url) payload.kbis_doc_url = d.kbis_doc_url;
+      }
       const res = await authService.register(payload);
       // Particulier drivers are usable immediately -> open a session.
       // Pro drivers wait for document validation -> no auto-login.

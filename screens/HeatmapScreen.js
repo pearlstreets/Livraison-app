@@ -1,10 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
 import MapView, { Heatmap, PROVIDER_DEFAULT } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { deliveryService } from '../services/deliveryService';
 
 const BRAND = '#00C29B';
 const { width, height } = Dimensions.get('window');
@@ -12,65 +14,40 @@ const { width, height } = Dimensions.get('window');
 // Meaux center
 const MEAUX = { latitude: 48.9536, longitude: 2.8788 };
 
-// Hot zones - simulated demand points around Meaux
-const HEATMAP_POINTS = [
-  // Centre-ville Meaux (zone tres chaude)
-  { latitude: 48.9536, longitude: 2.8788, weight: 10 },
-  { latitude: 48.9540, longitude: 2.8800, weight: 9 },
-  { latitude: 48.9530, longitude: 2.8775, weight: 8 },
-  { latitude: 48.9545, longitude: 2.8810, weight: 9 },
-  { latitude: 48.9525, longitude: 2.8760, weight: 7 },
-  { latitude: 48.9550, longitude: 2.8795, weight: 8 },
-  { latitude: 48.9535, longitude: 2.8820, weight: 7 },
-  { latitude: 48.9520, longitude: 2.8790, weight: 6 },
-  { latitude: 48.9555, longitude: 2.8770, weight: 5 },
-  { latitude: 48.9528, longitude: 2.8830, weight: 6 },
-
-  // Zone gare (chaude)
-  { latitude: 48.9580, longitude: 2.8750, weight: 8 },
-  { latitude: 48.9575, longitude: 2.8740, weight: 7 },
-  { latitude: 48.9585, longitude: 2.8760, weight: 6 },
-  { latitude: 48.9590, longitude: 2.8735, weight: 5 },
-
-  // Zone commerciale sud (chaude)
-  { latitude: 48.9480, longitude: 2.8850, weight: 7 },
-  { latitude: 48.9475, longitude: 2.8860, weight: 8 },
-  { latitude: 48.9470, longitude: 2.8840, weight: 6 },
-  { latitude: 48.9485, longitude: 2.8870, weight: 7 },
-  { latitude: 48.9465, longitude: 2.8855, weight: 5 },
-
-  // Mareuil-les-Meaux (moyenne)
-  { latitude: 48.9450, longitude: 2.8650, weight: 5 },
-  { latitude: 48.9445, longitude: 2.8640, weight: 4 },
-  { latitude: 48.9455, longitude: 2.8660, weight: 4 },
-  { latitude: 48.9440, longitude: 2.8635, weight: 3 },
-
-  // Villenoy (moyenne)
-  { latitude: 48.9600, longitude: 2.8600, weight: 4 },
-  { latitude: 48.9610, longitude: 2.8590, weight: 3 },
-  { latitude: 48.9605, longitude: 2.8610, weight: 4 },
-
-  // Zones peripheriques (froides)
-  { latitude: 48.9650, longitude: 2.8900, weight: 2 },
-  { latitude: 48.9400, longitude: 2.8500, weight: 2 },
-  { latitude: 48.9700, longitude: 2.8700, weight: 1 },
-  { latitude: 48.9380, longitude: 2.8950, weight: 2 },
-  { latitude: 48.9620, longitude: 2.9000, weight: 3 },
-  { latitude: 48.9500, longitude: 2.8450, weight: 2 },
-
-  // Quelques points supplementaires centre
-  { latitude: 48.9538, longitude: 2.8805, weight: 8 },
-  { latitude: 48.9542, longitude: 2.8780, weight: 7 },
-  { latitude: 48.9532, longitude: 2.8815, weight: 6 },
-  { latitude: 48.9548, longitude: 2.8770, weight: 5 },
-];
-
 export default function HeatmapScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { currentEarningsCents, isOnline } = useAuth();
   const { t } = useLanguage();
   const mapRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
+  const [heatmapPoints, setHeatmapPoints] = useState([]);
+
+  const fetchHeatmap = useCallback(async () => {
+    try {
+      const res = await deliveryService.getHeatmap();
+      const zones = Array.isArray(res?.data) ? res.data : [];
+      const points = zones
+        .filter(z => z.lat != null && z.lng != null)
+        .map(z => ({
+          latitude: z.lat,
+          longitude: z.lng,
+          weight: z.intensity != null ? z.intensity : (z.estimated_demand != null ? z.estimated_demand : 1),
+        }));
+      setHeatmapPoints(points);
+    } catch (_) {
+      // Keep existing points on error
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHeatmap();
+  }, [fetchHeatmap]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchHeatmap();
+    }, [fetchHeatmap])
+  );
 
   const earningsDisplay = (currentEarningsCents / 100).toFixed(2).replace('.', ',') + ' \u20ac';
 
@@ -96,9 +73,9 @@ export default function HeatmapScreen({ navigation }) {
         userInterfaceStyle="dark"
         onMapReady={() => setMapReady(true)}
       >
-        {mapReady && (
+        {mapReady && heatmapPoints.length > 0 && (
           <Heatmap
-            points={HEATMAP_POINTS}
+            points={heatmapPoints}
             radius={40}
             opacity={0.7}
             gradient={{

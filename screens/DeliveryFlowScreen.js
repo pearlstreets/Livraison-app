@@ -229,7 +229,29 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');
   const [sentQuicks, setSentQuicks] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
   const chatListRef = useRef(null);
+
+  const openChat = useCallback(async () => {
+    setShowChat(true);
+    if (!assignmentId) return;
+    setChatLoading(true);
+    try {
+      const res = await deliveryService.getClientMessages(assignmentId);
+      const msgs = Array.isArray(res?.data) ? res.data : [];
+      setChatMessages(msgs.map(m => ({
+        id: m.id,
+        text: m.text,
+        from: m.sender_type === 'user' ? 'me' : 'client',
+        time: m.created_at ? new Date(m.created_at) : new Date(),
+      })));
+      setTimeout(() => chatListRef.current?.scrollToEnd({ animated: false }), 100);
+    } catch (_) {
+      // Keep empty messages on error
+    } finally {
+      setChatLoading(false);
+    }
+  }, [assignmentId]);
   const QUICK_MSGS = [
     "J'arrive bientôt",
     "Je suis devant la porte",
@@ -545,7 +567,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('callTheClient')}</Text>
             </Pressable>
 
-            <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={() => setShowChat(true)}>
+            <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={openChat}>
               <Ionicons name="chatbubble-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
               <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>Message client</Text>
             </Pressable>
@@ -562,7 +584,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             onWarning={addWarning}
             showCallPopup={showCallPopup}
             setShowCallPopup={setShowCallPopup}
-            onMessage={() => setShowChat(true)}
+            onMessage={openChat}
             onOpenMap={openMap}
           />
         )}
@@ -610,7 +632,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('callTheClient') || 'Appeler le client'}</Text>
             </Pressable>
 
-            <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={() => setShowChat(true)}>
+            <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={openChat}>
               <Ionicons name="chatbubble-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
               <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>Message client</Text>
             </Pressable>
@@ -921,12 +943,17 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             {[...QUICK_MSGS.filter(m => !sentQuicks.includes(m)), ...sentQuicks].map((msg, i) => {
               const isSent = sentQuicks.includes(msg);
               return (
-                <Pressable key={i} style={[ss.quickChipSmall, isSent && ss.quickChipSent]} onPress={() => {
+                <Pressable key={i} style={[ss.quickChipSmall, isSent && ss.quickChipSent]} onPress={async () => {
                   if (isSent) return;
                   const m = { id: Date.now(), text: msg, from: 'me', time: new Date() };
                   setChatMessages(prev => [...prev, m]);
                   setSentQuicks(prev => [...prev, msg]);
                   setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 100);
+                  if (assignmentId) {
+                    try {
+                      await deliveryService.sendClientMessage(assignmentId, msg);
+                    } catch (_) {}
+                  }
                 }} disabled={isSent}>
                   <Text style={[ss.quickChipSmallText, isSent && ss.quickChipSentText]}>{msg}</Text>
                   {isSent && <Ionicons name="checkmark" size={14} color="#999" style={{ marginLeft: 4 }} />}
@@ -941,7 +968,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               value={chatInput}
               onChangeText={setChatInput}
             />
-            <Pressable style={[ss.chatSendBtn, !chatInput.trim() && { opacity: 0.4 }]} onPress={() => {
+            <Pressable style={[ss.chatSendBtn, !chatInput.trim() && { opacity: 0.4 }]} onPress={async () => {
               if (!chatInput.trim()) return;
               const sanitized = sanitizeInput(chatInput);
               if (!sanitized) return;
@@ -949,6 +976,11 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               setChatMessages(prev => [...prev, m]);
               setChatInput('');
               setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 100);
+              if (assignmentId) {
+                try {
+                  await deliveryService.sendClientMessage(assignmentId, sanitized);
+                } catch (_) {}
+              }
             }}>
               <Ionicons name="send" size={18} color="#fff" />
             </Pressable>

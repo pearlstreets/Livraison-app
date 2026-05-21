@@ -49,4 +49,19 @@ export const deliveryService = {
     const { data } = await api.post('/api/v1/delivery/stripe/connect/');
     return data;
   },
+
+  async getHeatmap() {
+    const { data } = await api.get('/api/v1/delivery/heatmap/');
+    return data;
+  },
+
+  async getClientMessages(assignmentId) {
+    const { data } = await api.get(`/api/v1/delivery/assignments/${assignmentId}/client-message/`);
+    return data;
+  },
+
+  async sendClientMessage(assignmentId, text) {
+    const { data } = await api.post(`/api/v1/delivery/assignments/${assignmentId}/client-message/`, { text });
+    return data;
+  },
 };

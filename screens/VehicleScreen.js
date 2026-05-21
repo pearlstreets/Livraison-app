@@ -7,22 +7,27 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 const BRAND = '#00C29B';
 
+// Valeurs backend : bicycle / scooter / car / walk
 const VEHICLES = [
-  { id: 'Vélo', icon: 'bicycle', labelKey: 'bike' },
-  { id: 'Voiture', icon: 'car-outline', labelKey: 'car' },
-  { id: 'Camion', icon: 'bus-outline', labelKey: 'truck' },
+  { id: 'bicycle', icon: 'bicycle', labelKey: 'bike' },
+  { id: 'scooter', icon: 'bicycle', labelKey: 'scooter' },
+  { id: 'car', icon: 'car-outline', labelKey: 'car' },
+  { id: 'walk', icon: 'walk-outline', labelKey: 'walk' },
 ];
 
 export default function VehicleScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const { user, updateUser } = useAuth();
-  const [selected, setSelected] = useState(user?.vehicle || 'Vélo');
+  // user.vehicle contient la valeur backend (bicycle/scooter/car/walk)
+  const currentVehicle = user?.vehicle || 'bicycle';
+  const [selected, setSelected] = useState(currentVehicle);
 
   function handleSave() {
-    updateUser({ vehicle: selected });
-    Alert.alert(t('vehicleUpdated'), `${t('vehicleNow')} ${selected}`, [
-      { text: t('ok'), onPress: () => navigation.goBack() },
+    // Persiste via vehicle_type (champ backend autorisé par updateUser)
+    updateUser({ vehicle_type: selected });
+    Alert.alert(t('vehicleUpdated'), `${t('vehicleNow') || 'Véhicule'} : ${selected}`, [
+      { text: t('ok') || 'OK', onPress: () => navigation.goBack() },
     ]);
   }
 
@@ -46,15 +51,15 @@ export default function VehicleScreen({ navigation }) {
               <View style={[s.iconCircle, active && { backgroundColor: BRAND + '20' }]}>
                 <Ionicons name={v.icon} size={28} color={active ? BRAND : '#666'} />
               </View>
-              <Text style={[s.vehicleLabel, active && { color: BRAND, fontWeight: '800' }]}>{t(v.labelKey)}</Text>
+              <Text style={[s.vehicleLabel, active && { color: BRAND, fontWeight: '800' }]}>{t(v.labelKey) || v.id}</Text>
               {active && <Ionicons name="checkmark-circle" size={24} color={BRAND} />}
             </Pressable>
           );
         })}
       </View>
 
-      <Pressable style={[s.saveBtn, selected === user?.vehicle && { opacity: 0.4 }]} onPress={handleSave} disabled={selected === user?.vehicle}>
-        <Text style={s.saveTxt}>{t('save')}</Text>
+      <Pressable style={[s.saveBtn, selected === currentVehicle && { opacity: 0.4 }]} onPress={handleSave} disabled={selected === currentVehicle}>
+        <Text style={s.saveTxt}>{t('save') || 'Enregistrer'}</Text>
       </Pressable>
     </ScrollView>
   );

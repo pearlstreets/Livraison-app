@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { isValidEmail, sanitizeInput, isStrongPassword } from '../utils/validation';
 import * as ImagePicker from 'expo-image-picker';
+import { uploadService } from '../services/uploadService';
 
 // NOTE: To prevent screen capture in production, consider using
 // expo-screen-capture: ScreenCapture.preventScreenCaptureAsync()
@@ -109,7 +110,10 @@ export default function LoginScreen() {
 
   const pickDocument = async (setter) => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
-    if (!result.canceled && result.assets?.length > 0) setter(result.assets[0].uri);
+    if (!result.canceled && result.assets?.length > 0) {
+      const asset = result.assets[0];
+      setter({ uri: asset.uri, size: asset.fileSize ?? null, type: asset.mimeType ?? 'image/jpeg' });
+    }
   };
 
   // Back navigation
@@ -177,9 +181,26 @@ export default function LoginScreen() {
       return;
     }
     // Step 3: documents (pro)
-    if (!docIdFront || !docIdBack || !docIban || !docKbiss) { setError(t('errorDocsRequired') || "Carte d'identité, IBAN et KBISS sont obligatoires"); return; }
+    if (!docIdFront?.uri || !docIdBack?.uri || !docIban?.uri || !docKbiss?.uri) { setError(t('errorDocsRequired') || "Carte d'identité, IBAN et KBISS sont obligatoires"); return; }
     setLoading(true);
-    const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), role: 'professionaluser', isVerified: false, documents: { idFront: docIdFront, idBack: docIdBack, iban: docIban, kbiss: docKbiss } });
+    let docUrls;
+    try {
+      const uploadSlots = [
+        { doc: docIdFront, slot: 'id_front' },
+        { doc: docIdBack, slot: 'id_back' },
+        { doc: docIban, slot: 'iban' },
+        { doc: docKbiss, slot: 'kbis' },
+      ];
+      const urls = await Promise.all(uploadSlots.map(({ doc, slot }) =>
+        uploadService.uploadDriverDoc({ fileUri: doc.uri, slot, size: doc.size, contentType: doc.type })
+      ));
+      docUrls = { id_card_front_url: urls[0], id_card_back_url: urls[1], iban_doc_url: urls[2], kbis_doc_url: urls[3] };
+    } catch (uploadErr) {
+      setLoading(false);
+      setError(t('errorUploadFailed') || "Échec de l'envoi des documents. Veuillez réessayer.");
+      return;
+    }
+    const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), role: 'professionaluser', isVerified: false, documents: docUrls });
     setLoading(false);
     if (result && result.ok) { setPendingValidation(true); return; }
     setError((result && result.error) || 'Une erreur est survenue. Veuillez réessayer.');
@@ -376,15 +397,15 @@ export default function LoginScreen() {
               ].map((doc, i) => (
                 <TouchableOpacity key={i} onPress={() => pickDocument(doc.setter)} style={{
                   flexDirection:'row', alignItems:'center', padding:14, borderWidth:1,
-                  borderColor: doc.value ? BRAND : '#E5E7EB', borderRadius:12, marginBottom:10,
-                  backgroundColor: doc.value ? '#F0FDF4' : '#fff'
+                  borderColor: doc.value?.uri ? BRAND : '#E5E7EB', borderRadius:12, marginBottom:10,
+                  backgroundColor: doc.value?.uri ? '#F0FDF4' : '#fff'
                 }}>
-                  <Ionicons name={doc.value ? 'checkmark-circle' : doc.icon} size={22} color={doc.value ? BRAND : '#9CA3AF'} style={{marginRight:12}} />
+                  <Ionicons name={doc.value?.uri ? 'checkmark-circle' : doc.icon} size={22} color={doc.value?.uri ? BRAND : '#9CA3AF'} style={{marginRight:12}} />
                   <View style={{flex:1}}>
                     <Text style={{fontSize:14, fontWeight:'600', color:'#111'}}>{doc.label} *</Text>
-                    <Text style={{fontSize:11, color: doc.value ? BRAND : '#9CA3AF', marginTop:2}}>{doc.value ? (t('docUploaded') || 'Document ajouté') : (t('docTapUpload') || 'Appuyez pour ajouter')}</Text>
+                    <Text style={{fontSize:11, color: doc.value?.uri ? BRAND : '#9CA3AF', marginTop:2}}>{doc.value?.uri ? (t('docUploaded') || 'Document ajouté') : (t('docTapUpload') || 'Appuyez pour ajouter')}</Text>
                   </View>
-                  {doc.value && (
+                  {doc.value?.uri && (
                     <TouchableOpacity onPress={() => doc.setter(null)} style={{padding:4}}>
                       <Ionicons name="close-circle" size={20} color="#EF4444" />
                     </TouchableOpacity>
