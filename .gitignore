@@ -5,6 +5,7 @@ npm-debug.log
 package-lock.json
 dist/
 ios/
+android/
 .claude/
 backup_*/
 historique/
