@@ -11,7 +11,7 @@ if (!__DEV__) {
 // NOTE: For Android network security, add the following to android/app/src/main/res/xml/network_security_config.xml:
 // <network-security-config>
 //   <domain-config cleartextTrafficPermitted="false">
-//     <domain includeSubdomains="true">pythonapi.digiexports.in</domain>
+//     <domain includeSubdomains="true">api.pearlstreets.com</domain>
 //   </domain-config>
 // </network-security-config>
 import { StatusBar } from 'expo-status-bar';

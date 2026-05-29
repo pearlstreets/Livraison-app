@@ -103,35 +103,23 @@ function CountdownBar({ seconds, onExpire }) {
   );
 }
 
-/* ---------- Info badges ---------- */
-function InfoBadges({ distance, eta, price, items }) {
+/* ---------- Inline metrics ---------- */
+function InlineMetrics({ distance, eta, items }) {
   const { t } = useLanguage();
+  const segments = [];
+  if (distance) segments.push({ icon: 'navigate-outline', label: distance });
+  if (eta) segments.push({ icon: 'time-outline', label: eta });
+  if (items) segments.push({ icon: 'cube-outline', label: `${items} ${items > 1 ? t('articles') : t('article')}` });
+  if (segments.length === 0) return null;
   return (
-    <View style={styles.badgesRow}>
-      {!!distance && (
-        <View style={styles.badge}>
-          <Ionicons name="navigate-outline" size={14} color="#666" />
-          <Text style={styles.badgeText}>{distance}</Text>
+    <View style={styles.metricsRow}>
+      {segments.map((s, i) => (
+        <View key={s.icon} style={styles.metricItem}>
+          {i > 0 && <View style={styles.metricDot} />}
+          <Ionicons name={s.icon} size={14} color="#8E8E93" />
+          <Text style={styles.metricText}>{s.label}</Text>
         </View>
-      )}
-      {!!eta && (
-        <View style={styles.badge}>
-          <Ionicons name="time-outline" size={14} color="#666" />
-          <Text style={styles.badgeText}>{eta}</Text>
-        </View>
-      )}
-      {!!items && (
-        <View style={styles.badge}>
-          <Ionicons name="cube-outline" size={14} color="#666" />
-          <Text style={styles.badgeText}>{items} {items > 1 ? t('articles') : t('article')}</Text>
-        </View>
-      )}
-      {!!price && (
-        <View style={[styles.badge, styles.badgeGreen]}>
-          <Ionicons name="cash-outline" size={14} color="#fff" />
-          <Text style={[styles.badgeText, { color: '#fff' }]}>{price}</Text>
-        </View>
-      )}
+      ))}
     </View>
   );
 }
@@ -163,6 +151,8 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
     }
   };
 
+  const openDetails = () => { try { if (typeof onOpen === 'function') onOpen(order); } catch {} };
+
   return (
     <View style={[styles.card, !accepted && styles.cardPending]}>
       {/* Countdown for pending orders */}
@@ -170,74 +160,80 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
         <CountdownBar seconds={COUNTDOWN_SECONDS} onExpire={handleExpire} />
       )}
 
+      {/* Header — ID pill (gauche) + prix dominant (droite) */}
       <View style={styles.header}>
-        <Text style={styles.code}>{String(code)}</Text>
-        {!!category && <Text style={styles.category}>{String(category)}</Text>}
+        <View style={styles.idPill}>
+          <Text style={styles.idPillText}>{String(code)}</Text>
+          {!!category && <Text style={styles.category}>· {String(category)}</Text>}
+        </View>
+        {!!price && (
+          <View style={styles.priceWrap}>
+            <Text style={styles.priceLead}>+</Text>
+            <Text style={styles.priceText}>{price}</Text>
+          </View>
+        )}
       </View>
 
-      {/* Restaurant */}
+      {/* Restaurant — titre principal */}
       {!!merchant && (
-        <View style={styles.iconRow}>
-          <View style={styles.iconCircle}>
-            <MaterialCommunityIcons name="storefront-outline" size={16} color={BRAND} />
+        <TouchableOpacity activeOpacity={0.7} onPress={openDetails} style={styles.merchantRow}>
+          <View style={styles.merchantIcon}>
+            <MaterialCommunityIcons name="storefront" size={14} color={BRAND} />
           </View>
-          <Text style={styles.infoText} numberOfLines={1}>{String(merchant)}</Text>
-        </View>
+          <Text style={styles.merchantText} numberOfLines={1}>{String(merchant)}</Text>
+        </TouchableOpacity>
       )}
 
-      {/* Address */}
+      {/* Adresse */}
       {!!address && (
-        <View style={styles.iconRow}>
-          <View style={[styles.iconCircle, { backgroundColor: '#fee2e2' }]}>
-            <Ionicons name="location" size={16} color="#e74c3c" />
-          </View>
-          <Text style={styles.infoText} numberOfLines={1}>{String(address)}</Text>
+        <View style={styles.addressRow}>
+          <Ionicons name="location-sharp" size={14} color="#e74c3c" style={{ marginTop: 1 }} />
+          <Text style={styles.addressText} numberOfLines={2}>{String(address)}</Text>
         </View>
       )}
 
-      {/* Info badges */}
-      <InfoBadges distance={distance} eta={eta} price={price} items={items} />
+      {/* Métriques inline (km · min · articles) */}
+      <InlineMetrics distance={distance} eta={eta} items={items} />
+
+      <View style={styles.divider} />
 
       {!accepted ? (
         <>
-          <View style={styles.row}>
+          <View style={styles.actionsRow}>
             <TouchableOpacity
-              style={[styles.btn, styles.btn46, styles.btnLight]}
+              style={styles.declineBtn}
               onPress={() => { try { if (typeof onDecline === 'function') onDecline(order); } catch {} }}
+              accessibilityLabel={t('refuse')}
             >
-              <Ionicons name="close" size={18} color="#666" style={{ marginRight: 4 }} />
-              <Text style={styles.btnTextDark}>{t('refuse')}</Text>
+              <Ionicons name="close" size={22} color="#8E8E93" />
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.btn, styles.btn46, styles.btnPrimary]}
+              style={styles.acceptBtn}
               onPress={handleAcceptOrItinerary}
+              activeOpacity={0.85}
             >
-              <Ionicons name="checkmark" size={18} color="#fff" style={{ marginRight: 4 }} />
-              <Text style={styles.btnText}>{t('accept')}</Text>
+              <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 6 }} />
+              <Text style={styles.acceptBtnText}>{t('accept')}</Text>
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={[styles.btn, styles.btnFull, styles.btnGhost, styles.mt]}
-            onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch {} }}
-          >
-            <Text style={styles.btnTextDark}>{t('viewDetails')}</Text>
+          <TouchableOpacity style={styles.detailsLink} onPress={openDetails} activeOpacity={0.6}>
+            <Text style={styles.detailsLinkText}>{t('viewDetails')}</Text>
+            <Ionicons name="chevron-forward" size={14} color="#8E8E93" />
           </TouchableOpacity>
         </>
       ) : (
-        <View style={styles.row}>
+        <View style={styles.actionsRow}>
           <TouchableOpacity
-            style={[styles.btn, styles.btn56, styles.btnPrimary]}
+            style={styles.acceptBtn}
             onPress={handleAcceptOrItinerary}
+            activeOpacity={0.85}
           >
-            <Ionicons name="navigate" size={16} color="#fff" style={{ marginRight: 4 }} />
-            <Text style={styles.btnText}>{t('itinerary')}</Text>
+            <Ionicons name="navigate" size={18} color="#fff" style={{ marginRight: 6 }} />
+            <Text style={styles.acceptBtnText}>{t('itinerary')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.btn, styles.btn40, styles.btnGhost]}
-            onPress={() => { try { if (typeof onOpen === 'function') onOpen(order); } catch {} }}
-          >
-            <Text style={styles.btnTextDark}>{t('details')}</Text>
+          <TouchableOpacity style={styles.declineBtn} onPress={openDetails} accessibilityLabel={t('details')}>
+            <Ionicons name="information" size={20} color="#8E8E93" />
           </TouchableOpacity>
         </View>
       )}
@@ -249,75 +245,71 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 22,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 12,
     shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 3,
     marginVertical: 4,
   },
   cardPending: {
-    borderWidth: 2,
-    borderColor: BRAND + '40',
+    borderWidth: 1,
+    borderColor: BRAND + '33',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  code: { fontSize: 18, fontWeight: '800', color: '#111' },
-  category: { color: BRAND, fontWeight: '700', fontSize: 13 },
 
   // Countdown
-  countdownWrap: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  countdownBarBg: { flex: 1, height: 6, backgroundColor: '#f0f0f0', borderRadius: 3, overflow: 'hidden', marginRight: 10 },
-  countdownBarFill: { height: 6, borderRadius: 3 },
-  countdownText: { fontWeight: '900', fontSize: 16, width: 36, textAlign: 'right' },
+  countdownWrap: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  countdownBarBg: { flex: 1, height: 5, backgroundColor: '#EEF1F4', borderRadius: 3, overflow: 'hidden', marginRight: 10 },
+  countdownBarFill: { height: 5, borderRadius: 3 },
+  countdownText: { fontWeight: '900', fontSize: 14, width: 34, textAlign: 'right' },
 
-  // Info rows
-  iconRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  iconCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: BRAND + '15', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  infoText: { color: '#333', fontSize: 14, fontWeight: '600', flexShrink: 1 },
+  // Header
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  idPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F4F6F8', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  idPillText: { fontSize: 11, fontWeight: '800', color: '#6B7280', letterSpacing: 0.5 },
+  category: { color: BRAND, fontWeight: '700', fontSize: 11, marginLeft: 4 },
+  priceWrap: { flexDirection: 'row', alignItems: 'baseline' },
+  priceLead: { color: BRAND, fontSize: 14, fontWeight: '800', marginRight: 1 },
+  priceText: { color: BRAND, fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
 
-  // Route line
-  routeLine: { flexDirection: 'row', alignItems: 'center', marginLeft: 13, marginBottom: 10, gap: 0 },
-  routeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: BRAND },
-  routeDash: { flex: 1, height: 2, backgroundColor: '#e0e0e0', marginHorizontal: 4, maxWidth: 60 },
+  // Restaurant
+  merchantRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  merchantIcon: { width: 22, height: 22, borderRadius: 11, backgroundColor: BRAND + '1A', alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+  merchantText: { fontSize: 17, fontWeight: '800', color: '#111', flexShrink: 1, letterSpacing: -0.2 },
 
-  // Info badges
-  badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  badge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f5f5', borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12, gap: 4 },
-  badgeGreen: { backgroundColor: BRAND },
-  badgeText: { fontWeight: '800', fontSize: 13, color: '#333' },
+  // Address
+  addressRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 10, paddingLeft: 2 },
+  addressText: { fontSize: 13, color: '#4B5563', flexShrink: 1, lineHeight: 18 },
 
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    columnGap: GAP,
-    marginTop: GAP,
+  // Inline metrics
+  metricsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginBottom: 14, paddingLeft: 2 },
+  metricItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metricDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#D1D5DB', marginHorizontal: 8 },
+  metricText: { fontSize: 13, color: '#374151', fontWeight: '600' },
+
+  // Divider
+  divider: { height: 1, backgroundColor: '#F1F2F4', marginBottom: 12 },
+
+  // Actions
+  actionsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  declineBtn: {
+    width: 48, height: 48, borderRadius: 14,
+    backgroundColor: '#F4F6F8',
+    alignItems: 'center', justifyContent: 'center',
   },
-
-  btn: {
-    height: BTN_HEIGHT,
-    borderRadius: BTN_RADIUS,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    flexDirection: 'row',
+  acceptBtn: {
+    flex: 1, height: 48, borderRadius: 14,
+    backgroundColor: BRAND,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    shadowColor: BRAND, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
-  btn46: { width: '46%' },
-  btn56: { width: '56%' },
-  btn40: { width: '40%' },
-  btnFull: { width: '100%' },
-  mt: { marginTop: GAP },
+  acceptBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
 
-  btnPrimary: { backgroundColor: BRAND },
-  btnLight: { backgroundColor: '#F2F3F5' },
-  btnGhost: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E6E8EB' },
-
-  btnText: { color: '#FFFFFF', fontSize: BTN_FONTSIZE, fontWeight: '700', includeFontPadding: false },
-  btnTextDark: { color: '#111111', fontSize: BTN_FONTSIZE, fontWeight: '700', includeFontPadding: false },
+  // Details link
+  detailsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 10, marginTop: 2 },
+  detailsLinkText: { color: '#8E8E93', fontSize: 13, fontWeight: '600' },
 });

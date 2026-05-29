@@ -501,10 +501,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 <View style={{ flex: 1 }}>
                   <Text style={ss.enrouteLabel}>Récupération</Text>
                   <Text style={ss.enrouteAddr}>{restaurant}</Text>
-                  <Pressable style={ss.enrouteAddrCopyRow} onPress={() => Alert.alert('Copié', 'Adresse copiée dans le presse-papier')}>
+                  <View style={ss.enrouteAddrCopyRow}>
                     <Text style={ss.enrouteAddrBold} selectable>{order.pickupAddress || '12 Rue du Commerce, Meaux'}</Text>
-                    <Ionicons name="copy-outline" size={14} color="#555" />
-                  </Pressable>
+                  </View>
                 </View>
                 <Ionicons name="checkmark-circle" size={18} color={BRAND} />
               </View>
@@ -798,16 +797,6 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                     <Ionicons name="navigate" size={20} color="#2196F3" />
                   </View>
                   <Text style={ss.sheetOptionText}>Waze</Text>
-                  <Ionicons name="chevron-forward" size={18} color="#c7c7cc" />
-                </Pressable>
-
-                <View style={ss.sheetSep} />
-
-                <Pressable style={ss.sheetOption} onPress={() => { closeMapSheet(); Alert.alert('Copié', 'Adresse copiée dans le presse-papier'); }}>
-                  <View style={[ss.sheetIconWrap, { backgroundColor: '#f2f2f7' }]}>
-                    <Ionicons name="copy-outline" size={20} color="#8e8e93" />
-                  </View>
-                  <Text style={ss.sheetOptionText}>Copier l'adresse</Text>
                   <Ionicons name="chevron-forward" size={18} color="#c7c7cc" />
                 </Pressable>
               </View>

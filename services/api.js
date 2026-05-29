@@ -21,7 +21,7 @@ const TIMEOUTS = {
 
 // SSL certificate pinning placeholder
 // TODO: Implement cert pinning with react-native-ssl-pinning or similar
-// const SSL_PINS = { 'pythonapi.digiexports.in': ['sha256/XXXX...'] };
+// const SSL_PINS = { 'api.pearlstreets.com': ['sha256/XXXX...'] };
 
 const api = axios.create({
   baseURL: API_BASE,

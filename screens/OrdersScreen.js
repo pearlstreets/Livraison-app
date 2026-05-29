@@ -78,6 +78,67 @@ const OrdersInlineFilters = React.memo(({ selected, onChange, filters = [] }) =>
 /* ---------- Helpers clé ---------- */
 const rint = (min, max) => Math.floor(Math.random()*(max-min+1))+min;
 
+/* ---------- Mock generator (outil dev — simule une commande sans backend) ---------- */
+const MOCK_RESTAURANTS = ['Burger Pearl', 'Pizza Marco', 'Sushi Yama', 'Tacos Express', 'Curry House', 'Le Petit Bistrot'];
+const MOCK_PICKUPS = [
+  '12 Rue du Commerce, 75015 Paris',
+  '34 Avenue Foch, 75116 Paris',
+  '8 Rue de Rivoli, 75004 Paris',
+  '45 Boulevard Haussmann, 75009 Paris',
+];
+const MOCK_DROPOFFS = [
+  '56 Rue Lafayette, 75009 Paris',
+  '21 Boulevard Voltaire, 75011 Paris',
+  '7 Rue de la Roquette, 75011 Paris',
+  '99 Avenue des Champs-Élysées, 75008 Paris',
+];
+const MOCK_ITEMS_SETS = [
+  [{ name: 'Burger Classique', qty: 1 }, { name: 'Frites', qty: 1 }, { name: 'Coca 33cl', qty: 1 }],
+  [{ name: 'Pizza Margherita', qty: 1 }, { name: 'Tiramisu', qty: 1 }],
+  [{ name: 'Sushi mix 12 pcs', qty: 1 }, { name: 'Soupe miso', qty: 2 }],
+  [{ name: 'Tacos M', qty: 2 }, { name: 'Eau plate', qty: 1 }],
+  [{ name: 'Poulet curry', qty: 1 }, { name: 'Naan', qty: 2 }, { name: 'Riz basmati', qty: 1 }],
+];
+const MOCK_CUSTOMERS = ['Sophie M.', 'Lucas D.', 'Léa P.', 'Hugo R.', 'Emma F.', 'Noah B.', 'Chloé V.'];
+let __MOCK_SEQ = 1;
+function makeMockOrder() {
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const distance = +(0.8 + Math.random() * 5.2).toFixed(1);
+  const eta = Math.round(8 + distance * 3);
+  const fee = +(3 + Math.random() * 5).toFixed(2);
+  const tip = Math.random() > 0.5 ? +(1 + Math.random() * 3).toFixed(2) : 0;
+  const total = +(fee + tip).toFixed(2);
+  const items = pick(MOCK_ITEMS_SETS);
+  const seq = __MOCK_SEQ++;
+  return {
+    _isMock: true,
+    _uid: `mock-${Date.now()}-${seq}`,
+    id: `MOCK-${String(seq).padStart(4, '0')}`,
+    _assignmentId: `mock-asg-${seq}`,
+    order_id: `mock-${seq}`,
+    restaurant: pick(MOCK_RESTAURANTS),
+    address: pick(MOCK_DROPOFFS),
+    dropoffAddress: pick(MOCK_DROPOFFS),
+    pickupAddress: pick(MOCK_PICKUPS),
+    distanceText: `${distance.toFixed(1)} km`,
+    etaText: `${eta} min`,
+    priceText: `${total.toFixed(2)} €`,
+    delivery_fee: fee,
+    tip_amount: tip,
+    itemsCount: items.reduce((s, it) => s + it.qty, 0),
+    items,
+    dropoffLat: 48.8566 + (Math.random() - 0.5) * 0.05,
+    dropoffLng: 2.3522 + (Math.random() - 0.5) * 0.05,
+    pickupLat: 48.8566 + (Math.random() - 0.5) * 0.05,
+    pickupLng: 2.3522 + (Math.random() - 0.5) * 0.05,
+    status: 'available',
+    delivery_code: String(Math.floor(1000 + Math.random() * 9000)),
+    customer_name: pick(MOCK_CUSTOMERS),
+    user_address: {},
+    created_at: new Date().toISOString(),
+  };
+}
+
 /* ---------- Écran ---------- */
 const orderKey = (o) => o?._uid || o?.id || o?.code;
 
@@ -112,9 +173,15 @@ export default function OrdersScreen({ navigation, route }) {
   const online = isOnline;
   const setOnline = setIsOnline;
   const [active, setActive] = useState([]);           // En cours
-  const [available, setAvailable] = useState([]);     // Disponibles
-  const [history, setHistory] = useState([]);          // Historique
+  const [available, setAvailable] = useState([]);     // Disponibles (backend)
+  const [mockOrders, setMockOrders] = useState([]);   // Disponibles simulées (dev)
   const [activeSteps, setActiveSteps] = useState({}); // { orderId: { stepIndex, stepLabel } }
+
+  const addMockOrder = useCallback(() => {
+    setMockOrders(prev => [makeMockOrder(), ...prev]);
+  }, []);
+
+  const displayedAvailable = useMemo(() => [...mockOrders, ...available], [mockOrders, available]);
 
   // Handle completed order from DeliveryFlow
   useEffect(() => {
@@ -123,10 +190,6 @@ export default function OrdersScreen({ navigation, route }) {
       const key = orderKey(completedOrder);
       setActive(prev => prev.filter(o => orderKey(o) !== key));
       setActiveSteps(prev => { const n = { ...prev }; delete n[key]; return n; });
-      setHistory(prev => {
-        if (prev.find(o => orderKey(o) === key)) return prev;
-        return [completedOrder, ...prev];
-      });
       addToHistory(completedOrder);
       navigation.setParams({ completedOrder: undefined });
     }
@@ -139,10 +202,6 @@ export default function OrdersScreen({ navigation, route }) {
       const key = orderKey(cancelledOrder);
       setActive(prev => prev.filter(o => orderKey(o) !== key));
       setActiveSteps(prev => { const n = { ...prev }; delete n[key]; return n; });
-      setHistory(prev => {
-        if (prev.find(o => orderKey(o) === key)) return prev;
-        return [cancelledOrder, ...prev];
-      });
       addToHistory(cancelledOrder);
       navigation.setParams({ cancelledOrder: undefined });
     }
@@ -183,6 +242,15 @@ export default function OrdersScreen({ navigation, route }) {
 
   const onAccept = useCallback(async (order) => {
     const key = orderKey(order);
+    // Commande simulée : aucun appel backend, transition directe vers active
+    if (order?._isMock) {
+      setMockOrders(prev => prev.filter(o => orderKey(o) !== key));
+      const accepted = { ...order, status: 'active' };
+      setActive(prev => [accepted, ...prev]);
+      setActiveSteps(prev => ({ ...prev, [orderKey(accepted)]: { stepIndex: 0, stepLabel: 'Récupération' } }));
+      navigation.navigate('DeliveryFlow', { order: accepted });
+      return;
+    }
     // Retrait optimiste de la liste disponible
     setAvailable(prev => prev.filter(o => orderKey(o) !== key));
     try {
@@ -207,6 +275,7 @@ export default function OrdersScreen({ navigation, route }) {
   const onDecline = useCallback((order) => {
     const key = orderKey(order);
     setAvailable(prev => prev.filter(o => orderKey(o) !== key));
+    setMockOrders(prev => prev.filter(o => orderKey(o) !== key));
   }, []);
 
     const keyOf = (o, i) => String(o?._uid || o?.id || o?.code || `order-${i}`);
@@ -214,22 +283,6 @@ export default function OrdersScreen({ navigation, route }) {
   const onOpen = useCallback((order)=>{ setDetailsOrder(order); setDetailsVisible(true); }, []);
 
   const onFilterChange = useCallback((id) => setSelectedFilter(id), []);
-
-  // Memoize history rendering data to avoid re-computation on every render
-  const memoizedHistory = useMemo(() => history.map(order => {
-    const id = order.id || order.code || '';
-    const resto = order.restaurant || order.merchantName || '';
-    const addr = order.dropoffAddress || order.address || '';
-    const isCancelled = order.status === 'cancelled';
-    const isReported = order.reported;
-    const price = isCancelled ? '0,00 \u20ac' : (order.priceText || '');
-    const dist = order.distanceText || '';
-    const time = (order.completedAt || order.cancelledAt) ? new Date(order.completedAt || order.cancelledAt) : null;
-    const timeStr = time ? `${time.getHours()}h${String(time.getMinutes()).padStart(2,'0')}` : '';
-    const iconColor = isCancelled ? '#e74c3c' : isReported ? '#e74c3c' : '#00C29B';
-    const borderColor = isCancelled ? '#e74c3c' : isReported ? '#e74c3c' : '#00C29B';
-    return { id, resto, addr, isCancelled, isReported, price, dist, timeStr, iconColor, borderColor, order };
-  }), [history]);
 
   if (!accountActive) {
     return (
@@ -336,12 +389,22 @@ export default function OrdersScreen({ navigation, route }) {
       {/* Disponibles (only when online) */}
       {online && (
         <>
-          <Text style={[styles.sectionTitle, active.length > 0 && styles.sectionTitleGap]}>
-            {t('available')}
-          </Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={[styles.sectionTitle, active.length > 0 && styles.sectionTitleGap]}>
+              {t('available')}
+            </Text>
+            <TouchableOpacity
+              style={styles.mockBtn}
+              onPress={addMockOrder}
+              accessibilityLabel="Simuler une commande"
+            >
+              <Ionicons name="flask-outline" size={16} color="#fff" />
+              <Text style={styles.mockBtnTxt}>Simuler</Text>
+            </TouchableOpacity>
+          </View>
           <View style={styles.cardsBlock}>
-            {available.length > 0 ? (
-              available.map((order, i) => (
+            {displayedAvailable.length > 0 ? (
+              displayedAvailable.map((order, i) => (
                 <View key={keyOf(order, i)} style={styles.cardWrap}>
                   <OrderCard
                     order={order}
@@ -357,47 +420,6 @@ export default function OrdersScreen({ navigation, route }) {
           </View>
         </>
       )}
-      {/* Historique */}
-      {online && memoizedHistory.length > 0 && (
-        <>
-          <Text style={[styles.sectionTitle, styles.sectionTitleGap]}>{t('history')}</Text>
-          <View style={styles.cardsBlock}>
-            {memoizedHistory.map((h, i) => (
-                <View key={h.id || i} style={[styles.historyCard, { borderLeftColor: h.borderColor }]}>
-                  <View style={styles.historyHeader}>
-                    <View style={styles.historyIconWrap}>
-                      <Ionicons name={h.isCancelled ? 'close-circle' : h.isReported ? 'hourglass' : 'checkmark-circle'} size={20} color={h.iconColor} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.historyId}>{h.id}</Text>
-                      <Text style={[styles.historyTime, h.isCancelled && { color: '#e74c3c' }]}>
-                        {h.isCancelled ? `${t('cancelledAt')}${h.timeStr ? ` ${h.timeStr}` : ''}` : `${t('deliveredAt')}${h.timeStr ? ` ${h.timeStr}` : ''}`}
-                      </Text>
-                    </View>
-                    <Text style={[styles.historyPrice, h.isCancelled && { color: '#999' }]}>{h.price}</Text>
-                  </View>
-                  <View style={styles.historyDetails}>
-                    <View style={styles.historyDetailRow}>
-                      <Ionicons name="storefront-outline" size={14} color="#888" />
-                      <Text style={styles.historyDetailText} numberOfLines={1}>{h.resto}</Text>
-                    </View>
-                    <View style={styles.historyDetailRow}>
-                      <Ionicons name="location-outline" size={14} color="#888" />
-                      <Text style={styles.historyDetailText} numberOfLines={1}>{h.addr}</Text>
-                    </View>
-                    {!!h.dist && (
-                      <View style={styles.historyDetailRow}>
-                        <Ionicons name="navigate-outline" size={14} color="#888" />
-                        <Text style={styles.historyDetailText}>{h.dist}</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-            ))}
-          </View>
-        </>
-      )}
-
       <DetailsSheet visible={detailsVisible} order={detailsOrder} onClose={() => setDetailsVisible(false)} />
     </ScrollView>
   );
@@ -426,6 +448,9 @@ const styles = StyleSheet.create({
 
   sectionTitle: { fontSize: 28, fontWeight: '800', color: '#111', marginTop: 4, marginBottom: 8 },
   sectionTitleGap: {  marginTop: 8  },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  mockBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#00C29B', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
+  mockBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
   cardsBlock: {  marginBottom: 0  },
   cardWrap: { marginBottom: 8 },
   emptyText: { color: '#8E8E93', paddingVertical: 8, paddingHorizontal: 4 },
@@ -453,14 +478,4 @@ const styles = StyleSheet.create({
   activeFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 6, gap: 4 },
   activeContinue: { fontSize: 13, fontWeight: '700', color: '#00C29B' },
 
-  // Historique
-  historyCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, marginBottom: 8, borderLeftWidth: 4, borderLeftColor: '#00C29B' },
-  historyHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  historyIconWrap: { marginRight: 10 },
-  historyId: { fontWeight: '800', fontSize: 15, color: '#111' },
-  historyTime: { fontSize: 12, color: '#999', marginTop: 1 },
-  historyPrice: { fontWeight: '900', fontSize: 17, color: '#00C29B' },
-  historyDetails: { marginLeft: 30 },
-  historyDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
-  historyDetailText: { fontSize: 13, color: '#666', flexShrink: 1 },
 });
