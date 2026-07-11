@@ -20,10 +20,11 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.pearlstreets.delivery",
-      "buildNumber": "11"
+      "buildNumber": "13"
     },
     "android": {
       "package": "com.pearlstreets.delivery",
+      "versionCode": 13,
       "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
