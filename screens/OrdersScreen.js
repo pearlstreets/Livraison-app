@@ -393,14 +393,16 @@ export default function OrdersScreen({ navigation, route }) {
             <Text style={[styles.sectionTitle, active.length > 0 && styles.sectionTitleGap]}>
               {t('available')}
             </Text>
-            <TouchableOpacity
-              style={styles.mockBtn}
-              onPress={addMockOrder}
-              accessibilityLabel="Simuler une commande"
-            >
-              <Ionicons name="flask-outline" size={16} color="#fff" />
-              <Text style={styles.mockBtnTxt}>Simuler</Text>
-            </TouchableOpacity>
+            {__DEV__ && (
+              <TouchableOpacity
+                style={styles.mockBtn}
+                onPress={addMockOrder}
+                accessibilityLabel="Simuler une commande"
+              >
+                <Ionicons name="flask-outline" size={16} color="#fff" />
+                <Text style={styles.mockBtnTxt}>Simuler</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <View style={styles.cardsBlock}>
             {displayedAvailable.length > 0 ? (
