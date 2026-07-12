@@ -20,15 +20,15 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.pearlstreets.delivery",
-      "buildNumber": "13"
+      "buildNumber": "14"
     },
     "android": {
       "package": "com.pearlstreets.delivery",
-      "versionCode": 13,
+      "versionCode": 14,
       "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#5c18c7"
+        "backgroundColor": "#FFFFFF"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
@@ -41,7 +41,12 @@
     "jsEngine": "hermes",
     "plugins": [
       "expo-notifications",
-      ["onesignal-expo-plugin", { "mode": "production" }]
+      [
+        "onesignal-expo-plugin",
+        {
+          "mode": "production"
+        }
+      ]
     ],
     "extra": {
       "oneSignalAppId": "0c4d0c76-eedd-426a-9d48-156cc6f879c7",
