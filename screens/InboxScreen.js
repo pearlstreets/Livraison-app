@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFocusEffect } from '@react-navigation/native';
+import { deliveryService } from '../services/deliveryService';
 
 const BRAND = '#00C29B';
 const FILTERS = [
@@ -12,35 +13,30 @@ const FILTERS = [
   { key: 'Nouveautés', tKey: 'news' },
 ];
 
-const MOCK_NOTIFS = [
-  { id: '1', icon: 'megaphone', color: BRAND, title: 'Bienvenue sur Pearl Delivery !', subtitle: 'Votre compte livreur est actif.', time: "aujourd'hui", section: "Aujourd'hui", type: 'Nouveautés',
-    detail: 'Bienvenue sur Pearl Delivery !\n\nVotre compte livreur a été activé avec succès. Vous pouvez dès maintenant recevoir des commandes dans votre zone.\n\nPensez à vérifier vos documents et vos informations de paiement dans le menu.' },
-  { id: '2', icon: 'trophy', color: '#f5a623', title: 'Vous avez reçu un pourboire de 2.50€ !', subtitle: 'Appuyez ici pour voir le reçu.', time: "aujourd'hui", section: "Aujourd'hui", type: 'Alertes',
-    detail: 'Pourboire reçu : 2.50€\n\nCommande ORD-3012\nRestaurant : Pizzeria Roma, Meaux\nClient : Marc D.\n\nLe montant a été ajouté à votre solde.' },
-  { id: '3', icon: 'notifications', color: '#888', title: 'Nouvelle zone de boost activée', subtitle: 'Meaux centre - x1.3 jusqu\'à 14h', time: 'il y a 2 jours', section: 'Plus anciens', type: 'Alertes',
-    detail: 'Zone de boost active !\n\nZone : Meaux centre\nMultiplicateur : x1.3\nPériode : 11h - 14h\n\nToutes les courses dans cette zone bénéficient automatiquement du boost.' },
-  { id: '4', icon: 'trophy', color: '#f5a623', title: 'Vous avez reçu un pourboire de 1.80€ !', subtitle: 'Appuyez ici pour voir le reçu.', time: 'il y a 3 jours', section: 'Plus anciens', type: 'Alertes',
-    detail: 'Pourboire reçu : 1.80€\n\nCommande ORD-3008\nRestaurant : Le Bistrot, Meaux\nClient : Sophie M.\n\nLe montant a été ajouté à votre solde.' },
-  { id: '5', icon: 'warning', color: '#e74c3c', title: 'Quel est votre niveau de satisfaction ?', subtitle: 'Donnez-nous votre avis en tant que livreur.', time: 'il y a 4 jours', section: 'Plus anciens', type: 'Messages',
-    detail: 'Enquête de satisfaction\n\nNous aimerions connaître votre niveau de satisfaction en tant que livreur Pearl Delivery.\n\nVotre avis nous aide à améliorer notre plateforme pour tous les livreurs.\n\nMerci de prendre quelques minutes pour répondre.' },
-  { id: '6', icon: 'chatbubble', color: '#3498db', title: 'Support Pearl Streets', subtitle: 'Votre document a été vérifié avec succès.', time: 'il y a 5 jours', section: 'Plus anciens', type: 'Messages',
-    detail: 'Message du support\n\nBonjour,\n\nVotre pièce d\'identité a été vérifiée et validée. Vous n\'avez aucune action supplémentaire à effectuer.\n\nCordialement,\nL\'équipe Pearl Streets' },
-  { id: '7', icon: 'flash', color: BRAND, title: 'Quête du week-end disponible !', subtitle: '20 courses = 25€ de bonus', time: 'il y a 6 jours', section: 'Plus anciens', type: 'Nouveautés',
-    detail: 'Quête du week-end\n\nObjectif : Complétez 20 courses ce week-end\nRécompense : 25€ de bonus\nPériode : Samedi 00h - Dimanche 23h59\n\nLe bonus sera automatiquement crédité sur votre solde.' },
-];
-
 export default function InboxScreen() {
   const { t } = useLanguage();
   const scrollRef = useRef(null);
   const [filter, setFilter] = useState('Tout');
   const [selectedNotif, setSelectedNotif] = useState(null);
   const [readIds, setReadIds] = useState([]);
+  const [notifs, setNotifs] = useState([]);
+
+  const fetchNotifs = useCallback(async () => {
+    try {
+      const res = await deliveryService.getNotifications();
+      const list = Array.isArray(res?.data) ? res.data : [];
+      setNotifs(list);
+    } catch (_) {
+      // Conserve la liste existante en cas d'erreur réseau.
+    }
+  }, []);
 
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, []));
+    fetchNotifs();
+  }, [fetchNotifs]));
 
-  const filtered = filter === 'Tout' ? MOCK_NOTIFS : MOCK_NOTIFS.filter(n => n.type === FILTERS.find(f => f.key === filter)?.key);
+  const filtered = filter === 'Tout' ? notifs : notifs.filter(n => n.type === FILTERS.find(f => f.key === filter)?.key);
 
   const sections = {};
   filtered.forEach(n => {

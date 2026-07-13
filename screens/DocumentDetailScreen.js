@@ -36,22 +36,17 @@ export default function DocumentDetailScreen({ navigation, route }) {
         <Text style={[s.statusText, { color: doc.color }]}>{doc.status}</Text>
       </View>
 
+      {/* On n'affiche que ce qui est réel : le type (descriptif) et le statut.
+          Les numéros/dates OCR ne sont pas fournis par le backend → pas de
+          fausses métadonnées inventées. */}
       <View style={s.detailCard}>
         <View style={s.detailRow}>
           <Text style={s.detailLabel}>Type</Text>
-          <Text style={s.detailValue}>{detail.type}</Text>
-        </View>
-        <View style={s.detailRow}>
-          <Text style={s.detailLabel}>Numéro</Text>
-          <Text style={s.detailValue}>{detail.number}</Text>
-        </View>
-        <View style={s.detailRow}>
-          <Text style={s.detailLabel}>Expiration</Text>
-          <Text style={[s.detailValue, isWarning && { color: '#f5a623', fontWeight: '800' }]}>{detail.expiry}</Text>
+          <Text style={s.detailValue}>{detail.type || doc.label}</Text>
         </View>
         <View style={[s.detailRow, { borderBottomWidth: 0 }]}>
-          <Text style={s.detailLabel}>Soumis le</Text>
-          <Text style={s.detailValue}>{detail.submitted}</Text>
+          <Text style={s.detailLabel}>Statut</Text>
+          <Text style={[s.detailValue, { color: doc.color }]}>{doc.status}</Text>
         </View>
       </View>
 

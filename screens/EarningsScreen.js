@@ -30,9 +30,11 @@ function MiniChart({ bars }) {
 export default function EarningsScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { currentEarningsCents, cashOut, weeklyEarnings } = useAuth();
+  const { currentEarningsCents, cashOut, weeklyEarnings, currentIban } = useAuth();
   const scrollRef = useRef(null);
   const earn = { earningsCents: currentEarningsCents, earnings: (currentEarningsCents / 100).toFixed(2) + ' €' };
+  const bankTail = ((currentIban || '').match(/(\d{2,4})\s*$/) || [])[1] || '';
+  const bankLabel = bankTail ? `••${bankTail}` : 'votre compte enregistré';
   const [encaissModal, setEncaissModal] = useState(false);
   const [encaissStep, setEncaissStep] = useState('confirm');
   const [cashedAmount, setCashedAmount] = useState('');
@@ -98,7 +100,7 @@ export default function EarningsScreen({ navigation }) {
                   <Ionicons name="flash" size={40} color={BRAND} />
                 </View>
                 <Text style={s.popupTitle}>{t('instantCashout')}</Text>
-                <Text style={s.popupDesc}>Votre solde de {cashedAmount} sera transféré sur votre compte bancaire ••••15 sous 30 minutes.</Text>
+                <Text style={s.popupDesc}>Votre solde de {cashedAmount} sera transféré sur votre compte bancaire {bankLabel} sous 30 minutes.</Text>
                 <Text style={s.popupFee}>{t('cashoutFee')}</Text>
                 <Pressable style={s.popupBtnPrimary} onPress={processEncaiss}>
                   <Text style={s.popupBtnPrimaryTxt}>{t('confirmCashout')}</Text>
@@ -123,7 +125,7 @@ export default function EarningsScreen({ navigation }) {
                   <Ionicons name="checkmark-circle" size={48} color={BRAND} />
                 </View>
                 <Text style={s.popupTitle}>{t('cashoutSuccess')}</Text>
-                <Text style={s.popupDesc}>Le montant de {cashedAmount} sera versé sur votre compte bancaire ••••15 dans les 30 prochaines minutes.</Text>
+                <Text style={s.popupDesc}>Le montant de {cashedAmount} sera versé sur votre compte bancaire {bankLabel} dans les 30 prochaines minutes.</Text>
                 <Pressable style={s.popupBtnPrimary} onPress={() => setEncaissModal(false)}>
                   <Text style={s.popupBtnPrimaryTxt}>{t('close')}</Text>
                 </Pressable>

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Modal, View, Text, StyleSheet, Pressable, Animated, Dimensions, ScrollView, Linking } from 'react-native';
+import { Modal, View, Text, StyleSheet, Pressable, Animated, Dimensions, ScrollView, Linking, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -64,10 +64,15 @@ export default function DetailsSheet({ visible, order, onClose }) {
 
   if (!visible) return null;
 
-  const code = pick(order, ['code','id','orderId'], /(code|order.?id)$/i);
+  // Numéro OFFICIEL de commande (code marchand) — pas l'ID interne.
+  const code = order?.orderNumber || pick(order, ['code','id','orderId'], /(code|order.?id)$/i);
   const category = pick(order, ['category','type','service'], /(category|type|service)/i);
-  const merchant = pick(order, ['restaurant','merchantName','storeName','pickupName'], /(restaurant|merchant|store|pickup).*name/i);
-  const address = pick(order, ['address','dropoffAddress','destinationAddress','dropoff.address'], /(address$|dropoff.*address|destination.*address)/i);
+  const merchant = order?.shopName || pick(order, ['restaurant','merchantName','storeName','pickupName'], /(restaurant|merchant|store|pickup).*name/i);
+  const shopImage = order?.shopImage || order?.shop_image || '';
+  const pickupAddress = order?.pickupAddress || order?.pickup_address || '';
+  const deliveryAddress = order?.dropoffAddress || order?.dropoff_address || pick(order, ['address'], /^address$/i);
+  const items = Array.isArray(order?.items) ? order.items : [];
+  const customer = order?.customer_name || order?.customerName || '';
   const distance = fmt.km(pick(order, ['distanceText','distanceKm','distance'], /(distance|km)/i));
   const eta = fmt.min(pick(order, ['etaText','etaMinutes','duration','time'], /(eta|duration|time|min)/i));
   const price = fmt.price(pick(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i));
@@ -92,16 +97,51 @@ export default function DetailsSheet({ visible, order, onClose }) {
             {!!category && <Text style={styles.category}>{String(category)}</Text>}
           </View>
 
+          {/* Boutique : vraie image + nom réel */}
           {!!merchant && (
-            <View style={styles.row}>
-              <MaterialCommunityIcons name="storefront-outline" size={18} color="#333" style={styles.icon} />
-              <Text style={styles.text}>{String(merchant)}</Text>
+            <View style={styles.shopRow}>
+              {shopImage ? (
+                <Image source={{ uri: shopImage }} style={styles.shopImg} />
+              ) : (
+                <View style={styles.shopIconWrap}>
+                  <MaterialCommunityIcons name="storefront-outline" size={20} color={BRAND} />
+                </View>
+              )}
+              <Text style={styles.shopName} numberOfLines={2}>{String(merchant)}</Text>
             </View>
           )}
-          {!!address && (
+
+          {/* Adresse de récupération (boutique) */}
+          {!!pickupAddress && (
             <View style={styles.row}>
-              <Ionicons name="home-outline" size={18} color="#333" style={styles.icon} />
-              <Text style={styles.text}>{String(address)}</Text>
+              <MaterialCommunityIcons name="storefront-outline" size={18} color="#333" style={styles.icon} />
+              <Text style={styles.text}>{String(pickupAddress)}</Text>
+            </View>
+          )}
+          {/* Adresse de livraison (client) */}
+          {!!deliveryAddress && (
+            <View style={styles.row}>
+              <Ionicons name="location-outline" size={18} color="#e74c3c" style={styles.icon} />
+              <Text style={styles.text}>{String(deliveryAddress)}</Text>
+            </View>
+          )}
+          {/* Client */}
+          {!!customer && (
+            <View style={styles.row}>
+              <Ionicons name="person-outline" size={18} color="#333" style={styles.icon} />
+              <Text style={styles.text}>{String(customer)}</Text>
+            </View>
+          )}
+
+          {/* Articles */}
+          {items.length > 0 && (
+            <View style={styles.itemsBox}>
+              {items.map((it, i) => (
+                <View key={i} style={styles.itemRow}>
+                  <Text style={styles.itemQty}>{it.qty || 1}x</Text>
+                  <Text style={styles.itemName} numberOfLines={1}>{String(it.name || '')}</Text>
+                </View>
+              ))}
             </View>
           )}
 
@@ -146,6 +186,14 @@ const styles = StyleSheet.create({
   row: { flexDirection:'row', alignItems:'center', marginBottom:6 },
   icon: { width:22, marginRight:4 },
   text: { color:'#333', flexShrink:1 },
+  shopRow: { flexDirection:'row', alignItems:'center', marginBottom:10 },
+  shopImg: { width:40, height:40, borderRadius:10, marginRight:10, backgroundColor:'#f0f0f0' },
+  shopIconWrap: { width:40, height:40, borderRadius:10, marginRight:10, backgroundColor: BRAND+'1A', alignItems:'center', justifyContent:'center' },
+  shopName: { fontSize:16, fontWeight:'800', color:'#111', flexShrink:1 },
+  itemsBox: { backgroundColor:'#F7F8FA', borderRadius:12, padding:10, marginTop:8 },
+  itemRow: { flexDirection:'row', alignItems:'center', paddingVertical:3 },
+  itemQty: { fontWeight:'800', color:BRAND, width:32 },
+  itemName: { color:'#333', flexShrink:1 },
   chips: { flexDirection:'row', gap:8, marginTop:10, marginBottom:8, flexWrap:'wrap' },
   pill: { backgroundColor:'#F2F3F5', borderRadius:999, paddingVertical:6, paddingHorizontal:12 },
   pillTxt: { fontWeight:'700', color:'#111' },

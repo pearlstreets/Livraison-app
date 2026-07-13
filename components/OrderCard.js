@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Animated, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -130,7 +130,7 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
   const inferAccepted = ['accepted','acceptée','active','en_cours'].includes(String(order?.status||'').toLowerCase());
   const [accepted, setAccepted] = useState(inferAccepted || initialAccepted);
 
-  const code = pickHybrid(order, ['code','id','orderId'], /(code|order.?id)$/i) || t('order');
+  const code = order?.orderNumber || pickHybrid(order, ['code','id','orderId'], /(code|order.?id)$/i) || t('order');
   const category = pickHybrid(order, ['category','type','service'], /(category|type|service)/i);
   const merchant = pickHybrid(order, ['restaurant','merchantName','storeName','pickupName'], /(restaurant|merchant|store|pickup).*name/i);
   const address = pickHybrid(order, ['address','dropoffAddress','destinationAddress','dropoff.address'], /(address$|dropoff.*address|destination.*address)/i);
@@ -139,6 +139,7 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
   const eta = fmtMin(pickHybrid(order, ['etaText','etaMinutes','duration','time'], /(eta|duration|time|min)/i));
   const price = fmtPrice(pickHybrid(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i));
   const items = pickHybrid(order, ['itemsCount','items','nbItems'], /(items|nb.*items)/i);
+  const shopImage = order?.shopImage || order?.shop_image || '';
 
   const handleAcceptOrItinerary = () => {
     if (!accepted) { setAccepted(true); try { if (typeof onAccept === 'function') onAccept(order); } catch {} }
@@ -177,9 +178,13 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
       {/* Restaurant — titre principal */}
       {!!merchant && (
         <TouchableOpacity activeOpacity={0.7} onPress={openDetails} style={styles.merchantRow}>
-          <View style={styles.merchantIcon}>
-            <MaterialCommunityIcons name="storefront" size={14} color={BRAND} />
-          </View>
+          {shopImage ? (
+            <Image source={{ uri: shopImage }} style={styles.merchantImg} />
+          ) : (
+            <View style={styles.merchantIcon}>
+              <MaterialCommunityIcons name="storefront" size={14} color={BRAND} />
+            </View>
+          )}
           <Text style={styles.merchantText} numberOfLines={1}>{String(merchant)}</Text>
         </TouchableOpacity>
       )}
@@ -279,6 +284,7 @@ const styles = StyleSheet.create({
   // Restaurant
   merchantRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   merchantIcon: { width: 22, height: 22, borderRadius: 11, backgroundColor: BRAND + '1A', alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+  merchantImg: { width: 30, height: 30, borderRadius: 8, marginRight: 8, backgroundColor: '#f0f0f0' },
   merchantText: { fontSize: 17, fontWeight: '800', color: '#111', flexShrink: 1, letterSpacing: -0.2 },
 
   // Address

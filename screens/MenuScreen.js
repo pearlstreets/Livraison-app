@@ -73,7 +73,12 @@ export default function MenuScreen({ navigation }) {
           )}
         </Pressable>
         <View style={{ flex: 1 }}>
-          <Text style={s.profileName}>{user?.pseudo?.toUpperCase()}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={s.profileName}>{user?.pseudo?.toUpperCase()}</Text>
+            {user?.isVerified && (
+              <Ionicons name="checkmark-circle" size={18} color="#fff" style={{ marginLeft: 6 }} />
+            )}
+          </View>
           <Text style={s.profileSub}>{[user?.firstName, user?.lastName].filter(Boolean).join(' ')}</Text>
         </View>
         <View style={{ width: 22 }} />

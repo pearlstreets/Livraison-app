@@ -20,12 +20,15 @@ function adaptAssignment(a) {
     : [];
   return {
     // identifiants
-    id: String(a.order_id || a.id || ''),
+    id: String(a.order_id || a.id || ''),   // clé numérique (accept / API)
+    orderNumber: a.order_number || '',       // numéro OFFICIEL affiché (code marchand)
     _assignmentId: a.id,          // conservé pour les appels updateDeliveryStatus
     order_id: a.order_id,
-    // affichage
-    restaurant: a.pickup_address || '',
-    address: a.dropoff_address || '',
+    // affichage — vraie boutique (nom réel + image + adresse réelle du shop)
+    restaurant: a.shop_name || a.pickup_address || '',
+    shopName: a.shop_name || '',
+    shopImage: a.shop_image || '',
+    address: a.pickup_address || a.dropoff_address || '',
     dropoffAddress: a.dropoff_address || '',
     pickupAddress: a.pickup_address || '',
     distanceText: typeof a.distance_km === 'number' ? `${a.distance_km.toFixed(1)} km` : '',
@@ -44,6 +47,9 @@ function adaptAssignment(a) {
     status: a.status || '',
     delivery_code: a.delivery_code || '',
     customer_name: a.customer_name || '',
+    // Téléphone client : le backend l'expose dans user_address.phone_number
+    // (une fois la course acceptée) → permet un vrai appel depuis l'app.
+    customerPhone: (a.user_address && (a.user_address.phone_number || a.user_address.phone)) || a.customer_phone || '',
     user_address: a.user_address || {},
     created_at: a.created_at || '',
   };
@@ -272,10 +278,12 @@ export default function OrdersScreen({ navigation, route }) {
     navigation.navigate('DeliveryFlow', { order, initialStep: stepInfo?.stepIndex || 0 });
   }, [navigation, activeSteps]);
 
-  const onDecline = useCallback((order) => {
+  const onDecline = useCallback(async (order) => {
     const key = orderKey(order);
     setAvailable(prev => prev.filter(o => orderKey(o) !== key));
     setMockOrders(prev => prev.filter(o => orderKey(o) !== key));
+    // Refus RÉEL de l'offre chronométrée → le backend la ré-offre au suivant.
+    try { if (order?.order_id) await deliveryService.declineDelivery(order.order_id); } catch (e) {}
   }, []);
 
     const keyOf = (o, i) => String(o?._uid || o?.id || o?.code || `order-${i}`);

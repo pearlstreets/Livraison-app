@@ -1,23 +1,39 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { deliveryService } from '../services/deliveryService';
 
 const BRAND = '#00C29B';
-
-const PROMOS = [
-  { id: 'boost_meaux', title: 'Boost Meaux Centre', desc: 'Multiplicateur x1.3 sur toutes les courses dans le centre-ville de Meaux.', period: 'Aujourd\'hui 11h - 14h', icon: 'flash', color: '#f5a623' },
-  { id: 'quete_weekend', title: 'Quête du week-end', desc: 'Complétez 20 courses ce week-end et gagnez 25€ de bonus.', period: 'Sam - Dim', icon: 'trophy', color: BRAND },
-  { id: 'zone_villenoy', title: 'Zone prioritaire Villenoy', desc: 'Demande élevée détectée à Villenoy. Courses prioritaires disponibles.', period: 'En cours', icon: 'location', color: '#e74c3c' },
-  { id: 'parrainage', title: 'Parrainage livreur', desc: 'Invitez un ami livreur et recevez 50€ après ses 25 premières courses.', period: 'Permanent', icon: 'people', color: '#3498db' },
-];
 
 export default function OpportunitiesScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const { readOpportunities, markOpportunityRead } = useAuth();
+  const [promos, setPromos] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const r = await deliveryService.getOpportunities();
+        const list = (r && (r.data || r.results)) || [];
+        if (alive) setPromos(list.map((o) => ({
+          id: String(o.id),
+          title: o.title || '',
+          desc: o.description || '',
+          period: o.period_label || '',
+          icon: o.icon || 'flash',
+          color: o.color || BRAND,
+        })));
+      } catch (e) { /* garde la liste vide */ }
+      finally { if (alive) setLoading(false); }
+    })();
+    return () => { alive = false; };
+  }, []);
 
   function openPromo(promo) {
     markOpportunityRead(promo.id);
@@ -36,7 +52,17 @@ export default function OpportunitiesScreen({ navigation }) {
 
       <Text style={s.subtitle}>{t('opportunitiesSub')}</Text>
 
-      {PROMOS.map((promo) => {
+      {loading && (
+        <ActivityIndicator color={BRAND} style={{ marginTop: 24 }} />
+      )}
+      {!loading && promos.length === 0 && (
+        <View style={{ alignItems: 'center', marginTop: 40, paddingHorizontal: 32 }}>
+          <Ionicons name="sparkles-outline" size={36} color="#ccc" style={{ marginBottom: 10 }} />
+          <Text style={{ color: '#999', textAlign: 'center' }}>{t('noOpportunities') || 'Aucune opportunité pour le moment'}</Text>
+        </View>
+      )}
+
+      {promos.map((promo) => {
         const isRead = readOpportunities.includes(promo.id);
         return (
           <Pressable key={promo.id} style={s.card} onPress={() => openPromo(promo)}>

@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { uploadService } from '../services/uploadService';
 
 const BRAND = '#00C29B';
 
@@ -33,6 +34,7 @@ export default function EditProfileScreen({ navigation }) {
   const { user, updateUser } = useAuth();
   const insets = useSafeAreaInsets();
   const [photo, setPhoto] = useState(user?.photo || null);
+  const [photoSize, setPhotoSize] = useState(null);
   const [pseudo, setPseudo] = useState(user?.pseudo || '');
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
@@ -40,6 +42,7 @@ export default function EditProfileScreen({ navigation }) {
 
   const [email, setEmail] = useState(user?.email || '');
   const [editingField, setEditingField] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   function toggleEdit(field) {
     setEditingField(prev => prev === field ? null : field);
@@ -59,10 +62,11 @@ export default function EditProfileScreen({ navigation }) {
     });
     if (!result.canceled) {
       setPhoto(result.assets[0].uri);
+      setPhotoSize(result.assets[0].fileSize ?? null);
     }
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!email.trim() || !email.includes('@')) {
       Alert.alert(t('error'), t('emailInvalid'));
       return;
@@ -71,11 +75,31 @@ export default function EditProfileScreen({ navigation }) {
       Alert.alert(t('error'), t('pseudoRequired'));
       return;
     }
-
-    updateUser({ email: email.trim(), photo, pseudo: pseudo.trim(), firstName: firstName.trim(), lastName: lastName.trim(), phone: phone.trim() });
-    Alert.alert(t('saved'), t('profileUpdated'), [
-      { text: t('ok'), onPress: () => navigation.goBack() },
-    ]);
+    setSaving(true);
+    try {
+      // Photo : si c'est une nouvelle image locale (file://), on l'upload sur S3
+      // et on persiste l'URL ; si déjà une URL http, on la garde telle quelle.
+      let photoUrl = null;
+      if (photo && /^https?:/.test(photo)) {
+        photoUrl = photo;
+      } else if (photo && /^file:/.test(photo)) {
+        // Taille fournie par ImagePicker (asset.fileSize) — pas de dépendance native.
+        photoUrl = await uploadService.uploadDriverDoc({ fileUri: photo, slot: 'profile_photo', size: photoSize, contentType: 'image/jpeg' });
+      }
+      updateUser({
+        pseudo: pseudo.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        ...(photoUrl ? { profile_photo_url: photoUrl, photo: photoUrl } : {}),
+      });
+      setSaving(false);
+      Alert.alert(t('saved'), t('profileUpdated'), [
+        { text: t('ok'), onPress: () => navigation.goBack() },
+      ]);
+    } catch (e) {
+      setSaving(false);
+      Alert.alert(t('error'), t('errorUploadFailed') || "Échec de l'envoi de la photo. Réessayez.");
+    }
   }
 
   return (
@@ -119,8 +143,8 @@ export default function EditProfileScreen({ navigation }) {
           <Ionicons name="chevron-forward" size={16} color="#ccc" />
         </Pressable>
 
-        <Pressable style={s.saveBtn} onPress={handleSave}>
-          <Text style={s.saveTxt}>{t('save')}</Text>
+        <Pressable style={[s.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
+          <Text style={s.saveTxt}>{saving ? (t('saving') || 'Enregistrement…') : t('save')}</Text>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>

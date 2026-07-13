@@ -22,6 +22,12 @@ export const deliveryService = {
     return data;
   },
 
+  // Refuser une offre chronométrée : le backend la ré-offre au livreur suivant.
+  async declineDelivery(orderId) {
+    const { data } = await api.post('/api/v1/delivery/decline/', { order_id: orderId });
+    return data;
+  },
+
   async updateDeliveryStatus(assignmentId, status, deliveryCode) {
     // The final `delivered` transition requires the customer's 4-digit code.
     const body = { status };
@@ -45,6 +51,16 @@ export const deliveryService = {
     return data;
   },
 
+  async getRatings() {
+    const { data } = await api.get('/api/v1/delivery/ratings/');
+    return data;
+  },
+
+  async getOpportunities() {
+    const { data } = await api.get('/api/v1/delivery/opportunities/');
+    return data;
+  },
+
   async requestStripeConnect() {
     const { data } = await api.post('/api/v1/delivery/stripe/connect/');
     return data;
@@ -52,6 +68,11 @@ export const deliveryService = {
 
   async getHeatmap() {
     const { data } = await api.get('/api/v1/delivery/heatmap/');
+    return data;
+  },
+
+  async getNotifications() {
+    const { data } = await api.get('/api/v1/delivery/notifications/');
     return data;
   },
 

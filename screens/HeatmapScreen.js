@@ -31,7 +31,8 @@ export default function HeatmapScreen({ navigation }) {
         .map(z => ({
           latitude: z.lat,
           longitude: z.lng,
-          weight: z.intensity != null ? z.intensity : (z.estimated_demand != null ? z.estimated_demand : 1),
+          // Poids NUMÉRIQUE (nombre de commandes) pour la heatmap ; fallback 1.
+          weight: typeof z.weight === 'number' ? z.weight : (typeof z.active_orders === 'number' ? z.active_orders : 1),
         }));
       setHeatmapPoints(points);
     } catch (_) {

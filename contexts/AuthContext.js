@@ -4,6 +4,7 @@ import secureStorage from '../services/secureStorage';
 import { authService } from '../services/authService';
 import { deliveryService } from '../services/deliveryService';
 import { earningsService } from '../services/earningsService';
+import { ticketService } from '../services/ticketService';
 
 const AuthContext = createContext(null);
 
@@ -37,16 +38,24 @@ function fmtTime(iso) {
 function adaptProfile(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const name = raw.userName || raw.legal_name || raw.email || '';
+  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  // Vrais champs séparés si présents, sinon dérivés du nom complet (comptes
+  // existants créés avant l'ajout de first_name/last_name/pseudo).
+  const firstName = raw.first_name || parts[0] || '';
+  const lastName = raw.last_name || (parts.length > 1 ? parts.slice(1).join(' ') : '');
+  const pseudo = raw.pseudo || name;
   return {
     ...raw,
     email: raw.email || '',
     userName: name,
-    firstName: name,
-    lastName: '',
-    pseudo: name,
+    firstName,
+    lastName,
+    pseudo,
     phone: raw.phone || '',
     vehicle: raw.vehicle_type || '',
-    photo: raw.photo || null,
+    // Photo de profil : le backend renvoie profile_photo_url (pas raw.photo).
+    photo: raw.profile_photo_url || raw.photo || null,
+    isVerified: !!raw.is_verified,
   };
 }
 
@@ -56,7 +65,10 @@ function adaptEarningsWeek(rec) {
     start,
     range: start && rec.period_end ? `${fmtDate(start)} - ${fmtDate(rec.period_end)}` : start,
     total: Number(rec.net_amount ?? rec.gross_amount ?? 0),
-    bars: [0, 0, 0, 0, 0, 0, 0], // backend exposes no per-day breakdown
+    // Vraies barres par jour (lun→dim) fournies par le backend (daily_breakdown).
+    bars: Array.isArray(rec.daily_breakdown) && rec.daily_breakdown.length === 7
+      ? rec.daily_breakdown.map((v) => Number(v) || 0)
+      : [0, 0, 0, 0, 0, 0, 0],
     net: Number(rec.net_amount ?? 0),
     tips: Number(rec.tips_amount ?? 0),
     courses: Number(rec.total_deliveries ?? 0),
@@ -93,7 +105,14 @@ function adaptPayout(p, iban) {
     iban: iban || '',
     status: p.status || '',
     paidAt: p.paid_at || null,
-    detail: { net: amt, tips: '—', courses: '—', status: p.status || 'En cours' },
+    createdAtRaw: p.created_at || null,
+    // Détail réel du versement (DriverEarnings) : net, pourboires, nb de courses.
+    detail: {
+      net: `${Number(p.net_amount ?? p.amount ?? 0).toFixed(2)} €`,
+      tips: p.tips_amount != null ? `${Number(p.tips_amount).toFixed(2)} €` : '—',
+      courses: p.total_deliveries != null ? p.total_deliveries : '—',
+      status: p.status || 'En cours',
+    },
   };
 }
 
@@ -131,6 +150,9 @@ export function AuthProvider({ children }) {
   const [currentIban, setCurrentIban] = useState('');
   const [weeklyEarnings, setWeeklyEarnings] = useState([]);
   const [versements, setVersements] = useState([]);
+  const [ratingsSummary, setRatingsSummary] = useState(null);
+  const [openTicketCount, setOpenTicketCount] = useState(0);
+  const [opportunitiesCount, setOpportunitiesCount] = useState(0);
   const [readOpportunities, setReadOpportunities] = useState([]);
   const [ticketMessages, setTicketMessages] = useState({});
   const [ticketReadCounts, setTicketReadCounts] = useState({});
@@ -178,12 +200,50 @@ export function AuthProvider({ children }) {
     try {
       const p = await deliveryService.getPenalties();
       setWarningsList(extractList(p).map(adaptWarning));
+      // Synthèse RÉELLE (compteur, compte actif, annulations de la semaine) —
+      // source de vérité backend, plus de compteur local.
+      const s = (p && typeof p === 'object' && !Array.isArray(p)) ? p : {};
+      if (typeof s.warnings_count === 'number') setWarnings(s.warnings_count);
+      if (typeof s.account_active === 'boolean') setAccountActive(s.account_active);
+      if (typeof s.cancellations_this_week === 'number') setWeeklyCancels(s.cancellations_this_week);
+    } catch (e) { /* keep last known */ }
+  }, []);
+
+  const refreshRatings = useCallback(async () => {
+    try {
+      const r = await deliveryService.getRatings();
+      const d = (r && r.data) ? r.data : r;
+      setRatingsSummary(d || null);
+      // La note moyenne (recalculée serveur) devient la source de vérité.
+      if (d && typeof d.average === 'number') setRating(d.average);
+    } catch (e) { /* keep last known */ }
+  }, []);
+
+  const refreshTickets = useCallback(async () => {
+    // Badge « support » = nombre de tickets non résolus (source backend réelle,
+    // remplace l'ancien compteur local mort).
+    try {
+      const r = await ticketService.getTickets();
+      const list = extractList(r);
+      const openCount = list.filter((tk) => {
+        const st = String(tk?.status || '').toLowerCase();
+        return st === 'open' || st === 'in_progress';
+      }).length;
+      setOpenTicketCount(openCount);
+    } catch (e) { /* keep last known */ }
+  }, []);
+
+  const refreshOpportunities = useCallback(async () => {
+    // Compte réel d'opportunités actives (pour le badge, au lieu d'un 4 en dur).
+    try {
+      const r = await deliveryService.getOpportunities();
+      setOpportunitiesCount(extractList(r).length);
     } catch (e) { /* keep last known */ }
   }, []);
 
   const refreshAll = useCallback(async () => {
-    await Promise.all([refreshEarnings(), refreshHistory(), refreshWarnings()]);
-  }, [refreshEarnings, refreshHistory, refreshWarnings]);
+    await Promise.all([refreshEarnings(), refreshHistory(), refreshWarnings(), refreshRatings(), refreshTickets(), refreshOpportunities()]);
+  }, [refreshEarnings, refreshHistory, refreshWarnings, refreshRatings, refreshTickets, refreshOpportunities]);
 
   // Restore an existing session on cold start.
   useEffect(() => {
@@ -222,6 +282,10 @@ export function AuthProvider({ children }) {
       const payload = {
         email: String(data.email).trim(),
         userName: [data.prenom, data.nom].filter(Boolean).join(' ').trim() || data.pseudo || data.email,
+        // Identité séparée persistée côté livreur (header du profil).
+        first_name: (data.prenom || '').trim(),
+        last_name: (data.nom || '').trim(),
+        pseudo: (data.pseudo || '').trim(),
         password: data.password,
         phone: data.phone || '',
         phoneCode: data.phoneCode || '',
@@ -266,6 +330,20 @@ export function AuthProvider({ children }) {
     const allowed = {};
     const vt = updates.vehicle_type || updates.vehicle;
     if (vt) allowed.vehicle_type = vt;
+    // Identité éditable → persistée en base via PUT /profile/.
+    const fn = updates.first_name ?? updates.firstName;
+    const ln = updates.last_name ?? updates.lastName;
+    if (fn != null) allowed.first_name = fn;
+    if (ln != null) allowed.last_name = ln;
+    if (updates.pseudo != null) allowed.pseudo = updates.pseudo;
+    if (updates.userName) allowed.userName = updates.userName;
+    // Photo : on n'envoie qu'une URL S3 (http), jamais un URI local (file://).
+    const photoUrl = updates.profile_photo_url
+      || (typeof updates.photo === 'string' && /^https?:/.test(updates.photo) ? updates.photo : null);
+    if (photoUrl) allowed.profile_photo_url = photoUrl;
+    if (updates.iban) allowed.iban = updates.iban;
+    if (updates.bic) allowed.bic = updates.bic;
+    if (updates.iban_holder_name) allowed.iban_holder_name = updates.iban_holder_name;
     if (updates.id_card_front_url) allowed.id_card_front_url = updates.id_card_front_url;
     if (updates.id_card_back_url) allowed.id_card_back_url = updates.id_card_back_url;
     if (updates.iban_doc_url) allowed.iban_doc_url = updates.iban_doc_url;
@@ -374,22 +452,19 @@ export function AuthProvider({ children }) {
   }
 
   function getUnreadTicketCount() {
-    let total = 0;
-    Object.keys(ticketMessages).forEach((ticketId) => {
-      const msgs = ticketMessages[ticketId] || [];
-      const readCount = ticketReadCounts[ticketId] || 0;
-      if (msgs.length > readCount) total++;
-    });
-    return total;
+    // Nombre de tickets support non résolus (réel, rafraîchi via refreshTickets).
+    return openTicketCount;
   }
 
-  // --- opportunities (no backend endpoint yet) -------------------------
+  // --- opportunities (backend-driven : GET /opportunities/) ------------
   function markOpportunityRead(id) {
     setReadOpportunities((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }
 
   function getUnreadOpportunitiesCount(total) {
-    return Math.max(0, (total || 0) - readOpportunities.length);
+    // Utilise le vrai nombre d'opportunités si connu, sinon le total passé.
+    const n = opportunitiesCount || total || 0;
+    return Math.max(0, n - readOpportunities.length);
   }
 
   return (
@@ -401,7 +476,7 @@ export function AuthProvider({ children }) {
       getTicketMessages, saveTicketMessages, markTicketRead, getUnreadTicketCount,
       scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts,
       currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban,
-      isOnline, setIsOnline, warningsList,
+      isOnline, setIsOnline, warningsList, ratingsSummary, refreshRatings,
       readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount,
     }}>
       {children}

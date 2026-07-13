@@ -9,7 +9,7 @@ const BRAND = '#00C29B';
 
 export default function EditIbanScreen({ navigation }) {
   const { t } = useLanguage();
-  const { currentIban, setCurrentIban } = useAuth();
+  const { currentIban, setCurrentIban, updateUser } = useAuth();
   const insets = useSafeAreaInsets();
   const [newTitulaire, setNewTitulaire] = useState('');
   const [newIban, setNewIban] = useState('');
@@ -18,10 +18,16 @@ export default function EditIbanScreen({ navigation }) {
   function handleSave() {
     if (!newIban.trim() || !newTitulaire.trim()) return;
     Keyboard.dismiss();
-    const masked = newIban.trim().slice(0, 4) + ' •••• •••• •••• •••• •••• ' + newIban.trim().slice(-2);
+    const iban = newIban.trim().replace(/\s+/g, '');
+    const masked = iban.slice(0, 4) + ' •••• •••• •••• •••• •••• ' + iban.slice(-2);
     Alert.alert(t('confirmChange'), `Nouveau compte :\n${newTitulaire.trim()}\n${newIban.trim()}`, [
       { text: t('cancel'), style: 'cancel' },
-      { text: t('confirm'), onPress: () => { setCurrentIban(masked); navigation.goBack(); } },
+      { text: t('confirm'), onPress: () => {
+        // Persiste réellement en base via PUT /profile/ (plus juste local).
+        updateUser({ iban, bic: newBic.trim(), iban_holder_name: newTitulaire.trim() });
+        setCurrentIban(masked);
+        navigation.goBack();
+      } },
     ]);
   }
 

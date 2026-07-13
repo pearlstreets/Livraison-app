@@ -15,6 +15,9 @@ export default function WalletScreen({ navigation }) {
   const { currentEarningsCents, cashOut, versements, currentIban } = useAuth();
   const insets = useSafeAreaInsets();
   const earn = { earningsCents: currentEarningsCents, earnings: (currentEarningsCents / 100).toFixed(2) + ' €' };
+  // Libellé du compte bancaire dérivé du vrai IBAN (au lieu d'un ••••15 en dur).
+  const bankTail = ((currentIban || '').match(/(\d{2,4})\s*$/) || [])[1] || '';
+  const bankLabel = bankTail ? `••${bankTail}` : 'votre compte enregistré';
   const [stripeLoading, setStripeLoading] = useState(false);
   const [encaissModal, setEncaissModal] = useState(false);
   const [encaissStep, setEncaissStep] = useState('confirm'); // confirm | processing | done
@@ -28,8 +31,8 @@ export default function WalletScreen({ navigation }) {
 
   const todayDate = new Date().toLocaleDateString('fr-FR');
   const alreadyCashedToday = versements.some(v => {
-    if (!v.cashedAt) return false;
-    return new Date(v.cashedAt).toLocaleDateString('fr-FR') === todayDate;
+    if (!v.createdAtRaw) return false;
+    return new Date(v.createdAtRaw).toLocaleDateString('fr-FR') === todayDate;
   });
 
   function startEncaiss() {
@@ -87,7 +90,7 @@ export default function WalletScreen({ navigation }) {
             <Text style={s.balanceAmount}>{earn.earnings}</Text>
             <Ionicons name="chevron-forward" size={22} color="#999" />
           </View>
-          <Text style={s.nextPayout}>Versement planifié : 31 mars</Text>
+          <Text style={s.nextPayout}>Versements hebdomadaires automatiques</Text>
           <Pressable style={[s.encaissBtn, earn.earningsCents <= 0 && { opacity: 0.4 }]} onPress={startEncaiss}>
             <Ionicons name="flash" size={16} color="#111" />
             <Text style={s.encaissTxt}>{t('cashout')}</Text>
@@ -166,7 +169,7 @@ export default function WalletScreen({ navigation }) {
                   <Ionicons name="flash" size={40} color={BRAND} />
                 </View>
                 <Text style={s.popupTitle}>{t('instantCashout')}</Text>
-                <Text style={s.popupDesc}>Votre solde de {cashedAmount} sera transféré sur votre compte bancaire ••••15 sous 30 minutes.</Text>
+                <Text style={s.popupDesc}>Votre solde de {cashedAmount} sera transféré sur votre compte bancaire {bankLabel} sous 30 minutes.</Text>
                 <Text style={s.popupFee}>{t('cashoutFee')}</Text>
                 <Pressable style={s.popupBtnPrimary} onPress={processEncaiss}>
                   <Text style={s.popupBtnPrimaryTxt}>{t('confirmCashout')}</Text>
@@ -191,7 +194,7 @@ export default function WalletScreen({ navigation }) {
                   <Ionicons name="checkmark-circle" size={48} color={BRAND} />
                 </View>
                 <Text style={s.popupTitle}>{t('cashoutSuccess')}</Text>
-                <Text style={s.popupDesc}>Le montant de {cashedAmount} sera versé sur votre compte bancaire ••••15 dans les 30 prochaines minutes.</Text>
+                <Text style={s.popupDesc}>Le montant de {cashedAmount} sera versé sur votre compte bancaire {bankLabel} dans les 30 prochaines minutes.</Text>
                 <Pressable style={s.popupBtnPrimary} onPress={() => setEncaissModal(false)}>
                   <Text style={s.popupBtnPrimaryTxt}>{t('close')}</Text>
                 </Pressable>

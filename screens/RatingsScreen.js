@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,13 +9,23 @@ const BRAND = '#00C29B';
 
 export default function RatingsScreen({ navigation }) {
   const { t } = useLanguage();
-  const { user } = useAuth();
+  const { user, ratingsSummary, refreshRatings } = useAuth();
   const insets = useSafeAreaInsets();
 
-  const rawRating = typeof user?.rating === 'number' ? user.rating : 0;
-  const totalDeliveries = typeof user?.total_deliveries === 'number' ? user.total_deliveries : 0;
+  useEffect(() => { refreshRatings?.(); }, [refreshRatings]);
+
+  const summary = ratingsSummary || {};
+  const rawRating = (typeof summary.average === 'number' && summary.average > 0)
+    ? summary.average
+    : (typeof user?.rating === 'number' ? user.rating : 0);
+  const totalDeliveries = summary.total_deliveries ?? (typeof user?.total_deliveries === 'number' ? user.total_deliveries : 0);
   const avg = rawRating > 0 ? rawRating.toFixed(1) : '–';
   const avgRounded = rawRating > 0 ? Math.round(rawRating) : 0;
+  const dist = summary.distribution || {};
+  const count = summary.count || 0;
+  const tips = typeof summary.lifetime_tips === 'number' ? summary.lifetime_tips : null;
+  const reviews = Array.isArray(summary.reviews) ? summary.reviews : [];
+  const fmtReviewDate = (iso) => { try { const d = new Date(iso); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; } catch { return ''; } };
 
   return (
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -38,7 +48,7 @@ export default function RatingsScreen({ navigation }) {
         <Text style={s.avgLabel}>{totalDeliveries} {t('evaluations') || 'livraisons'}</Text>
       </View>
 
-      {/* Pourboires — placeholder, pas d'endpoint backend */}
+      {/* Pourboires reçus (cumulés) — réel */}
       <View style={s.tipsCard}>
         <View style={s.tipsIconWrap}>
           <Ionicons name="gift" size={24} color="#00C29B" />
@@ -47,29 +57,51 @@ export default function RatingsScreen({ navigation }) {
           <Text style={s.tipsTitle}>{t('tipsReceived')}</Text>
           <Text style={s.tipsSub}>{t('tipsReceivedSub')}</Text>
         </View>
-        <Text style={s.tipsTotal}>–</Text>
+        <Text style={[s.tipsTotal, tips != null && tips > 0 && { color: '#111' }]}>
+          {tips != null ? `${tips.toFixed(2)} €` : '–'}
+        </Text>
       </View>
 
-      {/* Distribution — pas de données individuelles disponibles */}
+      {/* Distribution des étoiles — réelle */}
       <View style={s.distCard}>
-        {[5,4,3,2,1].map(star => (
-          <View key={star} style={s.distRow}>
-            <Text style={s.distStar}>{star}</Text>
-            <Ionicons name="star" size={14} color="#00C29B" />
-            <View style={s.distBarBg}>
-              <View style={[s.distBarFill, { width: '0%' }]} />
+        {[5,4,3,2,1].map(star => {
+          const c = dist[String(star)] ?? dist[star] ?? 0;
+          const pct = count > 0 ? Math.round((c / count) * 100) : 0;
+          return (
+            <View key={star} style={s.distRow}>
+              <Text style={s.distStar}>{star}</Text>
+              <Ionicons name="star" size={14} color="#00C29B" />
+              <View style={s.distBarBg}>
+                <View style={[s.distBarFill, { width: `${pct}%` }]} />
+              </View>
+              <Text style={s.distCount}>{c}</Text>
             </View>
-            <Text style={s.distCount}>–</Text>
-          </View>
-        ))}
+          );
+        })}
       </View>
 
-      {/* Derniers avis — aucun endpoint backend pour les avis individuels */}
+      {/* Derniers avis — réels (DriverRating + notes courses) */}
       <Text style={s.sectionTitle}>{t('latestReviews')}</Text>
-      <View style={s.emptyCard}>
-        <Ionicons name="chatbubble-ellipses-outline" size={36} color="#ccc" style={{ marginBottom: 10 }} />
-        <Text style={s.emptyText}>{t('noDetailedReviews') || 'Aucun avis détaillé disponible'}</Text>
-      </View>
+      {reviews.length > 0 ? (
+        reviews.map((rv, i) => (
+          <View key={i} style={s.reviewCard}>
+            <View style={s.reviewHead}>
+              <View style={{ flexDirection: 'row' }}>
+                {[1,2,3,4,5].map(k => (
+                  <Ionicons key={k} name={k <= (rv.rating || 0) ? 'star' : 'star-outline'} size={14} color="#00C29B" />
+                ))}
+              </View>
+              <Text style={s.reviewDate}>{fmtReviewDate(rv.created_at)}</Text>
+            </View>
+            {!!rv.comment && <Text style={s.reviewComment}>{rv.comment}</Text>}
+          </View>
+        ))
+      ) : (
+        <View style={s.emptyCard}>
+          <Ionicons name="chatbubble-ellipses-outline" size={36} color="#ccc" style={{ marginBottom: 10 }} />
+          <Text style={s.emptyText}>{t('noDetailedReviews') || 'Aucun avis pour le moment'}</Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -98,4 +130,8 @@ const s = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#111', paddingHorizontal: 16, marginBottom: 10 },
   emptyCard: { backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 14, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: '#e8e8e8' },
   emptyText: { color: '#999', fontSize: 14, textAlign: 'center' },
+  reviewCard: { backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#eee' },
+  reviewHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  reviewDate: { color: '#999', fontSize: 12 },
+  reviewComment: { color: '#333', fontSize: 14, marginTop: 8, lineHeight: 20 },
 });

@@ -50,6 +50,7 @@ import TicketsListScreen from './screens/TicketsListScreen';
 import EditIbanScreen from './screens/EditIbanScreen';
 import WarningsScreen from './screens/WarningsScreen';
 import HeatmapScreen from './screens/HeatmapScreen';
+import MapScreen from './screens/MapScreen';
 import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import OpportunityDetailScreen from './screens/OpportunityDetailScreen';
 import VersementsListScreen from './screens/VersementsListScreen';
@@ -83,6 +84,7 @@ function HomeStackScreen() {
       <HomeStack.Screen name="OrdersMain" component={OrdersScreen} />
       <HomeStack.Screen name="DeliveryFlow" component={DeliveryFlowScreen} />
       <HomeStack.Screen name="Heatmap" component={HeatmapScreen} />
+      <HomeStack.Screen name="RouteMap" component={MapScreen} />
     </HomeStack.Navigator>
   );
 }

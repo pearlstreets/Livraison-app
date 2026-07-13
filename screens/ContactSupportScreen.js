@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { ticketService } from '../services/ticketService';
 
 const BRAND = '#00C29B';
 
@@ -14,13 +15,24 @@ export default function ContactSupportScreen({ navigation, route }) {
   const subject = route.params?.subject || '';
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  function handleSend() {
+  async function handleSend() {
     if (!message.trim()) {
       Alert.alert(t('error'), t('writeMessage'));
       return;
     }
-    setSent(true);
+    setSending(true);
+    // Crée un VRAI ticket support côté backend (au lieu d'un faux envoi local).
+    try {
+      const description = subject ? `${subject}\n${message.trim()}` : message.trim();
+      await ticketService.createTicket({ problem_type: 'autre', description });
+      setSending(false);
+      setSent(true);
+    } catch (e) {
+      setSending(false);
+      Alert.alert(t('error'), t('errorNetwork') || "Échec de l'envoi. Veuillez réessayer.");
+    }
   }
 
   if (sent) {
@@ -76,9 +88,9 @@ export default function ContactSupportScreen({ navigation, route }) {
           onChangeText={setMessage}
         />
 
-        <Pressable style={s.sendBtn} onPress={handleSend}>
+        <Pressable style={[s.sendBtn, sending && { opacity: 0.6 }]} onPress={handleSend} disabled={sending}>
           <Ionicons name="send" size={18} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={s.sendTxt}>{t('send')}</Text>
+          <Text style={s.sendTxt}>{sending ? (t('sending') || 'Envoi…') : t('send')}</Text>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>

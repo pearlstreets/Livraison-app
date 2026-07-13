@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, PanResponder, Dimensions, Linking, Alert, TextInput, ScrollView, Modal, FlatList, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, PanResponder, Dimensions, Linking, Alert, TextInput, ScrollView, Modal, FlatList, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { sanitizeInput, createRateLimiter } from '../utils/validation';
 import { deliveryService } from '../services/deliveryService';
+import { ticketService } from '../services/ticketService';
 
 // Mapping étapes UI → statuts backend
 const STEP_TO_STATUS = {
@@ -87,7 +88,7 @@ const WAIT_SECONDS = 7 * 60; // 7 minutes
 
 const CALL_DEADLINE = 4 * 60; // 4 minutes — must call before this
 
-function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showCallPopup, setShowCallPopup, onMessage, onOpenMap }) {
+function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showCallPopup, setShowCallPopup, onMessage, onOpenMap, onCall }) {
   const { t } = useLanguage();
   const [remaining, setRemaining] = useState(WAIT_SECONDS);
   const timerRef = useRef(null);
@@ -123,7 +124,8 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
   function handleCall() {
     onCallDone?.();
     setShowCallPopup(false);
-    Alert.alert(t('callInProgress'), t('callInProgressMsg'));
+    // Vrai appel téléphonique (tel:) délégué au parent, plus de popup factice.
+    onCall?.();
   }
 
   return (
@@ -203,7 +205,7 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
 export default function DeliveryFlowScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, saveTicketMessages, markOrderReported } = useAuth();
+  const { addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, saveTicketMessages, markOrderReported, refreshAll } = useAuth();
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [showCodeProblem, setShowCodeProblem] = useState(false);
   const [selectedCodeProblem, setSelectedCodeProblem] = useState(null);
@@ -271,11 +273,25 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const price = order.priceText || order.price || '—';
   const distance = order.distanceText || '—';
   const eta = order.etaText || '—';
-  const orderId = order.id || order.code || 'Commande';
+  const orderId = order.orderNumber || order.id || order.code || 'Commande';
   // ID de l'assignment backend (pour updateDeliveryStatus / cancelDelivery)
   const assignmentId = order._assignmentId || order.id || null;
-  // Code de livraison fourni par le backend (4 chiffres)
+  // Code de remise : renseigné pour une commande PRO (affiché + validé en local,
+  // comportement historique inchangé) ; VIDE pour une commande courses (le client
+  // le donne de vive voix, le backend valide). Le livreur ne voit donc jamais le
+  // code d'une course.
   const REAL_CODE = String(order.delivery_code || '');
+  // Téléphone client pour un vrai appel (tel:).
+  const clientPhone = String(
+    order.customerPhone || (order.user_address && order.user_address.phone_number) || ''
+  ).replace(/[^0-9+]/g, '');
+  const callClient = useCallback(() => {
+    if (clientPhone) {
+      Linking.openURL(`tel:${clientPhone}`).catch(() => {});
+    } else {
+      Alert.alert(t('callTheClient'), 'Numéro du client indisponible pour le moment.');
+    }
+  }, [clientPhone, t]);
 
   // Code step timer (10 min)
   useEffect(() => {
@@ -329,6 +345,11 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     setShowMapSheet(true);
   }, [order.dropoffLat, order.dropoffLng, sheetPan]);
 
+  // Carte d'itinéraire IN-APP (marqueurs boutique + client, tracé, nav externe).
+  const openRouteMap = useCallback(() => {
+    navigation.navigate('RouteMap', { order });
+  }, [navigation, order]);
+
   const closeMapSheet = useCallback(() => {
     Animated.timing(sheetPan, { toValue: 400, duration: 200, useNativeDriver: true }).start(() => {
       setShowMapSheet(false);
@@ -360,19 +381,32 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     }
     if (index === 3 && digit) {
       const entered = newCode.join('');
-      if (entered === REAL_CODE) {
-        // Appel backend avec le code avant de passer à 'done'
-        if (assignmentId) {
-          deliveryService.updateDeliveryStatus(assignmentId, 'delivered', entered).catch(() => {});
+      if (REAL_CODE) {
+        // PRO : le code est fourni dans le payload → validation locale (inchangé).
+        if (entered === REAL_CODE) {
+          if (assignmentId) {
+            deliveryService.updateDeliveryStatus(assignmentId, 'delivered', entered).catch(() => {});
+          }
+          setTimeout(nextStep, 300);
+        } else {
+          Alert.alert(t('wrongCode'), t('wrongCodeMsg'));
+          setCode(['', '', '', '']);
+          codeRefs[0].current?.focus();
         }
-        setTimeout(nextStep, 300);
       } else {
-        Alert.alert(t('wrongCode'), t('wrongCodeMsg'));
-        setCode(['', '', '', '']);
-        codeRefs[0].current?.focus();
+        // COURSES : le livreur ne connaît pas le code → le BACKEND fait autorité
+        // (400 = code faux, on ne clôture pas et on ne crédite personne).
+        if (!assignmentId) { setTimeout(nextStep, 300); return; }
+        deliveryService.updateDeliveryStatus(assignmentId, 'delivered', entered)
+          .then(() => { setTimeout(nextStep, 300); })
+          .catch(() => {
+            Alert.alert(t('wrongCode'), t('wrongCodeMsg'));
+            setCode(['', '', '', '']);
+            codeRefs[0].current?.focus();
+          });
       }
     }
-  }, [code, nextStep, t, assignmentId]);
+  }, [code, nextStep, t, assignmentId, REAL_CODE]);
 
   // Progress indicator (memoized)
   const progress = useMemo(() => stepIndex / (STEPS.length - 1), [stepIndex]);
@@ -409,9 +443,13 @@ export default function DeliveryFlowScreen({ navigation, route }) {
         {step === 'pickup' && (
           <View style={ss.stepContentCompact}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-              <View style={ss.smallIconWrap}>
-                <MaterialCommunityIcons name="storefront-outline" size={24} color={BRAND} />
-              </View>
+              {order.shopImage ? (
+                <Image source={{ uri: order.shopImage }} style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: '#f0f0f0' }} />
+              ) : (
+                <View style={ss.smallIconWrap}>
+                  <MaterialCommunityIcons name="storefront-outline" size={24} color={BRAND} />
+                </View>
+              )}
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={ss.stepTitleCompact}>{restaurant}</Text>
                 <Text style={ss.stepSubCompact}>{t('pickupOrder')}</Text>
@@ -424,7 +462,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 <View style={ss.routeDotGreen} />
                 <View style={{ flex: 1 }}>
                   <Text style={ss.routeLabel}>{t('pickup')}</Text>
-                  <Text style={ss.routeAddr}>{restaurant}</Text>
+                  {/* Vraie adresse de la boutique (pas juste le nom) */}
+                  <Text style={ss.routeAddr}>{order.pickupAddress || restaurant}</Text>
                 </View>
               </View>
 
@@ -474,7 +513,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               </View>
             </View>
 
-            <Pressable style={ss.mapBtnCompact} onPress={() => openMap(restaurant)}>
+            <Pressable style={ss.mapBtnCompact} onPress={openRouteMap}>
               <Ionicons name="navigate" size={16} color="#fff" style={{ marginRight: 6 }} />
               <Text style={ss.mapBtnTxt}>{t('itinerary')}</Text>
             </Pressable>
@@ -502,7 +541,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                   <Text style={ss.enrouteLabel}>Récupération</Text>
                   <Text style={ss.enrouteAddr}>{restaurant}</Text>
                   <View style={ss.enrouteAddrCopyRow}>
-                    <Text style={ss.enrouteAddrBold} selectable>{order.pickupAddress || '12 Rue du Commerce, Meaux'}</Text>
+                    <Text style={ss.enrouteAddrBold} selectable>{order.pickupAddress || order.shopName || restaurant}</Text>
                   </View>
                 </View>
                 <Ionicons name="checkmark-circle" size={18} color={BRAND} />
@@ -556,12 +595,12 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               )}
             </View>
 
-            <Pressable style={ss.mapBtnCompact} onPress={() => openMap(address)}>
+            <Pressable style={ss.mapBtnCompact} onPress={openRouteMap}>
               <Ionicons name="navigate" size={16} color="#fff" style={{ marginRight: 6 }} />
               <Text style={ss.mapBtnTxt}>{t('clientItinerary')}</Text>
             </Pressable>
 
-            <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={() => Alert.alert(t('clientCall'), t('featureComingSoon'))}>
+            <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={callClient}>
               <Ionicons name="call-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
               <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('callTheClient')}</Text>
             </Pressable>
@@ -585,6 +624,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             setShowCallPopup={setShowCallPopup}
             onMessage={openChat}
             onOpenMap={openMap}
+            onCall={callClient}
           />
         )}
 
@@ -616,6 +656,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               ))}
             </View>
 
+            {/* PRO : le code est affiché au livreur (comportement historique).
+                COURSES : REAL_CODE = '' (non exposé) → rien ne s'affiche, le
+                client donne le code et le backend le valide. */}
             {!!REAL_CODE && <Text style={ss.codeHint}>{t('deliveryCode')} : {REAL_CODE}</Text>}
 
             {/* Décompte 10 min */}
@@ -626,7 +669,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               </Text>
             </View>
 
-            <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={() => Alert.alert(t('clientCall'), t('featureComingSoon'))}>
+            <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={callClient}>
               <Ionicons name="call-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
               <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('callTheClient') || 'Appeler le client'}</Text>
             </Pressable>
@@ -744,19 +787,27 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               </View>
             )}
             <Pressable style={ss.cancelConfirmBtn} onPress={async () => {
-              const result = cancelOrder();
               setShowCancelPopup(false);
-              // Appel backend annulation (fire-and-forget, ne bloque pas l'UI)
+              // Le BACKEND fait autorité sur la règle d'annulation (reste,
+              // avertissement). On lit sa réponse ; repli local si offline.
+              let remaining = null;
+              let warned = false;
               if (assignmentId) {
-                deliveryService.cancelDelivery(assignmentId).catch(() => {});
+                try {
+                  const resp = await deliveryService.cancelDelivery(assignmentId);
+                  if (typeof resp?.remaining === 'number') remaining = resp.remaining;
+                  warned = !!resp?.warning_issued;
+                } catch (e) { /* offline → repli local */ }
               }
+              if (remaining === null) { const r = cancelOrder(); remaining = r.remaining; warned = r.warning; }
+              try { await refreshAll?.(); } catch {}
               const cancelledOrder = { ...order, status: 'cancelled', priceText: '0,00 €', cancelledAt: new Date().toISOString() };
-              if (result.warning) {
+              if (warned) {
                 Alert.alert(t('warning'), t('warningAdded'), [
                   { text: t('ok'), onPress: () => navigation.navigate('OrdersMain', { cancelledOrder }) },
                 ]);
               } else {
-                Alert.alert(t('orderCancelled'), `Il vous reste ${result.remaining} annulation${result.remaining > 1 ? 's' : ''} cette semaine.`, [
+                Alert.alert(t('orderCancelled'), `Il vous reste ${remaining} annulation${remaining > 1 ? 's' : ''} cette semaine.`, [
                   { text: t('ok'), onPress: () => navigation.navigate('OrdersMain', { cancelledOrder }) },
                 ]);
               }
@@ -855,18 +906,19 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             <Pressable
               style={[ss.codeTicketBtn, !selectedCodeProblem && { opacity: 0.4 }]}
               disabled={!selectedCodeProblem}
-              onPress={() => {
+              onPress={async () => {
                 const problem = CODE_PROBLEMS.find(p => p.id === selectedCodeProblem);
-                const now = new Date();
-                const ticketMsgs = [
-                  { id: '0', type: 'system', text: `Ticket ouvert pour la commande ${orderId}` },
-                  { id: `user-${Date.now()}`, type: 'user', text: `Problème signalé : ${problem.label}${codeProblemDesc.trim() ? `\n${codeProblemDesc.trim()}` : ''}`, time: now.toISOString() },
-                  { id: 'admin-0', type: 'admin', text: 'Bonjour ! Merci de nous contacter. Un agent va prendre en charge votre demande.', time: new Date(now.getTime() + 1500).toISOString() },
-                ];
-                saveTicketMessages(orderId, ticketMsgs);
+                // Mappe le type de problème de code → PROBLEM_CHOICES backend.
+                const PROBLEM_MAP = { client_absent: 'client_absent', no_code: 'autre', wrong_code: 'autre', client_refuse: 'autre', other: 'autre' };
+                const problem_type = PROBLEM_MAP[selectedCodeProblem] || 'autre';
+                const description = `${problem?.label || 'Problème de code'}${codeProblemDesc.trim() ? `\n${codeProblemDesc.trim()}` : ''}`;
+                // VRAI ticket support côté backend (au lieu d'une conversation simulée).
+                try {
+                  await ticketService.createTicket({ problem_type, description, assignment_id: assignmentId });
+                } catch (e) { /* réseau : on ferme quand même la livraison */ }
                 markOrderReported(order.id);
                 setShowCodeProblem(false);
-                const problemOrder = { ...order, status: 'completed', completedAt: now.toISOString(), reported: true };
+                const problemOrder = { ...order, status: 'completed', completedAt: new Date().toISOString(), reported: true };
                 navigation.navigate('OrdersMain', { completedOrder: problemOrder });
               }}
             >

@@ -320,8 +320,9 @@ export default function LoginScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Logo — fixed top */}
-        {(mode === 'login' || mode === 'choose' || (mode === 'signup' && step === 1)) && (
+        {/* Logo — fixed top (inscription/choix). En mode login il est rendu
+            DANS le contenu centré du ScrollView pour être centré avec le form. */}
+        {((mode === 'choose') || (mode === 'signup' && step === 1)) && (
           <View style={{alignItems:'center', paddingTop:16, paddingBottom:8}}>
             <Ionicons name="bicycle" size={50} color={BRAND} style={{marginBottom:6}} />
             <Text style={{fontSize:24, fontWeight:'900', color:'#111'}}>Pearl Delivery</Text>
@@ -348,6 +349,11 @@ export default function LoginScreen() {
           {/* === LOGIN === */}
           {mode === 'login' && (
             <>
+              {/* Logo centré avec le formulaire (le ScrollView centre verticalement) */}
+              <View style={{alignItems:'center', marginBottom:36}}>
+                <Ionicons name="bicycle" size={54} color={BRAND} style={{marginBottom:8}} />
+                <Text style={{fontSize:26, fontWeight:'900', color:'#111'}}>Pearl Delivery</Text>
+              </View>
               <Text style={s.label}>Email</Text>
               <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
               <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>

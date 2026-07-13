@@ -8,17 +8,6 @@ import { useAuth } from '../contexts/AuthContext';
 const BRAND = '#00C29B';
 const DAY_NAMES = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
-// Extra detail data keyed by week start date
-const WEEK_DETAILS = {
-  '2026-03-24': { dates: [24,25,26,27,28,29,30], net: 305.20, tips: 7.30, hours: '28 h 15 min', courses: 64, points: '---' },
-  '2026-03-17': { dates: [17,18,19,20,21,22,23], net: 440.29, tips: 7.11, hours: '35 h 41 min', courses: 82, points: '---' },
-  '2026-03-10': { dates: [10,11,12,13,14,15,16], net: 512.80, tips: 5.40, hours: '40 h 12 min', courses: 95, points: '---' },
-  '2026-03-03': { dates: [3,4,5,6,7,8,9], net: 362.17, tips: 7.20, hours: '30 h 05 min', courses: 71, points: '---' },
-  '2026-02-24': { dates: [24,25,26,27,28,1,2], net: 268.57, tips: 3.50, hours: '22 h 30 min', courses: 52, points: '---' },
-  '2026-02-17': { dates: [17,18,19,20,21,22,23], net: 421.42, tips: 6.50, hours: '34 h 18 min', courses: 78, points: '---' },
-  '2026-02-10': { dates: [10,11,12,13,14,15,16], net: 339.01, tips: 4.80, hours: '27 h 45 min', courses: 66, points: '---' },
-};
-
 function getDatesForWeek(startStr) {
   const d = new Date(startStr);
   return Array.from({ length: 7 }, (_, i) => {
@@ -28,18 +17,30 @@ function getDatesForWeek(startStr) {
   });
 }
 
+const EMPTY_WEEK = { start: '', range: '', total: 0, bars: [0, 0, 0, 0, 0, 0, 0], net: 0, tips: 0, courses: 0 };
+
 export default function WeekDetailScreen({ route, navigation }) {
   const { t } = useLanguage();
   const { weeklyEarnings } = useAuth();
   const insets = useSafeAreaInsets();
   const weekIndex = route?.params?.weekIndex ?? 0;
   const [idx, setIdx] = useState(weekIndex);
-  const rawWeek = weeklyEarnings[idx] || weeklyEarnings[0];
-  const detail = WEEK_DETAILS[rawWeek.start] || {};
-  const dates = detail.dates || getDatesForWeek(rawWeek.start);
-  const week = { ...rawWeek, dates, net: detail.net || rawWeek.total, tips: detail.tips || 0, hours: detail.hours || '—', courses: detail.courses || '—', points: detail.points || '---' };
-  const maxBar = Math.max(...week.bars, 1);
-  const maxEur = (maxBar / Math.max(...week.bars) * (week.total / 7) * 2).toFixed(2);
+  const rawWeek = weeklyEarnings[idx] || weeklyEarnings[0] || EMPTY_WEEK;
+  // 100% données réelles (adaptEarningsWeek : total/net/tips/courses/bars). Pas
+  // de suivi du temps en ligne côté backend → '—'.
+  const bars = Array.isArray(rawWeek.bars) && rawWeek.bars.length === 7 ? rawWeek.bars : [0, 0, 0, 0, 0, 0, 0];
+  const week = {
+    ...rawWeek,
+    bars,
+    dates: getDatesForWeek(rawWeek.start),
+    net: typeof rawWeek.net === 'number' ? rawWeek.net : (rawWeek.total || 0),
+    tips: typeof rawWeek.tips === 'number' ? rawWeek.tips : 0,
+    hours: '—',
+    courses: typeof rawWeek.courses === 'number' ? rawWeek.courses : '—',
+    points: '---',
+  };
+  const maxBar = Math.max(...bars, 1);
+  const maxEur = Math.max(...bars, 0).toFixed(2);
 
   const canPrev = idx > 0;
   const canNext = idx < weeklyEarnings.length - 1;
