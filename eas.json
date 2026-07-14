@@ -6,7 +6,11 @@
       "distribution": "internal"
     },
     "preview": { "distribution": "internal" },
-    "production": {}
+    "production": {
+      "ios": {
+        "image": "latest"
+      }
+    }
   },
   "submit": { "production": { "ios": { "ascAppId": "6749835609" } } }
 }
