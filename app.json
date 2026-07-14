@@ -9,10 +9,10 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#7D2EFF"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Votre position est utilisée pour optimiser vos livraisons en temps réel.",
         "NSCameraUsageDescription": "La caméra est utilisée pour la preuve de livraison.",
@@ -20,15 +20,15 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.pearlstreets.delivery",
-      "buildNumber": "1000"
+      "buildNumber": "1002"
     },
     "android": {
       "package": "com.pearlstreets.delivery",
-      "versionCode": 1000,
+      "versionCode": 1002,
       "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FFFFFF"
+        "backgroundColor": "#7D2EFF"
       },
       "permissions": [
         "ACCESS_FINE_LOCATION",
