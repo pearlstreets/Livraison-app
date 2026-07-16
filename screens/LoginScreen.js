@@ -84,6 +84,15 @@ const PHONE_FMT = {
 const DEFAULT_PHONE_FMT = { len: 10, groups: [3, 3, 4] };
 const phoneFmtFor = (code) => PHONE_FMT[code] || DEFAULT_PHONE_FMT;
 
+// Véhicules proposés à l'inscription — valeurs backend bicycle/scooter/car/walk
+// (mêmes que l'écran Vehicle du profil).
+const SIGNUP_VEHICLES = [
+  { id: 'bicycle', icon: 'bicycle', labelKey: 'bike' },
+  { id: 'scooter', icon: 'bicycle', labelKey: 'scooter' },
+  { id: 'car', icon: 'car-outline', labelKey: 'car' },
+  { id: 'walk', icon: 'walk-outline', labelKey: 'walk' },
+];
+
 // Group raw digits with spaces following the selected country's pattern.
 function formatPhone(value, fmt) {
   const digits = String(value || '').replace(/\D/g, '').slice(0, fmt.len);
@@ -126,6 +135,8 @@ export default function LoginScreen() {
   const [phone, setPhone] = useState('');
   const [country, setCountry] = useState('FR');
   const [phoneCountry, setPhoneCountry] = useState('FR');
+  // Véhicule choisi à l'inscription (valeurs backend : bicycle/scooter/car/walk).
+  const [vehicle, setVehicle] = useState('scooter');
 
   // Documents
   const [docIdFront, setDocIdFront] = useState(null);
@@ -265,7 +276,7 @@ export default function LoginScreen() {
       setError(t('errorUploadFailed') || "Échec de l'envoi des documents. Veuillez réessayer.");
       return;
     }
-    const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), role: isPro ? 'professionaluser' : 'user', documents: docUrls });
+    const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), vehicle_type: vehicle, role: isPro ? 'professionaluser' : 'user', documents: docUrls });
     setLoading(false);
     if (result && result.ok) { setPendingValidation(true); return; }
     setError((result && result.error) || 'Une erreur est survenue. Veuillez réessayer.');
@@ -450,6 +461,28 @@ export default function LoginScreen() {
                   <Ionicons name="chevron-down" size={14} color="#9CA3AF" style={{marginLeft:4}} />
                 </TouchableOpacity>
                 <TextInput style={[s.input, {flex:1}]} value={formatPhone(phone, phoneFmt)} onChangeText={(txt) => setPhone(txt.replace(/\D/g, '').slice(0, phoneFmt.len))} placeholder={phonePlaceholder(phoneFmt)} placeholderTextColor="#aaa" keyboardType="phone-pad" maxLength={phoneFmt.len + phoneFmt.groups.length} />
+              </View>
+              <Text style={s.label}>{t('vehicleLabel') || t('selectVehicle') || 'Véhicule'}</Text>
+              <View style={{flexDirection:'row', marginBottom:4}}>
+                {SIGNUP_VEHICLES.map((v) => {
+                  const active = vehicle === v.id;
+                  return (
+                    <TouchableOpacity
+                      key={v.id}
+                      onPress={() => setVehicle(v.id)}
+                      style={{
+                        flex:1, alignItems:'center', paddingVertical:12, marginRight: v.id === 'walk' ? 0 : 8,
+                        borderWidth:1, borderRadius:12,
+                        borderColor: active ? BRAND : '#E5E7EB',
+                        backgroundColor: active ? '#F0FDF4' : '#fff',
+                      }}>
+                      <Ionicons name={v.icon} size={22} color={active ? BRAND : '#9CA3AF'} />
+                      <Text style={{fontSize:11, marginTop:4, fontWeight: active ? '700' : '500', color: active ? BRAND : '#6B7280'}}>
+                        {t(v.labelKey) || v.id}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
               <Pressable style={s.btn} onPress={handleSignup}>
                 <Text style={s.btnTxt}>{isPro ? (t('next') || 'Suivant') : (t('signUp') || "S'inscrire")}</Text>

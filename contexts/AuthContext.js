@@ -144,6 +144,10 @@ export function AuthProvider({ children }) {
   const [totalDeliveries, setTotalDeliveries] = useState(0);
   const [weeklyCancels, setWeeklyCancels] = useState(0);
   const [isOnline, setIsOnlineState] = useState(false);
+  // Vrai pendant qu'une livraison est en cours (écran DeliveryFlow monté).
+  // Force le tracking GPS même si le livreur s'est mis hors-ligne, sinon le
+  // client perd la position du livreur en pleine course.
+  const [activeDelivery, setActiveDelivery] = useState(false);
   const [warningsList, setWarningsList] = useState([]);
   const [deliveryHistory, setDeliveryHistory] = useState([]);
   const [currentEarningsCents, setCurrentEarningsCents] = useState(0);
@@ -289,7 +293,8 @@ export function AuthProvider({ children }) {
         password: data.password,
         phone: data.phone || '',
         phoneCode: data.phoneCode || '',
-        vehicle_type: 'scooter',
+        // Véhicule choisi à l'inscription (défaut scooter si absent).
+        vehicle_type: data.vehicle_type || data.vehicle || 'scooter',
         country: data.country || 'FR',
         legal_status: isPro ? 'societe' : 'particulier',
       };
@@ -476,7 +481,7 @@ export function AuthProvider({ children }) {
       getTicketMessages, saveTicketMessages, markTicketRead, getUnreadTicketCount,
       scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts,
       currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban,
-      isOnline, setIsOnline, warningsList, ratingsSummary, refreshRatings,
+      isOnline, setIsOnline, activeDelivery, setActiveDelivery, warningsList, ratingsSummary, refreshRatings,
       readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount,
     }}>
       {children}

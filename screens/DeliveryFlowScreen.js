@@ -8,11 +8,15 @@ import { sanitizeInput, createRateLimiter } from '../utils/validation';
 import { deliveryService } from '../services/deliveryService';
 import { ticketService } from '../services/ticketService';
 
-// Mapping étapes UI → statuts backend
+// Mapping étape QUITTÉE → statut(s) backend qui reflètent la NOUVELLE réalité.
+// Avant : le statut était décalé d'un cran (in_transit envoyé au moment où le
+// livreur déclarait arriver, arrived au moment de la remise). Désormais :
+// - quitter "pickup"  = récupéré ET départ en course → picked_up puis in_transit
+// - quitter "enroute" = le livreur déclare son arrivée → arrived
+// - quitter "arrived" = remise (rien ; l'étape code envoie 'delivered')
 const STEP_TO_STATUS = {
-  pickup:  'picked_up',
-  enroute: 'in_transit',
-  arrived: 'arrived',
+  pickup:  ['picked_up', 'in_transit'],
+  enroute: ['arrived'],
   // 'delivered' est envoyé séparément avec le code
 };
 
@@ -205,7 +209,7 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
 export default function DeliveryFlowScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, saveTicketMessages, markOrderReported, refreshAll } = useAuth();
+  const { addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, saveTicketMessages, markOrderReported, refreshAll, setActiveDelivery } = useAuth();
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [showCodeProblem, setShowCodeProblem] = useState(false);
   const [selectedCodeProblem, setSelectedCodeProblem] = useState(null);
@@ -276,6 +280,13 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const orderId = order.orderNumber || order.id || order.code || 'Commande';
   // ID de l'assignment backend (pour updateDeliveryStatus / cancelDelivery)
   const assignmentId = order._assignmentId || order.id || null;
+  // Livraison en cours tant que cet écran est monté → force le tracking GPS
+  // même si le livreur passe hors-ligne, pour que le client garde la position
+  // live. Remis à false à la fermeture de l'écran.
+  useEffect(() => {
+    setActiveDelivery?.(true);
+    return () => setActiveDelivery?.(false);
+  }, [setActiveDelivery]);
   // Code de remise : renseigné pour une commande PRO (affiché + validé en local,
   // comportement historique inchangé) ; VIDE pour une commande courses (le client
   // le donne de vive voix, le backend valide). Le livreur ne voit donc jamais le
@@ -312,12 +323,18 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const nextStep = useCallback(async () => {
     if (stepIndex >= STEPS.length - 1) return;
     const currentStep = STEPS[stepIndex];
-    const backendStatus = STEP_TO_STATUS[currentStep];
-    if (backendStatus && assignmentId) {
-      try {
-        await deliveryService.updateDeliveryStatus(assignmentId, backendStatus);
-      } catch {
-        // Non bloquant : on avance dans le flow UI même en cas d'erreur réseau
+    const backendStatuses = STEP_TO_STATUS[currentStep] || [];
+    if (assignmentId) {
+      // Envoi séquentiel : les transitions backend sont gardées
+      // (accepted→picked_up→in_transit→arrived), donc picked_up doit précéder
+      // in_transit. Non bloquant : on avance dans le flow UI même en cas
+      // d'erreur réseau.
+      for (const backendStatus of backendStatuses) {
+        try {
+          await deliveryService.updateDeliveryStatus(assignmentId, backendStatus);
+        } catch {
+          // ignore — best effort
+        }
       }
     }
     setStepIndex(stepIndex + 1);

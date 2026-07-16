@@ -132,8 +132,11 @@ function MenuStackScreen() {
 }
 
 function Main() {
-  const { user, bootstrapping, isOnline, getUnreadTicketCount, getUnreadOpportunitiesCount } = useAuth();
-  useLocationTracking(isOnline);
+  const { user, bootstrapping, isOnline, activeDelivery, getUnreadTicketCount, getUnreadOpportunitiesCount } = useAuth();
+  // Track the driver's GPS whenever they're online OR a delivery is in progress
+  // (so the customer never loses the live pin if the driver toggles offline
+  // mid-course).
+  useLocationTracking(isOnline || activeDelivery);
   const totalProfileNotifs = getUnreadTicketCount() + getUnreadOpportunitiesCount(4);
   const { t } = useLanguage();
 
