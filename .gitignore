@@ -12,3 +12,6 @@ historique/
 retry.txt
 
 historique/reverts/*.bak
+
+# Cle de service Google Play (secret)
+google-play-service-account.json
