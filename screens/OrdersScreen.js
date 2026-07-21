@@ -148,9 +148,16 @@ function makeMockOrder() {
 /* ---------- Écran ---------- */
 const orderKey = (o) => o?._uid || o?.id || o?.code;
 
+// Compte de démonstration remis aux vérificateurs Apple et Google. La liste
+// "Disponibles" dépend de commandes marchandes réelles et se trouve donc
+// presque toujours vide pendant une vérification : ce compte conserve le
+// générateur de commande de test pour que le parcours complet reste
+// vérifiable, sans exposer le bouton aux vrais livreurs.
+const REVIEW_ACCOUNT_EMAIL = 'king@gmail.com';
+
 export default function OrdersScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { accountActive, addToHistory, isOnline, setIsOnline } = useAuth();
+  const { accountActive, addToHistory, isOnline, setIsOnline, user } = useAuth();
   const { t } = useLanguage();
   const scrollRef = useRef(null);
   const [selectedFilter, setSelectedFilter] = useState('smart');
@@ -186,6 +193,9 @@ export default function OrdersScreen({ navigation, route }) {
   const addMockOrder = useCallback(() => {
     setMockOrders(prev => [makeMockOrder(), ...prev]);
   }, []);
+
+  const canSimulate = __DEV__
+    || String(user?.email || '').trim().toLowerCase() === REVIEW_ACCOUNT_EMAIL;
 
   const displayedAvailable = useMemo(() => [...mockOrders, ...available], [mockOrders, available]);
 
@@ -401,7 +411,7 @@ export default function OrdersScreen({ navigation, route }) {
             <Text style={[styles.sectionTitle, active.length > 0 && styles.sectionTitleGap]}>
               {t('available')}
             </Text>
-            {__DEV__ && (
+            {canSimulate && (
               <TouchableOpacity
                 style={styles.mockBtn}
                 onPress={addMockOrder}
