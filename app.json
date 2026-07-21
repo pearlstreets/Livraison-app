@@ -13,6 +13,7 @@
     },
     "ios": {
       "supportsTablet": false,
+      "buildNumber": "1003",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Votre position est utilisée pour optimiser vos livraisons en temps réel.",
         "NSCameraUsageDescription": "La caméra est utilisée pour la preuve de livraison.",
