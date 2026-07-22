@@ -2,7 +2,10 @@ node_modules
 .expo
 .expo-shared
 npm-debug.log
-package-lock.json
+# package-lock.json volontairement NON ignoré : il est suivi par git (la règle
+# était inerte pour git) mais EAS construit son archive depuis .gitignore, donc
+# l'exclure faisait perdre la détection npm -> EAS retombait sur `yarn install`
+# (absent de la machine) et le build local échouait. Cf. build Android 1003.
 dist/
 ios/
 android/
