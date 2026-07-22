@@ -21,7 +21,7 @@
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.pearlstreets.delivery",
-      "buildNumber": "1003"
+      "buildNumber": "1004"
     },
     "android": {
       "package": "com.pearlstreets.delivery",
