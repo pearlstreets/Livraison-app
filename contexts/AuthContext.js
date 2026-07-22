@@ -329,6 +329,23 @@ export function AuthProvider({ children }) {
     setIsOnlineState(false);
   }, []);
 
+  // Suppression de compte (Apple 5.1.1(v)). Relaie l'erreur si l'appel serveur
+  // échoue (l'appelant garde l'utilisateur connecté + affiche l'erreur) ; en cas
+  // de succès, purge la session comme un logout → retour à l'écran de connexion.
+  const deleteAccount = useCallback(async () => {
+    await authService.deleteAccount();
+    setUser(null);
+    setWeeklyEarnings([]);
+    setVersements([]);
+    setDeliveryHistory([]);
+    setWarningsList([]);
+    setCurrentEarningsCents(0);
+    setWarnings(0);
+    setRating(0);
+    setTotalDeliveries(0);
+    setIsOnlineState(false);
+  }, []);
+
   const updateUser = useCallback((updates) => {
     if (!updates) return;
     setUser((prev) => (prev ? { ...prev, ...updates } : prev));
@@ -474,7 +491,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      bootstrapping, user, login, register, logout, updateUser,
+      bootstrapping, user, login, register, logout, deleteAccount, updateUser,
       warnings, accountActive, rating, totalDeliveries,
       addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount,
       deliveryHistory, addToHistory, markOrderReported, refreshAll,

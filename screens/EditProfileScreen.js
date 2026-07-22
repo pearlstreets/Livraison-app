@@ -49,20 +49,28 @@ export default function EditProfileScreen({ navigation }) {
   }
 
   async function pickPhoto() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(t('permissionRequired'), t('galleryAccess'));
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (!result.canceled) {
-      setPhoto(result.assets[0].uri);
-      setPhotoSize(result.assets[0].fileSize ?? null);
+    // Try/catch : sur iOS, si une clé Info.plist (NSPhotoLibraryUsageDescription)
+    // manque ou qu'un provider natif jette, l'appel peut rejeter — on ne laisse
+    // JAMAIS l'exception remonter (crash « au tap sur l'icône photo » vu en
+    // review Apple). En cas d'échec, message doux, jamais de plantage.
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(t('permissionRequired'), t('galleryAccess'));
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+      if (!result.canceled) {
+        setPhoto(result.assets[0].uri);
+        setPhotoSize(result.assets[0].fileSize ?? null);
+      }
+    } catch (e) {
+      Alert.alert(t('error'), t('galleryAccess'));
     }
   }
 

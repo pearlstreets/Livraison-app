@@ -93,6 +93,17 @@ export const authService = {
     await secureStorage.clearAll();
   },
 
+  // Suppression de compte in-app (exigence Apple 5.1.1(v)). On appelle
+  // l'endpoint AUTHENTIFIÉ (donc avant tout nettoyage local), et seulement en
+  // cas de succès on purge la session locale. Si l'appel échoue, on relance
+  // l'erreur SANS vider la session (le compte n'a pas été supprimé côté serveur).
+  async deleteAccount() {
+    await api.delete('/api/v1/delivery/delete-account/');
+    clearSessionTimer();
+    refreshCount = 0;
+    await secureStorage.clearAll();
+  },
+
   async refreshToken() {
     // Token rotation guard
     if (refreshCount >= MAX_REFRESHES_PER_SESSION) {

@@ -16,6 +16,7 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Votre position est utilisée pour optimiser vos livraisons en temps réel.",
         "NSCameraUsageDescription": "La caméra est utilisée pour la preuve de livraison.",
+        "NSPhotoLibraryUsageDescription": "Vos photos sont utilisées pour choisir votre photo de profil et joindre des preuves de livraison.",
         "NSPhotoLibraryAddUsageDescription": "Enregistrement des preuves de livraison dans la galerie.",
         "ITSAppUsesNonExemptEncryption": false
       },

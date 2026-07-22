@@ -22,7 +22,7 @@ const MenuItem = React.memo(({ icon, label, onPress, color = '#111', badge, deta
 
 export default function MenuScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user, logout, warnings, accountActive, rating, totalDeliveries, reactivateAccount, weeklyEarnings, isOnline, deliveryHistory, getUnreadTicketCount, getUnreadOpportunitiesCount } = useAuth();
+  const { user, logout, deleteAccount, warnings, accountActive, rating, totalDeliveries, reactivateAccount, weeklyEarnings, isOnline, deliveryHistory, getUnreadTicketCount, getUnreadOpportunitiesCount } = useAuth();
   const { t, lang, setLang, LANGUAGES } = useLanguage();
   const [langModal, setLangModal] = useState(false);
   const [pendingLang, setPendingLang] = useState(lang);
@@ -56,6 +56,26 @@ export default function MenuScreen({ navigation }) {
       { text: t('logoutTitle'), style: 'destructive', onPress: logout },
     ]);
   }, [t, logout]);
+
+  // Suppression de compte in-app (exigence Apple 5.1.1(v)). Double garde :
+  // confirmation destructive, puis appel serveur ; en cas d'échec on prévient
+  // sans déconnecter (le compte n'a pas été supprimé).
+  const confirmDeleteAccount = useCallback(() => {
+    Alert.alert(t('deleteAccountTitle'), t('deleteAccountMsg'), [
+      { text: t('cancel'), style: 'cancel' },
+      {
+        text: t('deleteAccountConfirm'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteAccount();
+          } catch (e) {
+            Alert.alert(t('error'), t('deleteAccountError'));
+          }
+        },
+      },
+    ]);
+  }, [t, deleteAccount]);
 
   return (
     <ScrollView ref={scrollRef} style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -199,6 +219,7 @@ export default function MenuScreen({ navigation }) {
 
       <View style={s.section}>
         <MenuItem icon="log-out-outline" label={t('logout')} onPress={confirmLogout} color="#e74c3c" />
+        <MenuItem icon="trash-outline" label={t('deleteAccount')} onPress={confirmDeleteAccount} color="#e74c3c" />
       </View>
 
       {/* Modal Langue */}
