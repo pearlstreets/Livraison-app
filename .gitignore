@@ -18,3 +18,12 @@ historique/reverts/*.bak
 
 # Cle de service Google Play (secret)
 google-play-service-account.json
+
+# Artefacts de build et sauvegardes locales (ne pas versionner)
+build/
+ios.bak-*/
+assets/_icon_backup_*/
+*.png.bak
+_SAUVEGARDES_archive_*.tar.gz
+ANDROID_BUILD_STATUS.txt
+DELIVERY_BUILD_STATUS.txt
