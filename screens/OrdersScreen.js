@@ -10,14 +10,32 @@ import { useLanguage } from '../contexts/LanguageContext';
 import filtersUI from '../constants/filters-ui.json';
 import { deliveryService } from '../services/deliveryService';
 
-/* === Adaptateur backend assignment → forme attendue par OrderCard === */
-function adaptAssignment(a) {
+/* === Zone d'approche (avant acceptation) ===
+   Avant acceptation, le livreur n'a besoin que de la zone : quartier, ville et
+   code postal. Ni nom, ni téléphone, ni numéro de rue. Les champs vides sont
+   simplement ignorés pour ne jamais afficher un libellé vide. */
+function buildZoneLabel(a) {
+  const ua = (a && a.user_address) || {};
+  return [ua.road_area_colony, ua.city, ua.pincode || ua.postalCode]
+    .map(v => (v == null ? '' : String(v).trim()))
+    .filter(Boolean)
+    .join(', ');
+}
+
+/* === Adaptateur backend assignment → forme attendue par OrderCard ===
+   `revealCustomer` : vrai une fois la course acceptée (le backend envoie alors
+   l'adresse complète et le téléphone). Faux pour la liste des disponibles. */
+function adaptAssignment(a, { revealCustomer = true } = {}) {
   const fee = typeof a.delivery_fee === 'number' ? a.delivery_fee : 0;
   const tip = typeof a.tip_amount === 'number' ? a.tip_amount : 0;
   const total = fee + tip;
   const items = Array.isArray(a.order_items)
     ? a.order_items.map(it => ({ name: it.name || '', qty: typeof it.quantity === 'number' ? it.quantity : 1 }))
     : [];
+  // Avant acceptation : la zone remplace l'adresse de livraison si elle est
+  // disponible, sinon on garde ce que le backend a envoyé (déjà restreint).
+  const zone = revealCustomer ? '' : buildZoneLabel(a);
+  const dropoff = revealCustomer ? (a.dropoff_address || '') : (zone || a.dropoff_address || '');
   return {
     // identifiants
     id: String(a.order_id || a.id || ''),   // clé numérique (accept / API)
@@ -28,8 +46,8 @@ function adaptAssignment(a) {
     restaurant: a.shop_name || a.pickup_address || '',
     shopName: a.shop_name || '',
     shopImage: a.shop_image || '',
-    address: a.pickup_address || a.dropoff_address || '',
-    dropoffAddress: a.dropoff_address || '',
+    address: a.pickup_address || dropoff || '',
+    dropoffAddress: dropoff,
     pickupAddress: a.pickup_address || '',
     distanceText: typeof a.distance_km === 'number' ? `${a.distance_km.toFixed(1)} km` : '',
     etaText: typeof a.estimated_time_minutes === 'number' ? `${a.estimated_time_minutes} min` : '',
@@ -46,11 +64,14 @@ function adaptAssignment(a) {
     // méta
     status: a.status || '',
     delivery_code: a.delivery_code || '',
-    customer_name: a.customer_name || '',
+    // Nom du client : jamais affiché tant que la course n'est pas acceptée.
+    customer_name: revealCustomer ? (a.customer_name || '') : '',
     // Téléphone client : le backend l'expose dans user_address.phone_number
     // (une fois la course acceptée) → permet un vrai appel depuis l'app.
-    customerPhone: (a.user_address && (a.user_address.phone_number || a.user_address.phone)) || a.customer_phone || '',
-    user_address: a.user_address || {},
+    customerPhone: revealCustomer
+      ? ((a.user_address && (a.user_address.phone_number || a.user_address.phone)) || a.customer_phone || '')
+      : '',
+    user_address: revealCustomer ? (a.user_address || {}) : {},
     created_at: a.created_at || '',
   };
 }
@@ -174,7 +195,9 @@ export default function OrdersScreen({ navigation, route }) {
     try {
       const res = await deliveryService.getAvailableOrders();
       const data = Array.isArray(res?.data) ? res.data : [];
-      setAvailable(data.map(adaptAssignment));
+      // Liste des disponibles : coordonnées client masquées tant que la course
+      // n'est pas acceptée (zone + distance suffisent pour décider).
+      setAvailable(data.map(a => adaptAssignment(a, { revealCustomer: false })));
     } catch {
       // Silencieux : on garde la liste actuelle plutôt que de crasher
     }
