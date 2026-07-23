@@ -15,6 +15,7 @@ if (!__DEV__) {
 //   </domain-config>
 // </network-security-config>
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer, DefaultTheme, getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -198,13 +199,15 @@ function Main() {
 
 export default function App() {
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <NavigationContainer theme={navTheme}>
-          <StatusBar style="dark" />
-          <Main />
-        </NavigationContainer>
-      </AuthProvider>
-    </LanguageProvider>
+    <SafeAreaProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <NavigationContainer theme={navTheme}>
+            <StatusBar style="dark" />
+            <Main />
+          </NavigationContainer>
+        </AuthProvider>
+      </LanguageProvider>
+    </SafeAreaProvider>
   );
 }
