@@ -4,12 +4,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const BRAND = '#00C29B';
 
 export default function VersementDetailScreen({ navigation, route }) {
   const { t } = useLanguage();
   const { currentIban } = useAuth();
+  const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
   const v = route.params?.versement || {};
   const isExceptionnel = v.label === 'Versement exceptionnel';
@@ -31,7 +33,7 @@ export default function VersementDetailScreen({ navigation, route }) {
             <Ionicons name={isExceptionnel ? 'flash' : 'calendar-outline'} size={28} color={isExceptionnel ? '#f5a623' : BRAND} />
           </View>
           <Text style={s.typeLabel}>{v.label}</Text>
-          <Text style={s.amount}>{v.amount}</Text>
+          <Text style={s.amount}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
           <View style={s.statusRow}>
             <Ionicons name="checkmark-circle" size={16} color={BRAND} />
             <Text style={s.statusTxt}>{v.detail?.status || 'Versé'}</Text>
@@ -54,11 +56,11 @@ export default function VersementDetailScreen({ navigation, route }) {
 
           <View style={s.detailRow}>
             <Text style={s.detailLabel}>Montant net</Text>
-            <Text style={s.detailValue}>{v.detail?.net || v.amount}</Text>
+            <Text style={s.detailValue}>{v.detail?.netEur != null ? fmtPrice(v.detail.netEur) : (v.detail?.net || v.amount)}</Text>
           </View>
           <View style={s.detailRow}>
             <Text style={s.detailLabel}>Pourboires</Text>
-            <Text style={[s.detailValue, { color: BRAND }]}>{v.detail?.tips || '0.00 €'}</Text>
+            <Text style={[s.detailValue, { color: BRAND }]}>{v.detail?.tipsEur != null ? fmtPrice(v.detail.tipsEur) : (v.detail?.tips || fmtPrice(0))}</Text>
           </View>
           <View style={s.detailRow}>
             <Text style={s.detailLabel}>Courses</Text>
@@ -68,7 +70,7 @@ export default function VersementDetailScreen({ navigation, route }) {
 
           <View style={s.detailRow}>
             <Text style={[s.detailLabel, { fontWeight: '800' }]}>Total versé</Text>
-            <Text style={[s.detailValue, { fontWeight: '900', fontSize: 18, color: BRAND }]}>{v.amount}</Text>
+            <Text style={[s.detailValue, { fontWeight: '900', fontSize: 18, color: BRAND }]}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
           </View>
         </View>
       </ScrollView>

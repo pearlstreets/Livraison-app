@@ -4,11 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../components/api';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const BRAND = '#00C29B';
 
 export default function ProfileScreen({ navigation }) {
   const { user, logout } = useAuth();
+  const { fmtPrice } = useCurrency();
   const [earn, setEarn] = useState({ earningsCents: 0, earnings: '0.00 €' });
 
   async function refresh() { setEarn(await api.getEarnings()); }
@@ -65,7 +67,7 @@ export default function ProfileScreen({ navigation }) {
       {/* Solde */}
       <View style={s.card}>
         <Text style={s.title}>Solde</Text>
-        <Text style={s.amount}>{earn.earnings}</Text>
+        <Text style={s.amount}>{fmtPrice((earn.earningsCents || 0) / 100)}</Text>
         <Pressable style={[s.btn, s.fill]} onPress={withdraw}>
           <Text style={s.btnTxt}>Demander virement</Text>
         </Pressable>

@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking, Animated, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
+// Alias : le module a déjà un helper local `fmtPrice` (parse des chaînes
+// pré-formatées) — on importe donc le formateur devise sous un autre nom.
+import { useCurrency as useDriverCurrency } from '../contexts/CurrencyContext';
 
 const BRAND = '#00C29B';
 const BTN_HEIGHT = 40;
@@ -126,6 +129,7 @@ function InlineMetrics({ distance, eta, items }) {
 
 /* ---------- Card ---------- */
 export default function OrderCard({ order, onAccept, onDecline, onOpen, initialAccepted=false }) {
+  const { fmtPrice: fmtDriverPrice } = useDriverCurrency();
   const { t } = useLanguage();
   const inferAccepted = ['accepted','acceptée','active','en_cours'].includes(String(order?.status||'').toLowerCase());
   const [accepted, setAccepted] = useState(inferAccepted || initialAccepted);
@@ -137,7 +141,11 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
 
   const distance = fmtKm(pickHybrid(order, ['distanceText','distanceKm','distance'], /(distance|km)/i));
   const eta = fmtMin(pickHybrid(order, ['etaText','etaMinutes','duration','time'], /(eta|duration|time|min)/i));
-  const price = fmtPrice(pickHybrid(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i));
+  // Montant numérique EUR fourni par la source → devise du livreur ;
+  // sinon on garde le parsing historique de la chaîne pré-formatée.
+  const price = order?.priceEur != null
+    ? fmtDriverPrice(order.priceEur)
+    : fmtPrice(pickHybrid(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i));
   const items = pickHybrid(order, ['itemsCount','items','nbItems'], /(items|nb.*items)/i);
   const shopImage = order?.shopImage || order?.shop_image || '';
 

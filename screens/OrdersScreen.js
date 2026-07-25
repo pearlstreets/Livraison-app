@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import OrderCard from '../components/OrderCard';
 import DetailsSheet from '../components/DetailsSheet';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import filtersUI from '../constants/filters-ui.json';
@@ -52,6 +53,7 @@ function adaptAssignment(a, { revealCustomer = true } = {}) {
     distanceText: typeof a.distance_km === 'number' ? `${a.distance_km.toFixed(1)} km` : '',
     etaText: typeof a.estimated_time_minutes === 'number' ? `${a.estimated_time_minutes} min` : '',
     priceText: `${total.toFixed(2)} €`,
+    priceEur: total,
     delivery_fee: fee,
     tip_amount: tip,
     itemsCount: items.reduce((s, it) => s + it.qty, 0),
@@ -150,6 +152,7 @@ function makeMockOrder() {
     distanceText: `${distance.toFixed(1)} km`,
     etaText: `${eta} min`,
     priceText: `${total.toFixed(2)} €`,
+    priceEur: total,
     delivery_fee: fee,
     tip_amount: tip,
     itemsCount: items.reduce((s, it) => s + it.qty, 0),
@@ -180,9 +183,12 @@ export default function OrdersScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { accountActive, addToHistory, isOnline, setIsOnline, user } = useAuth();
   const { t } = useLanguage();
+  // Symbole de la devise du livreur : le filtre « bien payé » affichait « € »
+  // en dur, incohérent avec les montants des courses désormais convertis.
+  const { symbol: currencySymbol } = useCurrency();
   const scrollRef = useRef(null);
   const [selectedFilter, setSelectedFilter] = useState('smart');
-  const filters = [{id:'smart',label:'Smart'},{id:'highpay',label:'€'},{id:'nearest',label:'Proche'}];
+  const filters = [{id:'smart',label:'Smart'},{id:'highpay',label:currencySymbol},{id:'nearest',label:'Proche'}];
 
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });

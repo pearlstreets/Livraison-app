@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const BRAND = '#00C29B';
 const parseNum = (v) => { if (!v) return 0; const n = parseFloat(String(v).replace(',', '.').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; };
@@ -11,6 +12,7 @@ const parseNum = (v) => { if (!v) return 0; const n = parseFloat(String(v).repla
 export default function DeliveryDetailScreen({ navigation, route }) {
   const { t } = useLanguage();
   const { deliveryHistory } = useAuth();
+  const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
   const order = route.params?.order || {};
 
@@ -82,7 +84,7 @@ export default function DeliveryDetailScreen({ navigation, route }) {
           <View style={[s.detailRow, { borderBottomWidth: 0 }]}>
             <Text style={[s.detailLabel, { fontWeight: '800' }]}>{t('total')}</Text>
             <Text style={[s.detailValue, { fontWeight: '900', fontSize: 18, color: BRAND }]}>
-              {(parseNum(order.priceText || order.price) + parseNum(order.tip)).toFixed(2)} €
+              {fmtPrice(parseNum(order.priceText || order.price) + parseNum(order.tip))}
             </Text>
           </View>
         </View>

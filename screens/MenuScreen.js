@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { useFocusEffect } from '@react-navigation/native';
 
 const BRAND = '#00C29B';
@@ -24,6 +25,7 @@ export default function MenuScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, logout, deleteAccount, warnings, accountActive, rating, totalDeliveries, reactivateAccount, weeklyEarnings, isOnline, deliveryHistory, getUnreadTicketCount, getUnreadOpportunitiesCount } = useAuth();
   const { t, lang, setLang, LANGUAGES } = useLanguage();
+  const { fmtPrice } = useCurrency();
   const [langModal, setLangModal] = useState(false);
   const [pendingLang, setPendingLang] = useState(lang);
   const scrollRef = useRef(null);
@@ -113,15 +115,15 @@ export default function MenuScreen({ navigation }) {
       {/* Gains */}
       <View style={{flexDirection:'row', paddingHorizontal:16, marginTop:10, gap:8}}>
         <Pressable style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}} onPress={() => navigation.navigate('DeliveryHistory')}>
-          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{thisDayTotal.toFixed(2)} €</Text>
+          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{fmtPrice(thisDayTotal)}</Text>
           <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('today') || "Aujourd'hui"}</Text>
         </Pressable>
         <Pressable style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}} onPress={() => navigation.navigate('Wallet')}>
-          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{thisWeekTotal.toFixed(2)} €</Text>
+          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{fmtPrice(thisWeekTotal)}</Text>
           <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('thisWeek')}</Text>
         </Pressable>
         <Pressable style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}} onPress={() => navigation.navigate('Wallet')}>
-          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{thisMonthTotal.toFixed(2)} €</Text>
+          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{fmtPrice(thisMonthTotal)}</Text>
           <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('thisMonth')}</Text>
         </Pressable>
       </View>
