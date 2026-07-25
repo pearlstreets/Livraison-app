@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const BRAND = '#00C29B';
 const DAY_NAMES = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
@@ -22,6 +23,7 @@ const EMPTY_WEEK = { start: '', range: '', total: 0, bars: [0, 0, 0, 0, 0, 0, 0]
 export default function WeekDetailScreen({ route, navigation }) {
   const { t } = useLanguage();
   const { weeklyEarnings } = useAuth();
+  const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
   const weekIndex = route?.params?.weekIndex ?? 0;
   const [idx, setIdx] = useState(weekIndex);
@@ -59,7 +61,7 @@ export default function WeekDetailScreen({ route, navigation }) {
         <Pressable onPress={() => canPrev && setIdx(idx - 1)} style={{ opacity: canPrev ? 1 : 0.3 }}>
           <Ionicons name="chevron-back" size={28} color="#111" />
         </Pressable>
-        <Text style={s.totalAmount}>{week.total.toFixed(2)} €</Text>
+        <Text style={s.totalAmount}>{fmtPrice(week.total)}</Text>
         <Pressable onPress={() => canNext && setIdx(idx + 1)} style={{ opacity: canNext ? 1 : 0.3 }}>
           <Ionicons name="chevron-forward" size={28} color="#111" />
         </Pressable>
@@ -67,7 +69,7 @@ export default function WeekDetailScreen({ route, navigation }) {
 
       {/* Bar chart */}
       <View style={s.chartContainer}>
-        <Text style={s.maxLabel}>{Number(maxEur).toFixed(2)} €</Text>
+        <Text style={s.maxLabel}>{fmtPrice(Number(maxEur))}</Text>
         <View style={s.dashedLine} />
         <View style={s.barsRow}>
           {week.bars.map((v, i) => (

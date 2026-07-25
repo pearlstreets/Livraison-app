@@ -24,6 +24,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { initOneSignalOnce } from './services/oneSignalInit';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { CurrencyProvider } from './contexts/CurrencyContext';
 import { useLocationTracking } from './hooks/useLocationTracking';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import LoginScreen from './screens/LoginScreen';
@@ -197,15 +198,28 @@ function Main() {
   );
 }
 
+/**
+ * Monte le fournisseur de devise SOUS AuthProvider : la devise d'affichage par
+ * défaut est celle du pays du livreur (profil), donc il faut que l'auth soit
+ * déjà disponible. Sans profil chargé → EUR, comme avant.
+ */
+function CurrencyGate({ children }) {
+  const { profile, user } = useAuth() || {};
+  const country = profile?.country || user?.country || null;
+  return <CurrencyProvider country={country}>{children}</CurrencyProvider>;
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <LanguageProvider>
         <AuthProvider>
-          <NavigationContainer theme={navTheme}>
-            <StatusBar style="dark" />
-            <Main />
-          </NavigationContainer>
+          <CurrencyGate>
+            <NavigationContainer theme={navTheme}>
+              <StatusBar style="dark" />
+              <Main />
+            </NavigationContainer>
+          </CurrencyGate>
         </AuthProvider>
       </LanguageProvider>
     </SafeAreaProvider>

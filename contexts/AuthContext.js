@@ -87,6 +87,11 @@ function adaptHistoryEntry(a) {
     distanceText: a.distance_km != null ? `${a.distance_km} km` : '',
     priceText: `${Number(a.delivery_fee ?? a.order_price ?? 0).toFixed(2)} €`,
     tip: a.tip_amount ? `${Number(a.tip_amount).toFixed(2)} €` : null,
+    // Montants BRUTS en euros, en plus des chaînes déjà formatées ci-dessus :
+    // les écrans les passent à fmtPrice() pour afficher la devise du livreur.
+    // Les chaînes `priceText`/`tip` restent inchangées (aucun consommateur cassé).
+    priceEur: Number(a.delivery_fee ?? a.order_price ?? 0),
+    tipEur: a.tip_amount != null ? Number(a.tip_amount) : null,
     date: fmtDate(ts),
     time: fmtTime(ts),
     status: isCancelled ? 'cancelled' : 'completed',
@@ -102,6 +107,9 @@ function adaptPayout(p, iban) {
     label: 'Versement',
     date: p.created_at ? `Initié : ${fmtDate(p.created_at)}` : '',
     amount: amt,
+    // Montants bruts en euros (cf. adaptAssignment) pour l'affichage en devise
+    // locale ; le versement bancaire réel reste en euros.
+    amountEur: Number(p.amount ?? 0),
     iban: iban || '',
     status: p.status || '',
     paidAt: p.paid_at || null,
@@ -110,6 +118,8 @@ function adaptPayout(p, iban) {
     detail: {
       net: `${Number(p.net_amount ?? p.amount ?? 0).toFixed(2)} €`,
       tips: p.tips_amount != null ? `${Number(p.tips_amount).toFixed(2)} €` : '—',
+      netEur: Number(p.net_amount ?? p.amount ?? 0),
+      tipsEur: p.tips_amount != null ? Number(p.tips_amount) : null,
       courses: p.total_deliveries != null ? p.total_deliveries : '—',
       status: p.status || 'En cours',
     },

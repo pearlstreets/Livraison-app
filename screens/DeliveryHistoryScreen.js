@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const BRAND = '#00C29B';
 
@@ -56,6 +57,7 @@ const HistoryOrderItem = React.memo(({ order, navigation, t }) => {
 export default function DeliveryHistoryScreen({ navigation }) {
   const { t } = useLanguage();
   const { deliveryHistory } = useAuth();
+  const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
 
   const parsePrice = useCallback((p) => { const n = parseFloat(String(p).replace(',', '.')); return isNaN(n) ? 0 : n; }, []);
@@ -123,11 +125,11 @@ export default function DeliveryHistoryScreen({ navigation }) {
             <Text style={s.statLabel}>{t('courses')}</Text>
           </View>
           <View style={s.statCard}>
-            <Text style={[s.statValue, { color: BRAND }]}>{totalEarnings.toFixed(2)} €</Text>
+            <Text style={[s.statValue, { color: BRAND }]}>{fmtPrice(totalEarnings)}</Text>
             <Text style={s.statLabel}>{t('gains')}</Text>
           </View>
           <View style={s.statCard}>
-            <Text style={[s.statValue, { color: '#00C29B' }]}>{totalTips.toFixed(2)} €</Text>
+            <Text style={[s.statValue, { color: '#00C29B' }]}>{fmtPrice(totalTips)}</Text>
             <Text style={s.statLabel}>{t('tips')}</Text>
           </View>
         </View>

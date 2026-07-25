@@ -4,12 +4,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const BRAND = '#00C29B';
 
 export default function RatingsScreen({ navigation }) {
   const { t } = useLanguage();
   const { user, ratingsSummary, refreshRatings } = useAuth();
+  const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
 
   useEffect(() => { refreshRatings?.(); }, [refreshRatings]);
@@ -58,7 +60,7 @@ export default function RatingsScreen({ navigation }) {
           <Text style={s.tipsSub}>{t('tipsReceivedSub')}</Text>
         </View>
         <Text style={[s.tipsTotal, tips != null && tips > 0 && { color: '#111' }]}>
-          {tips != null ? `${tips.toFixed(2)} €` : '–'}
+          {tips != null ? fmtPrice(tips) : '–'}
         </Text>
       </View>
 

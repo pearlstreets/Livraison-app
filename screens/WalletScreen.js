@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { deliveryService } from '../services/deliveryService';
 
 const BRAND = '#00C29B';
@@ -13,6 +14,7 @@ const BRAND = '#00C29B';
 export default function WalletScreen({ navigation }) {
   const { t } = useLanguage();
   const { currentEarningsCents, cashOut, versements, currentIban } = useAuth();
+  const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
   const earn = { earningsCents: currentEarningsCents, earnings: (currentEarningsCents / 100).toFixed(2) + ' €' };
   // Libellé du compte bancaire dérivé du vrai IBAN (au lieu d'un ••••15 en dur).
@@ -87,7 +89,7 @@ export default function WalletScreen({ navigation }) {
         <View style={s.balanceCard}>
           <Text style={s.balanceLabel}>{t('balance')}</Text>
           <View style={s.balanceRow}>
-            <Text style={s.balanceAmount}>{earn.earnings}</Text>
+            <Text style={s.balanceAmount}>{fmtPrice((earn.earningsCents || 0) / 100)}</Text>
             <Ionicons name="chevron-forward" size={22} color="#999" />
           </View>
           <Text style={s.nextPayout}>Versements hebdomadaires automatiques</Text>
@@ -109,7 +111,7 @@ export default function WalletScreen({ navigation }) {
               <View style={{ flex: 1 }}>
                 <Text style={s.versementLabel}>{v.label}</Text>
                 <View style={s.versementDateRow}>
-                  <Text style={s.versementAmount}>{v.amount}</Text>
+                  <Text style={s.versementAmount}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
                   <Text style={s.versementDate}>{v.date}</Text>
                 </View>
               </View>

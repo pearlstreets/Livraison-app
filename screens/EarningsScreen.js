@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const BRAND = '#00C29B';
 const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -31,8 +32,9 @@ export default function EarningsScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const { currentEarningsCents, cashOut, weeklyEarnings, currentIban } = useAuth();
+  const { fmtPrice } = useCurrency();
   const scrollRef = useRef(null);
-  const earn = { earningsCents: currentEarningsCents, earnings: (currentEarningsCents / 100).toFixed(2) + ' €' };
+  const earn = { earningsCents: currentEarningsCents, earnings: fmtPrice(currentEarningsCents / 100) };
   const bankTail = ((currentIban || '').match(/(\d{2,4})\s*$/) || [])[1] || '';
   const bankLabel = bankTail ? `••${bankTail}` : 'votre compte enregistré';
   const [encaissModal, setEncaissModal] = useState(false);
@@ -83,7 +85,7 @@ export default function EarningsScreen({ navigation }) {
           <Pressable key={i} style={s.weekRow} onPress={() => navigation.navigate('WeekDetail', { weekIndex: i })}>
             <View style={{ flex: 1 }}>
               <Text style={s.weekRange}>{week.range}</Text>
-              <Text style={s.weekTotal}>{week.total.toFixed(2)} €</Text>
+              <Text style={s.weekTotal}>{fmtPrice(week.total)}</Text>
             </View>
             <MiniChart bars={week.bars} />
           </Pressable>

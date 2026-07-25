@@ -818,7 +818,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               }
               if (remaining === null) { const r = cancelOrder(); remaining = r.remaining; warned = r.warning; }
               try { await refreshAll?.(); } catch {}
-              const cancelledOrder = { ...order, status: 'cancelled', priceText: '0,00 €', cancelledAt: new Date().toISOString() };
+              const cancelledOrder = { ...order, status: 'cancelled', priceText: '0,00 €', priceEur: 0, cancelledAt: new Date().toISOString() };
               if (warned) {
                 Alert.alert(t('warning'), t('warningAdded'), [
                   { text: t('ok'), onPress: () => navigation.navigate('OrdersMain', { cancelledOrder }) },
