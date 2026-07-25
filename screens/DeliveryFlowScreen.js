@@ -270,6 +270,10 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const [mapSheetDest, setMapSheetDest] = useState('');
   const [mapSheetUrls, setMapSheetUrls] = useState({ google: '', waze: '' });
   const sheetPan = useRef(new Animated.Value(0)).current;
+  // Remise en l'absence du client (lieu sûr / voisin).
+  const [absentOpen, setAbsentOpen] = useState(false);
+  const [absentNote, setAbsentNote] = useState('');
+  const [absentBusy, setAbsentBusy] = useState(false);
   const step = STEPS[stepIndex];
 
   const restaurant = order.restaurant || order.merchantName || 'Restaurant';
@@ -292,6 +296,14 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   // le donne de vive voix, le backend valide). Le livreur ne voit donc jamais le
   // code d'une course.
   const REAL_CODE = String(order.delivery_code || '');
+  // Options de remise posées par le commerçant (backend handling_options.py).
+  const isFragile = !!(order.is_fragile || order.isFragile);
+  const hasAlcohol = !!(order.has_alcohol || order.hasAlcohol);
+  const absentPolicy = String(order.absent_policy || order.absentPolicy || 'return');
+  // Remise sans code possible seulement si le commerçant l'a prévue ET qu'il
+  // n'y a pas d'alcool (contrôle d'âge impossible sans destinataire).
+  const canDeliverWhenAbsent =
+    !hasAlcohol && (absentPolicy === 'safe_place' || absentPolicy === 'neighbor');
   // Téléphone client pour un vrai appel (tel:).
   const clientPhone = String(
     order.customerPhone || (order.user_address && order.user_address.phone_number) || ''
@@ -425,6 +437,32 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     }
   }, [code, nextStep, t, assignmentId, REAL_CODE]);
 
+  // Clôture SANS code parce que le client est absent. Le backend revalide la
+  // consigne du commerçant : un refus (400) laisse la course ouverte.
+  const confirmAbsentDelivery = useCallback(() => {
+    if (!assignmentId || absentBusy) return;
+    const note = sanitizeInput(absentNote).trim();
+    if (absentPolicy === 'neighbor' && !note) {
+      Alert.alert(t('absentNeighborNameRequired'));
+      return;
+    }
+    setAbsentBusy(true);
+    deliveryService
+      .updateDeliveryStatus(assignmentId, 'delivered', null, {
+        outcome: absentPolicy,
+        note,
+      })
+      .then(() => {
+        setAbsentBusy(false);
+        setAbsentOpen(false);
+        setTimeout(nextStep, 300);
+      })
+      .catch(() => {
+        setAbsentBusy(false);
+        Alert.alert(t('absentRefusedTitle'), t('absentRefusedMsg'));
+      });
+  }, [assignmentId, absentBusy, absentNote, absentPolicy, nextStep, t]);
+
   // Progress indicator (memoized)
   const progress = useMemo(() => stepIndex / (STEPS.length - 1), [stepIndex]);
 
@@ -456,6 +494,33 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       )}
 
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }} style={{ flex: 1 }} bounces={false} overScrollMode="never" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {/* Options de remise posées par le commerçant : visibles à chaque étape,
+            pour que le livreur sache AVANT le retrait comment manipuler le colis. */}
+        {step !== 'done' && (isFragile || hasAlcohol || absentPolicy !== 'return') && (
+          <View style={[ss.handlingRow, { paddingHorizontal: 16, marginTop: 10 }]}>
+            {isFragile && (
+              <View style={ss.handlingChip}>
+                <MaterialCommunityIcons name="package-variant" size={14} color="#e67e22" />
+                <Text style={ss.handlingChipText}>{t('fragileBadge')}</Text>
+              </View>
+            )}
+            {hasAlcohol && (
+              <View style={ss.handlingChip}>
+                <MaterialCommunityIcons name="glass-wine" size={14} color="#8e44ad" />
+                <Text style={ss.handlingChipText}>{t('alcoholBadge')}</Text>
+              </View>
+            )}
+            {absentPolicy !== 'return' && (
+              <View style={ss.handlingChip}>
+                <Ionicons name="home-outline" size={14} color={BRAND} />
+                <Text style={ss.handlingChipText}>
+                  {absentPolicy === 'neighbor' ? t('absentNeighborBadge') : t('absentSafePlaceBadge')}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Step: Pickup */}
         {step === 'pickup' && (
           <View style={ss.stepContentCompact}>
@@ -695,6 +760,18 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <Ionicons name="chatbubble-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
               <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>Message client</Text>
             </Pressable>
+
+            {/* Client absent : proposé UNIQUEMENT si le commerçant l'a prévu.
+                Sinon le colis repart, comme avant (aucune sortie sans code). */}
+            {canDeliverWhenAbsent && (
+              <Pressable
+                style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]}
+                onPress={() => { setAbsentNote(''); setAbsentOpen(true); }}
+              >
+                <Ionicons name="home-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
+                <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('absentHandover')}</Text>
+              </Pressable>
+            )}
 
           </View>
         )}
@@ -1045,6 +1122,41 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Client absent : consigne du commerçant + preuve écrite. */}
+      <Modal visible={absentOpen} animationType="slide" transparent>
+        <View style={ss.absentBackdrop}>
+          <View style={ss.absentCard}>
+            <Text style={ss.absentTitle}>{t('absentHandover')}</Text>
+            <Text style={ss.absentHint}>
+              {absentPolicy === 'neighbor' ? t('absentNeighborHint') : t('absentSafePlaceHint')}
+            </Text>
+
+            <TextInput
+              style={ss.absentInput}
+              value={absentNote}
+              onChangeText={setAbsentNote}
+              placeholder={absentPolicy === 'neighbor'
+                ? t('absentNeighborPlaceholder')
+                : t('absentSafePlacePlaceholder')}
+              placeholderTextColor="#999"
+              maxLength={255}
+              multiline
+            />
+
+            <Pressable
+              style={[ss.absentBtn, absentBusy && { opacity: 0.5 }]}
+              onPress={confirmAbsentDelivery}
+              disabled={absentBusy}
+            >
+              <Text style={ss.absentBtnTxt}>{t('absentConfirm')}</Text>
+            </Pressable>
+            <Pressable style={ss.absentCancel} onPress={() => setAbsentOpen(false)}>
+              <Text style={ss.absentCancelTxt}>{t('keepOrder')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1222,4 +1334,17 @@ const ss = StyleSheet.create({
   chatInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff' },
   chatInputField: { flex: 1, backgroundColor: '#f5f5f5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, marginRight: 10 },
   chatSendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
+  // Options de remise (fragile / alcool / consigne d'absence)
+  handlingRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
+  handlingChip: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#f0f0f0' },
+  handlingChipText: { fontSize: 12, fontWeight: '700', color: '#111', marginLeft: 5 },
+  absentBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  absentCard: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32 },
+  absentTitle: { fontSize: 18, fontWeight: '800', color: '#111', marginBottom: 6 },
+  absentHint: { fontSize: 13, color: '#666', lineHeight: 18, marginBottom: 14 },
+  absentInput: { backgroundColor: '#f5f5f5', borderRadius: 12, padding: 14, fontSize: 15, color: '#111', minHeight: 80, textAlignVertical: 'top', marginBottom: 14 },
+  absentBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
+  absentBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  absentCancel: { paddingVertical: 14, alignItems: 'center' },
+  absentCancelTxt: { color: '#666', fontSize: 15, fontWeight: '600' },
 });

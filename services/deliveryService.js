@@ -28,10 +28,16 @@ export const deliveryService = {
     return data;
   },
 
-  async updateDeliveryStatus(assignmentId, status, deliveryCode) {
+  async updateDeliveryStatus(assignmentId, status, deliveryCode, absent) {
     // The final `delivered` transition requires the customer's 4-digit code.
     const body = { status };
     if (deliveryCode) body.delivery_code = deliveryCode;
+    // Client absent : remise sans code, autorisée uniquement si le commerçant
+    // l'a prévue (le backend revalide, cf. handling_options.py).
+    if (absent && absent.outcome) {
+      body.absent_outcome = absent.outcome;
+      if (absent.note) body.absent_note = absent.note;
+    }
     const { data } = await api.patch(`/api/v1/delivery/assignments/${assignmentId}/status/`, body);
     return data;
   },

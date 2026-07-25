@@ -3,6 +3,8 @@
 
 const translations = {
   fr: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: 'Client absent : remettre quand même', fragileBadge: 'Fragile', alcoholBadge: 'Alcool', absentSafePlaceBadge: 'Absent : lieu sûr', absentNeighborBadge: 'Absent : voisin', absentSafePlaceHint: 'Le commerçant autorise le dépôt en lieu sûr. Décrivez où vous laissez le colis.', absentNeighborHint: 'Le commerçant autorise la remise à un voisin. Indiquez son nom et son étage.', absentSafePlacePlaceholder: 'Ex. derrière le pot de fleurs, à gauche de la porte', absentNeighborPlaceholder: 'Ex. Mme Martin, 3e étage', absentConfirm: 'Confirmer la remise', absentNeighborNameRequired: 'Indiquez le nom du voisin.', absentRefusedTitle: 'Remise refusée', absentRefusedMsg: 'Le commerçant n\'autorise pas cette remise. Rapportez le colis.',
     // Common
     close: 'Fermer',
     cancel: 'Annuler',
@@ -387,6 +389,8 @@ const translations = {
   },
 
   en: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: 'Customer away: hand over anyway', fragileBadge: 'Fragile', alcoholBadge: 'Alcohol', absentSafePlaceBadge: 'Away: safe place', absentNeighborBadge: 'Away: neighbour', absentSafePlaceHint: 'The merchant allows leaving the parcel in a safe place. Describe where you leave it.', absentNeighborHint: 'The merchant allows handing the parcel to a neighbour. Enter their name and floor.', absentSafePlacePlaceholder: 'E.g. behind the plant pot, left of the door', absentNeighborPlaceholder: 'E.g. Ms Martin, 3rd floor', absentConfirm: 'Confirm handover', absentNeighborNameRequired: 'Enter the neighbour\'s name.', absentRefusedTitle: 'Handover refused', absentRefusedMsg: 'The merchant does not allow this handover. Bring the parcel back.',
     close: 'Close',
     cancel: 'Cancel',
     confirm: 'Confirm',
@@ -726,6 +730,8 @@ const translations = {
   },
 
   es: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: 'Cliente ausente: entregar igualmente', fragileBadge: 'Frágil', alcoholBadge: 'Alcohol', absentSafePlaceBadge: 'Ausente: lugar seguro', absentNeighborBadge: 'Ausente: vecino', absentSafePlaceHint: 'El comercio permite dejarlo en un lugar seguro. Describa dónde lo deja.', absentNeighborHint: 'El comercio permite entregarlo a un vecino. Indique su nombre y piso.', absentSafePlacePlaceholder: 'Ej. detrás de la maceta, a la izquierda de la puerta', absentNeighborPlaceholder: 'Ej. Sra. Martín, 3.º piso', absentConfirm: 'Confirmar la entrega', absentNeighborNameRequired: 'Indique el nombre del vecino.', absentRefusedTitle: 'Entrega rechazada', absentRefusedMsg: 'El comercio no permite esta entrega. Devuelva el paquete.',
     close: 'Cerrar', cancel: 'Cancelar', confirm: 'Confirmar', save: 'Guardar', send: 'Enviar', ok: 'OK', error: 'Error', help: 'Ayuda', back: 'Volver', yes: 'Sí', no: 'No', loading: 'Cargando...', online: 'En línea', offline: 'Desconectado', itinerary: 'Itinerario', details: 'Detalles', order: 'Pedido', delivery: 'Entrega', tip: 'Propina', tips: 'Propinas', distance: 'Distancia', total: 'Total', status: 'Estado', active: 'Activo', articles: 'artículos', article: 'artículo',
     tabHome: 'Inicio', tabMessages: 'Mensajes', tabEarnings: 'Ingresos', tabProfile: 'Perfil',
     loginTitle: 'Acceso repartidor', loginEmail: 'email@ejemplo.com', loginPassword: '••••••••', loginButton: 'Iniciar sesión', loginErrorFields: 'Por favor, complete todos los campos.', loginErrorCredentials: 'Email o contraseña incorrectos.',
@@ -752,6 +758,8 @@ const translations = {
   },
 
   zh: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: '客户不在：仍然交付', fragileBadge: '易碎', alcoholBadge: '含酒精', absentSafePlaceBadge: '不在：安全地点', absentNeighborBadge: '不在：邻居', absentSafePlaceHint: '商家允许放置在安全地点。请说明放置位置。', absentNeighborHint: '商家允许交给邻居。请填写邻居姓名和楼层。', absentSafePlacePlaceholder: '例如：门左侧花盆后面', absentNeighborPlaceholder: '例如：马丁女士，3楼', absentConfirm: '确认交付', absentNeighborNameRequired: '请填写邻居姓名。', absentRefusedTitle: '交付被拒绝', absentRefusedMsg: '商家不允许此种交付方式，请将包裹带回。',
     close: '关闭', cancel: '取消', confirm: '确认', save: '保存', send: '发送', ok: '确定', error: '错误', help: '帮助', back: '返回', yes: '是', no: '否', loading: '加载中...', online: '在线', offline: '离线', itinerary: '路线', details: '详情', order: '订单', delivery: '配送', tip: '小费', tips: '小费', distance: '距离', total: '总计', status: '状态', active: '活跃', articles: '件商品', article: '件商品',
     tabHome: '首页', tabMessages: '消息', tabEarnings: '收入', tabProfile: '个人',
     loginTitle: '骑手登录', loginEmail: 'email@example.com', loginPassword: '••••••••', loginButton: '登录', loginErrorFields: '请填写所有字段。', loginErrorCredentials: '邮箱或密码错误。',
@@ -778,6 +786,8 @@ const translations = {
   },
 
   ar: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: 'العميل غائب: التسليم على أي حال', fragileBadge: 'قابل للكسر', alcoholBadge: 'كحول', absentSafePlaceBadge: 'غائب: مكان آمن', absentNeighborBadge: 'غائب: الجار', absentSafePlaceHint: 'يسمح التاجر بالترك في مكان آمن. صف مكان الترك.', absentNeighborHint: 'يسمح التاجر بالتسليم إلى أحد الجيران. اذكر اسمه والطابق.', absentSafePlacePlaceholder: 'مثال: خلف أصيص الزرع على يسار الباب', absentNeighborPlaceholder: 'مثال: السيدة مارتن، الطابق الثالث', absentConfirm: 'تأكيد التسليم', absentNeighborNameRequired: 'اذكر اسم الجار.', absentRefusedTitle: 'تم رفض التسليم', absentRefusedMsg: 'لا يسمح التاجر بهذا التسليم. أعد الطرد.',
     close: 'إغلاق', cancel: 'إلغاء', confirm: 'تأكيد', save: 'حفظ', send: 'إرسال', ok: 'موافق', error: 'خطأ', help: 'مساعدة', back: 'رجوع', yes: 'نعم', no: 'لا', loading: 'جاري التحميل...', online: 'متصل', offline: 'غير متصل', itinerary: 'المسار', details: 'التفاصيل', order: 'طلب', delivery: 'توصيل', tip: 'إكرامية', tips: 'إكراميات', distance: 'المسافة', total: 'المجموع', status: 'الحالة', active: 'نشط', articles: 'عناصر', article: 'عنصر',
     tabHome: 'الرئيسية', tabMessages: 'الرسائل', tabEarnings: 'الأرباح', tabProfile: 'الملف',
     loginTitle: 'تسجيل دخول السائق', loginEmail: 'email@example.com', loginPassword: '••••••••', loginButton: 'تسجيل الدخول', loginErrorFields: 'يرجى ملء جميع الحقول.', loginErrorCredentials: 'البريد أو كلمة المرور غير صحيحة.',
@@ -804,6 +814,8 @@ const translations = {
   },
 
   de: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: 'Kunde nicht da: trotzdem übergeben', fragileBadge: 'Zerbrechlich', alcoholBadge: 'Alkohol', absentSafePlaceBadge: 'Abwesend: sicherer Ort', absentNeighborBadge: 'Abwesend: Nachbar', absentSafePlaceHint: 'Der Händler erlaubt die Ablage an einem sicheren Ort. Beschreiben Sie den Ort.', absentNeighborHint: 'Der Händler erlaubt die Übergabe an einen Nachbarn. Name und Etage angeben.', absentSafePlacePlaceholder: 'z. B. hinter dem Blumentopf links neben der Tür', absentNeighborPlaceholder: 'z. B. Frau Martin, 3. Stock', absentConfirm: 'Übergabe bestätigen', absentNeighborNameRequired: 'Bitte den Namen des Nachbarn angeben.', absentRefusedTitle: 'Übergabe abgelehnt', absentRefusedMsg: 'Der Händler erlaubt diese Übergabe nicht. Bringen Sie das Paket zurück.',
     close: 'Schließen', cancel: 'Abbrechen', confirm: 'Bestätigen', save: 'Speichern', send: 'Senden', ok: 'OK', error: 'Fehler', help: 'Hilfe', back: 'Zurück', yes: 'Ja', no: 'Nein', loading: 'Laden...', online: 'Online', offline: 'Offline', itinerary: 'Route', details: 'Details', order: 'Bestellung', delivery: 'Lieferung', tip: 'Trinkgeld', tips: 'Trinkgelder', distance: 'Entfernung', total: 'Gesamt', status: 'Status', active: 'Aktiv', articles: 'Artikel', article: 'Artikel',
     tabHome: 'Startseite', tabMessages: 'Nachrichten', tabEarnings: 'Einnahmen', tabProfile: 'Profil',
     loginTitle: 'Fahrer-Anmeldung', loginEmail: 'email@beispiel.com', loginPassword: '••••••••', loginButton: 'Anmelden', loginErrorFields: 'Bitte füllen Sie alle Felder aus.', loginErrorCredentials: 'Falsche E-Mail oder Passwort.',
@@ -830,6 +842,8 @@ const translations = {
   },
 
   nl: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: 'Klant afwezig: toch afgeven', fragileBadge: 'Breekbaar', alcoholBadge: 'Alcohol', absentSafePlaceBadge: 'Afwezig: veilige plek', absentNeighborBadge: 'Afwezig: buur', absentSafePlaceHint: 'De handelaar staat afgifte op een veilige plek toe. Beschrijf waar u het laat.', absentNeighborHint: 'De handelaar staat afgifte bij een buur toe. Noteer naam en verdieping.', absentSafePlacePlaceholder: 'Bijv. achter de bloempot, links van de deur', absentNeighborPlaceholder: 'Bijv. mevr. Martin, 3e verdieping', absentConfirm: 'Overdracht bevestigen', absentNeighborNameRequired: 'Voer de naam van de buur in.', absentRefusedTitle: 'Overdracht geweigerd', absentRefusedMsg: 'De handelaar staat deze overdracht niet toe. Breng het pakket terug.',
     close: 'Sluiten', cancel: 'Annuleren', confirm: 'Bevestigen', save: 'Opslaan', send: 'Verzenden', ok: 'OK', error: 'Fout', help: 'Help', back: 'Terug', yes: 'Ja', no: 'Nee', loading: 'Laden...', online: 'Online', offline: 'Offline', itinerary: 'Route', details: 'Details', order: 'Bestelling', delivery: 'Bezorging', tip: 'Fooi', tips: 'Fooien', distance: 'Afstand', total: 'Totaal', status: 'Status', active: 'Actief', articles: 'artikelen', article: 'artikel',
     tabHome: 'Home', tabMessages: 'Berichten', tabEarnings: 'Inkomsten', tabProfile: 'Profiel',
     loginTitle: 'Bezorger inloggen', loginEmail: 'email@voorbeeld.com', loginPassword: '••••••••', loginButton: 'Inloggen', loginErrorFields: 'Vul alle velden in.', loginErrorCredentials: 'Onjuist e-mailadres of wachtwoord.',
@@ -856,6 +870,8 @@ const translations = {
   },
 
   it: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: 'Cliente assente: consegnare comunque', fragileBadge: 'Fragile', alcoholBadge: 'Alcol', absentSafePlaceBadge: 'Assente: luogo sicuro', absentNeighborBadge: 'Assente: vicino', absentSafePlaceHint: 'Il commerciante autorizza il deposito in luogo sicuro. Descrivi dove lo lasci.', absentNeighborHint: 'Il commerciante autorizza la consegna a un vicino. Indica nome e piano.', absentSafePlacePlaceholder: 'Es. dietro il vaso, a sinistra della porta', absentNeighborPlaceholder: 'Es. Sig.ra Martin, 3° piano', absentConfirm: 'Conferma la consegna', absentNeighborNameRequired: 'Indica il nome del vicino.', absentRefusedTitle: 'Consegna rifiutata', absentRefusedMsg: 'Il commerciante non autorizza questa consegna. Riporta il pacco.',
     close: 'Chiudi', cancel: 'Annulla', confirm: 'Conferma', save: 'Salva', send: 'Invia', ok: 'OK', error: 'Errore', help: 'Aiuto', back: 'Indietro', yes: 'Sì', no: 'No', loading: 'Caricamento...', online: 'Online', offline: 'Offline', itinerary: 'Itinerario', details: 'Dettagli', order: 'Ordine', delivery: 'Consegna', tip: 'Mancia', tips: 'Mance', distance: 'Distanza', total: 'Totale', status: 'Stato', active: 'Attivo', articles: 'articoli', article: 'articolo',
     tabHome: 'Home', tabMessages: 'Messaggi', tabEarnings: 'Guadagni', tabProfile: 'Profilo',
     loginTitle: 'Accesso corriere', loginEmail: 'email@esempio.com', loginPassword: '••••••••', loginButton: 'Accedi', loginErrorFields: 'Compila tutti i campi.', loginErrorCredentials: 'Email o password errati.',
@@ -882,6 +898,8 @@ const translations = {
   },
 
   pt: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: 'Cliente ausente: entregar mesmo assim', fragileBadge: 'Frágil', alcoholBadge: 'Álcool', absentSafePlaceBadge: 'Ausente: local seguro', absentNeighborBadge: 'Ausente: vizinho', absentSafePlaceHint: 'O comerciante permite deixar em local seguro. Descreva onde o deixa.', absentNeighborHint: 'O comerciante permite entregar a um vizinho. Indique o nome e o andar.', absentSafePlacePlaceholder: 'Ex. atrás do vaso, à esquerda da porta', absentNeighborPlaceholder: 'Ex. Sra. Martin, 3.º andar', absentConfirm: 'Confirmar a entrega', absentNeighborNameRequired: 'Indique o nome do vizinho.', absentRefusedTitle: 'Entrega recusada', absentRefusedMsg: 'O comerciante não permite esta entrega. Devolva a encomenda.',
     close: 'Fechar', cancel: 'Cancelar', confirm: 'Confirmar', save: 'Guardar', send: 'Enviar', ok: 'OK', error: 'Erro', help: 'Ajuda', back: 'Voltar', yes: 'Sim', no: 'Não', loading: 'A carregar...', online: 'Online', offline: 'Offline', itinerary: 'Itinerário', details: 'Detalhes', order: 'Pedido', delivery: 'Entrega', tip: 'Gorjeta', tips: 'Gorjetas', distance: 'Distância', total: 'Total', status: 'Estado', active: 'Ativo', articles: 'artigos', article: 'artigo',
     tabHome: 'Início', tabMessages: 'Mensagens', tabEarnings: 'Ganhos', tabProfile: 'Perfil',
     loginTitle: 'Login estafeta', loginEmail: 'email@exemplo.com', loginPassword: '••••••••', loginButton: 'Entrar', loginErrorFields: 'Preencha todos os campos.', loginErrorCredentials: 'Email ou senha incorretos.',
@@ -908,6 +926,8 @@ const translations = {
   },
 
   ja: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: '不在でも受け渡す', fragileBadge: 'こわれもの', alcoholBadge: 'アルコール', absentSafePlaceBadge: '不在：安全な場所', absentNeighborBadge: '不在：隣人', absentSafePlaceHint: '販売店は安全な場所への置き配を許可しています。置いた場所を記入してください。', absentNeighborHint: '販売店は隣人への手渡しを許可しています。氏名と階数を記入してください。', absentSafePlacePlaceholder: '例：ドア左側の植木鉢の後ろ', absentNeighborPlaceholder: '例：マルタンさん、3階', absentConfirm: '受け渡しを確定', absentNeighborNameRequired: '隣人の氏名を入力してください。', absentRefusedTitle: '受け渡しが拒否されました', absentRefusedMsg: '販売店はこの受け渡しを許可していません。荷物をお持ち帰りください。',
     close: '閉じる', cancel: 'キャンセル', confirm: '確認', save: '保存', send: '送信', ok: 'OK', error: 'エラー', help: 'ヘルプ', back: '戻る', yes: 'はい', no: 'いいえ', loading: '読み込み中...', online: 'オンライン', offline: 'オフライン', itinerary: 'ルート', details: '詳細', order: '注文', delivery: '配達', tip: 'チップ', tips: 'チップ', distance: '距離', total: '合計', status: 'ステータス', active: '有効', articles: '品', article: '品',
     tabHome: 'ホーム', tabMessages: 'メッセージ', tabEarnings: '収入', tabProfile: 'プロフィール',
     loginTitle: 'ドライバーログイン', loginEmail: 'email@example.com', loginPassword: '••••••••', loginButton: 'ログイン', loginErrorFields: 'すべての項目を入力してください。', loginErrorCredentials: 'メールまたはパスワードが間違っています。',
@@ -934,6 +954,8 @@ const translations = {
   },
 
   th: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: 'ลูกค้าไม่อยู่: ส่งมอบต่อไป', fragileBadge: 'แตกง่าย', alcoholBadge: 'แอลกอฮอล์', absentSafePlaceBadge: 'ไม่อยู่: จุดปลอดภัย', absentNeighborBadge: 'ไม่อยู่: เพื่อนบ้าน', absentSafePlaceHint: 'ร้านค้าอนุญาตให้วางในจุดปลอดภัย โปรดระบุตำแหน่งที่วาง', absentNeighborHint: 'ร้านค้าอนุญาตให้ฝากเพื่อนบ้าน โปรดระบุชื่อและชั้น', absentSafePlacePlaceholder: 'เช่น หลังกระถางต้นไม้ ด้านซ้ายของประตู', absentNeighborPlaceholder: 'เช่น คุณมาร์ติน ชั้น 3', absentConfirm: 'ยืนยันการส่งมอบ', absentNeighborNameRequired: 'โปรดระบุชื่อเพื่อนบ้าน', absentRefusedTitle: 'การส่งมอบถูกปฏิเสธ', absentRefusedMsg: 'ร้านค้าไม่อนุญาตวิธีนี้ กรุณานำพัสดุกลับ',
     close: 'ปิด', cancel: 'ยกเลิก', confirm: 'ยืนยัน', save: 'บันทึก', send: 'ส่ง', ok: 'ตกลง', error: 'ข้อผิดพลาด', help: 'ช่วยเหลือ', back: 'กลับ', yes: 'ใช่', no: 'ไม่', loading: 'กำลังโหลด...', online: 'ออนไลน์', offline: 'ออฟไลน์', itinerary: 'เส้นทาง', details: 'รายละเอียด', order: 'คำสั่งซื้อ', delivery: 'การจัดส่ง', tip: 'ทิป', tips: 'ทิป', distance: 'ระยะทาง', total: 'รวม', status: 'สถานะ', active: 'ใช้งานอยู่', articles: 'รายการ', article: 'รายการ',
     tabHome: 'หน้าแรก', tabMessages: 'ข้อความ', tabEarnings: 'รายได้', tabProfile: 'โปรไฟล์',
     loginTitle: 'เข้าสู่ระบบไรเดอร์', loginEmail: 'email@example.com', loginPassword: '••••••••', loginButton: 'เข้าสู่ระบบ', loginErrorFields: 'กรุณากรอกข้อมูลให้ครบ', loginErrorCredentials: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง',
@@ -960,6 +982,8 @@ const translations = {
   },
 
   sv: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: 'Kunden är inte hemma: lämna ändå', fragileBadge: 'Ömtåligt', alcoholBadge: 'Alkohol', absentSafePlaceBadge: 'Ej hemma: säker plats', absentNeighborBadge: 'Ej hemma: granne', absentSafePlaceHint: 'Handlaren tillåter avlämning på säker plats. Beskriv var du lämnar paketet.', absentNeighborHint: 'Handlaren tillåter överlämning till en granne. Ange namn och våning.', absentSafePlacePlaceholder: 'T.ex. bakom blomkrukan, till vänster om dörren', absentNeighborPlaceholder: 'T.ex. fru Martin, 3:e våningen', absentConfirm: 'Bekräfta överlämningen', absentNeighborNameRequired: 'Ange grannens namn.', absentRefusedTitle: 'Överlämningen nekades', absentRefusedMsg: 'Handlaren tillåter inte denna överlämning. Ta tillbaka paketet.',
     close: 'Stäng', cancel: 'Avbryt', confirm: 'Bekräfta', save: 'Spara', send: 'Skicka', ok: 'OK', error: 'Fel', help: 'Hjälp', back: 'Tillbaka', yes: 'Ja', no: 'Nej', loading: 'Laddar...', online: 'Online', offline: 'Offline', itinerary: 'Rutt', details: 'Detaljer', order: 'Beställning', delivery: 'Leverans', tip: 'Dricks', tips: 'Dricks', distance: 'Avstånd', total: 'Totalt', status: 'Status', active: 'Aktiv', articles: 'artiklar', article: 'artikel',
     tabHome: 'Hem', tabMessages: 'Meddelanden', tabEarnings: 'Inkomster', tabProfile: 'Profil',
     loginTitle: 'Bud-inloggning', loginEmail: 'email@exempel.com', loginPassword: '••••••••', loginButton: 'Logga in', loginErrorFields: 'Fyll i alla fält.', loginErrorCredentials: 'Fel e-post eller lösenord.',
@@ -986,6 +1010,8 @@ const translations = {
   },
 
   ru: {
+    // Options de remise (fragile / alcool / client absent)
+    absentHandover: 'Клиента нет: вручить всё равно', fragileBadge: 'Хрупкое', alcoholBadge: 'Алкоголь', absentSafePlaceBadge: 'Нет дома: надёжное место', absentNeighborBadge: 'Нет дома: сосед', absentSafePlaceHint: 'Продавец разрешает оставить в надёжном месте. Опишите, где вы оставили посылку.', absentNeighborHint: 'Продавец разрешает передать соседу. Укажите имя и этаж.', absentSafePlacePlaceholder: 'Напр. за цветочным горшком слева от двери', absentNeighborPlaceholder: 'Напр. г-жа Мартен, 3-й этаж', absentConfirm: 'Подтвердить вручение', absentNeighborNameRequired: 'Укажите имя соседа.', absentRefusedTitle: 'Вручение отклонено', absentRefusedMsg: 'Продавец не разрешает такое вручение. Верните посылку.',
     close: 'Закрыть', cancel: 'Отмена', confirm: 'Подтвердить', save: 'Сохранить', send: 'Отправить', ok: 'OK', error: 'Ошибка', help: 'Помощь', back: 'Назад', yes: 'Да', no: 'Нет', loading: 'Загрузка...', online: 'Онлайн', offline: 'Офлайн', itinerary: 'Маршрут', details: 'Детали', order: 'Заказ', delivery: 'Доставка', tip: 'Чаевые', tips: 'Чаевые', distance: 'Расстояние', total: 'Итого', status: 'Статус', active: 'Активен', articles: 'товаров', article: 'товар',
     tabHome: 'Главная', tabMessages: 'Сообщения', tabEarnings: 'Доходы', tabProfile: 'Профиль',
     loginTitle: 'Вход курьера', loginEmail: 'email@example.com', loginPassword: '••••••••', loginButton: 'Войти', loginErrorFields: 'Заполните все поля.', loginErrorCredentials: 'Неверный email или пароль.',

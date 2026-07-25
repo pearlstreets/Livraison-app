@@ -66,6 +66,11 @@ function adaptAssignment(a, { revealCustomer = true } = {}) {
     // méta
     status: a.status || '',
     delivery_code: a.delivery_code || '',
+    // Options de remise posées par le commerçant (fragile / alcool / consigne
+    // si le client est absent). Visibles dès le pool pour décider d'accepter.
+    is_fragile: !!a.is_fragile,
+    has_alcohol: !!a.has_alcohol,
+    absent_policy: a.absent_policy || 'return',
     // Nom du client : jamais affiché tant que la course n'est pas acceptée.
     customer_name: revealCustomer ? (a.customer_name || '') : '',
     // Téléphone client : le backend l'expose dans user_address.phone_number
