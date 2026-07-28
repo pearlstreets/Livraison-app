@@ -25,7 +25,7 @@
     },
     "android": {
       "package": "com.pearlstreets.delivery",
-      "versionCode": 1003,
+      "versionCode": 1004,
       "jsEngine": "hermes",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -56,6 +56,14 @@
         "projectId": "3be79991-dd51-479d-8ff7-d6c45a1af111"
       }
     },
-    "owner": "localidad"
+    "owner": "localidad",
+    "updates": {
+      "enabled": true,
+      "url": "https://u.expo.dev/3be79991-dd51-479d-8ff7-d6c45a1af111",
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }
