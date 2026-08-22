@@ -133,6 +133,10 @@ export default function LoginScreen() {
   const [pseudo, setPseudo] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [addrSuggestions, setAddrSuggestions] = useState([]);
+  const [addrSearching, setAddrSearching] = useState(false);
+  const addrDebounceRef = useRef(null);
   const [country, setCountry] = useState('FR');
   const [phoneCountry, setPhoneCountry] = useState('FR');
   // Véhicule choisi à l'inscription (valeurs backend : bicycle/scooter/car/walk).
@@ -241,6 +245,43 @@ export default function LoginScreen() {
     }
   };
 
+  // Suggestions d'adresse — Photon (OpenStreetMap), le meme geocodeur que
+  // l'inscription user et pro. Gratuit et sans cle : la facturation Google
+  // est coupee en prod, ne PAS basculer sur Places.
+  const fetchAddressSuggestions = useCallback((q, iso) => {
+    if (addrDebounceRef.current) clearTimeout(addrDebounceRef.current);
+    if (!q || q.trim().length < 3) { setAddrSuggestions([]); return; }
+    addrDebounceRef.current = setTimeout(async () => {
+      try {
+        setAddrSearching(true);
+        const res = await fetch(
+          `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=8&lang=fr`
+        );
+        const json = await res.json();
+        const cible = String(iso || 'FR').toUpperCase();
+        const vus = new Set();
+        const items = (json.features || [])
+          // On restreint au pays de residence choisi : sans ce filtre, une rue
+          // homonyme a l'etranger remonte avant la bonne.
+          .filter((f) => (f.properties?.countrycode || '').toUpperCase() === cible)
+          .map((f) => {
+            const pr = f.properties || {};
+            const rue = [pr.housenumber, pr.street || pr.name].filter(Boolean).join(' ');
+            const ville = [pr.postcode, pr.city || pr.district].filter(Boolean).join(' ');
+            return [rue, ville].filter(Boolean).join(', ');
+          })
+          .filter((label) => label && !vus.has(label) && vus.add(label));
+        setAddrSuggestions(items.slice(0, 5));
+      } catch (e) {
+        // Reseau ou geocodeur indisponible : on laisse la saisie libre,
+        // l'inscription ne doit jamais etre bloquee par une suggestion.
+        setAddrSuggestions([]);
+      } finally {
+        setAddrSearching(false);
+      }
+    }, 300);
+  }, []);
+
   // Signup
   const handleSignup = async () => {
     setError('');
@@ -276,7 +317,7 @@ export default function LoginScreen() {
       setError(t('errorUploadFailed') || "Échec de l'envoi des documents. Veuillez réessayer.");
       return;
     }
-    const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), vehicle_type: vehicle, role: isPro ? 'professionaluser' : 'user', documents: docUrls });
+    const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), legal_address: address.trim(), vehicle_type: vehicle, role: isPro ? 'professionaluser' : 'user', documents: docUrls });
     setLoading(false);
     if (result && result.ok) { setPendingValidation(true); return; }
     setError((result && result.error) || 'Une erreur est survenue. Veuillez réessayer.');
@@ -453,6 +494,28 @@ export default function LoginScreen() {
                 <Text style={{flex:1, fontSize:15, color:'#111', fontWeight:'600'}}>{selectedCountry.name}</Text>
                 <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
               </TouchableOpacity>
+              <Text style={s.label}>{t('driverAddressLabel') || 'Adresse'}</Text>
+              <TextInput
+                style={s.input}
+                value={address}
+                onChangeText={(txt) => { setAddress(txt); fetchAddressSuggestions(txt, selectedCountry.code); }}
+                placeholder="12 rue de la Paix, 75002 Paris"
+                placeholderTextColor="#aaa"
+              />
+              {addrSearching && <ActivityIndicator size="small" color={BRAND} style={{marginBottom:4}} />}
+              {addrSuggestions.length > 0 && (
+                <View style={{borderWidth:1, borderColor:'#E5E7EB', borderRadius:8, marginBottom:8, overflow:'hidden'}}>
+                  {addrSuggestions.map((sugg) => (
+                    <TouchableOpacity
+                      key={sugg}
+                      onPress={() => { setAddress(sugg); setAddrSuggestions([]); }}
+                      style={{paddingVertical:10, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6'}}
+                    >
+                      <Text style={{fontSize:14, color:'#111'}}>{sugg}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
               <Text style={s.label}>{t('phoneLabel') || 'Numéro de téléphone'}</Text>
               <View style={{flexDirection:'row', marginBottom:4}}>
                 <TouchableOpacity onPress={() => setPhonePickerVisible(true)} style={[s.input, {flexDirection:'row', alignItems:'center', marginRight:8, flex:0}]}>
