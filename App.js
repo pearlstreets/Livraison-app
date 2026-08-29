@@ -23,6 +23,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { initOneSignalOnce } from './services/oneSignalInit';
+import { navigationRef } from './services/navigationService';
+import { deepLink } from './services/deepLink';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { useLocationTracking } from './hooks/useLocationTracking';
@@ -64,6 +66,38 @@ import VersementDetailScreen from './screens/VersementDetailScreen';
 // ships. Required to be called before render so OneSignal can attach its
 // notification handlers ahead of the first user interaction.
 initOneSignalOnce();
+
+// Tap sur une notification → écran concerné. AUCUN écouteur n'existait :
+// toucher « pourboire reçu » ou « document qui expire » ouvrait simplement
+// l'app là où le livreur l'avait laissée, à lui de retrouver l'écran.
+// La destination arrive dans `data.route` (backend DeliveryApp/notifications).
+// Enregistré au chargement du module, comme l'init OneSignal, pour capter
+// aussi le tap qui LANCE l'app.
+try {
+  const { OneSignal } = require('react-native-onesignal');
+  OneSignal.Notifications.addEventListener('click', (event) => {
+    try {
+      const extra = (event && event.notification && event.notification.additionalData) || {};
+      deepLink(extra.route);
+    } catch (_) {}
+  });
+} catch (_) {
+  // module natif absent (build sans OneSignal) : rien à brancher.
+}
+
+// Chemin de repli Expo : le backend sait aussi pousser par jeton Expo quand
+// OneSignal n'est pas disponible sur le binaire installé.
+try {
+  Notifications.addNotificationResponseReceivedListener((reponse) => {
+    try {
+      const donnees =
+        (reponse && reponse.notification && reponse.notification.request
+          && reponse.notification.request.content
+          && reponse.notification.request.content.data) || {};
+      deepLink(donnees.route);
+    } catch (_) {}
+  });
+} catch (_) {}
 
 const BRAND = '#00C29B';
 const Tab = createBottomTabNavigator();
@@ -215,7 +249,7 @@ export default function App() {
       <LanguageProvider>
         <AuthProvider>
           <CurrencyGate>
-            <NavigationContainer theme={navTheme}>
+            <NavigationContainer theme={navTheme} ref={navigationRef}>
               <StatusBar style="dark" />
               <Main />
             </NavigationContainer>
