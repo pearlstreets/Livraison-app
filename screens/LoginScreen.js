@@ -93,6 +93,11 @@ const SIGNUP_VEHICLES = [
   { id: 'walk', icon: 'walk-outline', labelKey: 'walk' },
 ];
 
+// Véhicules qui exigent un permis de conduire. Miroir de MOTORISED_VEHICLES
+// côté backend (DeliveryApp/registration_constants.py), qui refuse le dossier
+// si le permis manque.
+const MOTORISED_VEHICLES = new Set(['car', 'scooter']);
+
 // Group raw digits with spaces following the selected country's pattern.
 function formatPhone(value, fmt) {
   const digits = String(value || '').replace(/\D/g, '').slice(0, fmt.len);
@@ -147,6 +152,7 @@ export default function LoginScreen() {
   const [docIdBack, setDocIdBack] = useState(null);
   const [docIban, setDocIban] = useState(null);
   const [docKbiss, setDocKbiss] = useState(null);
+  const [docLicense, setDocLicense] = useState(null);
   const [docPhoto, setDocPhoto] = useState(null);
   const [docProofAddress, setDocProofAddress] = useState(null);
   const [docRcPro, setDocRcPro] = useState(null);
@@ -197,6 +203,13 @@ export default function LoginScreen() {
     { slot: 'profile_photo', url: 'profile_photo_url', label: 'Photo de profil (votre visage, de face)', value: docPhoto, setter: setDocPhoto, icon: 'person-circle-outline', pdf: false },
     { slot: 'id_front', url: 'id_card_front_url', label: "Pièce d'identité (recto)", value: docIdFront, setter: setDocIdFront, icon: 'card-outline', pdf: false },
     { slot: 'id_back', url: 'id_card_back_url', label: "Pièce d'identité (verso)", value: docIdBack, setter: setDocIdBack, icon: 'card-outline', pdf: false },
+    // Réclamé dès que le livreur déclare un véhicule motorisé : sans lui, un
+    // livreur motorisé arrivait à la validation admin sans qu'aucun permis
+    // n'ait été demandé. Le backend l'exige aussi, la liste ci-dessous étant
+    // tout ce que l'écran envoie.
+    ...(MOTORISED_VEHICLES.has(vehicle) ? [
+      { slot: 'driver_license', url: 'driver_license_url', label: 'Permis de conduire', value: docLicense, setter: setDocLicense, icon: 'car-outline', pdf: true },
+    ] : []),
     { slot: 'proof_of_address', url: 'proof_of_address_url', label: 'Justificatif de domicile (- 3 mois)', value: docProofAddress, setter: setDocProofAddress, icon: 'home-outline', pdf: true },
     { slot: 'iban', url: 'iban_doc_url', label: 'RIB', value: docIban, setter: setDocIban, icon: 'wallet-outline', pdf: true },
     ...(isPro ? [
