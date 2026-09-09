@@ -7,10 +7,9 @@ import { useLanguage } from '../contexts/LanguageContext';
 
 const BRAND = '#00C29B';
 
-// Valeurs backend : bicycle / scooter / car / walk
+// Valeurs backend : bicycle / car / walk
 const VEHICLES = [
   { id: 'bicycle', icon: 'bicycle', labelKey: 'bike' },
-  { id: 'scooter', icon: 'bicycle', labelKey: 'scooter' },
   { id: 'car', icon: 'car-outline', labelKey: 'car' },
   { id: 'walk', icon: 'walk-outline', labelKey: 'walk' },
 ];
@@ -19,7 +18,7 @@ export default function VehicleScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const { user, updateUser } = useAuth();
-  // user.vehicle contient la valeur backend (bicycle/scooter/car/walk)
+  // user.vehicle contient la valeur backend (bicycle/car/walk)
   const currentVehicle = user?.vehicle || 'bicycle';
   const [selected, setSelected] = useState(currentVehicle);
 

@@ -84,11 +84,11 @@ const PHONE_FMT = {
 const DEFAULT_PHONE_FMT = { len: 10, groups: [3, 3, 4] };
 const phoneFmtFor = (code) => PHONE_FMT[code] || DEFAULT_PHONE_FMT;
 
-// Véhicules proposés à l'inscription — valeurs backend bicycle/scooter/car/walk
-// (mêmes que l'écran Vehicle du profil).
+// Véhicules proposés à l'inscription — valeurs backend bicycle/car/walk
+// (mêmes que l'écran Vehicle du profil ; miroir de SIGNUP_VEHICLE_CHOICES côté
+// backend, qui refuse toute autre valeur).
 const SIGNUP_VEHICLES = [
   { id: 'bicycle', icon: 'bicycle', labelKey: 'bike' },
-  { id: 'scooter', icon: 'bicycle', labelKey: 'scooter' },
   { id: 'car', icon: 'car-outline', labelKey: 'car' },
   { id: 'walk', icon: 'walk-outline', labelKey: 'walk' },
 ];
@@ -144,8 +144,8 @@ export default function LoginScreen() {
   const addrDebounceRef = useRef(null);
   const [country, setCountry] = useState('FR');
   const [phoneCountry, setPhoneCountry] = useState('FR');
-  // Véhicule choisi à l'inscription (valeurs backend : bicycle/scooter/car/walk).
-  const [vehicle, setVehicle] = useState('scooter');
+  // Véhicule choisi à l'inscription (valeurs backend : bicycle/car/walk).
+  const [vehicle, setVehicle] = useState('bicycle');
 
   // Documents
   const [docIdFront, setDocIdFront] = useState(null);

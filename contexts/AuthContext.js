@@ -303,8 +303,8 @@ export function AuthProvider({ children }) {
         password: data.password,
         phone: data.phone || '',
         phoneCode: data.phoneCode || '',
-        // Véhicule choisi à l'inscription (défaut scooter si absent).
-        vehicle_type: data.vehicle_type || data.vehicle || 'scooter',
+        // Véhicule choisi à l'inscription (défaut vélo si absent).
+        vehicle_type: data.vehicle_type || data.vehicle || 'bicycle',
         country: data.country || 'FR',
         legal_status: isPro ? 'societe' : 'particulier',
       };
