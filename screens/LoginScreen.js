@@ -96,9 +96,6 @@ const SIGNUP_VEHICLES = [
 // Véhicules qui exigent un permis de conduire. Miroir de
 // VEHICLES_REQUIRING_LICENSE côté backend (DeliveryApp/registration_constants.py),
 // qui refuse le dossier si le permis manque.
-//
-// Le scooter en est volontairement absent : un cyclomoteur 50 cm3 se conduit
-// sans permis en France pour qui est né avant le 01/01/1988.
 const VEHICLES_REQUIRING_LICENSE = new Set(['car']);
 
 // Group raw digits with spaces following the selected country's pattern.
