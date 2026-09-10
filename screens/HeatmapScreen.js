@@ -5,7 +5,8 @@ import { mapsAvailable } from '../lib/maps';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { deliveryService } from '../services/deliveryService';
@@ -15,6 +16,14 @@ const { width, height } = Dimensions.get('window');
 
 // Meaux center
 const MEAUX = { latitude: 48.9536, longitude: 2.8788 };
+
+// Sur iPhone la carte (Apple Plans) est sombre : heure et icônes de la barre d'état
+// en blanc, seulement tant que l'écran est affiché (App.js les remet en sombre sur
+// les autres écrans). Sur Android la carte Google reste claire : icônes inchangées.
+function LightStatusBarWhileFocused() {
+  const isFocused = useIsFocused();
+  return Platform.OS === 'ios' && isFocused ? <StatusBar style="light" /> : null;
+}
 
 // Sur iPhone la carte est Apple Plans, où la bibliothèque ne fournit pas de couche
 // Heatmap (Google Maps seulement). Chaque zone y est dessinée en deux cercles
@@ -100,6 +109,7 @@ export default function HeatmapScreen({ navigation }) {
 
   return (
     <View style={s.container}>
+      <LightStatusBarWhileFocused />
       {mapsAvailable ? (
         <MapView
           ref={mapRef}
