@@ -56,7 +56,7 @@ export default function EditIbanScreen({ navigation }) {
           </View>
         </View>
 
-        <Text style={s.info}>Les versements sont effectués chaque semaine sur ce compte bancaire.</Text>
+        <Text style={s.info}>{t('payoutsWeeklyInfo')}</Text>
 
         <View style={s.divider} />
         <Text style={s.sectionTitle}>{t('changeBankAccount')}</Text>
@@ -64,14 +64,14 @@ export default function EditIbanScreen({ navigation }) {
         <Text style={s.fieldLabel}>{t('accountHolder')}</Text>
         <TextInput
           style={s.input}
-          placeholder="Nom et prénom du titulaire"
+          placeholder={t('accountHolderName')}
           placeholderTextColor="#bbb"
           value={newTitulaire}
           onChangeText={setNewTitulaire}
           autoCapitalize="words"
         />
 
-        <Text style={s.fieldLabel}>IBAN</Text>
+        <Text style={s.fieldLabel}>{t('ibanLabel')}</Text>
         <TextInput
           style={s.input}
           placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX"
@@ -82,7 +82,7 @@ export default function EditIbanScreen({ navigation }) {
           keyboardType="default"
         />
 
-        <Text style={s.fieldLabel}>BIC / SWIFT</Text>
+        <Text style={s.fieldLabel}>{t('bicLabel')}</Text>
         <TextInput
           style={s.input}
           placeholder="BNPAFRPPXXX"
@@ -94,7 +94,7 @@ export default function EditIbanScreen({ navigation }) {
 
         <View style={s.warning}>
           <Ionicons name="shield-checkmark-outline" size={16} color="#f5a623" style={{ marginRight: 8 }} />
-          <Text style={s.warningTxt}>Le nouveau compte sera vérifié sous 24-48h avant activation.</Text>
+          <Text style={s.warningTxt}>{t('newAccountVerifyInfo')}</Text>
         </View>
       </ScrollView>
 

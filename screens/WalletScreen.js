@@ -92,7 +92,7 @@ export default function WalletScreen({ navigation }) {
             <Text style={s.balanceAmount}>{fmtPrice((earn.earningsCents || 0) / 100)}</Text>
             <Ionicons name="chevron-forward" size={22} color="#999" />
           </View>
-          <Text style={s.nextPayout}>Versements hebdomadaires automatiques</Text>
+          <Text style={s.nextPayout}>{t('weeklyAutoPayouts')}</Text>
           <Pressable style={[s.encaissBtn, earn.earningsCents <= 0 && { opacity: 0.4 }]} onPress={startEncaiss}>
             <Ionicons name="flash" size={16} color="#111" />
             <Text style={s.encaissTxt}>{t('cashout')}</Text>

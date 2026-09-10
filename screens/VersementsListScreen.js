@@ -62,15 +62,15 @@ export default function VersementsListScreen({ navigation, route }) {
                 </View>
                 <View style={s.virementDetails}>
                   <View style={s.virementDetailRow}>
-                    <Text style={s.virementDetailLabel}>IBAN</Text>
+                    <Text style={s.virementDetailLabel}>{t('ibanLabel')}</Text>
                     <Text style={s.virementDetailValue}>{v.iban || currentIban}</Text>
                   </View>
                   <View style={s.virementDetailRow}>
-                    <Text style={s.virementDetailLabel}>Montant net</Text>
+                    <Text style={s.virementDetailLabel}>{t('netAmount')}</Text>
                     <Text style={s.virementDetailValue}>{v.detail?.net || v.amount}</Text>
                   </View>
                   <View style={s.virementDetailRow}>
-                    <Text style={s.virementDetailLabel}>Courses</Text>
+                    <Text style={s.virementDetailLabel}>{t('courses')}</Text>
                     <Text style={s.virementDetailValue}>{v.detail?.courses || '-'}</Text>
                   </View>
                 </View>

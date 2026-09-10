@@ -452,7 +452,7 @@ export default function OrdersScreen({ navigation, route }) {
                 accessibilityLabel="Simuler une commande"
               >
                 <Ionicons name="flask-outline" size={16} color="#fff" />
-                <Text style={styles.mockBtnTxt}>Simuler</Text>
+                <Text style={styles.mockBtnTxt}>{t('simulate')}</Text>
               </TouchableOpacity>
             )}
           </View>

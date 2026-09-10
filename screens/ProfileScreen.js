@@ -5,10 +5,12 @@ import api from '../components/api';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BRAND = '#00C29B';
 
 export default function ProfileScreen({ navigation }) {
+  const { t } = useLanguage();
   const { user, logout } = useAuth();
   const { fmtPrice } = useCurrency();
   const [earn, setEarn] = useState({ earningsCents: 0, earnings: '0.00 €' });
@@ -60,34 +62,34 @@ export default function ProfileScreen({ navigation }) {
         </View>
         <Pressable style={s.editBtn} onPress={() => navigation.navigate('EditProfile')}>
           <Ionicons name="create-outline" size={18} color={BRAND} />
-          <Text style={s.editTxt}>Modifier le profil</Text>
+          <Text style={s.editTxt}>{t('editProfile')}</Text>
         </Pressable>
       </View>
 
       {/* Solde */}
       <View style={s.card}>
-        <Text style={s.title}>Solde</Text>
+        <Text style={s.title}>{t('balance')}</Text>
         <Text style={s.amount}>{fmtPrice((earn.earningsCents || 0) / 100)}</Text>
         <Pressable style={[s.btn, s.fill]} onPress={withdraw}>
-          <Text style={s.btnTxt}>Demander virement</Text>
+          <Text style={s.btnTxt}>{t('requestPayout')}</Text>
         </Pressable>
       </View>
 
       {/* Documents */}
       <View style={s.card}>
-        <Text style={s.title}>Documents</Text>
-        <Text style={{ color: '#333', marginTop: 6 }}>Identité validée</Text>
-        <Text style={{ color: '#333', marginTop: 2 }}>Assurance en règle</Text>
+        <Text style={s.title}>{t('documents')}</Text>
+        <Text style={{ color: '#333', marginTop: 6 }}>{t('identityVerified')}</Text>
+        <Text style={{ color: '#333', marginTop: 2 }}>{t('insuranceValid')}</Text>
       </View>
 
       <Pressable style={[s.btn, s.fill]} onPress={testNotification}>
-        <Text style={s.btnTxt}>Tester notification</Text>
+        <Text style={s.btnTxt}>{t('testNotification')}</Text>
       </Pressable>
 
       {/* Déconnexion */}
       <Pressable style={[s.btn, s.logoutBtn]} onPress={confirmLogout}>
         <Ionicons name="log-out-outline" size={18} color="#e74c3c" />
-        <Text style={s.logoutTxt}>Se déconnecter</Text>
+        <Text style={s.logoutTxt}>{t('logout')}</Text>
       </Pressable>
     </ScrollView>
   );

@@ -147,7 +147,7 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
       {/* Adresse client + itinéraire */}
       <View style={ss.arrivedAddrCard}>
         <View style={{ flex: 1 }}>
-          <Text style={ss.arrivedAddrLabel}>Adresse de livraison</Text>
+          <Text style={ss.arrivedAddrLabel}>{t('deliveryAddress')}</Text>
           <Text style={ss.arrivedAddrText}>{address}</Text>
         </View>
         <Pressable style={ss.arrivedMapBtn} onPress={() => onOpenMap?.(address)}>
@@ -185,7 +185,7 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
 
       <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={onMessage}>
         <Ionicons name="chatbubble-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
-        <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>Message client</Text>
+        <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('customerMessage')}</Text>
       </Pressable>
 
       {/* Call popup overlay */}
@@ -620,7 +620,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <View style={ss.enrouteRow}>
                 <View style={ss.enrouteDotGreen} />
                 <View style={{ flex: 1 }}>
-                  <Text style={ss.enrouteLabel}>Récupération</Text>
+                  <Text style={ss.enrouteLabel}>{t('pickup')}</Text>
                   <Text style={ss.enrouteAddr}>{restaurant}</Text>
                   <View style={ss.enrouteAddrCopyRow}>
                     <Text style={ss.enrouteAddrBold} selectable>{order.pickupAddress || order.shopName || restaurant}</Text>
@@ -632,7 +632,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <View style={ss.enrouteRow}>
                 <View style={ss.enrouteDotBlue} />
                 <View style={{ flex: 1 }}>
-                  <Text style={ss.enrouteLabel}>Livraison</Text>
+                  <Text style={ss.enrouteLabel}>{t('delivery')}</Text>
                   <Text style={ss.enrouteAddr}>{address}</Text>
                 </View>
                 <Ionicons name="ellipse-outline" size={18} color="#ccc" />
@@ -658,20 +658,20 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             <View style={ss.enrouteDetailCard}>
               <View style={ss.enrouteDetailRow}>
                 <Ionicons name="receipt-outline" size={14} color="#888" />
-                <Text style={ss.enrouteDetailLabel}>Commande</Text>
+                <Text style={ss.enrouteDetailLabel}>{t('order')}</Text>
                 <Text style={ss.enrouteDetailValue}>{orderId}</Text>
               </View>
               {order.itemsCount && (
                 <View style={ss.enrouteDetailRow}>
                   <Ionicons name="cube-outline" size={14} color="#888" />
-                  <Text style={ss.enrouteDetailLabel}>Articles</Text>
+                  <Text style={ss.enrouteDetailLabel}>{t('itemsLabel')}</Text>
                   <Text style={ss.enrouteDetailValue}>{order.itemsCount}</Text>
                 </View>
               )}
               {order.category && (
                 <View style={ss.enrouteDetailRow}>
                   <Ionicons name="pricetag-outline" size={14} color="#888" />
-                  <Text style={ss.enrouteDetailLabel}>Catégorie</Text>
+                  <Text style={ss.enrouteDetailLabel}>{t('categoryLabel')}</Text>
                   <Text style={ss.enrouteDetailValue}>{order.category}</Text>
                 </View>
               )}
@@ -689,7 +689,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
             <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={openChat}>
               <Ionicons name="chatbubble-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
-              <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>Message client</Text>
+              <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('customerMessage')}</Text>
             </Pressable>
           </View>
         )}
@@ -758,7 +758,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
             <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={openChat}>
               <Ionicons name="chatbubble-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
-              <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>Message client</Text>
+              <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('customerMessage')}</Text>
             </Pressable>
 
             {/* Client absent : proposé UNIQUEMENT si le commerçant l'a prévu.
@@ -923,7 +923,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           >
             <Pressable onPress={e => e.stopPropagation()}>
               <View style={ss.sheetHandle} />
-              <Text style={ss.sheetTitle}>Ouvrir l'itinéraire</Text>
+              <Text style={ss.sheetTitle}>{t('openRoute')}</Text>
               <Text style={ss.sheetAddr} numberOfLines={2}>{mapSheetDest}</Text>
 
               <View style={ss.sheetGroup}>
@@ -947,7 +947,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               </View>
 
               <Pressable style={ss.sheetCancelBtn} onPress={closeMapSheet}>
-                <Text style={ss.sheetCancelTxt}>Annuler</Text>
+                <Text style={ss.sheetCancelTxt}>{t('cancel')}</Text>
               </Pressable>
             </Pressable>
           </Animated.View>
@@ -961,7 +961,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             <Pressable onPress={() => setShowCodeProblem(false)}>
               <Ionicons name="close" size={28} color="#111" />
             </Pressable>
-            <Text style={ss.chatHeaderTitle}>Signaler un problème</Text>
+            <Text style={ss.chatHeaderTitle}>{t('reportProblem')}</Text>
             <View style={{ width: 28 }} />
           </View>
 
@@ -983,7 +983,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             {selectedCodeProblem && (
               <TextInput
                 style={ss.codeProblemInput}
-                placeholder="Description (optionnel)"
+                placeholder={t('descriptionOptional')}
                 placeholderTextColor="#aaa"
                 multiline
                 numberOfLines={3}
@@ -1017,7 +1017,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               }}
             >
               <Ionicons name="send" size={16} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={ss.codeTicketBtnTxt}>Envoyer et fermer la livraison</Text>
+              <Text style={ss.codeTicketBtnTxt}>{t('sendAndClose')}</Text>
             </Pressable>
           </View>
         </View>
@@ -1030,14 +1030,14 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             <Pressable onPress={() => setShowChat(false)}>
               <Ionicons name="close" size={28} color="#111" />
             </Pressable>
-            <Text style={ss.chatHeaderTitle}>Message au client</Text>
+            <Text style={ss.chatHeaderTitle}>{t('messageToCustomer')}</Text>
             <View style={{ width: 28 }} />
           </View>
 
           {/* Info commande */}
           <View style={ss.chatInfoBar}>
             <View style={{ flex: 1 }}>
-              <Text style={ss.chatInfoLabel}>Récupération</Text>
+              <Text style={ss.chatInfoLabel}>{t('pickup')}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                 <Ionicons name="storefront-outline" size={14} color={BRAND} style={{ marginRight: 6 }} />
                 <Text style={ss.chatInfoText} numberOfLines={1}>{restaurant}</Text>
@@ -1045,7 +1045,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             </View>
             <View style={{ width: 1, height: 30, backgroundColor: '#e0e0e0', marginHorizontal: 10 }} />
             <View style={{ flex: 1 }}>
-              <Text style={ss.chatInfoLabel}>Livraison</Text>
+              <Text style={ss.chatInfoLabel}>{t('delivery')}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
                 <Ionicons name="location-outline" size={14} color="#e74c3c" style={{ marginRight: 6 }} />
                 <Text style={ss.chatInfoText} numberOfLines={1}>{address}</Text>
@@ -1099,7 +1099,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           <View style={[ss.chatInputRow, { paddingBottom: insets.bottom || 16 }]}>
             <TextInput
               style={ss.chatInputField}
-              placeholder="Écrire un message..."
+              placeholder={t('writeMessage')}
               value={chatInput}
               onChangeText={setChatInput}
             />

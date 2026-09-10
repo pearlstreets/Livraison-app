@@ -86,7 +86,7 @@ export default function ChangePasswordScreen({ navigation }) {
         <View style={s.inputRow}>
           <TextInput
             style={s.input}
-            placeholder="Min. 6 caractères"
+            placeholder={t('pwdMin6')}
             placeholderTextColor="#bbb"
             secureTextEntry={!showNew}
             value={newPwd}
@@ -114,7 +114,7 @@ export default function ChangePasswordScreen({ navigation }) {
         <View style={s.inputRow}>
           <TextInput
             style={s.input}
-            placeholder="Retapez le mot de passe"
+            placeholder={t('pwdRetype')}
             placeholderTextColor="#bbb"
             secureTextEntry={!showConfirm}
             value={confirmPwd}

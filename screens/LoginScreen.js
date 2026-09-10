@@ -426,7 +426,7 @@ export default function LoginScreen() {
                 <Ionicons name="bicycle" size={54} color={BRAND} style={{marginBottom:8}} />
                 <Text style={{fontSize:26, fontWeight:'900', color:'#111'}}>Pearl Delivery</Text>
               </View>
-              <Text style={s.label}>Email</Text>
+              <Text style={s.label}>{t('emailLabel')}</Text>
               <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
               <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
               <View style={s.pwdRow}>
@@ -473,8 +473,8 @@ export default function LoginScreen() {
           {/* === SIGNUP STEP 1: Email + Password === */}
           {mode === 'signup' && step === 1 && (
             <>
-              <Text style={s.label}>Email</Text>
-              <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder="email@exemple.com" placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+              <Text style={s.label}>{t('emailLabel')}</Text>
+              <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder={t('emailPlaceholder')} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
               <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
               <View style={s.pwdRow}>
                 <TextInput style={[s.input, {flex:1, marginBottom:0}]} value={password} onChangeText={setPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
@@ -499,13 +499,13 @@ export default function LoginScreen() {
           {mode === 'signup' && step === 2 && (
             <>
               <Text style={s.label}>{t('driverLastName') || 'Nom du livreur'}</Text>
-              <TextInput style={s.input} value={nom} onChangeText={setNom} placeholder="Dupont" placeholderTextColor="#aaa" />
+              <TextInput style={s.input} value={nom} onChangeText={setNom} placeholder={t('lastNamePlaceholder')} placeholderTextColor="#aaa" />
               <Text style={s.label}>{t('driverFirstName') || 'Prénom du livreur'}</Text>
-              <TextInput style={s.input} value={prenom} onChangeText={setPrenom} placeholder="Jean" placeholderTextColor="#aaa" />
+              <TextInput style={s.input} value={prenom} onChangeText={setPrenom} placeholder={t('firstNamePlaceholder')} placeholderTextColor="#aaa" />
               {isPro && (
                 <>
                   <Text style={s.label}>{t('companyName') || "Nom de l'établissement"}</Text>
-                  <TextInput style={s.input} value={companyName} onChangeText={setCompanyName} placeholder="Ma Boutique" placeholderTextColor="#aaa" />
+                  <TextInput style={s.input} value={companyName} onChangeText={setCompanyName} placeholder={t('shopPlaceholder')} placeholderTextColor="#aaa" />
                 </>
               )}
               <Text style={s.label}>{t('countryLabel') || 'Pays de résidence'}</Text>
@@ -519,7 +519,7 @@ export default function LoginScreen() {
                 style={s.input}
                 value={address}
                 onChangeText={(txt) => { setAddress(txt); fetchAddressSuggestions(txt, selectedCountry.code); }}
-                placeholder="12 rue de la Paix, 75002 Paris"
+                placeholder={t('addressPlaceholder')}
                 placeholderTextColor="#aaa"
               />
               {addrSearching && <ActivityIndicator size="small" color={BRAND} style={{marginBottom:4}} />}

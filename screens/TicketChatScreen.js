@@ -169,7 +169,7 @@ export default function TicketChatScreen({ navigation, route }) {
       {isResolvedState ? (
         <View style={[s.closedBar, { paddingBottom: insets.bottom || 16 }]}>
           <Ionicons name="lock-closed" size={16} color="#999" style={{ marginRight: 8 }} />
-          <Text style={s.closedText}>Ce ticket est fermé</Text>
+          <Text style={s.closedText}>{t('ticketClosed')}</Text>
         </View>
       ) : (
         <View style={[s.inputBar, { paddingBottom: insets.bottom || 16 }]}>

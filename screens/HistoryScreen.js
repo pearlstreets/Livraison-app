@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, Image } from 'react-native';
 import { listHistory } from '../components/api';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function HistoryScreen() {
+  const { t } = useLanguage();
   const { fmtPrice } = useCurrency();
   const [items, setItems] = useState([]);
   useEffect(() => { const load = async () => setItems(await listHistory()); load(); const t=setInterval(load,3000); return ()=>clearInterval(t); }, []);
@@ -12,7 +14,7 @@ export default function HistoryScreen() {
       <FlatList
         data={items}
         keyExtractor={x => x.id + String(x.finishedAt)}
-        ListEmptyComponent={<Text style={{ color: '#666' }}>Historique vide</Text>}
+        ListEmptyComponent={<Text style={{ color: '#666' }}>{t('historyEmpty')}</Text>}
         renderItem={({ item }) => (
           <View style={styles.card}>
             <Text style={styles.id}>{item.id}</Text>

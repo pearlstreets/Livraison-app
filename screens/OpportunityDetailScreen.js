@@ -36,13 +36,13 @@ export default function OpportunityDetailScreen({ navigation, route }) {
         </View>
 
         <View style={s.descCard}>
-          <Text style={s.descTitle}>Description</Text>
+          <Text style={s.descTitle}>{t('descriptionLabel')}</Text>
           <Text style={s.descText}>{promo.desc}</Text>
         </View>
 
         {/* Conditions */}
         <View style={s.descCard}>
-          <Text style={s.descTitle}>Conditions</Text>
+          <Text style={s.descTitle}>{t('conditionsLabel')}</Text>
           {promo.conditions ? (
             promo.conditions.map((c, i) => (
               <View key={i} style={s.condRow}>
@@ -54,15 +54,15 @@ export default function OpportunityDetailScreen({ navigation, route }) {
             <>
               <View style={s.condRow}>
                 <Ionicons name="checkmark-circle" size={16} color={BRAND} />
-                <Text style={s.condText}>Disponible dans votre zone de livraison</Text>
+                <Text style={s.condText}>{t('condZone')}</Text>
               </View>
               <View style={s.condRow}>
                 <Ionicons name="checkmark-circle" size={16} color={BRAND} />
-                <Text style={s.condText}>Compte actif et en règle</Text>
+                <Text style={s.condText}>{t('condAccount')}</Text>
               </View>
               <View style={s.condRow}>
                 <Ionicons name="checkmark-circle" size={16} color={BRAND} />
-                <Text style={s.condText}>Applicable automatiquement</Text>
+                <Text style={s.condText}>{t('condAuto')}</Text>
               </View>
             </>
           )}

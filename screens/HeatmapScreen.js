@@ -127,15 +127,15 @@ export default function HeatmapScreen({ navigation }) {
       <View style={[s.legend, { top: insets.top + 60 }]}>
         <View style={s.legendRow}>
           <View style={[s.legendDot, { backgroundColor: '#ff0000' }]} />
-          <Text style={s.legendText}>Forte demande</Text>
+          <Text style={s.legendText}>{t('demandHigh')}</Text>
         </View>
         <View style={s.legendRow}>
           <View style={[s.legendDot, { backgroundColor: '#ffaa00' }]} />
-          <Text style={s.legendText}>Moyenne</Text>
+          <Text style={s.legendText}>{t('demandMedium')}</Text>
         </View>
         <View style={s.legendRow}>
           <View style={[s.legendDot, { backgroundColor: '#00aaff' }]} />
-          <Text style={s.legendText}>Faible</Text>
+          <Text style={s.legendText}>{t('demandLow')}</Text>
         </View>
       </View>
     </View>

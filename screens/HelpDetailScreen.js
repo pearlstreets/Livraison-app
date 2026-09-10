@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BRAND = '#00C29B';
 
@@ -39,6 +40,7 @@ const FAQ = {
 };
 
 export default function HelpDetailScreen({ navigation, route }) {
+  const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const { topic } = route.params;
   const questions = FAQ[topic] || [];
@@ -65,7 +67,7 @@ export default function HelpDetailScreen({ navigation, route }) {
       <View style={[s.contactWrap, { paddingBottom: insets.bottom || 16 }]}>
         <Pressable style={s.contactBtn} onPress={() => navigation.navigate('ContactSupport', { subject: topic })}>
           <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={s.contactTxt}>Contacter le support</Text>
+          <Text style={s.contactTxt}>{t('contactSupport')}</Text>
         </Pressable>
       </View>
     </View>

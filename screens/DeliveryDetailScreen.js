@@ -115,7 +115,7 @@ export default function DeliveryDetailScreen({ navigation, route }) {
       {/* Fermer - fixé en bas */}
       <View style={s.closeBtnWrap}>
         <Pressable style={s.closeBtn} onPress={() => navigation.goBack()}>
-          <Text style={s.closeBtnTxt}>Fermer</Text>
+          <Text style={s.closeBtnTxt}>{t('close')}</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>

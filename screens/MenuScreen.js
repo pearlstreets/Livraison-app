@@ -194,7 +194,7 @@ export default function MenuScreen({ navigation }) {
       <View style={s.divider} />
 
       <View style={s.section}>
-        <MenuItem icon="chatbubbles-outline" label="Tickets" onPress={() => navigation.navigate('TicketsList')} badge={getUnreadTicketCount() > 0 ? String(getUnreadTicketCount()) : null} />
+        <MenuItem icon="chatbubbles-outline" label={t('ticketsTitle')} onPress={() => navigation.navigate('TicketsList')} badge={getUnreadTicketCount() > 0 ? String(getUnreadTicketCount()) : null} />
         <MenuItem icon="document-text-outline" label={t('documents')} onPress={() => navigation.navigate('Documents')} />
         <MenuItem icon="car-outline" label={t('vehicle')} onPress={() => navigation.navigate('Vehicle')} detail={user?.vehicle || 'Vélo'} />
         <MenuItem icon="star-outline" label={t('ratings')} onPress={() => navigation.navigate('Ratings')} />

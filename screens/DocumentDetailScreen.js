@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const BRAND = '#00C29B';
 
@@ -15,6 +16,7 @@ const DOC_DETAILS = {
 };
 
 export default function DocumentDetailScreen({ navigation, route }) {
+  const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const { doc } = route.params;
   const detail = DOC_DETAILS[doc.label] || {};
@@ -41,11 +43,11 @@ export default function DocumentDetailScreen({ navigation, route }) {
           fausses métadonnées inventées. */}
       <View style={s.detailCard}>
         <View style={s.detailRow}>
-          <Text style={s.detailLabel}>Type</Text>
+          <Text style={s.detailLabel}>{t('type')}</Text>
           <Text style={s.detailValue}>{detail.type || doc.label}</Text>
         </View>
         <View style={[s.detailRow, { borderBottomWidth: 0 }]}>
-          <Text style={s.detailLabel}>Statut</Text>
+          <Text style={s.detailLabel}>{t('status')}</Text>
           <Text style={[s.detailValue, { color: doc.color }]}>{doc.status}</Text>
         </View>
       </View>
@@ -59,7 +61,7 @@ export default function DocumentDetailScreen({ navigation, route }) {
 
       <Pressable style={[s.updateBtn, isAccepted && { opacity: 0.4 }]} disabled={isAccepted}>
         <Ionicons name="cloud-upload-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-        <Text style={s.updateTxt}>Mettre à jour le document</Text>
+        <Text style={s.updateTxt}>{t('updateDocument')}</Text>
       </Pressable>
     </ScrollView>
   );

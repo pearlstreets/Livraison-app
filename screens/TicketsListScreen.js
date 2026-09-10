@@ -93,7 +93,7 @@ export default function TicketsListScreen({ navigation }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#111" />
         </Pressable>
-        <Text style={s.headerTitle}>Tickets</Text>
+        <Text style={s.headerTitle}>{t('ticketsTitle')}</Text>
         <View style={{ width: 24 }} />
       </View>
 

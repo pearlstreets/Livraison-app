@@ -42,34 +42,34 @@ export default function VersementDetailScreen({ navigation, route }) {
 
         {/* Détails */}
         <View style={s.detailCard}>
-          <Text style={s.detailCardTitle}>Informations</Text>
+          <Text style={s.detailCardTitle}>{t('informationLabel')}</Text>
 
           <View style={s.detailRow}>
-            <Text style={s.detailLabel}>Date</Text>
+            <Text style={s.detailLabel}>{t('dateLabel')}</Text>
             <Text style={s.detailValue}>{v.date}</Text>
           </View>
           <View style={s.detailRow}>
-            <Text style={s.detailLabel}>IBAN</Text>
+            <Text style={s.detailLabel}>{t('ibanLabel')}</Text>
             <Text style={s.detailValue}>{v.iban || currentIban}</Text>
           </View>
           <View style={s.divider} />
 
           <View style={s.detailRow}>
-            <Text style={s.detailLabel}>Montant net</Text>
+            <Text style={s.detailLabel}>{t('netAmount')}</Text>
             <Text style={s.detailValue}>{v.detail?.netEur != null ? fmtPrice(v.detail.netEur) : (v.detail?.net || v.amount)}</Text>
           </View>
           <View style={s.detailRow}>
-            <Text style={s.detailLabel}>Pourboires</Text>
+            <Text style={s.detailLabel}>{t('tips')}</Text>
             <Text style={[s.detailValue, { color: BRAND }]}>{v.detail?.tipsEur != null ? fmtPrice(v.detail.tipsEur) : (v.detail?.tips || fmtPrice(0))}</Text>
           </View>
           <View style={s.detailRow}>
-            <Text style={s.detailLabel}>Courses</Text>
+            <Text style={s.detailLabel}>{t('courses')}</Text>
             <Text style={s.detailValue}>{v.detail?.courses || '-'}</Text>
           </View>
           <View style={s.divider} />
 
           <View style={s.detailRow}>
-            <Text style={[s.detailLabel, { fontWeight: '800' }]}>Total versé</Text>
+            <Text style={[s.detailLabel, { fontWeight: '800' }]}>{t('totalPaid')}</Text>
             <Text style={[s.detailValue, { fontWeight: '900', fontSize: 18, color: BRAND }]}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
           </View>
         </View>
@@ -78,7 +78,7 @@ export default function VersementDetailScreen({ navigation, route }) {
       {/* Fermer */}
       <View style={[s.bottomWrap, { paddingBottom: insets.bottom || 10 }]}>
         <Pressable style={s.closeBtn} onPress={() => navigation.goBack()}>
-          <Text style={s.closeBtnTxt}>Fermer</Text>
+          <Text style={s.closeBtnTxt}>{t('close')}</Text>
         </Pressable>
       </View>
     </View>

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLanguage } from '../contexts/LanguageContext';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -11,6 +12,7 @@ const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : nu
 // client (livraison), tracé entre les deux, depuis les VRAIES coordonnées de la
 // commande. Boutons de navigation externe (Google Maps / Waze) en secours.
 export default function MapScreen({ route, navigation }) {
+  const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const order = route?.params?.order || {};
   const pLat = num(order.pickupLat ?? order.pickup_lat);
@@ -66,7 +68,7 @@ export default function MapScreen({ route, navigation }) {
           <Marker coordinate={{ latitude: pLat, longitude: pLng }} title={order.shopName || order.restaurant || 'Boutique'} pinColor={BRAND} />
         )}
         {hasDrop && (
-          <Marker coordinate={{ latitude: dLat, longitude: dLng }} title="Livraison" description={order.dropoffAddress || ''} pinColor="#e74c3c" />
+          <Marker coordinate={{ latitude: dLat, longitude: dLng }} title={t('delivery')} description={order.dropoffAddress || ''} pinColor="#e74c3c" />
         )}
         {hasPickup && hasDrop && (
           <Polyline coordinates={[{ latitude: pLat, longitude: pLng }, { latitude: dLat, longitude: dLng }]} strokeColor={BRAND} strokeWidth={4} lineDashPattern={[2, 6]} />
@@ -91,7 +93,7 @@ export default function MapScreen({ route, navigation }) {
           <View style={styles.row}><View style={[styles.dot, { backgroundColor: '#e74c3c' }]} /><Text style={styles.addr} numberOfLines={1}>{order.dropoffAddress}</Text></View>
         )}
         {!hasDrop && !hasPickup && (
-          <Text style={styles.noCoords}>Coordonnées GPS indisponibles — navigation par adresse.</Text>
+          <Text style={styles.noCoords}>{t('gpsUnavailable')}</Text>
         )}
         <View style={styles.btns}>
           <Pressable style={[styles.btn, { backgroundColor: BRAND }]} onPress={() => openExternal('google')}>

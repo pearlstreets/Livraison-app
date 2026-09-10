@@ -54,7 +54,7 @@ export default function WarningsScreen({ navigation }) {
       {warningsList.length === 0 ? (
         <View style={s.emptyCard}>
           <Ionicons name="checkmark-circle" size={32} color={BRAND} />
-          <Text style={s.emptyText}>Aucun avertissement pour le moment</Text>
+          <Text style={s.emptyText}>{t('noWarningsYet')}</Text>
         </View>
       ) : (
         warningsList.map((w, i) => (
@@ -69,7 +69,7 @@ export default function WarningsScreen({ navigation }) {
               </View>
             </View>
             <View style={s.warningReasonWrap}>
-              <Text style={s.warningReasonLabel}>Motif :</Text>
+              <Text style={s.warningReasonLabel}>{t('reasonLabel')}</Text>
               <Text style={s.warningReason}>{w.reason}</Text>
             </View>
           </View>
@@ -77,7 +77,7 @@ export default function WarningsScreen({ navigation }) {
       )}
 
       {/* Causes possibles */}
-      <Text style={s.sectionTitle}>Causes possibles</Text>
+      <Text style={s.sectionTitle}>{t('possibleCauses')}</Text>
       <View style={s.causesCard}>
         {[
           { icon: 'close-circle-outline', text: 'Trop d\'annulations de commandes (> 5/semaine)', color: '#e74c3c' },
@@ -97,7 +97,7 @@ export default function WarningsScreen({ navigation }) {
       {warnings > 0 && (
         <Pressable style={s.contestBtn} onPress={() => navigation.navigate('ContactSupport')}>
           <Ionicons name="chatbubbles-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={s.contestTxt}>Contester un avertissement</Text>
+          <Text style={s.contestTxt}>{t('disputeWarning')}</Text>
         </Pressable>
       )}
 
