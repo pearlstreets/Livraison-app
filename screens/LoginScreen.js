@@ -207,22 +207,22 @@ export default function LoginScreen() {
   // pros also provide their company paperwork. `pdf: true` → the file
   // picker also accepts a PDF; photos (selfie, ID card) stay image-only.
   const docFields = [
-    { slot: 'profile_photo', url: 'profile_photo_url', label: 'Photo de profil (votre visage, de face)', value: docPhoto, setter: setDocPhoto, icon: 'person-circle-outline', pdf: false },
-    { slot: 'id_front', url: 'id_card_front_url', label: "Pièce d'identité (recto)", value: docIdFront, setter: setDocIdFront, icon: 'card-outline', pdf: false },
-    { slot: 'id_back', url: 'id_card_back_url', label: "Pièce d'identité (verso)", value: docIdBack, setter: setDocIdBack, icon: 'card-outline', pdf: false },
+    { slot: 'profile_photo', url: 'profile_photo_url', label: t('docProfilePhoto'), value: docPhoto, setter: setDocPhoto, icon: 'person-circle-outline', pdf: false },
+    { slot: 'id_front', url: 'id_card_front_url', label: t('idCardFront'), value: docIdFront, setter: setDocIdFront, icon: 'card-outline', pdf: false },
+    { slot: 'id_back', url: 'id_card_back_url', label: t('idCardBack'), value: docIdBack, setter: setDocIdBack, icon: 'card-outline', pdf: false },
     // Réclamé dès que le livreur déclare une voiture : sans lui, un livreur
     // motorisé arrivait à la validation admin sans qu'aucun permis n'ait été
     // demandé. Le backend l'exige aussi, la liste ci-dessous étant tout ce que
     // l'écran envoie.
     ...(VEHICLES_REQUIRING_LICENSE.has(vehicle) ? [
-      { slot: 'driver_license', url: 'driver_license_url', label: 'Permis de conduire', value: docLicense, setter: setDocLicense, icon: 'car-outline', pdf: true },
+      { slot: 'driver_license', url: 'driver_license_url', label: t('driverLicense'), value: docLicense, setter: setDocLicense, icon: 'car-outline', pdf: true },
     ] : []),
-    { slot: 'proof_of_address', url: 'proof_of_address_url', label: 'Justificatif de domicile (- 3 mois)', value: docProofAddress, setter: setDocProofAddress, icon: 'home-outline', pdf: true },
-    { slot: 'iban', url: 'iban_doc_url', label: 'RIB', value: docIban, setter: setDocIban, icon: 'wallet-outline', pdf: true },
+    { slot: 'proof_of_address', url: 'proof_of_address_url', label: t('docProofOfAddress'), value: docProofAddress, setter: setDocProofAddress, icon: 'home-outline', pdf: true },
+    { slot: 'iban', url: 'iban_doc_url', label: t('ibanDoc'), value: docIban, setter: setDocIban, icon: 'wallet-outline', pdf: true },
     ...(isPro ? [
-      { slot: 'rc_pro', url: 'rc_pro_url', label: 'Attestation RC Pro', value: docRcPro, setter: setDocRcPro, icon: 'shield-checkmark-outline', pdf: true },
-      { slot: 'urssaf', url: 'urssaf_doc_url', label: 'Attestation URSSAF', value: docUrssaf, setter: setDocUrssaf, icon: 'document-text-outline', pdf: true },
-      { slot: 'kbis', url: 'kbis_doc_url', label: 'KBIS', value: docKbiss, setter: setDocKbiss, icon: 'document-text-outline', pdf: true },
+      { slot: 'rc_pro', url: 'rc_pro_url', label: t('docRcPro'), value: docRcPro, setter: setDocRcPro, icon: 'shield-checkmark-outline', pdf: true },
+      { slot: 'urssaf', url: 'urssaf_doc_url', label: t('docUrssaf'), value: docUrssaf, setter: setDocUrssaf, icon: 'document-text-outline', pdf: true },
+      { slot: 'kbis', url: 'kbis_doc_url', label: t('docKbiss'), value: docKbiss, setter: setDocKbiss, icon: 'document-text-outline', pdf: true },
     ] : []),
   ];
 
