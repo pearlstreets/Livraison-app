@@ -35,6 +35,7 @@ export default function HelpDetailScreen({ navigation, route }) {
     changePassword: t('changePassword'),
     deleteAccount: t('deleteAccount'),
     documents: t('documents'),
+    updateDocument: t('updateDocument'),
     vehicle: t('vehicle'),
     save: t('save'),
     iHaveProblem: t('iHaveProblem'),
