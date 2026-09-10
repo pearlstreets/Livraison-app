@@ -379,6 +379,13 @@ export function AuthProvider({ children }) {
     if (Object.keys(allowed).length) authService.updateProfile(allowed).catch(() => {});
   }, []);
 
+  // Remplace un document du dossier livreur par un fichier deja envoye sur S3.
+  // Attend la reponse du serveur : l'ecran n'annonce le succes que s'il est reel.
+  const updateDocument = useCallback(async (field, url) => {
+    await authService.updateProfile({ [field]: url });
+    setUser((prev) => (prev ? { ...prev, [field]: url } : prev));
+  }, []);
+
   const setIsOnline = useCallback((value) => {
     setIsOnlineState((prev) => {
       const next = typeof value === 'function' ? value(prev) : value;
@@ -496,7 +503,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      bootstrapping, user, login, register, logout, deleteAccount, updateUser,
+      bootstrapping, user, login, register, logout, deleteAccount, updateUser, updateDocument,
       warnings, accountActive, rating, totalDeliveries,
       addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount,
       deliveryHistory, addToHistory, markOrderReported, refreshAll,

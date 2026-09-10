@@ -1,18 +1,72 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
+import { uploadService } from '../services/uploadService';
 import { dirIcon } from '../lib/rtl';
 
 const BRAND = '#00C29B';
 
 export default function DocumentDetailScreen({ navigation, route }) {
   const { t } = useLanguage();
+  const { updateDocument } = useAuth();
   const insets = useSafeAreaInsets();
   const { doc } = route.params;
+  const [uploading, setUploading] = useState(false);
+  const [provided, setProvided] = useState(!!doc.provided);
   const isWarning = doc.statusKey === 'toRenew';
   const isAccepted = doc.statusKey === 'validated' || doc.statusKey === 'validatedM' || doc.statusKey === 'inOrder';
+
+  const statusColor = provided ? BRAND : doc.color;
+  const statusText = provided ? t('provided') : doc.status;
+  const statusIcon = provided ? 'checkmark-circle' : doc.icon;
+
+  // Même sélection qu'à l'inscription : photo (galerie) ou fichier (PDF ou image).
+  async function pick(source) {
+    if (source === 'file') {
+      const result = await DocumentPicker.getDocumentAsync({ type: ['image/*', 'application/pdf'], copyToCacheDirectory: true });
+      if (result.canceled || !result.assets?.length) return null;
+      const asset = result.assets[0];
+      return { uri: asset.uri, size: asset.size ?? null, type: asset.mimeType ?? 'application/octet-stream' };
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
+    if (result.canceled || !result.assets?.length) return null;
+    const asset = result.assets[0];
+    return { uri: asset.uri, size: asset.fileSize ?? null, type: asset.mimeType ?? 'image/jpeg' };
+  }
+
+  async function replaceWith(source) {
+    const file = await pick(source);
+    if (!file || !doc.field) return;
+    setUploading(true);
+    try {
+      const url = await uploadService.uploadDriverDoc({
+        fileUri: file.uri,
+        slot: doc.field.replace(/_url$/, ''),
+        size: file.size,
+        contentType: file.type,
+      });
+      await updateDocument(doc.field, url);
+      setProvided(true);
+      Alert.alert(doc.label, t('docUpdated'), [{ text: t('ok'), onPress: () => navigation.goBack() }]);
+    } catch {
+      Alert.alert(t('error'), t('docUploadError'));
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function onUpdatePress() {
+    Alert.alert(t('updateDocument'), doc.label, [
+      { text: t('docPickPhoto'), onPress: () => replaceWith('photo') },
+      { text: t('docPickFile'), onPress: () => replaceWith('file') },
+      { text: t('cancel'), style: 'cancel' },
+    ]);
+  }
 
   return (
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
@@ -25,8 +79,8 @@ export default function DocumentDetailScreen({ navigation, route }) {
       </View>
 
       <View style={s.statusCard}>
-        <Ionicons name={doc.icon} size={40} color={doc.color} />
-        <Text style={[s.statusText, { color: doc.color }]}>{doc.status}</Text>
+        <Ionicons name={statusIcon} size={40} color={statusColor} />
+        <Text style={[s.statusText, { color: statusColor }]}>{statusText}</Text>
       </View>
 
       {/* On n'affiche que ce qui est réel : le type (libellé traduit du document)
@@ -39,7 +93,7 @@ export default function DocumentDetailScreen({ navigation, route }) {
         </View>
         <View style={[s.detailRow, { borderBottomWidth: 0 }]}>
           <Text style={s.detailLabel}>{t('status')}</Text>
-          <Text style={[s.detailValue, { color: doc.color }]}>{doc.status}</Text>
+          <Text style={[s.detailValue, { color: statusColor }]}>{statusText}</Text>
         </View>
       </View>
 
@@ -50,9 +104,17 @@ export default function DocumentDetailScreen({ navigation, route }) {
         </View>
       )}
 
-      <Pressable style={[s.updateBtn, isAccepted && { opacity: 0.4 }]} disabled={isAccepted}>
-        <Ionicons name="cloud-upload-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-        <Text style={s.updateTxt}>{t('updateDocument')}</Text>
+      <Pressable
+        style={[s.updateBtn, (isAccepted || uploading) && { opacity: 0.4 }]}
+        disabled={isAccepted || uploading || !doc.field}
+        onPress={onUpdatePress}
+      >
+        {uploading ? (
+          <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />
+        ) : (
+          <Ionicons name="cloud-upload-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+        )}
+        <Text style={s.updateTxt}>{uploading ? t('sending') : t('updateDocument')}</Text>
       </Pressable>
     </ScrollView>
   );

@@ -3,6 +3,11 @@
 
 const translations = {
   fr: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: 'Choisir une photo',
+    docPickFile: 'Choisir un fichier (PDF)',
+    docUpdated: 'Document mis à jour.',
+    docUploadError: 'Échec de l\'envoi du document. Veuillez réessayer.',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: 'Le client ne répond pas',
     faqNoAnswerA: 'Attendez 5 minutes et appelez le client. S\'il ne se manifeste pas, à l\'étape du code, touchez « {iHaveProblem} » puis « {clientAbsent} ».',
@@ -550,6 +555,11 @@ const translations = {
   },
 
   en: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: 'Choose a photo',
+    docPickFile: 'Choose a file (PDF)',
+    docUpdated: 'Document updated.',
+    docUploadError: 'Couldn\'t upload the document. Please try again.',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: 'The customer isn\'t answering',
     faqNoAnswerA: 'Wait 5 minutes and call the customer. If they still don\'t respond, at the code step tap "{iHaveProblem}" then "{clientAbsent}".',
@@ -1052,6 +1062,11 @@ const translations = {
   },
 
   es: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: 'Elegir una foto',
+    docPickFile: 'Elegir un archivo (PDF)',
+    docUpdated: 'Documento actualizado.',
+    docUploadError: 'No se pudo enviar el documento. Inténtelo de nuevo.',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: 'El cliente no responde',
     faqNoAnswerA: 'Espere 5 minutos y llame al cliente. Si no responde, en el paso del código pulse «{iHaveProblem}» y luego «{clientAbsent}».',
@@ -1285,6 +1300,11 @@ const translations = {
   },
 
   zh: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: '选择照片',
+    docPickFile: '选择文件（PDF）',
+    docUpdated: '文件已更新。',
+    docUploadError: '文件上传失败，请重试。',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: '客户没有回应',
     faqNoAnswerA: '请等待 5 分钟并致电客户。如仍无回应，请在输入验证码步骤点击“{iHaveProblem}”，再选择“{clientAbsent}”。',
@@ -1518,6 +1538,11 @@ const translations = {
   },
 
   ar: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: 'اختيار صورة',
+    docPickFile: 'اختيار ملف (PDF)',
+    docUpdated: 'تم تحديث المستند.',
+    docUploadError: 'تعذّر إرسال المستند. يُرجى المحاولة مرة أخرى.',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: 'العميل لا يرد',
     faqNoAnswerA: 'انتظر 5 دقائق واتصل بالعميل. إذا لم يرد، اضغط في خطوة الرمز على «{iHaveProblem}» ثم «{clientAbsent}».',
@@ -1751,6 +1776,11 @@ const translations = {
   },
 
   de: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: 'Foto auswählen',
+    docPickFile: 'Datei auswählen (PDF)',
+    docUpdated: 'Dokument aktualisiert.',
+    docUploadError: 'Das Dokument konnte nicht hochgeladen werden. Bitte versuchen Sie es erneut.',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: 'Der Kunde meldet sich nicht',
     faqNoAnswerA: 'Warten Sie 5 Minuten und rufen Sie den Kunden an. Meldet er sich nicht, tippen Sie beim Code-Schritt auf „{iHaveProblem}“ und dann auf „{clientAbsent}“.',
@@ -1984,6 +2014,11 @@ const translations = {
   },
 
   nl: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: 'Foto kiezen',
+    docPickFile: 'Bestand kiezen (PDF)',
+    docUpdated: 'Document bijgewerkt.',
+    docUploadError: 'Het document kon niet worden verzonden. Probeer het opnieuw.',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: 'De klant reageert niet',
     faqNoAnswerA: 'Wacht 5 minuten en bel de klant. Reageert die niet, tik dan bij de codestap op "{iHaveProblem}" en daarna op "{clientAbsent}".',
@@ -2217,6 +2252,11 @@ const translations = {
   },
 
   it: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: 'Scegli una foto',
+    docPickFile: 'Scegli un file (PDF)',
+    docUpdated: 'Documento aggiornato.',
+    docUploadError: 'Impossibile inviare il documento. Riprova.',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: 'Il cliente non risponde',
     faqNoAnswerA: 'Attendi 5 minuti e chiama il cliente. Se non risponde, nella fase del codice tocca «{iHaveProblem}» e poi «{clientAbsent}».',
@@ -2450,6 +2490,11 @@ const translations = {
   },
 
   pt: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: 'Escolher uma foto',
+    docPickFile: 'Escolher um arquivo (PDF)',
+    docUpdated: 'Documento atualizado.',
+    docUploadError: 'Não foi possível enviar o documento. Tente novamente.',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: 'O cliente não responde',
     faqNoAnswerA: 'Aguarde 5 minutos e ligue para o cliente. Se ele não responder, na etapa do código toque em "{iHaveProblem}" e depois em "{clientAbsent}".',
@@ -2683,6 +2728,11 @@ const translations = {
   },
 
   ja: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: '写真を選ぶ',
+    docPickFile: 'ファイルを選ぶ（PDF）',
+    docUpdated: '書類を更新しました。',
+    docUploadError: '書類を送信できませんでした。もう一度お試しください。',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: 'お客様が応答しない',
     faqNoAnswerA: '5分待ってからお客様に電話してください。応答がない場合は、コード入力の画面で「{iHaveProblem}」、続いて「{clientAbsent}」をタップします。',
@@ -2916,6 +2966,11 @@ const translations = {
   },
 
   th: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: 'เลือกรูปภาพ',
+    docPickFile: 'เลือกไฟล์ (PDF)',
+    docUpdated: 'อัปเดตเอกสารแล้ว',
+    docUploadError: 'ส่งเอกสารไม่สำเร็จ โปรดลองอีกครั้ง',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: 'ลูกค้าไม่ตอบ',
     faqNoAnswerA: 'รอ 5 นาทีแล้วโทรหาลูกค้า หากยังไม่ตอบ ในขั้นตอนใส่รหัสให้แตะ "{iHaveProblem}" แล้วเลือก "{clientAbsent}"',
@@ -3149,6 +3204,11 @@ const translations = {
   },
 
   sv: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: 'Välj ett foto',
+    docPickFile: 'Välj en fil (PDF)',
+    docUpdated: 'Dokumentet har uppdaterats.',
+    docUploadError: 'Det gick inte att skicka dokumentet. Försök igen.',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: 'Kunden svarar inte',
     faqNoAnswerA: 'Vänta 5 minuter och ring kunden. Svarar kunden inte, tryck på ”{iHaveProblem}” och sedan ”{clientAbsent}” i kodsteget.',
@@ -3382,6 +3442,11 @@ const translations = {
   },
 
   ru: {
+    // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
+    docPickPhoto: 'Выбрать фото',
+    docPickFile: 'Выбрать файл (PDF)',
+    docUpdated: 'Документ обновлён.',
+    docUploadError: 'Не удалось отправить документ. Попробуйте ещё раз.',
     // Aide : questions et réponses par rubrique (HelpDetailScreen)
     faqNoAnswerQ: 'Клиент не отвечает',
     faqNoAnswerA: 'Подождите 5 минут и позвоните клиенту. Если он не отвечает, на шаге ввода кода нажмите «{iHaveProblem}», затем «{clientAbsent}».',
