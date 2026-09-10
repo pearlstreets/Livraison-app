@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
-import MapView, { Heatmap, PROVIDER_DEFAULT } from 'react-native-maps';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, Pressable, Dimensions, Platform } from 'react-native';
+import MapView, { Heatmap, Circle, PROVIDER_DEFAULT } from 'react-native-maps';
 import { mapsAvailable } from '../lib/maps';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,36 @@ const { width, height } = Dimensions.get('window');
 
 // Meaux center
 const MEAUX = { latitude: 48.9536, longitude: 2.8788 };
+
+// Sur iPhone la carte est Apple Plans, où la bibliothèque ne fournit pas de couche
+// Heatmap (Google Maps seulement). Chaque zone y est dessinée en deux cercles
+// (halo + cœur) aux couleurs de la légende, selon son nombre de commandes
+// rapporté à celui de la zone la plus chargée.
+const ZONE_RGB = { high: '255, 0, 0', medium: '255, 170, 0', low: '0, 170, 255' };
+
+function zoneCircles(points) {
+  const zones = points
+    .map((p) => {
+      const weight = Number(p.weight);
+      return {
+        latitude: Number(p.latitude),
+        longitude: Number(p.longitude),
+        weight: Number.isFinite(weight) && weight > 0 ? weight : 1,
+      };
+    })
+    .filter((z) => Number.isFinite(z.latitude) && Number.isFinite(z.longitude));
+  if (zones.length === 0) return [];
+  const max = Math.max(...zones.map((z) => z.weight));
+  return zones.map((z, i) => {
+    const ratio = z.weight / max;
+    return {
+      key: `${i}:${z.latitude}:${z.longitude}`,
+      center: { latitude: z.latitude, longitude: z.longitude },
+      radius: 350 + 450 * ratio, // en mètres
+      rgb: ratio >= 0.66 ? ZONE_RGB.high : ratio >= 0.33 ? ZONE_RGB.medium : ZONE_RGB.low,
+    };
+  });
+}
 
 export default function HeatmapScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -53,6 +83,11 @@ export default function HeatmapScreen({ navigation }) {
     }, [fetchHeatmap])
   );
 
+  const zones = useMemo(
+    () => (Platform.OS === 'ios' ? zoneCircles(heatmapPoints) : []),
+    [heatmapPoints]
+  );
+
   const earningsDisplay = fmtPrice(currentEarningsCents / 100);
 
   function recenter() {
@@ -78,7 +113,7 @@ export default function HeatmapScreen({ navigation }) {
           userInterfaceStyle="dark"
           onMapReady={() => setMapReady(true)}
         >
-          {mapReady && heatmapPoints.length > 0 && (
+          {mapReady && heatmapPoints.length > 0 && Platform.OS !== 'ios' && (
             <Heatmap
               points={heatmapPoints}
               radius={40}
@@ -90,6 +125,12 @@ export default function HeatmapScreen({ navigation }) {
               }}
             />
           )}
+          {mapReady && zones.map((z) => (
+            <React.Fragment key={z.key}>
+              <Circle center={z.center} radius={z.radius} fillColor={`rgba(${z.rgb}, 0.18)`} strokeColor="transparent" strokeWidth={0} />
+              <Circle center={z.center} radius={z.radius * 0.45} fillColor={`rgba(${z.rgb}, 0.38)`} strokeColor="transparent" strokeWidth={0} />
+            </React.Fragment>
+          ))}
         </MapView>
       ) : (
         <View style={[s.map, s.noMap]}>
