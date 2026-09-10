@@ -83,6 +83,7 @@ export default function MenuScreen({ navigation }) {
   }, [t, deleteAccount]);
 
   return (
+    <>
     <ScrollView ref={scrollRef} style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={{ backgroundColor: isOnline ? BRAND : '#8e8e93', height: insets.top }} />
 
@@ -261,11 +262,16 @@ export default function MenuScreen({ navigation }) {
         </View>
       </Modal>
     </ScrollView>
+    {/* Barre d'etat : bandeau FIXE de la couleur de l'en-tete. Sans lui, l'app
+        etant bord a bord, le contenu defilait sous l'heure et les icones. */}
+    <View pointerEvents="none" style={[s.statusBarShield, { height: insets.top, backgroundColor: isOnline ? BRAND : '#8e8e93' }]} />
+    </>
   );
 }
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
+  statusBarShield: { position: 'absolute', top: 0, left: 0, right: 0 },
   profileHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, backgroundColor: BRAND },
   avatarWrap: { marginRight: 14 },
   avatar: { width: 52, height: 52, borderRadius: 26 },
