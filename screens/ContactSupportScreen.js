@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Keyboa
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ticketService } from '../services/ticketService';
@@ -94,6 +95,7 @@ export default function ContactSupportScreen({ navigation, route }) {
           <Text style={s.sendTxt}>{sending ? (t('sending') || 'Envoi…') : t('send')}</Text>
         </Pressable>
       </ScrollView>
+      <StatusBarShield />
     </KeyboardAvoidingView>
   );
 }

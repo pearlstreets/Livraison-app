@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
@@ -57,6 +58,7 @@ export default function DocumentsScreen({ navigation }) {
   const isVerified = user?.is_verified === true;
 
   return (
+    <>
     <ScrollView ref={scrollRef} style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
@@ -98,6 +100,8 @@ export default function DocumentsScreen({ navigation }) {
         </Pressable>
       ))}
     </ScrollView>
+    <StatusBarShield />
+    </>
   );
 }
 

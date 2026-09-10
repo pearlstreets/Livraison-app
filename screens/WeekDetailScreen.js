@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -121,6 +122,7 @@ export default function WeekDetailScreen({ route, navigation }) {
       </View>
 
     </ScrollView>
+    <StatusBarShield />
 
     <Pressable style={[s.closeBtn, { marginBottom: insets.bottom || 16 }]} onPress={() => navigation.goBack()}>
       <Text style={s.closeBtnTxt}>{t('close')}</Text>

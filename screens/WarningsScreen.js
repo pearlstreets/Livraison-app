@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDayMonth, formatTime } from '../lib/i18nFormat';
@@ -15,6 +16,7 @@ export default function WarningsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
   return (
+    <>
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
@@ -108,6 +110,8 @@ export default function WarningsScreen({ navigation }) {
         <Text style={s.closeBtnTxt}>{t('close') || 'Fermer'}</Text>
       </Pressable>
     </ScrollView>
+    <StatusBarShield />
+    </>
   );
 }
 

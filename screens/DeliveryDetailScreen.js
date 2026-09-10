@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, KeyboardAvoidingView, Pl
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -113,6 +114,7 @@ export default function DeliveryDetailScreen({ navigation, route }) {
         )}
 
       </ScrollView>
+      <StatusBarShield />
 
       {/* Fermer - fixé en bas */}
       <View style={s.closeBtnWrap}>

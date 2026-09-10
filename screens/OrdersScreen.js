@@ -3,6 +3,7 @@ import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity,
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useFocusEffect } from '@react-navigation/native';
 import OrderCard from '../components/OrderCard';
 import DetailsSheet from '../components/DetailsSheet';
@@ -351,6 +352,7 @@ export default function OrdersScreen({ navigation, route }) {
   }
 
   return (
+    <>
     <ScrollView
       ref={scrollRef}
       contentContainerStyle={[styles.container, { paddingTop: insets.top + 12, flexGrow: 1 }]}
@@ -480,6 +482,8 @@ export default function OrdersScreen({ navigation, route }) {
       )}
       <DetailsSheet visible={detailsVisible} order={detailsOrder} onClose={() => setDetailsVisible(false)} />
     </ScrollView>
+    <StatusBarShield color="rgb(242, 242, 242)" />
+    </>
   );
 }
 

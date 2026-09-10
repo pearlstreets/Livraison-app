@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { uploadService } from '../services/uploadService';
@@ -156,6 +157,7 @@ export default function EditProfileScreen({ navigation }) {
           <Text style={s.saveTxt}>{saving ? (t('saving') || 'Enregistrement…') : t('save')}</Text>
         </Pressable>
       </ScrollView>
+      <StatusBarShield />
     </KeyboardAvoidingView>
   );
 }

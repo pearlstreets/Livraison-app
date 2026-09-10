@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
@@ -31,6 +32,7 @@ export default function RatingsScreen({ navigation }) {
   const fmtReviewDate = (iso) => { try { const d = new Date(iso); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; } catch { return ''; } };
 
   return (
+    <>
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
@@ -106,6 +108,8 @@ export default function RatingsScreen({ navigation }) {
         </View>
       )}
     </ScrollView>
+    <StatusBarShield />
+    </>
   );
 }
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -69,6 +70,7 @@ export default function DocumentDetailScreen({ navigation, route }) {
   }
 
   return (
+    <>
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
@@ -117,6 +119,8 @@ export default function DocumentDetailScreen({ navigation, route }) {
         <Text style={s.updateTxt}>{uploading ? t('sending') : t('updateDocument')}</Text>
       </Pressable>
     </ScrollView>
+    <StatusBarShield />
+    </>
   );
 }
 

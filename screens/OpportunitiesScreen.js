@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { deliveryService } from '../services/deliveryService';
@@ -42,6 +43,7 @@ export default function OpportunitiesScreen({ navigation }) {
   }
 
   return (
+    <>
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
@@ -83,6 +85,8 @@ export default function OpportunitiesScreen({ navigation }) {
         );
       })}
     </ScrollView>
+    <StatusBarShield />
+    </>
   );
 }
 

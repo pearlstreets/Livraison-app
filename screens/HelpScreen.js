@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFocusEffect } from '@react-navigation/native';
 import Constants from 'expo-constants';
@@ -26,6 +27,7 @@ export default function HelpScreen({ navigation }) {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []));
   return (
+    <>
     <ScrollView ref={scrollRef} style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
@@ -57,6 +59,8 @@ export default function HelpScreen({ navigation }) {
 
       <Text style={s.version}>Pearl Delivery v{Constants.expoConfig?.version || ''}</Text>
     </ScrollView>
+    <StatusBarShield />
+    </>
   );
 }
 

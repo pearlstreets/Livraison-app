@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView, Keyboa
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { authService } from '../services/authService';
 
@@ -151,6 +152,7 @@ export default function ChangePasswordScreen({ navigation }) {
           }
         </Pressable>
       </ScrollView>
+      <StatusBarShield />
     </KeyboardAvoidingView>
   );
 }

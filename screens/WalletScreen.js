@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Dimensions, Alert
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -159,6 +160,7 @@ export default function WalletScreen({ navigation }) {
           <Ionicons name={dirIcon('chevron-forward')} size={18} color="#ccc" />
         </Pressable>
       </ScrollView>
+      <StatusBarShield />
 
       {/* Modal Encaissement */}
       <Modal visible={encaissModal} animationType="slide" transparent>

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { dirIcon } from '../lib/rtl';
 
@@ -60,6 +61,7 @@ export default function HelpDetailScreen({ navigation, route }) {
           </View>
         ))}
       </ScrollView>
+      <StatusBarShield />
 
       <View style={[s.contactWrap, { paddingBottom: insets.bottom || 16 }]}>
         <Pressable style={s.contactBtn} onPress={() => navigation.navigate('ContactSupport', { subject: title })}>

@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -91,6 +92,7 @@ export default function EarningsScreen({ navigation }) {
           </Pressable>
         ))}
       </ScrollView>
+      <StatusBarShield />
 
       {/* Modal Encaissement */}
       <Modal visible={encaissModal} animationType="slide" transparent>

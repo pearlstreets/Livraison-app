@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -32,6 +33,7 @@ export default function VehicleScreen({ navigation }) {
   }
 
   return (
+    <>
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
@@ -62,6 +64,8 @@ export default function VehicleScreen({ navigation }) {
         <Text style={s.saveTxt}>{t('save') || 'Enregistrer'}</Text>
       </Pressable>
     </ScrollView>
+    <StatusBarShield />
+    </>
   );
 }
 

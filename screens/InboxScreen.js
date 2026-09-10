@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { deliveryService } from '../services/deliveryService';
@@ -89,6 +90,7 @@ export default function InboxScreen() {
           </View>
         ))}
       </ScrollView>
+      <StatusBarShield />
 
       {/* Modal détail message */}
       <Modal visible={!!selectedNotif} animationType="slide" presentationStyle="pageSheet">
