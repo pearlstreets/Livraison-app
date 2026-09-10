@@ -221,7 +221,7 @@ function Main() {
           const routeName = getFocusedRouteNameFromRoute(route) ?? 'OrdersMain';
           return { headerShown: false, tabBarLabel: t('tabHome'), tabBarStyle: routeName === 'DeliveryFlow' ? { display: 'none' } : { backgroundColor: '#fff' } };
         }} />
-      <Tab.Screen name="MessagesTab" component={InboxScreen} options={{ headerTitle: t('inbox'), tabBarLabel: t('tabMessages') }} />
+      <Tab.Screen name="MessagesTab" component={InboxScreen} options={{ headerShown: false, tabBarLabel: t('tabMessages') }} />
       <Tab.Screen name="Revenus" component={EarningsStackScreen} options={{ headerShown: false, tabBarLabel: t('tabEarnings') }} />
       <Tab.Screen name="Profil" component={MenuStackScreen} options={{ headerShown: false, tabBarLabel: t('tabProfile'), tabBarBadge: totalProfileNotifs > 0 ? totalProfileNotifs : undefined, tabBarBadgeStyle: { backgroundColor: '#e74c3c', fontSize: 10 } }}
         listeners={({ navigation }) => ({

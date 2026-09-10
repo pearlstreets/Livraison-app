@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -55,7 +56,7 @@ export default function ContactSupportScreen({ navigation, route }) {
       <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={[s.headerRow, { paddingTop: insets.top }]}>
           <Pressable onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#111" />
+            <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
           </Pressable>
           <Text style={s.headerTitle}>{t('contactTitle')}</Text>
           <View style={{ width: 24 }} />

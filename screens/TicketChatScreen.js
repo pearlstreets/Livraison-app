@@ -1,20 +1,16 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ticketService } from '../services/ticketService';
+import { formatTime as formatClock } from '../lib/i18nFormat';
 
 const BRAND = '#00C29B';
 
 function formatTime(dateStr) {
-  if (!dateStr) return '';
-  try {
-    const d = new Date(dateStr);
-    return `${d.getHours()}h${String(d.getMinutes()).padStart(2, '0')}`;
-  } catch {
-    return '';
-  }
+  return formatClock(dateStr);
 }
 
 function mapMessage(msg) {
@@ -60,11 +56,11 @@ export default function TicketChatScreen({ navigation, route }) {
       // Prepend system header if no system message present
       if (mapped.length === 0 || mapped[0].type !== 'system') {
         const orderId = ticket.assignment_id ? `ORD-${ticket.assignment_id}` : `TK-${ticketId}`;
-        mapped.unshift({ id: 'system-header', type: 'system', text: `Ticket ouvert pour la commande ${orderId}`, time: null });
+        mapped.unshift({ id: 'system-header', type: 'system', text: t('ticketOpenedFor', { id: orderId }), time: null });
       }
       setMessages(mapped);
     } catch {
-      setMessages([{ id: 'system-error', type: 'system', text: 'Impossible de charger les messages', time: null }]);
+      setMessages([{ id: 'system-error', type: 'system', text: t('messagesLoadError'), time: null }]);
     } finally {
       setLoading(false);
     }
@@ -132,7 +128,7 @@ export default function TicketChatScreen({ navigation, route }) {
       {/* Header */}
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color="#fff" />
         </Pressable>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={s.headerTitle}>{t('ticketSupport')}</Text>

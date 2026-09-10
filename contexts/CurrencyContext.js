@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CURRENCIES } from '../data/currencies';
 import { fetchLiveRates, getCachedLiveRates, getCurrencyWithLiveRate } from '../lib/rates';
 import { currencyForCountry } from '../lib/countryCurrency';
+import { formatAmount } from '../lib/i18nFormat';
 
 const STORAGE_KEY = 'DRIVER_CURRENCY';
 const STORAGE_KEY_EXPLICIT = 'DRIVER_CURRENCY_PICKED';
@@ -29,15 +30,14 @@ function currencyByCode(code) {
 
 /**
  * Formate un montant EUR dans la devise fournie. Sortie type "90,00 MX$".
- * Sépare les milliers par une espace fine insécable, comme Pearl List.
+ * Séparateurs décimal et de milliers selon la langue de l'app (lib/i18nFormat).
  * Ne lève jamais : une entrée invalide rend le montant à zéro.
  */
 export function formatWithCurrency(eurAmount, currency) {
   const cur = currency || EUR;
   const n = (Number(eurAmount) || 0) * (Number(cur.rate) || 1);
   const dec = cur.decimals !== undefined ? cur.decimals : 2;
-  const formatted = n.toFixed(dec).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  return `${formatted} ${cur.symbol}`;
+  return `${formatAmount(n, dec)} ${cur.symbol}`;
 }
 
 const CurrencyContext = React.createContext({

@@ -1,9 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import { formatDayMonth, formatTime } from '../lib/i18nFormat';
 
 const BRAND = '#00C29B';
 
@@ -16,7 +18,7 @@ export default function WarningsScreen({ navigation }) {
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
         </Pressable>
         <Text style={s.headerTitle}>{t('warnings')}</Text>
         <View style={{ width: 24 }} />
@@ -64,13 +66,13 @@ export default function WarningsScreen({ navigation }) {
                 <Ionicons name="warning" size={18} color="#e74c3c" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={s.warningNum}>Avertissement #{warningsList.length - i}</Text>
-                <Text style={s.warningDate}>{w.date} à {w.time}</Text>
+                <Text style={s.warningNum}>{t('warningNumber', { n: warningsList.length - i })}</Text>
+                <Text style={s.warningDate}>{t('dateAtTime', { date: formatDayMonth(w.createdAt) || w.date, time: formatTime(w.createdAt) || w.time })}</Text>
               </View>
             </View>
             <View style={s.warningReasonWrap}>
               <Text style={s.warningReasonLabel}>{t('reasonLabel')}</Text>
-              <Text style={s.warningReason}>{w.reason}</Text>
+              <Text style={s.warningReason}>{w.reasonKey ? t(w.reasonKey) : (w.reason || t('warning'))}</Text>
             </View>
           </View>
         ))
@@ -80,11 +82,11 @@ export default function WarningsScreen({ navigation }) {
       <Text style={s.sectionTitle}>{t('possibleCauses')}</Text>
       <View style={s.causesCard}>
         {[
-          { icon: 'close-circle-outline', text: 'Trop d\'annulations de commandes (> 5/semaine)', color: '#e74c3c' },
-          { icon: 'time-outline', text: 'Retards répétés aux points de récupération', color: '#f5a623' },
-          { icon: 'alert-circle-outline', text: 'Signalements clients (comportement, état du colis)', color: '#f5a623' },
-          { icon: 'document-text-outline', text: 'Documents expirés ou non conformes', color: '#e74c3c' },
-          { icon: 'ban-outline', text: 'Non-respect des conditions de livraison', color: '#e74c3c' },
+          { icon: 'close-circle-outline', text: t('causeTooManyCancels'), color: '#e74c3c' },
+          { icon: 'time-outline', text: t('causeLatePickups'), color: '#f5a623' },
+          { icon: 'alert-circle-outline', text: t('causeCustomerReports'), color: '#f5a623' },
+          { icon: 'document-text-outline', text: t('causeDocuments'), color: '#e74c3c' },
+          { icon: 'ban-outline', text: t('causeRules'), color: '#e74c3c' },
         ].map((cause, i) => (
           <View key={i} style={[s.causeRow, i < 4 && s.causeBorder]}>
             <Ionicons name={cause.icon} size={18} color={cause.color} style={{ marginRight: 12 }} />

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,7 +21,7 @@ export default function EditIbanScreen({ navigation }) {
     Keyboard.dismiss();
     const iban = newIban.trim().replace(/\s+/g, '');
     const masked = iban.slice(0, 4) + ' •••• •••• •••• •••• •••• ' + iban.slice(-2);
-    Alert.alert(t('confirmChange'), `Nouveau compte :\n${newTitulaire.trim()}\n${newIban.trim()}`, [
+    Alert.alert(t('confirmChange'), t('newAccountDetails', { holder: newTitulaire.trim(), iban: newIban.trim() }), [
       { text: t('cancel'), style: 'cancel' },
       { text: t('confirm'), onPress: () => {
         // Persiste réellement en base via PUT /profile/ (plus juste local).
@@ -35,7 +36,7 @@ export default function EditIbanScreen({ navigation }) {
     <View style={s.container}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
         </Pressable>
         <Text style={s.headerTitle}>{t('paymentMethod')}</Text>
         <View style={{ width: 24 }} />

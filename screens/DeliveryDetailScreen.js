@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { formatDayMonth, formatTime } from '../lib/i18nFormat';
 
 const BRAND = '#00C29B';
 const parseNum = (v) => { if (!v) return 0; const n = parseFloat(String(v).replace(',', '.').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; };
@@ -26,7 +28,7 @@ export default function DeliveryDetailScreen({ navigation, route }) {
       <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 10 }}>
         <View style={[s.headerRow, { paddingTop: insets.top }]}>
           <Pressable onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#111" />
+            <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
           </Pressable>
           <Text style={s.headerTitle}>{t('deliveryDetail')}</Text>
           <View style={{ width: 24 }} />
@@ -37,7 +39,7 @@ export default function DeliveryDetailScreen({ navigation, route }) {
           <Ionicons name="checkmark-circle" size={28} color={BRAND} />
           <View>
             <Text style={s.statusText}>{t('delivered')}</Text>
-            <Text style={s.statusSub}>{order.date} à {order.time}</Text>
+            <Text style={s.statusSub}>{t('dateAtTime', { date: formatDayMonth(order.completedAt || order.cancelledAt) || order.date, time: formatTime(order.completedAt || order.cancelledAt) || order.time })}</Text>
           </View>
         </View>
 
@@ -100,7 +102,7 @@ export default function DeliveryDetailScreen({ navigation, route }) {
             <Pressable style={s.ticketBtnSmall} onPress={() => navigation.navigate('TicketChat', { order })}>
               <Ionicons name="chatbubbles-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
               <Text style={s.ticketBtnSmallTxt}>{t('openTicket')}</Text>
-              <Ionicons name="chevron-forward" size={14} color="#ccc" />
+              <Ionicons name={dirIcon('chevron-forward')} size={14} color="#ccc" />
             </Pressable>
           </>
         ) : (

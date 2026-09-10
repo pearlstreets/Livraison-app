@@ -1,10 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { payoutDateLabel, payoutStatusLabel } from '../lib/payouts';
 
 const BRAND = '#00C29B';
 
@@ -20,7 +22,7 @@ export default function VersementDetailScreen({ navigation, route }) {
     <View style={s.container}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
         </Pressable>
         <Text style={s.headerTitle}>{t('payoutDetail') || 'Détail du versement'}</Text>
         <View style={{ width: 24 }} />
@@ -32,11 +34,11 @@ export default function VersementDetailScreen({ navigation, route }) {
           <View style={[s.iconCircle, isExceptionnel && { backgroundColor: '#fff3e0' }]}>
             <Ionicons name={isExceptionnel ? 'flash' : 'calendar-outline'} size={28} color={isExceptionnel ? '#f5a623' : BRAND} />
           </View>
-          <Text style={s.typeLabel}>{v.label}</Text>
+          <Text style={s.typeLabel}>{t('payoutLabel')}</Text>
           <Text style={s.amount}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
           <View style={s.statusRow}>
             <Ionicons name="checkmark-circle" size={16} color={BRAND} />
-            <Text style={s.statusTxt}>{v.detail?.status || 'Versé'}</Text>
+            <Text style={s.statusTxt}>{payoutStatusLabel(v.detail?.status, t)}</Text>
           </View>
         </View>
 
@@ -46,7 +48,7 @@ export default function VersementDetailScreen({ navigation, route }) {
 
           <View style={s.detailRow}>
             <Text style={s.detailLabel}>{t('dateLabel')}</Text>
-            <Text style={s.detailValue}>{v.date}</Text>
+            <Text style={s.detailValue}>{payoutDateLabel(v, t)}</Text>
           </View>
           <View style={s.detailRow}>
             <Text style={s.detailLabel}>{t('ibanLabel')}</Text>

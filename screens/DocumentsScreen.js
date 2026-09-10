@@ -1,6 +1,7 @@
 import React, { useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -59,7 +60,7 @@ export default function DocumentsScreen({ navigation }) {
     <ScrollView ref={scrollRef} style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
         </Pressable>
         <Text style={s.headerTitle}>{t('documentsTitle')}</Text>
         <View style={{ width: 24 }} />
@@ -93,7 +94,7 @@ export default function DocumentsScreen({ navigation }) {
             <Text style={s.docLabel}>{t(doc.labelKey) || doc.labelKey}</Text>
             <Text style={[s.docStatus, { color: doc.color }]}>{doc.statusText}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#ccc" />
+          <Ionicons name={dirIcon('chevron-forward')} size={18} color="#ccc" />
         </Pressable>
       ))}
     </ScrollView>

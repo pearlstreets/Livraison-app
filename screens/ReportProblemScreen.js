@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -46,7 +47,7 @@ export default function ReportProblemScreen({ navigation, route }) {
         [{ text: t('ok'), onPress: () => navigation.goBack() }]
       );
     } catch {
-      Alert.alert(t('error'), 'Une erreur est survenue. Veuillez réessayer.');
+      Alert.alert(t('error'), t('genericError'));
     } finally {
       setSubmitting(false);
     }
@@ -57,7 +58,7 @@ export default function ReportProblemScreen({ navigation, route }) {
       {/* Header */}
       <View style={s.headerRow}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={22} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={22} color="#111" />
         </Pressable>
         <Text style={s.headerTitle}>{t('reportTitle')}</Text>
         <View style={{ width: 22 }} />

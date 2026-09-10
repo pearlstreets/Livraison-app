@@ -1,12 +1,14 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Dimensions, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { deliveryService } from '../services/deliveryService';
+import { payoutDateLabel } from '../lib/payouts';
 
 const BRAND = '#00C29B';
 
@@ -16,10 +18,10 @@ export default function WalletScreen({ navigation }) {
   const { currentEarningsCents, cashOut, versements, currentIban } = useAuth();
   const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
-  const earn = { earningsCents: currentEarningsCents, earnings: (currentEarningsCents / 100).toFixed(2) + ' €' };
+  const earn = { earningsCents: currentEarningsCents, earnings: fmtPrice(currentEarningsCents / 100) };
   // Libellé du compte bancaire dérivé du vrai IBAN (au lieu d'un ••••15 en dur).
   const bankTail = ((currentIban || '').match(/(\d{2,4})\s*$/) || [])[1] || '';
-  const bankLabel = bankTail ? `••${bankTail}` : 'votre compte enregistré';
+  const bankLabel = bankTail ? `••${bankTail}` : t('yourSavedAccount');
   const [stripeLoading, setStripeLoading] = useState(false);
   const [encaissModal, setEncaissModal] = useState(false);
   const [encaissStep, setEncaissStep] = useState('confirm'); // confirm | processing | done
@@ -40,7 +42,7 @@ export default function WalletScreen({ navigation }) {
   function startEncaiss() {
     if (earn.earningsCents <= 0) return;
     if (alreadyCashedToday) {
-      Alert.alert('Limite atteinte', 'Vous ne pouvez effectuer qu\'un seul encaissement par jour.');
+      Alert.alert(t('limitReached'), t('oneCashoutPerDayMsg'));
       return;
     }
     setCashedAmount(earn.earnings);
@@ -55,13 +57,10 @@ export default function WalletScreen({ navigation }) {
       if (res && res.url) {
         await Linking.openURL(res.url);
       } else if (res && res.payout_method === 'sepa_manual') {
-        Alert.alert(
-          'Versements par virement',
-          'Votre pays ne dispose pas encore de Stripe Connect. Les versements sont effectués par virement bancaire manuel.'
-        );
+        Alert.alert(t('bankTransferPayouts'), t('noStripeConnectMsg'));
       }
     } catch {
-      Alert.alert('Erreur', 'Impossible de configurer les paiements pour le moment. Réessayez plus tard.');
+      Alert.alert(t('error'), t('stripeSetupError'));
     } finally {
       setStripeLoading(false);
     }
@@ -80,7 +79,7 @@ export default function WalletScreen({ navigation }) {
       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={[s.headerRow, { paddingTop: insets.top }]}>
           <Pressable onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#111" />
+            <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
           </Pressable>
           <Text style={s.headerTitle}>{t('wallet')}</Text>
           <View style={{ width: 24 }} />
@@ -90,7 +89,7 @@ export default function WalletScreen({ navigation }) {
           <Text style={s.balanceLabel}>{t('balance')}</Text>
           <View style={s.balanceRow}>
             <Text style={s.balanceAmount}>{fmtPrice((earn.earningsCents || 0) / 100)}</Text>
-            <Ionicons name="chevron-forward" size={22} color="#999" />
+            <Ionicons name={dirIcon('chevron-forward')} size={22} color="#999" />
           </View>
           <Text style={s.nextPayout}>{t('weeklyAutoPayouts')}</Text>
           <Pressable style={[s.encaissBtn, earn.earningsCents <= 0 && { opacity: 0.4 }]} onPress={startEncaiss}>
@@ -109,19 +108,19 @@ export default function WalletScreen({ navigation }) {
             <Pressable key={i} style={[s.versementRow, i < showVersements.length - 1 && s.versementBorder]} onPress={() => navigation.navigate('VersementDetail', { versement: v })}>
               <Ionicons name="calendar-outline" size={22} color="#666" style={{ marginRight: 12 }} />
               <View style={{ flex: 1 }}>
-                <Text style={s.versementLabel}>{v.label}</Text>
+                <Text style={s.versementLabel}>{t('payoutLabel')}</Text>
                 <View style={s.versementDateRow}>
                   <Text style={s.versementAmount}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
-                  <Text style={s.versementDate}>{v.date}</Text>
+                  <Text style={s.versementDate}>{payoutDateLabel(v, t)}</Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#ccc" style={{ marginLeft: 8 }} />
+              <Ionicons name={dirIcon('chevron-forward')} size={16} color="#ccc" style={{ marginLeft: 8 }} />
             </Pressable>
           ))}
         </View>
         {versements.length > 3 && (
           <Pressable style={s.showAllBtn} onPress={() => navigation.navigate('VersementsList', { mode: 'activity' })}>
-            <Text style={s.showAllTxt}>Tout afficher ({versements.length})</Text>
+            <Text style={s.showAllTxt}>{t('showAll')} ({versements.length})</Text>
           </Pressable>
         )}
 
@@ -151,13 +150,13 @@ export default function WalletScreen({ navigation }) {
           disabled={stripeLoading}
         >
           <Ionicons name="card-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={s.stripeBtnTxt}>{stripeLoading ? 'Chargement...' : 'Configurer les paiements'}</Text>
+          <Text style={s.stripeBtnTxt}>{stripeLoading ? t('loading') : t('setupPayments')}</Text>
         </Pressable>
 
         <Pressable style={s.helpRow} onPress={() => navigation.navigate('Help')}>
           <Ionicons name="help-circle-outline" size={22} color="#666" style={{ marginRight: 12 }} />
           <Text style={s.helpText}>{t('help')}</Text>
-          <Ionicons name="chevron-forward" size={18} color="#ccc" />
+          <Ionicons name={dirIcon('chevron-forward')} size={18} color="#ccc" />
         </Pressable>
       </ScrollView>
 
@@ -171,7 +170,7 @@ export default function WalletScreen({ navigation }) {
                   <Ionicons name="flash" size={40} color={BRAND} />
                 </View>
                 <Text style={s.popupTitle}>{t('instantCashout')}</Text>
-                <Text style={s.popupDesc}>Votre solde de {cashedAmount} sera transféré sur votre compte bancaire {bankLabel} sous 30 minutes.</Text>
+                <Text style={s.popupDesc}>{t('cashoutConfirmDesc', { amount: cashedAmount, account: bankLabel })}</Text>
                 <Text style={s.popupFee}>{t('cashoutFee')}</Text>
                 <Pressable style={s.popupBtnPrimary} onPress={processEncaiss}>
                   <Text style={s.popupBtnPrimaryTxt}>{t('confirmCashout')}</Text>
@@ -196,7 +195,7 @@ export default function WalletScreen({ navigation }) {
                   <Ionicons name="checkmark-circle" size={48} color={BRAND} />
                 </View>
                 <Text style={s.popupTitle}>{t('cashoutSuccess')}</Text>
-                <Text style={s.popupDesc}>Le montant de {cashedAmount} sera versé sur votre compte bancaire {bankLabel} dans les 30 prochaines minutes.</Text>
+                <Text style={s.popupDesc}>{t('cashoutDoneDesc', { amount: cashedAmount, account: bankLabel })}</Text>
                 <Pressable style={s.popupBtnPrimary} onPress={() => setEncaissModal(false)}>
                   <Text style={s.popupBtnPrimaryTxt}>{t('close')}</Text>
                 </Pressable>

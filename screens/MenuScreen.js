@@ -2,12 +2,16 @@ import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert, Modal, FlatList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useFocusEffect } from '@react-navigation/native';
+import { isSameDay } from '../lib/i18nFormat';
 
 const BRAND = '#00C29B';
+// Valeur backend du véhicule → clé de traduction du libellé.
+const VEHICLE_LABEL_KEYS = { bicycle: 'bike', car: 'car', walk: 'walk' };
 
 const MenuItem = React.memo(({ icon, label, onPress, color = '#111', badge, detail }) => {
   return (
@@ -16,7 +20,7 @@ const MenuItem = React.memo(({ icon, label, onPress, color = '#111', badge, deta
       <Text style={[s.menuLabel, { color }]}>{label}</Text>
       {detail && <Text style={s.menuDetail}>{detail}</Text>}
       {badge && <View style={s.badge}><Text style={s.badgeText}>{badge}</Text></View>}
-      <Ionicons name="chevron-forward" size={18} color="#ccc" />
+      <Ionicons name={dirIcon('chevron-forward')} size={18} color="#ccc" />
     </Pressable>
   );
 });
@@ -42,8 +46,7 @@ export default function MenuScreen({ navigation }) {
     const now = new Date();
     const currentWeek = weeklyEarnings.length > 0 ? weeklyEarnings[0] : null;
     const weekTotal = currentWeek ? currentWeek.total : 0;
-    const todayStr = `${now.getDate()} ${['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][now.getMonth()]}`;
-    const dayTotal = (deliveryHistory || []).filter(o => o.date === todayStr && o.status !== 'cancelled').reduce((s, o) => s + parsePrice(o.priceText), 0);
+    const dayTotal = (deliveryHistory || []).filter(o => o.status !== 'cancelled' && isSameDay(o.completedAt, now)).reduce((s, o) => s + parsePrice(o.priceText), 0);
     const monthTotal = (deliveryHistory || []).filter(o => {
       if (!o.completedAt && !o.cancelledAt) return false;
       const d = new Date(o.completedAt || o.cancelledAt);
@@ -196,7 +199,7 @@ export default function MenuScreen({ navigation }) {
       <View style={s.section}>
         <MenuItem icon="chatbubbles-outline" label={t('ticketsTitle')} onPress={() => navigation.navigate('TicketsList')} badge={getUnreadTicketCount() > 0 ? String(getUnreadTicketCount()) : null} />
         <MenuItem icon="document-text-outline" label={t('documents')} onPress={() => navigation.navigate('Documents')} />
-        <MenuItem icon="car-outline" label={t('vehicle')} onPress={() => navigation.navigate('Vehicle')} detail={user?.vehicle || 'Vélo'} />
+        <MenuItem icon="car-outline" label={t('vehicle')} onPress={() => navigation.navigate('Vehicle')} detail={t(VEHICLE_LABEL_KEYS[user?.vehicle] || 'bike')} />
         <MenuItem icon="star-outline" label={t('ratings')} onPress={() => navigation.navigate('Ratings')} />
       </View>
 
@@ -213,7 +216,7 @@ export default function MenuScreen({ navigation }) {
           <Ionicons name="language-outline" size={22} color="#111" style={{ marginRight: 14 }} />
           <Text style={[s.menuLabel, { color: '#111' }]}>{t('language')}</Text>
           <Text style={s.langCurrent}>{currentLang.flag} {currentLang.native}</Text>
-          <Ionicons name="chevron-forward" size={18} color="#ccc" />
+          <Ionicons name={dirIcon('chevron-forward')} size={18} color="#ccc" />
         </Pressable>
       </View>
 

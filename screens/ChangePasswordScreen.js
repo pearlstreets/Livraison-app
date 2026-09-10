@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { authService } from '../services/authService';
@@ -21,7 +22,7 @@ export default function ChangePasswordScreen({ navigation }) {
 
   async function handleSave() {
     if (!currentPwd) {
-      Alert.alert(t('error'), 'Veuillez saisir votre mot de passe actuel');
+      Alert.alert(t('error'), t('passwordError'));
       return;
     }
     if (newPwd.length < 6) {
@@ -35,11 +36,11 @@ export default function ChangePasswordScreen({ navigation }) {
     setSaving(true);
     try {
       await authService.updatePassword(currentPwd, newPwd);
-      Alert.alert('Succès', 'Mot de passe modifié avec succès', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+      Alert.alert(t('success'), t('passwordChanged'), [
+        { text: t('ok'), onPress: () => navigation.goBack() },
       ]);
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.response?.data?.detail || 'Mot de passe actuel incorrect ou erreur serveur';
+      const msg = err?.response?.data?.message || err?.response?.data?.detail || t('passwordChangeError');
       Alert.alert(t('error'), msg);
     } finally {
       setSaving(false);
@@ -52,7 +53,7 @@ export default function ChangePasswordScreen({ navigation }) {
         {/* Header */}
         <View style={s.headerRow}>
           <Pressable onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#111" />
+            <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
           </Pressable>
           <Text style={s.headerTitle}>{t('changePassword') || 'Modifier le mot de passe'}</Text>
           <View style={{ width: 24 }} />
@@ -134,7 +135,7 @@ export default function ChangePasswordScreen({ navigation }) {
               color={newPwd === confirmPwd ? BRAND : '#e74c3c'}
             />
             <Text style={[s.matchText, { color: newPwd === confirmPwd ? BRAND : '#e74c3c' }]}>
-              {newPwd === confirmPwd ? 'Les mots de passe correspondent' : 'Les mots de passe ne correspondent pas'}
+              {newPwd === confirmPwd ? t('passwordsMatch') : t('passwordMismatch')}
             </Text>
           </View>
         )}

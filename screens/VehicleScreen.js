@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -25,7 +26,7 @@ export default function VehicleScreen({ navigation }) {
   function handleSave() {
     // Persiste via vehicle_type (champ backend autorisé par updateUser)
     updateUser({ vehicle_type: selected });
-    Alert.alert(t('vehicleUpdated'), `${t('vehicleNow') || 'Véhicule'} : ${selected}`, [
+    Alert.alert(t('vehicleUpdated'), `${t('vehicleNow')} : ${t(VEHICLES.find((v) => v.id === selected)?.labelKey || 'bike')}`, [
       { text: t('ok') || 'OK', onPress: () => navigation.goBack() },
     ]);
   }
@@ -34,7 +35,7 @@ export default function VehicleScreen({ navigation }) {
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
         </Pressable>
         <Text style={s.headerTitle}>{t('vehicleTitle')}</Text>
         <View style={{ width: 24 }} />

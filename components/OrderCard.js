@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking, Animated, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useLanguage } from '../contexts/LanguageContext';
 // Alias : le module a déjà un helper local `fmtPrice` (parse des chaînes
 // pré-formatées) — on importe donc le formateur devise sous un autre nom.
@@ -232,7 +233,7 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
 
           <TouchableOpacity style={styles.detailsLink} onPress={openDetails} activeOpacity={0.6}>
             <Text style={styles.detailsLinkText}>{t('viewDetails')}</Text>
-            <Ionicons name="chevron-forward" size={14} color="#8E8E93" />
+            <Ionicons name={dirIcon('chevron-forward')} size={14} color="#8E8E93" />
           </TouchableOpacity>
         </>
       ) : (

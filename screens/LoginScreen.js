@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -11,6 +12,8 @@ import { uploadService } from '../services/uploadService';
 
 // NOTE: To prevent screen capture in production, consider using
 // expo-screen-capture: ScreenCapture.preventScreenCaptureAsync()
+
+import { countryName } from '../data/countryNames';
 
 const BRAND = '#00C29B';
 const MAX_LOGIN_FAILS = 3;
@@ -340,7 +343,7 @@ export default function LoginScreen() {
     const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), legal_address: address.trim(), vehicle_type: vehicle, role: isPro ? 'professionaluser' : 'user', documents: docUrls });
     setLoading(false);
     if (result && result.ok) { setPendingValidation(true); return; }
-    setError((result && result.error) || 'Une erreur est survenue. Veuillez réessayer.');
+    setError((result && result.error) || t('genericError'));
   };
 
   // Pending validation page
@@ -388,7 +391,7 @@ export default function LoginScreen() {
         {/* Back arrow */}
         {(mode !== 'login') && (
           <TouchableOpacity onPress={handleBack} style={{paddingHorizontal:16, paddingTop: insets.top + 12}}>
-            <Ionicons name="arrow-back" size={26} color="#111" />
+            <Ionicons name={dirIcon('arrow-back')} size={26} color="#111" />
           </TouchableOpacity>
         )}
 
@@ -464,7 +467,7 @@ export default function LoginScreen() {
                     <Text style={{fontSize:17, fontWeight:'800', color:'#111'}}>{opt.label}</Text>
                     <Text style={{fontSize:13, color:'#6B7280', marginTop:4}}>{opt.desc}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color={BRAND} />
+                  <Ionicons name={dirIcon('chevron-forward')} size={20} color={BRAND} />
                 </TouchableOpacity>
               ))}
             </>
@@ -511,7 +514,7 @@ export default function LoginScreen() {
               <Text style={s.label}>{t('countryLabel') || 'Pays de résidence'}</Text>
               <TouchableOpacity onPress={() => setCountryPickerVisible(true)} style={[s.input, {flexDirection:'row', alignItems:'center'}]}>
                 <Text style={{fontSize:20, marginRight:10}}>{selectedCountry.flag}</Text>
-                <Text style={{flex:1, fontSize:15, color:'#111', fontWeight:'600'}}>{selectedCountry.name}</Text>
+                <Text style={{flex:1, fontSize:15, color:'#111', fontWeight:'600'}}>{countryName(selectedCountry.code, lang, selectedCountry.name)}</Text>
                 <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
               </TouchableOpacity>
               <Text style={s.label}>{t('driverAddressLabel') || 'Adresse'}</Text>
@@ -635,7 +638,7 @@ export default function LoginScreen() {
               <FlatList data={COUNTRIES} keyExtractor={c => c.code} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: c}) => (
                 <TouchableOpacity onPress={() => { setCountry(c.code); setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setCountryPickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: country === c.code ? '#F0FDF4' : '#fff'}}>
                   <Text style={{fontSize:24, marginRight:14}}>{c.flag}</Text>
-                  <Text style={{flex:1, fontSize:16, fontWeight: country === c.code ? '700' : '500', color: country === c.code ? BRAND : '#111'}}>{c.name}</Text>
+                  <Text style={{flex:1, fontSize:16, fontWeight: country === c.code ? '700' : '500', color: country === c.code ? BRAND : '#111'}}>{countryName(c.code, lang, c.name)}</Text>
                   {country === c.code && <Ionicons name="checkmark-circle" size={20} color={BRAND} />}
                 </TouchableOpacity>
               )} />
@@ -654,7 +657,7 @@ export default function LoginScreen() {
               <FlatList data={COUNTRIES} keyExtractor={c => c.code + '_p'} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: c}) => (
                 <TouchableOpacity onPress={() => { setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setPhonePickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: phoneCountry === c.code ? '#F0FDF4' : '#fff'}}>
                   <Text style={{fontSize:24, marginRight:14}}>{c.flag}</Text>
-                  <Text style={{flex:1, fontSize:16, fontWeight: phoneCountry === c.code ? '700' : '500', color: phoneCountry === c.code ? BRAND : '#111'}}>{c.name}</Text>
+                  <Text style={{flex:1, fontSize:16, fontWeight: phoneCountry === c.code ? '700' : '500', color: phoneCountry === c.code ? BRAND : '#111'}}>{countryName(c.code, lang, c.name)}</Text>
                   <Text style={{fontSize:14, fontWeight:'700', color:'#374151'}}>{c.phoneCode}</Text>
                   {phoneCountry === c.code && <Ionicons name="checkmark-circle" size={20} color={BRAND} style={{marginLeft:8}} />}
                 </TouchableOpacity>

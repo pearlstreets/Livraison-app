@@ -1,6 +1,8 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { deliveryService } from '../services/deliveryService';
@@ -15,6 +17,7 @@ const FILTERS = [
 
 export default function InboxScreen() {
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const scrollRef = useRef(null);
   const [filter, setFilter] = useState('Tout');
   const [selectedNotif, setSelectedNotif] = useState(null);
@@ -52,7 +55,7 @@ export default function InboxScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 40 }}>
-        <Text style={s.header}>{t('inbox')}</Text>
+        <Text style={[s.header, { paddingTop: insets.top + 16 }]}>{t('inbox')}</Text>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filtersRow} contentContainerStyle={{ gap: 8 }}>
           {FILTERS.map(f => (
@@ -80,7 +83,7 @@ export default function InboxScreen() {
                   <Text style={s.notifTime}>{item.time}</Text>
                 </View>
                 {!readIds.includes(item.id) && <View style={s.unreadDot} />}
-                <Ionicons name="chevron-forward" size={16} color="#ccc" />
+                <Ionicons name={dirIcon('chevron-forward')} size={16} color="#ccc" />
               </Pressable>
             ))}
           </View>

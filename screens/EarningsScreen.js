@@ -6,9 +6,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { formatRange, weekdayInitials } from '../lib/i18nFormat';
 
 const BRAND = '#00C29B';
-const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 function MiniChart({ bars }) {
   const max = Math.max(...bars, 1);
@@ -22,7 +22,7 @@ function MiniChart({ bars }) {
         ))}
       </View>
       <View style={s.daysRow}>
-        {DAYS.map((d, i) => <Text key={i} style={s.dayLabel}>{d}</Text>)}
+        {weekdayInitials().map((d, i) => <Text key={i} style={s.dayLabel}>{d}</Text>)}
       </View>
     </View>
   );
@@ -36,7 +36,7 @@ export default function EarningsScreen({ navigation }) {
   const scrollRef = useRef(null);
   const earn = { earningsCents: currentEarningsCents, earnings: fmtPrice(currentEarningsCents / 100) };
   const bankTail = ((currentIban || '').match(/(\d{2,4})\s*$/) || [])[1] || '';
-  const bankLabel = bankTail ? `••${bankTail}` : 'votre compte enregistré';
+  const bankLabel = bankTail ? `••${bankTail}` : t('yourSavedAccount');
   const [encaissModal, setEncaissModal] = useState(false);
   const [encaissStep, setEncaissStep] = useState('confirm');
   const [cashedAmount, setCashedAmount] = useState('');
@@ -72,19 +72,19 @@ export default function EarningsScreen({ navigation }) {
             <Ionicons name="flash" size={16} color="#111" />
             <Text style={s.encaissTxt}>{t('cashout')}</Text>
           </Pressable>
-          <Text style={s.cashoutLimit}>1 encaissement par jour</Text>
+          <Text style={s.cashoutLimit}>{t('oneCashoutPerDay')}</Text>
         </View>
 
         <Text style={s.sectionHeader}>{t('selectWeek')}</Text>
         <View style={s.tableHeader}>
           <Text style={s.tableHeaderLeft}>{t('weeklyEarnings')}</Text>
-          <Text style={s.tableHeaderRight}>{DAYS.join('  ')}</Text>
+          <Text style={s.tableHeaderRight}>{weekdayInitials().join('  ')}</Text>
         </View>
 
         {weeklyEarnings.map((week, i) => (
           <Pressable key={i} style={s.weekRow} onPress={() => navigation.navigate('WeekDetail', { weekIndex: i })}>
             <View style={{ flex: 1 }}>
-              <Text style={s.weekRange}>{week.range}</Text>
+              <Text style={s.weekRange}>{formatRange(week.start, week.end) || week.range}</Text>
               <Text style={s.weekTotal}>{fmtPrice(week.total)}</Text>
             </View>
             <MiniChart bars={week.bars} />
@@ -102,7 +102,7 @@ export default function EarningsScreen({ navigation }) {
                   <Ionicons name="flash" size={40} color={BRAND} />
                 </View>
                 <Text style={s.popupTitle}>{t('instantCashout')}</Text>
-                <Text style={s.popupDesc}>Votre solde de {cashedAmount} sera transféré sur votre compte bancaire {bankLabel} sous 30 minutes.</Text>
+                <Text style={s.popupDesc}>{t('cashoutConfirmDesc', { amount: cashedAmount, account: bankLabel })}</Text>
                 <Text style={s.popupFee}>{t('cashoutFee')}</Text>
                 <Pressable style={s.popupBtnPrimary} onPress={processEncaiss}>
                   <Text style={s.popupBtnPrimaryTxt}>{t('confirmCashout')}</Text>
@@ -127,7 +127,7 @@ export default function EarningsScreen({ navigation }) {
                   <Ionicons name="checkmark-circle" size={48} color={BRAND} />
                 </View>
                 <Text style={s.popupTitle}>{t('cashoutSuccess')}</Text>
-                <Text style={s.popupDesc}>Le montant de {cashedAmount} sera versé sur votre compte bancaire {bankLabel} dans les 30 prochaines minutes.</Text>
+                <Text style={s.popupDesc}>{t('cashoutDoneDesc', { amount: cashedAmount, account: bankLabel })}</Text>
                 <Pressable style={s.popupBtnPrimary} onPress={() => setEncaissModal(false)}>
                   <Text style={s.popupBtnPrimaryTxt}>{t('close')}</Text>
                 </Pressable>

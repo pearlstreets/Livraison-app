@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView, Image, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
@@ -116,7 +117,7 @@ export default function EditProfileScreen({ navigation }) {
         {/* Header */}
         <View style={s.headerRow}>
           <Pressable onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#111" />
+            <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
           </Pressable>
           <Text style={s.headerTitle}>{t('account')}</Text>
           <View style={{ width: 24 }} />
@@ -148,7 +149,7 @@ export default function EditProfileScreen({ navigation }) {
         <Pressable style={s.changePwdBtn} onPress={() => navigation.navigate('ChangePassword')}>
           <Ionicons name="lock-closed-outline" size={18} color={BRAND} style={{ marginRight: 8 }} />
           <Text style={s.changePwdTxt}>{t('changePassword')}</Text>
-          <Ionicons name="chevron-forward" size={16} color="#ccc" />
+          <Ionicons name={dirIcon('chevron-forward')} size={16} color="#ccc" />
         </Pressable>
 
         <Pressable style={[s.saveBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>

@@ -1,15 +1,19 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { payoutDateLabel, payoutStatusLabel } from '../lib/payouts';
 
 const BRAND = '#00C29B';
 
 export default function VersementsListScreen({ navigation, route }) {
   const { t } = useLanguage();
   const { versements, currentIban } = useAuth();
+  const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
   const mode = route.params?.mode || 'activity'; // 'activity' or 'history'
 
@@ -17,9 +21,9 @@ export default function VersementsListScreen({ navigation, route }) {
     <View style={s.container}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
         </Pressable>
-        <Text style={s.headerTitle}>{mode === 'history' ? 'Historique des virements' : t('payoutActivity')}</Text>
+        <Text style={s.headerTitle}>{mode === 'history' ? t('transferHistory') : t('payoutActivity')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -30,13 +34,13 @@ export default function VersementsListScreen({ navigation, route }) {
               <Pressable key={i} style={[s.versementRow, i < versements.length - 1 && s.versementBorder]} onPress={() => navigation.navigate('VersementDetail', { versement: v })}>
                 <Ionicons name="calendar-outline" size={22} color="#666" style={{ marginRight: 12 }} />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.versementLabel}>{v.label}</Text>
+                  <Text style={s.versementLabel}>{t('payoutLabel')}</Text>
                   <View style={s.versementDateRow}>
-                    <Text style={s.versementAmount}>{v.amount}</Text>
-                    <Text style={s.versementDate}>{v.date}</Text>
+                    <Text style={s.versementAmount}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
+                    <Text style={s.versementDate}>{payoutDateLabel(v, t)}</Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#ccc" style={{ marginLeft: 8 }} />
+                <Ionicons name={dirIcon('chevron-forward')} size={16} color="#ccc" style={{ marginLeft: 8 }} />
               </Pressable>
             ))}
           </View>
@@ -49,14 +53,14 @@ export default function VersementsListScreen({ navigation, route }) {
                     <Ionicons name={v.label === 'Versement exceptionnel' ? 'flash' : 'calendar-outline'} size={18} color={v.label === 'Versement exceptionnel' ? '#f5a623' : BRAND} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={s.virementLabel}>{v.label}</Text>
-                    <Text style={s.virementDateSmall}>{v.date}</Text>
+                    <Text style={s.virementLabel}>{t('payoutLabel')}</Text>
+                    <Text style={s.virementDateSmall}>{payoutDateLabel(v, t)}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={s.virementAmountBig}>{v.amount}</Text>
+                    <Text style={s.virementAmountBig}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
                     <View style={s.virementStatusBadge}>
                       <Ionicons name="checkmark-circle" size={12} color={BRAND} />
-                      <Text style={s.virementStatusTxt}>{v.detail?.status || 'Versé'}</Text>
+                      <Text style={s.virementStatusTxt}>{payoutStatusLabel(v.detail?.status, t)}</Text>
                     </View>
                   </View>
                 </View>

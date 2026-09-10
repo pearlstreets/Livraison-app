@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, Pressable, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import MapView, { Marker, Polyline } from 'react-native-maps';
+import { mapsAvailable } from '../lib/maps';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 
 const BRAND = '#00C29B';
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
@@ -57,26 +59,33 @@ export default function MapScreen({ route, navigation }) {
 
   return (
     <View style={{ flex: 1 }}>
-      <MapView
-        ref={mapRef}
-        style={StyleSheet.absoluteFillObject}
-        initialRegion={{ ...center, latitudeDelta: 0.08, longitudeDelta: 0.08 }}
-        showsUserLocation
-        showsMyLocationButton={false}
-      >
-        {hasPickup && (
-          <Marker coordinate={{ latitude: pLat, longitude: pLng }} title={order.shopName || order.restaurant || 'Boutique'} pinColor={BRAND} />
-        )}
-        {hasDrop && (
-          <Marker coordinate={{ latitude: dLat, longitude: dLng }} title={t('delivery')} description={order.dropoffAddress || ''} pinColor="#e74c3c" />
-        )}
-        {hasPickup && hasDrop && (
-          <Polyline coordinates={[{ latitude: pLat, longitude: pLng }, { latitude: dLat, longitude: dLng }]} strokeColor={BRAND} strokeWidth={4} lineDashPattern={[2, 6]} />
-        )}
-      </MapView>
+      {mapsAvailable ? (
+        <MapView
+          ref={mapRef}
+          style={StyleSheet.absoluteFillObject}
+          initialRegion={{ ...center, latitudeDelta: 0.08, longitudeDelta: 0.08 }}
+          showsUserLocation
+          showsMyLocationButton={false}
+        >
+          {hasPickup && (
+            <Marker coordinate={{ latitude: pLat, longitude: pLng }} title={order.shopName || order.restaurant || t('pickup')} pinColor={BRAND} />
+          )}
+          {hasDrop && (
+            <Marker coordinate={{ latitude: dLat, longitude: dLng }} title={t('delivery')} description={order.dropoffAddress || ''} pinColor="#e74c3c" />
+          )}
+          {hasPickup && hasDrop && (
+            <Polyline coordinates={[{ latitude: pLat, longitude: pLng }, { latitude: dLat, longitude: dLng }]} strokeColor={BRAND} strokeWidth={4} lineDashPattern={[2, 6]} />
+          )}
+        </MapView>
+      ) : (
+        <View style={[StyleSheet.absoluteFillObject, styles.noMap]}>
+          <Ionicons name="map-outline" size={48} color="#b0b7bf" />
+          <Text style={styles.noMapTxt}>{t('mapUnavailable')}</Text>
+        </View>
+      )}
 
       <Pressable onPress={() => navigation?.goBack?.()} style={[styles.back, { top: (insets?.top || 0) + 8 }]}>
-        <Ionicons name="arrow-back" size={22} color="#111" />
+        <Ionicons name={dirIcon('arrow-back')} size={22} color="#111" />
       </Pressable>
 
       <View style={[styles.card, { paddingBottom: (insets?.bottom || 0) + 12 }]}>
@@ -121,4 +130,6 @@ const styles = StyleSheet.create({
   btns: { flexDirection: 'row', gap: 10, marginTop: 8 },
   btn: { flex: 1, height: 44, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   btnTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  noMap: { backgroundColor: '#eef1f4', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 220 },
+  noMapTxt: { marginTop: 12, color: '#6b7280', fontSize: 15, fontWeight: '600', textAlign: 'center' },
 });

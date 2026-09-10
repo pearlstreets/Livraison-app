@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity, Pressable, Dimensions, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import OrderCard from '../components/OrderCard';
@@ -10,6 +11,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import filtersUI from '../constants/filters-ui.json';
 import { deliveryService } from '../services/deliveryService';
+
+// Libellé de l'étape en cours d'une course acceptée (index DeliveryFlow).
+const ACTIVE_STEP_KEYS = ['pickup', 'enRoute', 'arrived', 'deliveryCode', 'deliveryDone'];
 
 /* === Zone d'approche (avant acceptation) ===
    Avant acceptation, le livreur n'a besoin que de la zone : quartier, ville et
@@ -266,7 +270,7 @@ export default function OrdersScreen({ navigation, route }) {
         const dfRoute = navState.routes?.find(r => r.name === 'DeliveryFlow');
         if (dfRoute?.params?.order && dfRoute.params.currentStep != null) {
           const key = orderKey(dfRoute.params.order);
-          setActiveSteps(prev => ({ ...prev, [key]: { stepIndex: dfRoute.params.currentStep, stepLabel: dfRoute.params.currentStepLabel || 'Récupération' } }));
+          setActiveSteps(prev => ({ ...prev, [key]: { stepIndex: dfRoute.params.currentStep, stepLabel: dfRoute.params.currentStepLabel || '' } }));
         }
       }
     });
@@ -297,7 +301,7 @@ export default function OrdersScreen({ navigation, route }) {
       setMockOrders(prev => prev.filter(o => orderKey(o) !== key));
       const accepted = { ...order, status: 'active' };
       setActive(prev => [accepted, ...prev]);
-      setActiveSteps(prev => ({ ...prev, [orderKey(accepted)]: { stepIndex: 0, stepLabel: 'Récupération' } }));
+      setActiveSteps(prev => ({ ...prev, [orderKey(accepted)]: { stepIndex: 0, stepLabel: '' } }));
       navigation.navigate('DeliveryFlow', { order: accepted });
       return;
     }
@@ -307,14 +311,14 @@ export default function OrdersScreen({ navigation, route }) {
       const res = await deliveryService.acceptDelivery(order.order_id);
       const assignment = res?.data ? adaptAssignment(res.data) : { ...order, status: 'accepted' };
       setActive(prev => [{ ...assignment, status: 'active' }, ...prev]);
-      setActiveSteps(prev => ({ ...prev, [orderKey(assignment)]: { stepIndex: 0, stepLabel: 'Récupération' } }));
+      setActiveSteps(prev => ({ ...prev, [orderKey(assignment)]: { stepIndex: 0, stepLabel: '' } }));
       navigation.navigate('DeliveryFlow', { order: assignment });
     } catch {
       // Remettre la commande dans la liste si l'accept échoue
       setAvailable(prev => [order, ...prev]);
-      Alert.alert('Erreur', 'Impossible d\'accepter la commande. Veuillez réessayer.');
+      Alert.alert(t('error'), t('acceptOrderError'));
     }
-  }, [navigation]);
+  }, [navigation, t]);
 
   const onResumeActive = useCallback((order) => {
     const key = orderKey(order);
@@ -349,7 +353,7 @@ export default function OrdersScreen({ navigation, route }) {
   return (
     <ScrollView
       ref={scrollRef}
-      contentContainerStyle={[styles.container, { paddingTop: insets.top + 12 }]}
+      contentContainerStyle={[styles.container, { paddingTop: insets.top + 12, flexGrow: 1 }]}
       alwaysBounceVertical={Platform.OS === 'ios'}
       showsVerticalScrollIndicator={false}
     >
@@ -377,7 +381,7 @@ export default function OrdersScreen({ navigation, route }) {
 
       {/* Hors ligne message — centered vertically */}
       {!online && active.length === 0 && (
-        <View style={{ alignItems: 'center', justifyContent: 'center', height: Dimensions.get('window').height - insets.top - insets.bottom - 200 }}>
+        <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 240 }}>
           <Ionicons name="moon-outline" size={48} color="#ccc" />
           <Text style={styles.offlineTitle}>{t('youAreOffline')}</Text>
           <Text style={styles.offlineSub}>{t('offlineMsg')}</Text>
@@ -407,11 +411,11 @@ export default function OrdersScreen({ navigation, route }) {
                     <View style={styles.activeStepBadge}>
                       <Ionicons name={
                         stepInfo?.stepIndex === 0 ? 'storefront-outline' :
-                        stepInfo?.stepIndex === 1 ? 'bicycle' :
+                        stepInfo?.stepIndex === 1 ? ({ car: 'car', walk: 'walk' }[user?.vehicle] || 'bicycle') :
                         stepInfo?.stepIndex === 2 ? 'location' :
                         stepInfo?.stepIndex === 3 ? 'keypad' : 'checkmark-circle'
                       } size={14} color="#fff" />
-                      <Text style={styles.activeStepText}>{stepInfo?.stepLabel || 'Récupération'}</Text>
+                      <Text style={styles.activeStepText}>{t(ACTIVE_STEP_KEYS[stepInfo?.stepIndex || 0] || 'pickup')}</Text>
                     </View>
                     {/* Order info */}
                     <View style={styles.activeHeader}>
@@ -428,7 +432,7 @@ export default function OrdersScreen({ navigation, route }) {
                     </View>
                     <View style={styles.activeFooter}>
                       <Text style={styles.activeContinue}>{t('continueDelivery')}</Text>
-                      <Ionicons name="chevron-forward" size={16} color="#00C29B" />
+                      <Ionicons name={dirIcon('chevron-forward')} size={16} color="#00C29B" />
                     </View>
                   </View>
                 </Pressable>
@@ -449,7 +453,7 @@ export default function OrdersScreen({ navigation, route }) {
               <TouchableOpacity
                 style={styles.mockBtn}
                 onPress={addMockOrder}
-                accessibilityLabel="Simuler une commande"
+                accessibilityLabel={t('simulate')}
               >
                 <Ionicons name="flask-outline" size={16} color="#fff" />
                 <Text style={styles.mockBtnTxt}>{t('simulate')}</Text>

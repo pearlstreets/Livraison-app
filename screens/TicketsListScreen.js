@@ -1,24 +1,26 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ticketService } from '../services/ticketService';
 
+import { formatDayMonth } from '../lib/i18nFormat';
+
 const BRAND = '#00C29B';
 
-const MONTHS = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
-
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  try {
-    const d = new Date(dateStr);
-    return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-  } catch {
-    return '';
-  }
-}
+// Clés de traduction des types de problème backend (cf. ReportProblemScreen).
+const PROBLEM_LABEL_KEYS = {
+  client_absent: 'clientAbsent',
+  adresse_incorrecte: 'wrongAddress',
+  commande_endommagee: 'damagedOrder',
+  retard_restaurant: 'restaurantDelay',
+  probleme_paiement: 'paymentIssue',
+  accident: 'accident',
+  autre: 'otherProblem',
+};
 
 function mapTicket(ticket) {
   const isOpen = ticket.status === 'open' || ticket.status === 'in_progress';
@@ -26,8 +28,9 @@ function mapTicket(ticket) {
     id: ticket.id,
     displayId: `TK-${ticket.id}`,
     orderId: ticket.assignment_id ? `ORD-${ticket.assignment_id}` : `TK-${ticket.id}`,
-    subject: ticket.problem_type || ticket.description?.split('\n')[0] || 'Ticket support',
-    date: formatDate(ticket.updated_at || ticket.created_at),
+    problemType: ticket.problem_type || '',
+    subject: ticket.description?.split('\n')[0] || '',
+    dateRaw: ticket.updated_at || ticket.created_at || null,
     status: isOpen ? 'open' : 'resolved',
     lastMessage: ticket.description || '',
   };
@@ -51,11 +54,11 @@ const TicketCard = React.memo(({ ticket, navigation, t }) => {
           </Text>
         </View>
       </View>
-      <Text style={s.ticketSubject}>{ticket.subject}</Text>
+      <Text style={s.ticketSubject}>{PROBLEM_LABEL_KEYS[ticket.problemType] ? t(PROBLEM_LABEL_KEYS[ticket.problemType]) : (ticket.problemType || ticket.subject || t('ticketTitle'))}</Text>
       <Text style={s.ticketOrder}>{t('order')} {ticket.orderId}</Text>
       <View style={s.ticketFooter}>
         <Text style={s.ticketLastMsg} numberOfLines={1}>{ticket.lastMessage}</Text>
-        <Text style={s.ticketDate}>{ticket.date}</Text>
+        <Text style={s.ticketDate}>{formatDayMonth(ticket.dateRaw, { year: true })}</Text>
       </View>
     </Pressable>
   );
@@ -91,7 +94,7 @@ export default function TicketsListScreen({ navigation }) {
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
         </Pressable>
         <Text style={s.headerTitle}>{t('ticketsTitle')}</Text>
         <View style={{ width: 24 }} />

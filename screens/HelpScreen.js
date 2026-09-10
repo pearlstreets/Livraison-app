@@ -1,9 +1,11 @@
 import React, { useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFocusEffect } from '@react-navigation/native';
+import Constants from 'expo-constants';
 
 const BRAND = '#00C29B';
 
@@ -27,7 +29,7 @@ export default function HelpScreen({ navigation }) {
     <ScrollView ref={scrollRef} style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
         </Pressable>
         <Text style={s.headerTitle}>{t('helpTitle')}</Text>
         <View style={{ width: 24 }} />
@@ -36,13 +38,13 @@ export default function HelpScreen({ navigation }) {
       <Text style={s.sectionTitle}>{t('helpSubtitle')}</Text>
 
       {TOPICS.map((topic, i) => (
-        <Pressable key={i} style={s.topicRow} onPress={() => navigation.navigate('HelpDetail', { topic: t(topic.labelKey) })}>
+        <Pressable key={i} style={s.topicRow} onPress={() => navigation.navigate('HelpDetail', { topicKey: topic.labelKey })}>
           <Ionicons name={topic.icon} size={22} color={BRAND} style={{ marginRight: 14 }} />
           <View style={{ flex: 1 }}>
             <Text style={s.topicLabel}>{t(topic.labelKey)}</Text>
             <Text style={s.topicDesc}>{t(topic.descKey)}</Text>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="#ccc" />
+          <Ionicons name={dirIcon('chevron-forward')} size={18} color="#ccc" />
         </Pressable>
       ))}
 
@@ -53,7 +55,7 @@ export default function HelpScreen({ navigation }) {
         <Text style={s.contactTxt}>{t('contactSupport')}</Text>
       </Pressable>
 
-      <Text style={s.version}>Pearl Delivery v1.0.0</Text>
+      <Text style={s.version}>Pearl Delivery v{Constants.expoConfig?.version || ''}</Text>
     </ScrollView>
   );
 }

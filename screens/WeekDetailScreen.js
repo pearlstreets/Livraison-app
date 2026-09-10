@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { formatRange, weekdayShortNames } from '../lib/i18nFormat';
 
 const BRAND = '#00C29B';
-const DAY_NAMES = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
 function getDatesForWeek(startStr) {
   const d = new Date(startStr);
@@ -52,18 +53,18 @@ export default function WeekDetailScreen({ route, navigation }) {
     <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
       {/* Header navigation */}
       <Pressable style={[s.backBtn, { paddingTop: insets.top }]} onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={24} color="#111" />
+        <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
       </Pressable>
 
       {/* Week selector */}
-      <Text style={s.weekRange}>{week.range}</Text>
+      <Text style={s.weekRange}>{formatRange(week.start, week.end) || week.range}</Text>
       <View style={s.totalRow}>
         <Pressable onPress={() => canPrev && setIdx(idx - 1)} style={{ opacity: canPrev ? 1 : 0.3 }}>
-          <Ionicons name="chevron-back" size={28} color="#111" />
+          <Ionicons name={dirIcon('chevron-back')} size={28} color="#111" />
         </Pressable>
         <Text style={s.totalAmount}>{fmtPrice(week.total)}</Text>
         <Pressable onPress={() => canNext && setIdx(idx + 1)} style={{ opacity: canNext ? 1 : 0.3 }}>
-          <Ionicons name="chevron-forward" size={28} color="#111" />
+          <Ionicons name={dirIcon('chevron-forward')} size={28} color="#111" />
         </Pressable>
       </View>
 
@@ -76,7 +77,7 @@ export default function WeekDetailScreen({ route, navigation }) {
             <View key={i} style={s.barCol}>
               <View style={[s.bar, { height: Math.max((v / maxBar) * 120, 3) }]} />
               <Text style={s.barDate}>{week.dates[i]}</Text>
-              <Text style={s.barDay}>{DAY_NAMES[i]}</Text>
+              <Text style={s.barDay}>{weekdayShortNames()[i]}</Text>
             </View>
           ))}
         </View>
@@ -106,17 +107,17 @@ export default function WeekDetailScreen({ route, navigation }) {
       <Text style={s.sectionTitle}>{t('details')}</Text>
       <View style={s.detailRow}>
         <Text style={s.detailLabel}>{t('netPrice')}</Text>
-        <Text style={s.detailValue}>{week.net.toFixed(2)} €</Text>
+        <Text style={s.detailValue}>{fmtPrice(week.net)}</Text>
       </View>
       <View style={s.detailRowDashed} />
       <View style={s.detailRow}>
         <Text style={s.detailLabel}>{t('tip')}</Text>
-        <Text style={s.detailValue}>{week.tips.toFixed(2)} €</Text>
+        <Text style={s.detailValue}>{fmtPrice(week.tips)}</Text>
       </View>
       <View style={s.detailRowDashed} />
       <View style={s.detailRow}>
         <Text style={[s.detailLabel, { fontWeight: '800' }]}>{t('totalEarnings')}</Text>
-        <Text style={[s.detailValue, { fontWeight: '900' }]}>{week.total.toFixed(2)} €</Text>
+        <Text style={[s.detailValue, { fontWeight: '900' }]}>{fmtPrice(week.total)}</Text>
       </View>
 
     </ScrollView>

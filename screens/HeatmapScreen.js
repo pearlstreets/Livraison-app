@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
 import MapView, { Heatmap, PROVIDER_DEFAULT } from 'react-native-maps';
+import { mapsAvailable } from '../lib/maps';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -18,6 +20,7 @@ export default function HeatmapScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { currentEarningsCents, isOnline } = useAuth();
   const { t } = useLanguage();
+  const { fmtPrice } = useCurrency();
   const mapRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const [heatmapPoints, setHeatmapPoints] = useState([]);
@@ -50,7 +53,7 @@ export default function HeatmapScreen({ navigation }) {
     }, [fetchHeatmap])
   );
 
-  const earningsDisplay = (currentEarningsCents / 100).toFixed(2).replace('.', ',') + ' \u20ac';
+  const earningsDisplay = fmtPrice(currentEarningsCents / 100);
 
   function recenter() {
     mapRef.current?.animateToRegion({
@@ -62,31 +65,38 @@ export default function HeatmapScreen({ navigation }) {
 
   return (
     <View style={s.container}>
-      <MapView
-        ref={mapRef}
-        style={s.map}
-        provider={PROVIDER_DEFAULT}
-        initialRegion={{
-          ...MEAUX,
-          latitudeDelta: 0.06,
-          longitudeDelta: 0.06,
-        }}
-        userInterfaceStyle="dark"
-        onMapReady={() => setMapReady(true)}
-      >
-        {mapReady && heatmapPoints.length > 0 && (
-          <Heatmap
-            points={heatmapPoints}
-            radius={40}
-            opacity={0.7}
-            gradient={{
-              colors: ['#0000ff', '#00ff00', '#ffff00', '#ff8800', '#ff0000'],
-              startPoints: [0.01, 0.1, 0.3, 0.6, 1.0],
-              colorMapSize: 256,
-            }}
-          />
-        )}
-      </MapView>
+      {mapsAvailable ? (
+        <MapView
+          ref={mapRef}
+          style={s.map}
+          provider={PROVIDER_DEFAULT}
+          initialRegion={{
+            ...MEAUX,
+            latitudeDelta: 0.06,
+            longitudeDelta: 0.06,
+          }}
+          userInterfaceStyle="dark"
+          onMapReady={() => setMapReady(true)}
+        >
+          {mapReady && heatmapPoints.length > 0 && (
+            <Heatmap
+              points={heatmapPoints}
+              radius={40}
+              opacity={0.7}
+              gradient={{
+                colors: ['#0000ff', '#00ff00', '#ffff00', '#ff8800', '#ff0000'],
+                startPoints: [0.01, 0.1, 0.3, 0.6, 1.0],
+                colorMapSize: 256,
+              }}
+            />
+          )}
+        </MapView>
+      ) : (
+        <View style={[s.map, s.noMap]}>
+          <Ionicons name="map-outline" size={48} color="#6b7280" />
+          <Text style={s.noMapTxt}>{t('mapUnavailable')}</Text>
+        </View>
+      )}
 
       {/* Overlay UI */}
       {/* Home button */}
@@ -124,6 +134,7 @@ export default function HeatmapScreen({ navigation }) {
       </View>
 
       {/* Legend */}
+      {mapsAvailable && (
       <View style={[s.legend, { top: insets.top + 60 }]}>
         <View style={s.legendRow}>
           <View style={[s.legendDot, { backgroundColor: '#ff0000' }]} />
@@ -138,6 +149,7 @@ export default function HeatmapScreen({ navigation }) {
           <Text style={s.legendText}>{t('demandLow')}</Text>
         </View>
       </View>
+      )}
     </View>
   );
 }
@@ -159,6 +171,9 @@ const s = StyleSheet.create({
   statusWrap: { flexDirection: 'row', alignItems: 'center' },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginRight: 8 },
   statusText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+  noMap: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+  noMapTxt: { marginTop: 12, color: '#9ca3af', fontSize: 15, fontWeight: '600', textAlign: 'center' },
 
   legend: { position: 'absolute', right: 16, backgroundColor: 'rgba(30,30,30,0.85)', borderRadius: 12, padding: 10, gap: 6 },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

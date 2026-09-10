@@ -1,10 +1,12 @@
 import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, SectionList, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { formatDayMonth, isSameDay } from '../lib/i18nFormat';
 
 const BRAND = '#00C29B';
 
@@ -72,15 +74,14 @@ export default function DeliveryHistoryScreen({ navigation }) {
   // Memoize date grouping for SectionList
   const sections = useMemo(() => {
     const now = new Date();
-    const todayStr = `${now.getDate()} ${['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][now.getMonth()]}`;
     const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
-    const yesterdayStr = `${yesterday.getDate()} ${['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'][yesterday.getMonth()]}`;
 
+    // Regroupement par vraie date (et non par libellé français « 3 sept »).
     const getDateLabel = (order) => {
-      const d = order.date || '';
-      if (d === todayStr) return t('today');
-      if (d === yesterdayStr) return t('yesterday');
-      return d;
+      const when = order.completedAt || order.cancelledAt;
+      if (isSameDay(when, now)) return t('today');
+      if (isSameDay(when, yesterday)) return t('yesterday');
+      return formatDayMonth(when) || order.date || '';
     };
 
     const groups = [];
@@ -112,7 +113,7 @@ export default function DeliveryHistoryScreen({ navigation }) {
       <View style={{ backgroundColor: '#f5f5f5' }}>
         <View style={[s.headerRow, { paddingTop: insets.top }]}>
           <Pressable onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#111" />
+            <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
           </Pressable>
           <Text style={s.headerTitle}>{t('historyTitle')}</Text>
           <View style={{ width: 24 }} />

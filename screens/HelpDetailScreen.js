@@ -3,69 +3,65 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
+import { dirIcon } from '../lib/rtl';
 
 const BRAND = '#00C29B';
 
+// Questions par rubrique d'aide, indexées par la CLÉ de la rubrique (et non par
+// son titre traduit : hors français, la page restait vide). Chaque entrée donne
+// les clés de traduction `<id>Q` (question) et `<id>A` (réponse).
 const FAQ = {
-  'Problème pendant une course': [
-    { q: 'Le client ne répond pas', a: 'Attendez 5 minutes puis contactez le support. Si le client ne se manifeste pas, vous pouvez marquer la livraison comme non livrée.' },
-    { q: 'Adresse incorrecte', a: 'Contactez le client via l\'application. Si impossible, signalez le problème au support pour obtenir une compensation.' },
-    { q: 'Accident pendant une course', a: 'Mettez-vous en sécurité d\'abord. Contactez les urgences si nécessaire, puis signalez l\'incident via l\'application.' },
-    { q: 'Commande endommagée', a: 'Prenez une photo de la commande endommagée et signalez-le dans l\'application. Le client sera remboursé et vous ne serez pas pénalisé.' },
-  ],
-  'Paiements et revenus': [
-    { q: 'Quand suis-je payé ?', a: 'Les versements sont effectués chaque semaine, généralement le lundi. Vous pouvez aussi utiliser l\'encaissement instantané moyennant des frais de 0.50€.' },
-    { q: 'Comment fonctionne l\'encaissement instantané ?', a: 'L\'encaissement instantané transfère votre solde actuel sur votre compte bancaire en moins de 30 minutes, avec des frais de 0.50€.' },
-    { q: 'Où trouver mes factures ?', a: 'Vos factures sont disponibles dans la section Documents de votre profil. Elles sont générées automatiquement chaque mois.' },
-    { q: 'Erreur dans mon paiement', a: 'Vérifiez le détail de vos versements dans Wallet > Activité de versements. Si une erreur persiste, contactez le support.' },
-  ],
-  'Mon compte': [
-    { q: 'Comment changer mon email ?', a: 'Allez dans Menu > Compte > Modifier le profil. Appuyez sur l\'icône crayon à côté de l\'email pour le modifier.' },
-    { q: 'Comment changer mon mot de passe ?', a: 'Allez dans Menu > Compte > Modifier le profil. Appuyez sur "Changer le mot de passe" en bas de la page.' },
-    { q: 'Comment supprimer mon compte ?', a: 'Contactez le support par email à support@pearlstreets.com. La suppression est traitée sous 48h.' },
-  ],
-  'Documents': [
-    { q: 'Quels documents sont nécessaires ?', a: 'Pièce d\'identité, permis de conduire, assurance RC Pro, justificatif de domicile, attestation URSSAF et extrait Kbis/SIRENE.' },
-    { q: 'Mon document est refusé', a: 'Vérifiez que le document est lisible, non expiré et correspond à vos informations. Soumettez-le à nouveau ou contactez le support.' },
-    { q: 'Comment renouveler un document expiré ?', a: 'Allez dans Menu > Documents, sélectionnez le document concerné et uploadez la nouvelle version.' },
-  ],
-  'Véhicule': [
-    { q: 'Comment changer de véhicule ?', a: 'Allez dans Menu > Véhicule puis "Modifier le véhicule". Vous devrez fournir les documents du nouveau véhicule.' },
-    { q: 'Puis-je utiliser plusieurs véhicules ?', a: 'Non, un seul véhicule peut être actif à la fois. Vous pouvez changer de véhicule à tout moment.' },
-  ],
-  'Sécurité': [
-    { q: 'Signaler un problème de sécurité', a: 'En cas d\'urgence, appelez le 112. Pour un signalement non urgent, contactez le support avec tous les détails.' },
-    { q: 'Assurance pendant les courses', a: 'Vous êtes couvert par votre assurance RC Pro pendant vos courses. Vérifiez que votre attestation est à jour dans la section Documents.' },
-  ],
+  helpProblem: ['faqNoAnswer', 'faqWrongAddress', 'faqAccident', 'faqDamaged'],
+  helpPayments: ['faqWhenPaid', 'faqInstantCashout', 'faqPayoutDetails', 'faqPaymentError'],
+  helpAccount: ['faqChangeEmail', 'faqChangePassword', 'faqDeleteAccount'],
+  helpDocuments: ['faqRequiredDocs', 'faqDocRefused', 'faqRenewDoc'],
+  helpVehicle: ['faqChangeVehicle', 'faqMultipleVehicles'],
+  helpSecurity: ['faqSecurityIssue', 'faqInsurance'],
 };
 
 export default function HelpDetailScreen({ navigation, route }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { topic } = route.params;
-  const questions = FAQ[topic] || [];
+  const topicKey = route.params?.topicKey;
+  const title = topicKey ? t(topicKey) : '';
+  const questions = FAQ[topicKey] || [];
+  // Les réponses citent les vrais libellés de l'app (menu, boutons) : ils sont
+  // injectés ici pour rester identiques à l'écran dans chaque langue.
+  const labels = {
+    profile: t('tabProfile'),
+    wallet: t('wallet'),
+    payoutActivity: t('payoutActivity'),
+    account: t('account'),
+    changePassword: t('changePassword'),
+    deleteAccount: t('deleteAccount'),
+    documents: t('documents'),
+    vehicle: t('vehicle'),
+    save: t('save'),
+    iHaveProblem: t('iHaveProblem'),
+    clientAbsent: t('codePbAbsent'),
+  };
 
   return (
     <View style={s.container}>
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
         <View style={[s.headerRow, { paddingTop: insets.top }]}>
           <Pressable onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#111" />
+            <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
           </Pressable>
-          <Text style={s.headerTitle}>{topic}</Text>
+          <Text style={s.headerTitle}>{title}</Text>
           <View style={{ width: 24 }} />
         </View>
 
-        {questions.map((item, i) => (
-          <View key={i} style={s.faqCard}>
-            <Text style={s.question}>{item.q}</Text>
-            <Text style={s.answer}>{item.a}</Text>
+        {questions.map((id) => (
+          <View key={id} style={s.faqCard}>
+            <Text style={s.question}>{t(`${id}Q`)}</Text>
+            <Text style={s.answer}>{t(`${id}A`, labels)}</Text>
           </View>
         ))}
       </ScrollView>
 
       <View style={[s.contactWrap, { paddingBottom: insets.bottom || 16 }]}>
-        <Pressable style={s.contactBtn} onPress={() => navigation.navigate('ContactSupport', { subject: topic })}>
+        <Pressable style={s.contactBtn} onPress={() => navigation.navigate('ContactSupport', { subject: title })}>
           <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
           <Text style={s.contactTxt}>{t('contactSupport')}</Text>
         </Pressable>

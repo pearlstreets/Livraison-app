@@ -3,31 +3,22 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
+import { dirIcon } from '../lib/rtl';
 
 const BRAND = '#00C29B';
-
-const DOC_DETAILS = {
-  'Pièce d\'identité': { type: 'Carte nationale d\'identité', number: '****4521', expiry: '15/08/2030', submitted: '12/01/2025' },
-  'Permis de conduire': { type: 'Permis B', number: '****7832', expiry: '20/03/2028', submitted: '12/01/2025' },
-  'Assurance RC Pro': { type: 'Responsabilité civile professionnelle', number: 'RC-2025-4412', expiry: '01/01/2026', submitted: '15/01/2025' },
-  'Justificatif de domicile': { type: 'Facture EDF', number: '—', expiry: '—', submitted: '12/01/2025' },
-  'Attestation URSSAF': { type: 'Attestation de vigilance', number: '—', expiry: '31/03/2025', submitted: '05/01/2025' },
-  'Extrait Kbis / SIRENE': { type: 'Extrait Kbis', number: 'SIREN ****891', expiry: '—', submitted: '12/01/2025' },
-};
 
 export default function DocumentDetailScreen({ navigation, route }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const { doc } = route.params;
-  const detail = DOC_DETAILS[doc.label] || {};
-  const isWarning = doc.status === 'À renouveler';
+  const isWarning = doc.statusKey === 'toRenew';
   const isAccepted = doc.statusKey === 'validated' || doc.statusKey === 'validatedM' || doc.statusKey === 'inOrder';
 
   return (
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
         </Pressable>
         <Text style={s.headerTitle}>{doc.label}</Text>
         <View style={{ width: 24 }} />
@@ -38,13 +29,13 @@ export default function DocumentDetailScreen({ navigation, route }) {
         <Text style={[s.statusText, { color: doc.color }]}>{doc.status}</Text>
       </View>
 
-      {/* On n'affiche que ce qui est réel : le type (descriptif) et le statut.
-          Les numéros/dates OCR ne sont pas fournis par le backend → pas de
-          fausses métadonnées inventées. */}
+      {/* On n'affiche que ce qui est réel : le type (libellé traduit du document)
+          et le statut. Les numéros/dates OCR ne sont pas fournis par le backend
+          → pas de fausses métadonnées inventées. */}
       <View style={s.detailCard}>
         <View style={s.detailRow}>
           <Text style={s.detailLabel}>{t('type')}</Text>
-          <Text style={s.detailValue}>{detail.type || doc.label}</Text>
+          <Text style={s.detailValue}>{doc.label}</Text>
         </View>
         <View style={[s.detailRow, { borderBottomWidth: 0 }]}>
           <Text style={s.detailLabel}>{t('status')}</Text>
@@ -55,7 +46,7 @@ export default function DocumentDetailScreen({ navigation, route }) {
       {isWarning && (
         <View style={s.warningCard}>
           <Ionicons name="warning" size={22} color="#f5a623" style={{ marginRight: 10 }} />
-          <Text style={s.warningText}>Ce document arrive à expiration. Veuillez le renouveler pour continuer à livrer.</Text>
+          <Text style={s.warningText}>{t('renewWarning')}</Text>
         </View>
       )}
 

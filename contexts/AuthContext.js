@@ -6,9 +6,9 @@ import { deliveryService } from '../services/deliveryService';
 import { earningsService } from '../services/earningsService';
 import { ticketService } from '../services/ticketService';
 
-const AuthContext = createContext(null);
+import { formatDayMonth, formatTime } from '../lib/i18nFormat';
 
-const MONTHS = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+const AuthContext = createContext(null);
 
 // Backend list endpoints answer with several shapes ({results}, {data}, raw array).
 function extractList(resp) {
@@ -19,18 +19,13 @@ function extractList(resp) {
   return [];
 }
 
+// Dates et heures dans la langue courante de l'app (lib/i18nFormat).
 function fmtDate(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+  return formatDayMonth(iso);
 }
 
 function fmtTime(iso) {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return '';
-  return `${d.getHours()}h${String(d.getMinutes()).padStart(2, '0')}`;
+  return formatTime(iso);
 }
 
 // --- adapters: backend payloads -> shapes the existing screens expect ---
@@ -63,6 +58,7 @@ function adaptEarningsWeek(rec) {
   const start = rec.period_start || '';
   return {
     start,
+    end: rec.period_end || '',
     range: start && rec.period_end ? `${fmtDate(start)} - ${fmtDate(rec.period_end)}` : start,
     total: Number(rec.net_amount ?? rec.gross_amount ?? 0),
     // Vraies barres par jour (lun→dim) fournies par le backend (daily_breakdown).
@@ -82,7 +78,7 @@ function adaptHistoryEntry(a) {
   return {
     id: a.order_id != null ? `ORD-${a.order_id}` : `ASG-${a.id}`,
     assignmentId: a.id,
-    restaurant: a.customer_name || a.pickup_address || 'Course',
+    restaurant: a.customer_name || a.pickup_address || '—',
     address: a.dropoff_address || '',
     distanceText: a.distance_km != null ? `${a.distance_km} km` : '',
     priceText: `${Number(a.delivery_fee ?? a.order_price ?? 0).toFixed(2)} €`,
@@ -105,7 +101,7 @@ function adaptPayout(p, iban) {
   return {
     id: p.id,
     label: 'Versement',
-    date: p.created_at ? `Initié : ${fmtDate(p.created_at)}` : '',
+    date: fmtDate(p.created_at),
     amount: amt,
     // Montants bruts en euros (cf. adaptAssignment) pour l'affichage en devise
     // locale ; le versement bancaire réel reste en euros.
@@ -121,7 +117,7 @@ function adaptPayout(p, iban) {
       netEur: Number(p.net_amount ?? p.amount ?? 0),
       tipsEur: p.tips_amount != null ? Number(p.tips_amount) : null,
       courses: p.total_deliveries != null ? p.total_deliveries : '—',
-      status: p.status || 'En cours',
+      status: p.status || '',
     },
   };
 }
@@ -129,7 +125,7 @@ function adaptPayout(p, iban) {
 function adaptWarning(w) {
   return {
     id: w.id != null ? `W-${w.id}` : `W-${Date.now()}`,
-    reason: w.reason || w.type || 'Avertissement',
+    reason: w.reason || w.type || '',
     severity: w.severity || '',
     date: fmtDate(w.created_at),
     time: fmtTime(w.created_at),
@@ -405,15 +401,14 @@ export function AuthProvider({ children }) {
   }, [refreshHistory, refreshEarnings]);
 
   // --- account standing (warnings) -------------------------------------
-  function addWarning(reason) {
+  // reasonKey : clé de traduction du motif, affichée dans la langue courante.
+  function addWarning(reasonKey) {
     const now = new Date();
-    const dateStr = `${now.getDate()} ${MONTHS[now.getMonth()]} ${now.getFullYear()}`;
-    const timeStr = `${now.getHours()}h${String(now.getMinutes()).padStart(2, '0')}`;
     setWarningsList((prev) => [{
       id: `W-${Date.now()}`,
-      reason: reason || 'Trop d\'annulations cette semaine',
-      date: dateStr,
-      time: timeStr,
+      reasonKey: typeof reasonKey === 'string' ? reasonKey : 'warnTooManyCancels',
+      date: formatDayMonth(now, { year: true }),
+      time: formatTime(now),
       createdAt: now.toISOString(),
     }, ...prev]);
     setWarnings((prev) => {
@@ -427,7 +422,7 @@ export function AuthProvider({ children }) {
     const newCount = weeklyCancels + 1;
     setWeeklyCancels(newCount);
     if (newCount > MAX_WEEKLY_CANCELS) {
-      addWarning('Dépassement du nombre d\'annulations autorisées cette semaine (5 max)');
+      addWarning('warnCancelLimitExceeded');
       return { warning: true, remaining: 0 };
     }
     return { warning: false, remaining: MAX_WEEKLY_CANCELS - newCount };

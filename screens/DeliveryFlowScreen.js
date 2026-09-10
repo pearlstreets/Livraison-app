@@ -4,6 +4,10 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+import translations from '../contexts/translations';
+import { formatAmount, formatTime } from '../lib/i18nFormat';
+import { dirIcon, isRTL } from '../lib/rtl';
 import { sanitizeInput, createRateLimiter } from '../utils/validation';
 import { deliveryService } from '../services/deliveryService';
 import { ticketService } from '../services/ticketService';
@@ -28,6 +32,9 @@ const { width: W } = Dimensions.get('window');
 const SLIDER_W = W - 64;
 const THUMB_SIZE = 56;
 
+// Icône de l'étape « En route » selon le véhicule du livreur (valeurs backend).
+const VEHICLE_ICON = { bicycle: 'bicycle', car: 'car', walk: 'walk' };
+
 // Steps: pickup → enroute → arrived → code → done
 const STEPS = ['pickup', 'enroute', 'arrived', 'code', 'done'];
 const STEP_LABEL_KEYS = {
@@ -40,6 +47,9 @@ const STEP_LABEL_KEYS = {
 
 function SlideButton({ label, onComplete, color = BRAND }) {
   const pan = useRef(new Animated.Value(0)).current;
+  // En arabe, la piste est inversée par la mise en page, mais ni le geste ni
+  // la translation : on les retourne pour glisser de droite à gauche.
+  const translateX = useRef(isRTL ? Animated.multiply(pan, -1) : pan).current;
   const maxSlide = SLIDER_W - THUMB_SIZE;
   const completed = useRef(false);
 
@@ -56,12 +66,12 @@ function SlideButton({ label, onComplete, color = BRAND }) {
       onMoveShouldSetPanResponder: () => true,
       onPanResponderMove: (_, gs) => {
         if (completed.current) return;
-        const x = Math.max(0, Math.min(gs.dx, maxSlide));
+        const x = Math.max(0, Math.min(isRTL ? -gs.dx : gs.dx, maxSlide));
         pan.setValue(x);
       },
       onPanResponderRelease: (_, gs) => {
         if (completed.current) return;
-        if (gs.dx > maxSlide * 0.7) {
+        if ((isRTL ? -gs.dx : gs.dx) > maxSlide * 0.7) {
           completed.current = true;
           Animated.timing(pan, { toValue: maxSlide, duration: 150, useNativeDriver: false }).start(() => {
             onComplete?.();
@@ -78,11 +88,11 @@ function SlideButton({ label, onComplete, color = BRAND }) {
     <View style={[ss.sliderTrack, { backgroundColor: color + '20' }]}>
       {/* Label centered, offset to the right of thumb resting position */}
       <Animated.Text style={[ss.sliderLabel, { color, opacity: labelOpacity }]}>
-        {label}  <Ionicons name="chevron-forward" size={14} color={color} />
+        {label}  <Ionicons name={dirIcon('chevron-forward')} size={14} color={color} />
       </Animated.Text>
       {/* Thumb */}
-      <Animated.View style={[ss.sliderThumb, { backgroundColor: color, transform: [{ translateX: pan }] }]} {...panResponder.panHandlers}>
-        <Ionicons name="arrow-forward" size={24} color="#fff" />
+      <Animated.View style={[ss.sliderThumb, { backgroundColor: color, transform: [{ translateX }] }]} {...panResponder.panHandlers}>
+        <Ionicons name={dirIcon('arrow-forward')} size={24} color="#fff" />
       </Animated.View>
     </View>
   );
@@ -162,7 +172,7 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
           <View style={[ss.countdownBarFill, { width: `${pct * 100}%`, backgroundColor: timerColor }]} />
         </View>
         <Text style={[ss.countdownHint, { color: timerColor, fontSize: 12 }]}>
-          {remaining > 0 ? `${mins} min ${secs}s restantes` : t('timeUp')}
+          {remaining > 0 ? t('timeLeftMinSec', { m: mins, s: secs }) : t('timeUp')}
         </Text>
       </View>
 
@@ -209,18 +219,21 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
 export default function DeliveryFlowScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, saveTicketMessages, markOrderReported, refreshAll, setActiveDelivery } = useAuth();
+  const { user, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, saveTicketMessages, markOrderReported, refreshAll, setActiveDelivery } = useAuth();
+  const { fmtPrice } = useCurrency();
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [showCodeProblem, setShowCodeProblem] = useState(false);
   const [selectedCodeProblem, setSelectedCodeProblem] = useState(null);
   const [codeProblemDesc, setCodeProblemDesc] = useState('');
 
+  // labelKey : libellé affiché dans la langue du livreur ; le ticket envoyé au
+  // support garde le libellé français (langue de l'équipe administrative).
   const CODE_PROBLEMS = [
-    { id: 'no_code', icon: 'key-outline', label: 'Le client ne donne pas le code' },
-    { id: 'wrong_code', icon: 'close-circle-outline', label: 'Le code ne fonctionne pas' },
-    { id: 'client_absent', icon: 'person-outline', label: 'Le client est absent' },
-    { id: 'client_refuse', icon: 'hand-left-outline', label: 'Le client refuse la commande' },
-    { id: 'other', icon: 'chatbubble-outline', label: 'Autre problème' },
+    { id: 'no_code', icon: 'key-outline', labelKey: 'codePbNoCode' },
+    { id: 'wrong_code', icon: 'close-circle-outline', labelKey: 'codePbWrongCode' },
+    { id: 'client_absent', icon: 'person-outline', labelKey: 'codePbAbsent' },
+    { id: 'client_refuse', icon: 'hand-left-outline', labelKey: 'codePbRefuse' },
+    { id: 'other', icon: 'chatbubble-outline', labelKey: 'otherProblem' },
   ];
   const [codeTimer, setCodeTimer] = useState(10 * 60); // 10 minutes
   const codeTimerRef = useRef(null);
@@ -259,12 +272,12 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     }
   }, [assignmentId]);
   const QUICK_MSGS = [
-    "J'arrive bientôt",
-    "Je suis devant la porte",
-    "Je suis en bas de l'immeuble",
-    "Pouvez-vous descendre ?",
-    "Quel est le code d'entrée ?",
-    "Je ne trouve pas l'adresse",
+    t('quickMsgOnMyWay'),
+    t('quickMsgAtDoor'),
+    t('quickMsgDownstairs'),
+    t('quickMsgComeDown'),
+    t('quickMsgDoorCode'),
+    t('quickMsgCantFind'),
   ];
   const [showMapSheet, setShowMapSheet] = useState(false);
   const [mapSheetDest, setMapSheetDest] = useState('');
@@ -276,12 +289,12 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const [absentBusy, setAbsentBusy] = useState(false);
   const step = STEPS[stepIndex];
 
-  const restaurant = order.restaurant || order.merchantName || 'Restaurant';
-  const address = order.dropoffAddress || order.address || 'Adresse de livraison';
-  const price = order.priceText || order.price || '—';
+  const restaurant = order.restaurant || order.merchantName || t('restaurant');
+  const address = order.dropoffAddress || order.address || t('deliveryAddress');
+  const price = order.priceEur != null ? fmtPrice(order.priceEur) : (order.priceText || order.price || '—');
   const distance = order.distanceText || '—';
   const eta = order.etaText || '—';
-  const orderId = order.orderNumber || order.id || order.code || 'Commande';
+  const orderId = order.orderNumber || order.id || order.code || t('order');
   // ID de l'assignment backend (pour updateDeliveryStatus / cancelDelivery)
   const assignmentId = order._assignmentId || order.id || null;
   // Livraison en cours tant que cet écran est monté → force le tracking GPS
@@ -312,7 +325,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     if (clientPhone) {
       Linking.openURL(`tel:${clientPhone}`).catch(() => {});
     } else {
-      Alert.alert(t('callTheClient'), 'Numéro du client indisponible pour le moment.');
+      Alert.alert(t('callTheClient'), t('clientPhoneUnavailable'));
     }
   }, [clientPhone, t]);
 
@@ -554,7 +567,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 <View style={ss.itemsBlock}>
                   <View style={ss.itemsHeader}>
                     <Ionicons name="bag-outline" size={14} color={BRAND} />
-                    <Text style={ss.itemsTitle}>{order.items.reduce((s, it) => s + (it.qty || 1), 0)} article{order.items.reduce((s, it) => s + (it.qty || 1), 0) > 1 ? 's' : ''}</Text>
+                    <Text style={ss.itemsTitle}>{(() => { const n = order.items.reduce((s, it) => s + (it.qty || 1), 0); return `${n} ${t(n > 1 ? 'articles' : 'article')}`; })()}</Text>
                   </View>
                   {order.items.map((item, idx) => (
                     <View key={idx} style={ss.itemRow}>
@@ -607,7 +620,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           <View style={ss.stepContentCompact}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
               <View style={[ss.smallIconWrap, { backgroundColor: '#e3f2fd' }]}>
-                <Ionicons name="bicycle" size={24} color="#2196F3" />
+                <Ionicons name={VEHICLE_ICON[user?.vehicle] || 'bicycle'} size={24} color="#2196F3" />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={ss.stepTitleCompact}>{t('enRoute')}</Text>
@@ -701,7 +714,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             orderId={orderId}
             hasCalled={hasCalled}
             onCallDone={() => setHasCalled(true)}
-            onWarning={addWarning}
+            onWarning={() => addWarning('warnCallLate')}
             showCallPopup={showCallPopup}
             setShowCallPopup={setShowCallPopup}
             onMessage={openChat}
@@ -729,7 +742,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                   key={i}
                   ref={codeRefs[i]}
                   style={[ss.codeInput, code[i] ? ss.codeInputFilled : null]}
-                  keyboardType="default"
+                  keyboardType="number-pad"
                   maxLength={1}
                   value={code[i]}
                   onChangeText={val => handleCodeInput(val, i)}
@@ -788,7 +801,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             {/* Gain de la course */}
             <View style={[ss.earningsBanner, { marginBottom: 12 }]}>
               <Text style={ss.earningsBannerLabel}>+ {price}</Text>
-              <Text style={ss.earningsBannerSub}>ajouté à votre solde</Text>
+              <Text style={ss.earningsBannerSub}>{t('addedToBalance')}</Text>
             </View>
 
             <View style={[ss.summaryCard, { padding: 12, marginBottom: 12 }]}>
@@ -826,11 +839,11 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           <Pressable style={[ss.codeProblemBtn, codeTimer === 0 && { borderColor: '#e74c3c', backgroundColor: '#fde8e8' }]} onPress={() => {
             if (codeTimer > 0) {
               Alert.alert(
-                '⚠️ Attention',
-                'Le délai de 10 minutes n\'est pas encore écoulé. Si vous signalez un problème maintenant, un avertissement pourra être ajouté à votre compte selon la résolution du ticket par le service administratif.',
+                `⚠️ ${t('attention')}`,
+                t('codeProblemEarlyMsg'),
                 [
-                  { text: 'Attendre', style: 'cancel' },
-                  { text: 'Continuer', style: 'destructive', onPress: () => {
+                  { text: t('waitAction'), style: 'cancel' },
+                  { text: t('continueAction'), style: 'destructive', onPress: () => {
                     setSelectedCodeProblem(null);
                     setCodeProblemDesc('');
                     setShowCodeProblem(true);
@@ -845,7 +858,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           }}>
             <Ionicons name="warning-outline" size={16} color={codeTimer === 0 ? '#e74c3c' : '#f5a623'} style={{ marginRight: 8 }} />
             <Text style={[ss.codeProblemBtnTxt, codeTimer === 0 && { color: '#e74c3c' }]}>
-              {codeTimer === 0 ? 'Ouvrir un ticket - Livraison client' : "J'ai un problème"}
+              {codeTimer === 0 ? t('openTicketDelivery') : t('iHaveProblem')}
             </Text>
           </Pressable>
         </View>
@@ -871,13 +884,13 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             <Text style={ss.cancelTitle}>{t('cancelDeliveryTitle')}</Text>
             <Text style={ss.cancelSub}>
               {weeklyCancels < MAX_WEEKLY_CANCELS
-                ? `Vous avez ${MAX_WEEKLY_CANCELS - weeklyCancels} annulation${MAX_WEEKLY_CANCELS - weeklyCancels > 1 ? 's' : ''} restante${MAX_WEEKLY_CANCELS - weeklyCancels > 1 ? 's' : ''} cette semaine avant avertissement.`
-                : 'Vous avez dépassé vos 5 annulations cette semaine. Un avertissement sera ajouté à votre compte.'}
+                ? t('cancelsLeftBeforeWarning', { n: MAX_WEEKLY_CANCELS - weeklyCancels })
+                : t('cancelsExceeded')}
             </Text>
             {weeklyCancels >= MAX_WEEKLY_CANCELS && (
               <View style={ss.cancelWarningBadge}>
                 <Ionicons name="alert-circle" size={16} color="#e74c3c" style={{ marginRight: 6 }} />
-                <Text style={ss.cancelWarningText}>⚠️ Avertissement sera ajouté</Text>
+                <Text style={ss.cancelWarningText}>{t('warningWillBeAdded')}</Text>
               </View>
             )}
             <Pressable style={ss.cancelConfirmBtn} onPress={async () => {
@@ -895,13 +908,13 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               }
               if (remaining === null) { const r = cancelOrder(); remaining = r.remaining; warned = r.warning; }
               try { await refreshAll?.(); } catch {}
-              const cancelledOrder = { ...order, status: 'cancelled', priceText: '0,00 €', priceEur: 0, cancelledAt: new Date().toISOString() };
+              const cancelledOrder = { ...order, status: 'cancelled', priceText: `${formatAmount(0)} €`, priceEur: 0, cancelledAt: new Date().toISOString() };
               if (warned) {
                 Alert.alert(t('warning'), t('warningAdded'), [
                   { text: t('ok'), onPress: () => navigation.navigate('OrdersMain', { cancelledOrder }) },
                 ]);
               } else {
-                Alert.alert(t('orderCancelled'), `Il vous reste ${remaining} annulation${remaining > 1 ? 's' : ''} cette semaine.`, [
+                Alert.alert(t('orderCancelled'), t('cancelsLeftThisWeek', { n: remaining }), [
                   { text: t('ok'), onPress: () => navigation.navigate('OrdersMain', { cancelledOrder }) },
                 ]);
               }
@@ -932,7 +945,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                     <Ionicons name="map" size={20} color="#34a853" />
                   </View>
                   <Text style={ss.sheetOptionText}>Google Maps</Text>
-                  <Ionicons name="chevron-forward" size={18} color="#c7c7cc" />
+                  <Ionicons name={dirIcon('chevron-forward')} size={18} color="#c7c7cc" />
                 </Pressable>
 
                 <View style={ss.sheetSep} />
@@ -942,7 +955,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                     <Ionicons name="navigate" size={20} color="#2196F3" />
                   </View>
                   <Text style={ss.sheetOptionText}>Waze</Text>
-                  <Ionicons name="chevron-forward" size={18} color="#c7c7cc" />
+                  <Ionicons name={dirIcon('chevron-forward')} size={18} color="#c7c7cc" />
                 </Pressable>
               </View>
 
@@ -966,7 +979,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           </View>
 
           <View style={{ padding: 16 }}>
-            <Text style={{ fontSize: 14, color: '#888', fontWeight: '600', marginBottom: 12 }}>Commande {orderId}</Text>
+            <Text style={{ fontSize: 14, color: '#888', fontWeight: '600', marginBottom: 12 }}>{t('order')} {orderId}</Text>
 
             {CODE_PROBLEMS.map(p => (
               <Pressable
@@ -975,7 +988,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 onPress={() => setSelectedCodeProblem(p.id)}
               >
                 <Ionicons name={p.icon} size={18} color={selectedCodeProblem === p.id ? BRAND : '#666'} />
-                <Text style={[ss.codeProblemRowText, selectedCodeProblem === p.id && { color: BRAND, fontWeight: '800' }]}>{p.label}</Text>
+                <Text style={[ss.codeProblemRowText, selectedCodeProblem === p.id && { color: BRAND, fontWeight: '800' }]}>{t(p.labelKey)}</Text>
                 {selectedCodeProblem === p.id && <Ionicons name="checkmark-circle" size={20} color={BRAND} />}
               </Pressable>
             ))}
@@ -1005,7 +1018,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 // Mappe le type de problème de code → PROBLEM_CHOICES backend.
                 const PROBLEM_MAP = { client_absent: 'client_absent', no_code: 'autre', wrong_code: 'autre', client_refuse: 'autre', other: 'autre' };
                 const problem_type = PROBLEM_MAP[selectedCodeProblem] || 'autre';
-                const description = `${problem?.label || 'Problème de code'}${codeProblemDesc.trim() ? `\n${codeProblemDesc.trim()}` : ''}`;
+                const description = `${(problem && translations.fr[problem.labelKey]) || translations.fr.otherProblem}${codeProblemDesc.trim() ? `\n${codeProblemDesc.trim()}` : ''}`;
                 // VRAI ticket support côté backend (au lieu d'une conversation simulée).
                 try {
                   await ticketService.createTicket({ problem_type, description, assignment_id: assignmentId });
@@ -1067,7 +1080,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <View style={[ss.chatBubble, item.from === 'me' ? ss.chatBubbleMe : ss.chatBubbleClient]}>
                 <Text style={[ss.chatBubbleText, item.from === 'me' && { color: '#fff' }]}>{item.text}</Text>
                 <Text style={[ss.chatBubbleTime, item.from === 'me' && { color: 'rgba(255,255,255,0.7)' }]}>
-                  {new Date(item.time).getHours()}h{String(new Date(item.time).getMinutes()).padStart(2, '0')}
+                  {formatTime(item.time)}
                 </Text>
               </View>
             )}

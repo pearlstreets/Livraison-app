@@ -25,8 +25,13 @@
     },
     "android": {
       "package": "com.pearlstreets.delivery",
-      "versionCode": 1007,
+      "versionCode": 1008,
       "jsEngine": "hermes",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDUG5C-eZ97cYiY4aiWKHatED6YrqZ6730"
+        }
+      },
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#7D2EFF"

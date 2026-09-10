@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -44,7 +45,7 @@ export default function OpportunitiesScreen({ navigation }) {
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
         </Pressable>
         <Text style={s.headerTitle}>{t('opportunitiesTitle')}</Text>
         <View style={{ width: 24 }} />
@@ -77,7 +78,7 @@ export default function OpportunitiesScreen({ navigation }) {
               <Text style={s.cardDesc}>{promo.desc}</Text>
               <Text style={[s.cardPeriod, { color: promo.color }]}>{promo.period}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#ccc" />
+            <Ionicons name={dirIcon('chevron-forward')} size={18} color="#ccc" />
           </Pressable>
         );
       })}
