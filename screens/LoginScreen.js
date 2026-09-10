@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { isValidEmail, sanitizeInput, isStrongPassword } from '../utils/validation';
@@ -118,6 +119,12 @@ function phonePlaceholder(fmt) {
 }
 
 export default function LoginScreen() {
+  // ⛔ Le SafeAreaView importe de 'react-native' ne fait RIEN sur Android : la
+  // fleche de retour se superposait a l'heure de la barre de statut (constate
+  // sur emulateur Android 15 le 10/09/2026, apres le passage en targetSdk 36 ou
+  // l'edge-to-edge devient obligatoire). On lit donc l'inset reel, comme le
+  // reste du projet (cf. VehicleScreen).
+  const insets = useSafeAreaInsets();
   const { t, lang, setLang, LANGUAGES } = useLanguage();
   const { login, register } = useAuth();
 
@@ -380,7 +387,7 @@ export default function LoginScreen() {
       <SafeAreaView style={{flex:1}}>
         {/* Back arrow */}
         {(mode !== 'login') && (
-          <TouchableOpacity onPress={handleBack} style={{paddingHorizontal:16, paddingTop:12}}>
+          <TouchableOpacity onPress={handleBack} style={{paddingHorizontal:16, paddingTop: insets.top + 12}}>
             <Ionicons name="arrow-back" size={26} color="#111" />
           </TouchableOpacity>
         )}
