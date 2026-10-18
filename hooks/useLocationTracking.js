@@ -32,7 +32,10 @@ export function useLocationTracking(enabled) {
 
     async function demarrer() {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
+        // Lecture seule : sur Android, redemander ici ouvre la fenêtre système,
+        // ce qui relance l'écouteur ci-dessous en boucle. La demande se fait au
+        // passage en ligne (positionObligatoire).
+        const { status } = await Location.getForegroundPermissionsAsync();
         if (annule) return;
         if (status !== 'granted') {
           // Accès retiré dans les réglages : comme Uber, plus en ligne sans position.
@@ -57,8 +60,10 @@ export function useLocationTracking(enabled) {
 
     demarrer();
     const intervalle = setInterval(battement, BATTEMENT_MS / 4);
+    let etatPrecedent = AppState.currentState;
     const abonnement = AppState.addEventListener('change', (etat) => {
-      if (etat === 'active') demarrer();
+      if (etat === 'active' && etatPrecedent === 'background') demarrer();
+      etatPrecedent = etat;
     });
 
     return () => {
