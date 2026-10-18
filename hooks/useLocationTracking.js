@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import {
-  BATTEMENT_MS, arreterSuivi, demarrerSuivi, envoyerPosition, surRetourHorsLigne,
+  BATTEMENT_MS, arreterSuivi, demarrerSuivi, envoyerPosition, positionPrecise, surRetourHorsLigne,
 } from '../services/positionLivreur';
 
 // Suit la position tant que le livreur est en ligne ou en course, y compris
@@ -35,10 +35,11 @@ export function useLocationTracking(enabled) {
         // Lecture seule : sur Android, redemander ici ouvre la fenêtre système,
         // ce qui relance l'écouteur ci-dessous en boucle. La demande se fait au
         // passage en ligne (positionObligatoire).
-        const { status } = await Location.getForegroundPermissionsAsync();
+        const permission = await Location.getForegroundPermissionsAsync();
         if (annule) return;
-        if (status !== 'granted') {
-          // Accès retiré dans les réglages : comme Uber, plus en ligne sans position.
+        if (permission.status !== 'granted' || !positionPrecise(permission)) {
+          // Accès retiré ou passé en « Approximative » dans les réglages :
+          // comme Uber, plus en ligne sans position précise.
           if (enLigneRef.current) setIsOnline(false);
           return;
         }
