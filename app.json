@@ -3,7 +3,7 @@
     "name": "Pearl Delivery",
     "slug": "pearl-delivery",
     "scheme": "pearldelivery",
-    "version": "1.0.2",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {

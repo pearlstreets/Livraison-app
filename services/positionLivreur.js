@@ -7,7 +7,6 @@
 // place (le serveur n'envoie pas d'offre sur une position de plus de 10 min).
 import { Alert, Linking } from 'react-native';
 import * as Location from 'expo-location';
-import * as TaskManager from 'expo-task-manager';
 import { deliveryService } from './deliveryService';
 
 export const TACHE_POSITION = 'pearl-delivery-position';
@@ -52,12 +51,6 @@ export async function envoyerPosition(lat, lng, { forcer = false } = {}) {
   }
 }
 
-TaskManager.defineTask(TACHE_POSITION, async ({ data, error }) => {
-  if (error || !data?.locations?.length) return;
-  const { latitude, longitude } = data.locations[data.locations.length - 1].coords;
-  await envoyerPosition(latitude, longitude);
-});
-
 function avecDelai(promesse, ms) {
   return Promise.race([promesse, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
 }
@@ -88,41 +81,13 @@ export async function positionObligatoire(t) {
   return null;
 }
 
-async function suiviDemarre() {
-  return Location.hasStartedLocationUpdatesAsync(TACHE_POSITION).catch(() => false);
-}
-
-// Démarrages et arrêts passent l'un après l'autre, jamais en même temps.
-let file = Promise.resolve();
-function enFile(fn) {
-  file = file.then(fn, fn);
-  return file;
-}
-
-// À lancer appli ouverte (Android refuse de démarrer le service en arrière-plan).
-export function demarrerSuivi(t) {
-  return enFile(async () => {
-    if (await suiviDemarre()) return;
-    await Location.startLocationUpdatesAsync(TACHE_POSITION, {
-      accuracy: Location.Accuracy.Balanced,
-      timeInterval: 60000,
-      distanceInterval: 0,
-      pausesUpdatesAutomatically: false,
-      showsBackgroundLocationIndicator: true,
-      activityType: Location.ActivityType.OtherNavigation,
-      foregroundService: {
-        notificationTitle: t('onlineNotifTitle'),
-        notificationBody: t('onlineNotifBody'),
-        notificationColor: '#00C29B',
-      },
-    });
-  });
+// Version OTA pour les téléphones encore en 1.0.1 : leur appli n'a pas le
+// suivi téléphone verrouillé. La position part appli ouverte, par le battement
+// de useLocationTracking ; le suivi complet arrive avec la mise à jour 1.0.2.
+export function demarrerSuivi() {
+  return Promise.resolve();
 }
 
 export function arreterSuivi() {
-  return enFile(async () => {
-    if (await suiviDemarre()) {
-      await Location.stopLocationUpdatesAsync(TACHE_POSITION).catch(() => {});
-    }
-  });
+  return Promise.resolve();
 }
