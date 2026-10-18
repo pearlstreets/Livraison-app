@@ -3,7 +3,7 @@
     "name": "Pearl Delivery",
     "slug": "pearl-delivery",
     "scheme": "pearldelivery",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -14,18 +14,18 @@
     "ios": {
       "supportsTablet": false,
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Votre position est utilisée pour optimiser vos livraisons en temps réel.",
+        "NSLocationWhenInUseUsageDescription": "Votre position est utilisée pour vous proposer les commandes proches quand vous êtes en ligne, y compris téléphone verrouillé, et pour suivre vos livraisons en temps réel.",
         "NSCameraUsageDescription": "La caméra est utilisée pour la preuve de livraison.",
         "NSPhotoLibraryUsageDescription": "Vos photos sont utilisées pour choisir votre photo de profil et joindre des preuves de livraison.",
         "NSPhotoLibraryAddUsageDescription": "Enregistrement des preuves de livraison dans la galerie.",
         "ITSAppUsesNonExemptEncryption": false
       },
       "bundleIdentifier": "com.pearlstreets.delivery",
-      "buildNumber": "1008"
+      "buildNumber": "1009"
     },
     "android": {
       "package": "com.pearlstreets.delivery",
-      "versionCode": 1008,
+      "versionCode": 1009,
       "jsEngine": "hermes",
       "config": {
         "googleMaps": {
@@ -47,6 +47,15 @@
     "jsEngine": "hermes",
     "plugins": [
       "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Votre position est utilisée pour vous proposer les commandes proches quand vous êtes en ligne, y compris téléphone verrouillé, et pour suivre vos livraisons en temps réel.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
       [
         "onesignal-expo-plugin",
         {

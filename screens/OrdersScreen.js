@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import filtersUI from '../constants/filters-ui.json';
 import { deliveryService } from '../services/deliveryService';
+import { envoyerPosition, positionObligatoire } from '../services/positionLivreur';
 
 // Libellé de l'étape en cours d'une course acceptée (index DeliveryFlow).
 const ACTIVE_STEP_KEYS = ['pickup', 'enRoute', 'arrived', 'deliveryCode', 'deliveryDone'];
@@ -224,6 +225,16 @@ export default function OrdersScreen({ navigation, route }) {
 
   const online = isOnline;
   const setOnline = setIsOnline;
+  // Comme Uber : pas en ligne sans position. La position part d'abord, pour que
+  // le serveur ait une position fraîche dès le passage en ligne.
+  const passerEnLigne = useCallback(async () => {
+    const coords = await positionObligatoire(t);
+    if (!coords) return;
+    if (coords.latitude != null) {
+      await envoyerPosition(coords.latitude, coords.longitude, { forcer: true });
+    }
+    setOnline(true);
+  }, [t, setOnline]);
   const [active, setActive] = useState([]);           // En cours
   const [available, setAvailable] = useState([]);     // Disponibles (backend)
   const [mockOrders, setMockOrders] = useState([]);   // Disponibles simulées (dev)
@@ -373,7 +384,8 @@ export default function OrdersScreen({ navigation, route }) {
                 Alert.alert(t('cannotGoOfflineTitle') || 'Impossible', t('cannotGoOfflineMsg') || 'Vous avez une commande en cours. Terminez-la avant de passer hors ligne.');
                 return;
               }
-              setOnline(val);
+              if (val) passerEnLigne();
+              else setOnline(false);
             }}
             trackColor={{ true: '#00C29B', false: '#E6E8EB' }}
             thumbColor={online ? '#fff' : '#fff'}
@@ -392,7 +404,7 @@ export default function OrdersScreen({ navigation, route }) {
 
       {/* Bottom go-online button */}
       {!online && (
-        <Pressable style={styles.goOnlineBtn} onPress={() => setOnline(true)}>
+        <Pressable style={styles.goOnlineBtn} onPress={passerEnLigne}>
           <Ionicons name="power" size={20} color="#fff" style={{ marginRight: 8 }} />
           <Text style={styles.goOnlineBtnTxt}>{t('goOnline')}</Text>
         </Pressable>

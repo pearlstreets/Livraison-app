@@ -9,6 +9,10 @@ try {
 
 const EXPIRY_SUFFIX = '__expiry';
 
+// Copie en mémoire : téléphone verrouillé, iOS refuse de lire le trousseau,
+// alors que la position du livreur en ligne part encore en arrière-plan.
+const memoire = {};
+
 // Simple XOR-based obfuscation for sensitive data in AsyncStorage fallback
 // Not true encryption -- use expo-secure-store for real security
 function obfuscate(text) {
@@ -56,6 +60,7 @@ const secureStorage = {
       return;
     }
 
+    memoire[key] = value;
     if (SecureStore) {
       await SecureStore.setItemAsync(key, value);
     } else {
@@ -80,7 +85,14 @@ const secureStorage = {
     }
 
     if (SecureStore) {
-      return await SecureStore.getItemAsync(key);
+      try {
+        const value = await SecureStore.getItemAsync(key);
+        if (value != null) memoire[key] = value;
+        return value;
+      } catch (e) {
+        if (memoire[key] != null) return memoire[key];
+        throw e;
+      }
     }
 
     const raw = await AsyncStorage.getItem(key);
@@ -92,6 +104,7 @@ const secureStorage = {
    * Remove a secure value and its expiry marker.
    */
   async removeSecure(key) {
+    delete memoire[key];
     if (SecureStore) {
       await SecureStore.deleteItemAsync(key).catch(() => {});
     }
@@ -102,6 +115,7 @@ const secureStorage = {
    * Clear all known sensitive keys.
    */
   async clearAll() {
+    Object.keys(memoire).forEach((k) => { delete memoire[k]; });
     const keys = await AsyncStorage.getAllKeys();
     if (keys.length > 0) {
       await AsyncStorage.multiRemove(keys);
