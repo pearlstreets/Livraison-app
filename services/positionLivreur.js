@@ -65,13 +65,26 @@ function avecDelai(promesse, ms) {
 // Demande l'accès à la position. S'il est refusé ou si la localisation du
 // téléphone est coupée, propose d'ouvrir les réglages et renvoie null.
 // Sinon renvoie les coordonnées (ou {} si le GPS n'a pas encore de mesure).
+// « Approximative » (Android) ou « Position exacte » coupée (iOS) : comme Uber,
+// pas de passage en ligne.
+export function positionPrecise(permission) {
+  return permission?.android?.accuracy !== 'coarse' && permission?.ios?.accuracy !== 'reduced';
+}
+
 export async function positionObligatoire(t) {
   try {
     const localisationActive = await Location.hasServicesEnabledAsync();
-    const { status } = localisationActive
+    const permission = localisationActive
       ? await Location.requestForegroundPermissionsAsync()
       : { status: 'denied' };
-    if (status === 'granted') {
+    if (permission.status === 'granted' && !positionPrecise(permission)) {
+      Alert.alert(t('preciseLocationTitle'), t('preciseLocationMsg'), [
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('openSettings'), onPress: () => Linking.openSettings() },
+      ]);
+      return null;
+    }
+    if (permission.status === 'granted') {
       const loc = await avecDelai(
         Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).catch(() => null),
         10000,
