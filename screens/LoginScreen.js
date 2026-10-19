@@ -312,7 +312,7 @@ export default function LoginScreen() {
     if (step === 1) {
       if (!email.trim() || !password.trim() || !confirmPwd.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
       if (!isValidEmail(email.trim())) { setError(t('errorInvalidEmail') || 'Format email invalide'); return; }
-      if (!isStrongPassword(password)) { setError(t('errorPasswordWeak') || 'Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre'); return; }
+      if (!isStrongPassword(password)) { setError(t('errorPasswordWeak') || 'Le mot de passe doit contenir au moins 10 caractères, une majuscule, une minuscule et un chiffre'); return; }
       if (password !== confirmPwd) { setError(t('errorPasswordMismatch') || 'Les mots de passe ne correspondent pas'); return; }
       setStep(2);
       return;

@@ -21,7 +21,7 @@ export const isValidCode = (code) => /^\d{4}$/.test(code);
 
 // Validate password strength
 export const isStrongPassword = (password) => {
-  return password.length >= 8 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password);
+  return password.length >= 10 && /[A-Z]/.test(password) && /[a-z]/.test(password) && /\d/.test(password);
 };
 
 // Rate limiter for button presses (prevent double-tap)
