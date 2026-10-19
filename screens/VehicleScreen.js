@@ -24,9 +24,15 @@ export default function VehicleScreen({ navigation }) {
   const currentVehicle = user?.vehicle || 'bicycle';
   const [selected, setSelected] = useState(currentVehicle);
 
-  function handleSave() {
-    // Persiste via vehicle_type (champ backend autorisé par updateUser)
-    updateUser({ vehicle_type: selected });
+  async function handleSave() {
+    // Persiste via vehicle_type (champ backend autorisé par updateUser). Le
+    // changement n'est confirmé qu'une fois accepté par le serveur.
+    try {
+      await updateUser({ vehicle_type: selected });
+    } catch (e) {
+      Alert.alert(t('error'), e?.serverMessage || (e?.isNetworkError ? t('errorNetwork') : t('genericError')));
+      return;
+    }
     Alert.alert(t('vehicleUpdated'), `${t('vehicleNow')} : ${t(VEHICLES.find((v) => v.id === selected)?.labelKey || 'bike')}`, [
       { text: t('ok') || 'OK', onPress: () => navigation.goBack() },
     ]);

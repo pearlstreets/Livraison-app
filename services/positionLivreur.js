@@ -99,10 +99,20 @@ export async function positionObligatoire(t) {
 // Version OTA pour les téléphones encore en 1.0.1 : leur appli n'a pas le
 // suivi téléphone verrouillé. La position part appli ouverte, par le battement
 // de useLocationTracking ; le suivi complet arrive avec la mise à jour 1.0.2.
+
+// Vrai tant que le suivi est voulu (livreur en ligne ou en course). Lu par la
+// déconnexion automatique d'inactivité, qui ne doit jamais couper un livreur suivi.
+let suiviVoulu = false;
+export function suiviEnCours() {
+  return suiviVoulu;
+}
+
 export function demarrerSuivi() {
+  suiviVoulu = true;
   return Promise.resolve();
 }
 
 export function arreterSuivi() {
+  suiviVoulu = false;
   return Promise.resolve();
 }
