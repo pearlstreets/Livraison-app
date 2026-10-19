@@ -9,6 +9,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { uploadService } from '../services/uploadService';
 import { dirIcon } from '../lib/rtl';
+import useSecureScreen from '../hooks/useSecureScreen';
 
 const BRAND = '#00C29B';
 
@@ -16,6 +17,8 @@ export default function DocumentDetailScreen({ navigation, route }) {
   const { t } = useLanguage();
   const { updateDocument } = useAuth();
   const insets = useSafeAreaInsets();
+  // Pièce du livreur affichée et envoyée depuis cet écran.
+  useSecureScreen('DocumentDetail');
   const { doc } = route.params;
   const [uploading, setUploading] = useState(false);
   const [provided, setProvided] = useState(!!doc.provided);

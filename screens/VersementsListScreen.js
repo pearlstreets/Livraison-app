@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { payoutDateLabel, payoutStatusLabel } from '../lib/payouts';
+import useSecureScreen from '../hooks/useSecureScreen';
 
 const BRAND = '#00C29B';
 
@@ -15,6 +16,8 @@ export default function VersementsListScreen({ navigation, route }) {
   const { versements, currentIban } = useAuth();
   const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
+  // IBAN affiché dans le détail de chaque versement.
+  useSecureScreen('VersementsList');
   const mode = route.params?.mode || 'activity'; // 'activity' or 'history'
 
   return (

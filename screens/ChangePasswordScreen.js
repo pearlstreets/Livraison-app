@@ -6,12 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { authService } from '../services/authService';
+import useSecureScreen from '../hooks/useSecureScreen';
 
 const BRAND = '#00C29B';
 
 export default function ChangePasswordScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
+  // Mots de passe actuel et nouveau.
+  useSecureScreen('ChangePassword');
 
   const [currentPwd, setCurrentPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');

@@ -5,6 +5,7 @@ import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
+import useSecureScreen from '../hooks/useSecureScreen';
 
 const BRAND = '#00C29B';
 
@@ -12,6 +13,8 @@ export default function EditIbanScreen({ navigation }) {
   const { t } = useLanguage();
   const { currentIban, setCurrentIban, updateUser } = useAuth();
   const insets = useSafeAreaInsets();
+  // IBAN, BIC et titulaire du compte.
+  useSecureScreen('EditIban');
   const [newTitulaire, setNewTitulaire] = useState('');
   const [newIban, setNewIban] = useState('');
   const [newBic, setNewBic] = useState('');

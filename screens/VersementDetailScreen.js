@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { payoutDateLabel, payoutStatusLabel } from '../lib/payouts';
+import useSecureScreen from '../hooks/useSecureScreen';
 
 const BRAND = '#00C29B';
 
@@ -15,6 +16,8 @@ export default function VersementDetailScreen({ navigation, route }) {
   const { currentIban } = useAuth();
   const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
+  // IBAN du versement.
+  useSecureScreen('VersementDetail');
   const v = route.params?.versement || {};
   const isExceptionnel = v.label === 'Versement exceptionnel';
 

@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { deliveryService } from '../services/deliveryService';
 import { payoutDateLabel } from '../lib/payouts';
+import useSecureScreen from '../hooks/useSecureScreen';
 
 const BRAND = '#00C29B';
 
@@ -19,6 +20,8 @@ export default function WalletScreen({ navigation }) {
   const { currentEarningsCents, cashOut, versements, currentIban } = useAuth();
   const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
+  // IBAN du compte de versement affiché en clair.
+  useSecureScreen('Wallet');
   const earn = { earningsCents: currentEarningsCents, earnings: fmtPrice(currentEarningsCents / 100) };
   // Libellé du compte bancaire dérivé du vrai IBAN (au lieu d'un ••••15 en dur).
   const bankTail = ((currentIban || '').match(/(\d{2,4})\s*$/) || [])[1] || '';
