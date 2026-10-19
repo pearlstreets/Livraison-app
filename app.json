@@ -18,7 +18,23 @@
         "NSCameraUsageDescription": "La caméra est utilisée pour la preuve de livraison.",
         "NSPhotoLibraryUsageDescription": "Vos photos sont utilisées pour choisir votre photo de profil et joindre des preuves de livraison.",
         "NSPhotoLibraryAddUsageDescription": "Enregistrement des preuves de livraison dans la galerie.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSAllowsLocalNetworking": true,
+          "NSPinnedDomains": {
+            "api.pearlstreets.com": {
+              "NSIncludesSubdomains": false,
+              "NSPinnedExpirationDate": "2027-08-20T00:00:00Z",
+              "NSPinnedCAIdentities": [
+                { "SPKI-SHA256-BASE64": "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=" },
+                { "SPKI-SHA256-BASE64": "diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=" },
+                { "SPKI-SHA256-BASE64": "sCkq5UWXjg+7mKu9lMhhYF5bGLsy7VI/UNW3tccdR7w=" },
+                { "SPKI-SHA256-BASE64": "s/tdAOmUzd8syaTuqfgGvFcn6DzA5Cmb+Vby1ST+U3Y=" }
+              ]
+            }
+          }
+        }
       },
       "bundleIdentifier": "com.pearlstreets.delivery",
       "buildNumber": "1009"
@@ -67,7 +83,8 @@
           "mode": "production"
         }
       ],
-      "./plugins/withFmtConstevalFix"
+      "./plugins/withFmtConstevalFix",
+      "./plugins/withSecuriteReseau"
     ],
     "extra": {
       "oneSignalAppId": "0c4d0c76-eedd-426a-9d48-156cc6f879c7",

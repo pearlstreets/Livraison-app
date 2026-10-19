@@ -9,9 +9,7 @@ import { isValidEmail, sanitizeInput, isStrongPassword } from '../utils/validati
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { uploadService } from '../services/uploadService';
-
-// NOTE: To prevent screen capture in production, consider using
-// expo-screen-capture: ScreenCapture.preventScreenCaptureAsync()
+import useSecureScreen from '../hooks/useSecureScreen';
 
 import { countryName } from '../data/countryNames';
 
@@ -128,6 +126,8 @@ export default function LoginScreen() {
   // l'edge-to-edge devient obligatoire). On lit donc l'inset reel, comme le
   // reste du projet (cf. VehicleScreen).
   const insets = useSafeAreaInsets();
+  // Mot de passe, pièces d'identité, permis et justificatif IBAN de l'inscription.
+  useSecureScreen('Login');
   const { t, lang, setLang, LANGUAGES } = useLanguage();
   const { login, register } = useAuth();
 

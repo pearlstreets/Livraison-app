@@ -7,6 +7,7 @@ import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
+import useSecureScreen from '../hooks/useSecureScreen';
 
 const BRAND = '#00C29B';
 
@@ -49,6 +50,8 @@ export default function DocumentsScreen({ navigation }) {
   const { t } = useLanguage();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  // Pièces du livreur : identité, permis, justificatifs.
+  useSecureScreen('Documents');
   const scrollRef = useRef(null);
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
