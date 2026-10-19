@@ -6,8 +6,11 @@ export const deliveryService = {
     return data;
   },
 
-  async updateLocation(lat, lng) {
-    const { data } = await api.post('/api/v1/delivery/location/', { lat, lng });
+  // `mocked` : position simulée signalée par Android. Envoyé seulement si vrai ;
+  // le serveur actuel lit lat et lng et ignore les autres champs.
+  async updateLocation(lat, lng, mocked = false) {
+    const body = mocked ? { lat, lng, mocked: true } : { lat, lng };
+    const { data } = await api.post('/api/v1/delivery/location/', body);
     return data;
   },
 

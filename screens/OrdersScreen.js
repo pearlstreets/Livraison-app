@@ -231,7 +231,7 @@ export default function OrdersScreen({ navigation, route }) {
     const coords = await positionObligatoire(t);
     if (!coords) return;
     if (coords.latitude != null) {
-      await envoyerPosition(coords.latitude, coords.longitude, { forcer: true });
+      await envoyerPosition(coords.latitude, coords.longitude, { forcer: true, mocked: coords.mocked });
     }
     setOnline(true);
   }, [t, setOnline]);
