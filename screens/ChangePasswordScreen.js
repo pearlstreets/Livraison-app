@@ -26,8 +26,8 @@ export default function ChangePasswordScreen({ navigation }) {
       Alert.alert(t('error'), t('passwordError'));
       return;
     }
-    if (newPwd.length < 6) {
-      Alert.alert(t('error'), t('passwordTooShort') || 'Le nouveau mot de passe doit contenir au moins 6 caractères');
+    if (newPwd.length < 10) {
+      Alert.alert(t('error'), t('passwordTooShort') || 'Le nouveau mot de passe doit contenir au moins 10 caractères');
       return;
     }
     if (newPwd !== confirmPwd) {
@@ -102,11 +102,11 @@ export default function ChangePasswordScreen({ navigation }) {
         {/* Password strength indicator */}
         {newPwd.length > 0 && (
           <View style={s.strengthRow}>
-            <View style={[s.strengthBar, newPwd.length >= 2 && { backgroundColor: newPwd.length >= 8 ? BRAND : newPwd.length >= 6 ? '#f5a623' : '#e74c3c' }]} />
-            <View style={[s.strengthBar, newPwd.length >= 6 && { backgroundColor: newPwd.length >= 8 ? BRAND : '#f5a623' }]} />
-            <View style={[s.strengthBar, newPwd.length >= 8 && { backgroundColor: BRAND }]} />
+            <View style={[s.strengthBar, newPwd.length >= 2 && { backgroundColor: newPwd.length >= 12 ? BRAND : newPwd.length >= 10 ? '#f5a623' : '#e74c3c' }]} />
+            <View style={[s.strengthBar, newPwd.length >= 10 && { backgroundColor: newPwd.length >= 12 ? BRAND : '#f5a623' }]} />
+            <View style={[s.strengthBar, newPwd.length >= 12 && { backgroundColor: BRAND }]} />
             <Text style={s.strengthText}>
-              {newPwd.length < 6 ? 'Faible' : newPwd.length < 8 ? 'Moyen' : 'Fort'}
+              {newPwd.length < 10 ? 'Faible' : newPwd.length < 12 ? 'Moyen' : 'Fort'}
             </Text>
           </View>
         )}
