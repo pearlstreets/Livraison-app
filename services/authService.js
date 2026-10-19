@@ -2,6 +2,8 @@ import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import secureStorage from './secureStorage';
 import { isValidEmail, sanitizeForApi } from '../utils/validation';
+import { arreterSuivi, suiviEnCours } from './positionLivreur';
+import { delierLivreurOneSignal } from './oneSignalInit';
 
 // Session timeout: auto-logout after 30 minutes of inactivity
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
@@ -10,6 +12,12 @@ let sessionTimer = null;
 function resetSessionTimer(onTimeout) {
   if (sessionTimer) clearTimeout(sessionTimer);
   sessionTimer = setTimeout(() => {
+    // Livreur en ligne ou en course : sa position part sans qu'il touche
+    // l'écran. Une déconnexion silencieuse couperait son suivi : on réarme.
+    if (suiviEnCours()) {
+      resetSessionTimer(onTimeout);
+      return;
+    }
     authService.logout();
     if (onTimeout) onTimeout();
   }, SESSION_TIMEOUT_MS);
@@ -105,6 +113,11 @@ export const authService = {
     // Clear ALL sensitive data from storage
     clearSessionTimer();
     refreshCount = 0;
+    // Plus aucune position envoyée après la déconnexion (tâche d'arrière-plan
+    // arrêtée), quel que soit le chemin qui a mené ici.
+    arreterSuivi().catch(() => {});
+    // Plus aucun push ciblé vers ce téléphone pour ce livreur.
+    delierLivreurOneSignal();
     await secureStorage.clearAll();
   },
 
@@ -116,6 +129,8 @@ export const authService = {
     await api.delete('/api/v1/delivery/delete-account/');
     clearSessionTimer();
     refreshCount = 0;
+    arreterSuivi().catch(() => {});
+    delierLivreurOneSignal();
     await secureStorage.clearAll();
   },
 
