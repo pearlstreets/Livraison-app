@@ -1,4 +1,5 @@
 import axios from 'axios';
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import secureStorage from './secureStorage';
 import { sanitizeForApi } from '../utils/validation';
@@ -22,6 +23,13 @@ const TIMEOUTS = {
 // SSL certificate pinning placeholder
 // TODO: Implement cert pinning with react-native-ssl-pinning or similar
 // const SSL_PINS = { 'api.pearlstreets.com': ['sha256/XXXX...'] };
+
+let VERSION_APPLI = '1.0.0';
+try {
+  VERSION_APPLI = Constants.expoConfig?.version || VERSION_APPLI;
+} catch {
+  // Config illisible : on garde 1.0.0.
+}
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -57,8 +65,8 @@ api.interceptors.request.use(async (config) => {
   // Request ID for tracing
   config.headers['X-Request-ID'] = generateRequestId();
 
-  // Rate limiting headers
-  config.headers['X-Client-Version'] = '1.0.0';
+  // Rate limiting headers : vraie version de l'appli, 1.0.0 si illisible.
+  config.headers['X-Client-Version'] = VERSION_APPLI;
 
   // Set timeout based on method
   const method = (config.method || 'GET').toUpperCase();

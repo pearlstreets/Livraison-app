@@ -22,6 +22,20 @@ function clearSessionTimer() {
   }
 }
 
+// Seuls ces champs du profil sont gardés en AsyncStorage (non chiffré).
+// Jamais l'IBAN, les documents, le téléphone, l'adresse ni l'e-mail : le profil
+// complet est relu sur le serveur à chaque ouverture (AuthContext).
+const CHAMPS_USER_STOCKES = ['id', 'first_name', 'account_active', 'is_verified'];
+
+function userReduit(user) {
+  if (!user || typeof user !== 'object') return null;
+  const reduit = {};
+  CHAMPS_USER_STOCKES.forEach((k) => {
+    if (user[k] !== undefined) reduit[k] = user[k];
+  });
+  return reduit;
+}
+
 // Token rotation: track refresh count to detect abuse
 let refreshCount = 0;
 const MAX_REFRESHES_PER_SESSION = 50;
@@ -51,8 +65,9 @@ export const authService = {
     // Store tokens securely
     await secureStorage.setSecure('accessToken', data.access_token);
     await secureStorage.setSecure('refreshToken', data.refresh_token);
-    // User data is non-sensitive, store in AsyncStorage
-    await AsyncStorage.setItem('userData', JSON.stringify(data.user));
+    // Profil réduit seulement (voir CHAMPS_USER_STOCKES).
+    const reduit = userReduit(data.user);
+    if (reduit) await AsyncStorage.setItem('userData', JSON.stringify(reduit));
 
     refreshCount = 0;
     resetSessionTimer();
@@ -139,6 +154,29 @@ export const authService = {
   async getStoredUser() {
     const stored = await AsyncStorage.getItem('userData');
     return stored ? JSON.parse(stored) : null;
+  },
+
+  // Migration : les versions précédentes gardaient le profil complet (IBAN,
+  // documents, téléphone) en clair. Réécrit l'objet réduit au démarrage.
+  // Ne touche jamais aux jetons : la session reste ouverte.
+  async reduireUserDataStocke() {
+    try {
+      const stored = await AsyncStorage.getItem('userData');
+      if (!stored) return;
+      let reduit = null;
+      try {
+        reduit = userReduit(JSON.parse(stored));
+      } catch {
+        reduit = null;
+      }
+      if (reduit) {
+        await AsyncStorage.setItem('userData', JSON.stringify(reduit));
+      } else {
+        await AsyncStorage.removeItem('userData');
+      }
+    } catch {
+      // Stockage indisponible : on retentera au prochain démarrage.
+    }
   },
 
   async forgotPassword(email) {

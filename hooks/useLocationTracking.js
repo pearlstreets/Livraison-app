@@ -53,7 +53,7 @@ export function useLocationTracking(enabled) {
     async function battement() {
       try {
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        await envoyerPosition(loc.coords.latitude, loc.coords.longitude);
+        await envoyerPosition(loc.coords.latitude, loc.coords.longitude, { mocked: loc.mocked });
       } catch {
         // Erreur GPS ou réseau : silencieux.
       }

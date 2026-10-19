@@ -259,6 +259,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     (async () => {
       try {
+        await authService.reduireUserDataStocke();
         const token = await secureStorage.getSecure('accessToken');
         if (token) {
           const prof = await authService.getProfile();

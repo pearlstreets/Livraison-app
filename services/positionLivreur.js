@@ -32,7 +32,9 @@ function distanceM(a, b) {
   return 6371000 * 2 * Math.asin(Math.sqrt(h));
 }
 
-export async function envoyerPosition(lat, lng, { forcer = false } = {}) {
+// `mocked` : Android signale une position simulée (appli de fausse position).
+// On ne bloque pas le livreur (faux positifs possibles), on le signale au serveur.
+export async function envoyerPosition(lat, lng, { forcer = false, mocked = false } = {}) {
   const maintenant = Date.now();
   if (!forcer && dernierEnvoi
     && distanceM(dernierEnvoi, { lat, lng }) < DISTANCE_MIN_M
@@ -42,7 +44,7 @@ export async function envoyerPosition(lat, lng, { forcer = false } = {}) {
   const precedent = dernierEnvoi;
   dernierEnvoi = { lat, lng, t: maintenant };
   try {
-    const data = await deliveryService.updateLocation(lat, lng);
+    const data = await deliveryService.updateLocation(lat, lng, mocked === true);
     if (data && data.is_online === false && quandHorsLigne) quandHorsLigne();
     return true;
   } catch {
@@ -54,8 +56,9 @@ export async function envoyerPosition(lat, lng, { forcer = false } = {}) {
 
 TaskManager.defineTask(TACHE_POSITION, async ({ data, error }) => {
   if (error || !data?.locations?.length) return;
-  const { latitude, longitude } = data.locations[data.locations.length - 1].coords;
-  await envoyerPosition(latitude, longitude);
+  const derniere = data.locations[data.locations.length - 1];
+  const { latitude, longitude } = derniere.coords;
+  await envoyerPosition(latitude, longitude, { mocked: derniere.mocked });
 });
 
 function avecDelai(promesse, ms) {
@@ -89,7 +92,7 @@ export async function positionObligatoire(t) {
         Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).catch(() => null),
         10000,
       ) || await Location.getLastKnownPositionAsync().catch(() => null);
-      return loc ? loc.coords : {};
+      return loc ? { ...loc.coords, mocked: loc.mocked === true } : {};
     }
   } catch {
     // Traité comme un refus ci-dessous.
