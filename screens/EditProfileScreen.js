@@ -56,10 +56,15 @@ export default function EditProfileScreen({ navigation }) {
     // JAMAIS l'exception remonter (crash « au tap sur l'icône photo » vu en
     // review Apple). En cas d'échec, message doux, jamais de plantage.
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(t('permissionRequired'), t('galleryAccess'));
-        return;
+      // Android : le sélecteur du système ne demande aucune permission (comme
+      // à l'inscription et dans Documents) ; l'accès au stockage n'est plus
+      // déclaré dans l'app. iOS : demande inchangée.
+      if (Platform.OS !== 'android') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(t('permissionRequired'), t('galleryAccess'));
+          return;
+        }
       }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
@@ -96,12 +101,19 @@ export default function EditProfileScreen({ navigation }) {
         // Taille fournie par ImagePicker (asset.fileSize) — pas de dépendance native.
         photoUrl = await uploadService.uploadDriverDoc({ fileUri: photo, slot: 'profile_photo', size: photoSize, contentType: 'image/jpeg' });
       }
-      updateUser({
-        pseudo: pseudo.trim(),
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        ...(photoUrl ? { profile_photo_url: photoUrl, photo: photoUrl } : {}),
-      });
+      try {
+        // Attend le serveur : rien n'est changé en local s'il refuse.
+        await updateUser({
+          pseudo: pseudo.trim(),
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          ...(photoUrl ? { profile_photo_url: photoUrl, photo: photoUrl } : {}),
+        });
+      } catch (e) {
+        setSaving(false);
+        Alert.alert(t('error'), e?.serverMessage || (e?.isNetworkError ? t('errorNetwork') : t('genericError')));
+        return;
+      }
       setSaving(false);
       Alert.alert(t('saved'), t('profileUpdated'), [
         { text: t('ok'), onPress: () => navigation.goBack() },

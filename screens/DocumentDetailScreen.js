@@ -54,11 +54,14 @@ export default function DocumentDetailScreen({ navigation, route }) {
         size: file.size,
         contentType: file.type,
       });
-      await updateDocument(doc.field, url);
+      const res = await updateDocument(doc.field, url);
       setProvided(true);
-      Alert.alert(doc.label, t('docUpdated'), [{ text: t('ok'), onPress: () => navigation.goBack() }]);
-    } catch {
-      Alert.alert(t('error'), t('docUploadError'));
+      // Pièce à revérifier : message du serveur (compte remis en vérification).
+      const texte = res?.revalidation_requise && res.message ? res.message : t('docUpdated');
+      Alert.alert(doc.label, texte, [{ text: t('ok'), onPress: () => navigation.goBack() }]);
+    } catch (e) {
+      // Refus du serveur (compte en attente de validation...) : son message.
+      Alert.alert(t('error'), e?.serverMessage || t('docUploadError'));
     } finally {
       setUploading(false);
     }

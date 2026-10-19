@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
@@ -18,6 +18,31 @@ export default function EditIbanScreen({ navigation }) {
   const [newTitulaire, setNewTitulaire] = useState('');
   const [newIban, setNewIban] = useState('');
   const [newBic, setNewBic] = useState('');
+  const envoiEnCours = useRef(false);
+
+  // Enregistre sur le serveur, puis seulement en cas de succès met à jour
+  // l'IBAN affiché. Refus du serveur (course en cours, compte en attente de
+  // validation...) : son message est affiché et rien ne change.
+  async function enregistrer(iban, masked) {
+    if (envoiEnCours.current) return;
+    envoiEnCours.current = true;
+    try {
+      const res = await updateUser({ iban, bic: newBic.trim(), iban_holder_name: newTitulaire.trim() });
+      if (res?.revalidation_requise) {
+        // Compte remis en vérification par le serveur : on affiche son message.
+        Alert.alert(t('saved'), res.message || t('newAccountVerifyInfo'), [
+          { text: t('ok'), onPress: () => navigation.goBack() },
+        ]);
+        return;
+      }
+      setCurrentIban(masked);
+      navigation.goBack();
+    } catch (e) {
+      Alert.alert(t('error'), e?.serverMessage || (e?.isNetworkError ? t('errorNetwork') : t('genericError')));
+    } finally {
+      envoiEnCours.current = false;
+    }
+  }
 
   function handleSave() {
     if (!newIban.trim() || !newTitulaire.trim()) return;
@@ -26,12 +51,7 @@ export default function EditIbanScreen({ navigation }) {
     const masked = iban.slice(0, 4) + ' •••• •••• •••• •••• •••• ' + iban.slice(-2);
     Alert.alert(t('confirmChange'), t('newAccountDetails', { holder: newTitulaire.trim(), iban: newIban.trim() }), [
       { text: t('cancel'), style: 'cancel' },
-      { text: t('confirm'), onPress: () => {
-        // Persiste réellement en base via PUT /profile/ (plus juste local).
-        updateUser({ iban, bic: newBic.trim(), iban_holder_name: newTitulaire.trim() });
-        setCurrentIban(masked);
-        navigation.goBack();
-      } },
+      { text: t('confirm'), onPress: () => { enregistrer(iban, masked); } },
     ]);
   }
 

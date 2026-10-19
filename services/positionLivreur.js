@@ -115,8 +115,16 @@ function enFile(fn) {
   return file;
 }
 
+// Vrai tant que le suivi est voulu (livreur en ligne ou en course). Lu par la
+// déconnexion automatique d'inactivité, qui ne doit jamais couper un livreur suivi.
+let suiviVoulu = false;
+export function suiviEnCours() {
+  return suiviVoulu;
+}
+
 // À lancer appli ouverte (Android refuse de démarrer le service en arrière-plan).
 export function demarrerSuivi(t) {
+  suiviVoulu = true;
   return enFile(async () => {
     if (await suiviDemarre()) return;
     await Location.startLocationUpdatesAsync(TACHE_POSITION, {
@@ -136,6 +144,7 @@ export function demarrerSuivi(t) {
 }
 
 export function arreterSuivi() {
+  suiviVoulu = false;
   return enFile(async () => {
     if (await suiviDemarre()) {
       await Location.stopLocationUpdatesAsync(TACHE_POSITION).catch(() => {});

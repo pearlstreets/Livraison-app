@@ -58,7 +58,8 @@ export default function WalletScreen({ navigation }) {
     setStripeLoading(true);
     try {
       const res = await deliveryService.requestStripeConnect();
-      if (res && res.url) {
+      // Seul un lien https est ouvert (jamais tel:, intent:, ni autre schéma).
+      if (res && typeof res.url === 'string' && /^https:\/\//i.test(res.url)) {
         await Linking.openURL(res.url);
       } else if (res && res.payout_method === 'sepa_manual') {
         Alert.alert(t('bankTransferPayouts'), t('noStripeConnectMsg'));

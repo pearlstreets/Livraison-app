@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
+import { Alert } from 'react-native';
+import { useLanguage } from './LanguageContext';
 import { isValidEmail } from '../utils/validation';
 import secureStorage from '../services/secureStorage';
 import { authService } from '../services/authService';
 import { deliveryService } from '../services/deliveryService';
 import { earningsService } from '../services/earningsService';
 import { ticketService } from '../services/ticketService';
+import { lierLivreurOneSignal } from '../services/oneSignalInit';
 
 import { formatDayMonth, formatTime } from '../lib/i18nFormat';
 
@@ -142,6 +145,11 @@ const ADMIN_REPLIES = [
 ];
 
 export function AuthProvider({ children }) {
+  // Traductions lues par référence : setIsOnline garde la même identité quand
+  // la langue change (le suivi de position en dépend).
+  const langue = useLanguage();
+  const tRef = useRef(null);
+  tRef.current = langue && typeof langue.t === 'function' ? langue.t : null;
   const [bootstrapping, setBootstrapping] = useState(true);
   const [user, setUser] = useState(null);
   const [warnings, setWarnings] = useState(0);
@@ -182,6 +190,9 @@ export function AuthProvider({ children }) {
     setCurrentIban(p.iban || '');
     ibanRef.current = p.iban || '';
     if (typeof p.is_online === 'boolean') setIsOnlineState(p.is_online);
+    // Push ciblés : le serveur adresse le livreur par l'id de son profil
+    // (include_external_user_ids). Sans effet si OneSignal est absent.
+    lierLivreurOneSignal(p.id);
   }, []);
 
   const refreshEarnings = useCallback(async () => {
@@ -353,9 +364,12 @@ export function AuthProvider({ children }) {
     setIsOnlineState(false);
   }, []);
 
-  const updateUser = useCallback((updates) => {
+  // Attend la réponse du serveur : le changement n'est appliqué en local qu'en
+  // cas de succès. En cas de refus (409 pendant une course, 403 compte en
+  // attente de validation...), l'erreur remonte à l'écran appelant, qui affiche
+  // le message du serveur (error.serverMessage) ; rien ne change en local.
+  const updateUser = useCallback(async (updates) => {
     if (!updates) return;
-    setUser((prev) => (prev ? { ...prev, ...updates } : prev));
     const allowed = {};
     const vt = updates.vehicle_type || updates.vehicle;
     if (vt) allowed.vehicle_type = vt;
@@ -377,20 +391,49 @@ export function AuthProvider({ children }) {
     if (updates.id_card_back_url) allowed.id_card_back_url = updates.id_card_back_url;
     if (updates.iban_doc_url) allowed.iban_doc_url = updates.iban_doc_url;
     if (updates.kbis_doc_url) allowed.kbis_doc_url = updates.kbis_doc_url;
-    if (Object.keys(allowed).length) authService.updateProfile(allowed).catch(() => {});
-  }, []);
+    const res = Object.keys(allowed).length ? await authService.updateProfile(allowed) : null;
+    // Changement accepté mais à revérifier (IBAN ou pièce remplacés) : le
+    // serveur a remis le compte en attente et hors ligne ; on reprend son profil.
+    if (res?.revalidation_requise && res.data) {
+      applyProfile(res.data);
+      return res;
+    }
+    // `vehicle` est le champ lu par les écrans (voir adaptProfile).
+    setUser((prev) => (prev ? { ...prev, ...updates, ...(vt ? { vehicle: vt } : {}) } : prev));
+    return res;
+  }, [applyProfile]);
 
   // Remplace un document du dossier livreur par un fichier deja envoye sur S3.
   // Attend la reponse du serveur : l'ecran n'annonce le succes que s'il est reel.
   const updateDocument = useCallback(async (field, url) => {
-    await authService.updateProfile({ [field]: url });
+    const res = await authService.updateProfile({ [field]: url });
+    if (res?.revalidation_requise && res.data) {
+      applyProfile(res.data);
+      return res;
+    }
     setUser((prev) => (prev ? { ...prev, [field]: url } : prev));
-  }, []);
+    return res;
+  }, [applyProfile]);
 
   const setIsOnline = useCallback((value) => {
     setIsOnlineState((prev) => {
       const next = typeof value === 'function' ? value(prev) : value;
-      authService.updateProfile({ is_online: next }).catch(() => {});
+      authService.updateProfile({ is_online: next })
+        .then((res) => {
+          // Passage en ligne refusé par le serveur (réponse is_online false) :
+          // l'app ne reste pas « en ligne » sans recevoir de courses.
+          if (next === true && res?.data?.is_online === false) setIsOnlineState(false);
+        })
+        .catch((e) => {
+          // Seul un refus explicite du serveur (4xx hors session expirée) remet
+          // hors ligne, avec son message. Réseau coupé : on reste en ligne, la
+          // position continue de partir. Le passage hors ligne n'est jamais annulé.
+          const statut = e?.status;
+          if (next !== true || !statut || statut < 400 || statut >= 500 || statut === 401 || statut === 429) return;
+          setIsOnlineState(false);
+          const t = tRef.current;
+          Alert.alert(t ? t('error') : '', e.serverMessage || (t ? t('genericError') : ''));
+        });
       return next;
     });
   }, []);
