@@ -41,7 +41,7 @@
     },
     "android": {
       "package": "com.pearlstreets.delivery",
-      "versionCode": 1010,
+      "versionCode": 1011,
       "jsEngine": "hermes",
       "config": {
         "googleMaps": {
@@ -61,7 +61,8 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES"
       ],
       "allowBackup": false
     },
