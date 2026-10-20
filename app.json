@@ -3,7 +3,7 @@
     "name": "Pearl Delivery",
     "slug": "pearl-delivery",
     "scheme": "pearldelivery",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -37,11 +37,11 @@
         }
       },
       "bundleIdentifier": "com.pearlstreets.delivery",
-      "buildNumber": "1009"
+      "buildNumber": "1010"
     },
     "android": {
       "package": "com.pearlstreets.delivery",
-      "versionCode": 1009,
+      "versionCode": 1010,
       "jsEngine": "hermes",
       "config": {
         "googleMaps": {
