@@ -13,7 +13,7 @@
     },
     "production": {
       "ios": {
-        "image": "latest"
+        "image": "macos-tahoe-26.4-xcode-26.4"
       },
       "channel": "production"
     }
