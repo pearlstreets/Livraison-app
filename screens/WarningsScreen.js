@@ -49,7 +49,7 @@ export default function WarningsScreen({ navigation }) {
       <View style={s.infoCard}>
         <Ionicons name="information-circle" size={20} color={BRAND} style={{ marginRight: 10 }} />
         <Text style={s.infoText}>
-          Les avertissements sont attribués en cas de non-respect des règles de la plateforme. Au bout de 3 avertissements, votre compte est désactivé.
+          {t('warningsInfo')}
         </Text>
       </View>
 

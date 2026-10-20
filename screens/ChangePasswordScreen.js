@@ -109,7 +109,7 @@ export default function ChangePasswordScreen({ navigation }) {
             <View style={[s.strengthBar, newPwd.length >= 10 && { backgroundColor: newPwd.length >= 12 ? BRAND : '#f5a623' }]} />
             <View style={[s.strengthBar, newPwd.length >= 12 && { backgroundColor: BRAND }]} />
             <Text style={s.strengthText}>
-              {newPwd.length < 10 ? 'Faible' : newPwd.length < 12 ? 'Moyen' : 'Fort'}
+              {newPwd.length < 10 ? t('pwdStrengthWeak') : newPwd.length < 12 ? t('pwdStrengthMedium') : t('pwdStrengthStrong')}
             </Text>
           </View>
         )}
