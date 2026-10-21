@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, Animated, Dimensions, ScrollView, Linking, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
+import { formatKm, formatMinutes } from '../lib/i18nFormat';
 
 const { height: H } = Dimensions.get('window');
 const SHEET_HEIGHT = Math.round(H * 0.55); // ~55% de l'écran
@@ -30,10 +31,10 @@ const pick = (obj, tops, rx) => pickTop(obj, tops) ?? findByKeyRegex(obj, rx);
 const fmt = {
   price: v => v==null?undefined : (typeof v==='number' ? `${(Number.isInteger(v)&&v>1000? v/100:v).toFixed(2)} €`
     : (String(v).includes('€') ? String(v) : `${String(v)} €`)),
-  km: v => v==null?undefined : (typeof v==='number' ? `${(v>1000? v/1000:v).toFixed(1)} km`
-    : (/km/i.test(String(v))?String(v):`${parseFloat(String(v).replace(',','.')).toFixed(1)} km`)),
-  min: v => v==null?undefined : (typeof v==='number' ? `${Math.round(v>180? v/60:v)} min`
-    : (/(min|mn)/i.test(String(v))?String(v):`${Math.round(parseFloat(String(v)))} min`)),
+  km: v => v==null?undefined : (typeof v==='number' ? formatKm((v>1000? v/1000:v).toFixed(1))
+    : (/km/i.test(String(v))?String(v):formatKm(parseFloat(String(v).replace(',','.')).toFixed(1)))),
+  min: v => v==null?undefined : (typeof v==='number' ? formatMinutes(Math.round(v>180? v/60:v))
+    : (/(min|mn)/i.test(String(v))?String(v):formatMinutes(Math.round(parseFloat(String(v)))))),
 };
 
 function openItinerary(order){

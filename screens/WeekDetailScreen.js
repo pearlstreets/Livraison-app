@@ -39,8 +39,8 @@ export default function WeekDetailScreen({ route, navigation }) {
     dates: getDatesForWeek(rawWeek.start),
     net: typeof rawWeek.net === 'number' ? rawWeek.net : (rawWeek.total || 0),
     tips: typeof rawWeek.tips === 'number' ? rawWeek.tips : 0,
-    hours: '—',
-    courses: typeof rawWeek.courses === 'number' ? rawWeek.courses : '—',
+    hours: '-',
+    courses: typeof rawWeek.courses === 'number' ? rawWeek.courses : '-',
     points: '---',
   };
   const maxBar = Math.max(...bars, 1);

@@ -23,7 +23,7 @@ export default function RatingsScreen({ navigation }) {
     ? summary.average
     : (typeof user?.rating === 'number' ? user.rating : 0);
   const totalDeliveries = summary.total_deliveries ?? (typeof user?.total_deliveries === 'number' ? user.total_deliveries : 0);
-  const avg = rawRating > 0 ? rawRating.toFixed(1) : '–';
+  const avg = rawRating > 0 ? rawRating.toFixed(1) : '-';
   const avgRounded = rawRating > 0 ? Math.round(rawRating) : 0;
   const dist = summary.distribution || {};
   const count = summary.count || 0;
@@ -63,7 +63,7 @@ export default function RatingsScreen({ navigation }) {
           <Text style={s.tipsSub}>{t('tipsReceivedSub')}</Text>
         </View>
         <Text style={[s.tipsTotal, tips != null && tips > 0 && { color: '#111' }]}>
-          {tips != null ? fmtPrice(tips) : '–'}
+          {tips != null ? fmtPrice(tips) : '-'}
         </Text>
       </View>
 

@@ -67,7 +67,7 @@ export default function ReportProblemScreen({ navigation, route }) {
       {/* Order ref */}
       <View style={s.orderRef}>
         <Ionicons name="receipt-outline" size={14} color="#888" style={{ marginRight: 6 }} />
-        <Text style={s.orderRefText}>Commande {order.id} — {order.restaurant}</Text>
+        <Text style={s.orderRefText}>Commande {order.id} · {order.restaurant}</Text>
       </View>
 
       <Text style={s.sectionTitle}>{t('problemType')}</Text>

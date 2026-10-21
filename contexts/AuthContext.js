@@ -9,7 +9,7 @@ import { earningsService } from '../services/earningsService';
 import { ticketService } from '../services/ticketService';
 import { lierLivreurOneSignal } from '../services/oneSignalInit';
 
-import { formatDayMonth, formatTime } from '../lib/i18nFormat';
+import { formatDayMonth, formatTime, formatKm } from '../lib/i18nFormat';
 
 const AuthContext = createContext(null);
 
@@ -81,9 +81,9 @@ function adaptHistoryEntry(a) {
   return {
     id: a.order_id != null ? `ORD-${a.order_id}` : `ASG-${a.id}`,
     assignmentId: a.id,
-    restaurant: a.customer_name || a.pickup_address || '—',
+    restaurant: a.customer_name || a.pickup_address || '-',
     address: a.dropoff_address || '',
-    distanceText: a.distance_km != null ? `${a.distance_km} km` : '',
+    distanceText: a.distance_km != null ? formatKm(a.distance_km) : '',
     priceText: `${Number(a.delivery_fee ?? a.order_price ?? 0).toFixed(2)} €`,
     tip: a.tip_amount ? `${Number(a.tip_amount).toFixed(2)} €` : null,
     // Montants BRUTS en euros, en plus des chaînes déjà formatées ci-dessus :
@@ -116,10 +116,10 @@ function adaptPayout(p, iban) {
     // Détail réel du versement (DriverEarnings) : net, pourboires, nb de courses.
     detail: {
       net: `${Number(p.net_amount ?? p.amount ?? 0).toFixed(2)} €`,
-      tips: p.tips_amount != null ? `${Number(p.tips_amount).toFixed(2)} €` : '—',
+      tips: p.tips_amount != null ? `${Number(p.tips_amount).toFixed(2)} €` : '-',
       netEur: Number(p.net_amount ?? p.amount ?? 0),
       tipsEur: p.tips_amount != null ? Number(p.tips_amount) : null,
-      courses: p.total_deliveries != null ? p.total_deliveries : '—',
+      courses: p.total_deliveries != null ? p.total_deliveries : '-',
       status: p.status || '',
     },
   };

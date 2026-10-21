@@ -291,9 +291,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
   const restaurant = order.restaurant || order.merchantName || t('restaurant');
   const address = order.dropoffAddress || order.address || t('deliveryAddress');
-  const price = order.priceEur != null ? fmtPrice(order.priceEur) : (order.priceText || order.price || '—');
-  const distance = order.distanceText || '—';
-  const eta = order.etaText || '—';
+  const price = order.priceEur != null ? fmtPrice(order.priceEur) : (order.priceText || order.price || '-');
+  const distance = order.distanceText || '-';
+  const eta = order.etaText || '-';
   const orderId = order.orderNumber || order.id || order.code || t('order');
   // ID de l'assignment backend (pour updateDeliveryStatus / cancelDelivery)
   const assignmentId = order._assignmentId || order.id || null;

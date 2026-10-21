@@ -10,6 +10,7 @@ import DetailsSheet from '../components/DetailsSheet';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { formatKm, formatMinutes } from '../lib/i18nFormat';
 import filtersUI from '../constants/filters-ui.json';
 import { deliveryService } from '../services/deliveryService';
 import { envoyerPosition, positionObligatoire } from '../services/positionLivreur';
@@ -56,8 +57,8 @@ function adaptAssignment(a, { revealCustomer = true } = {}) {
     address: a.pickup_address || dropoff || '',
     dropoffAddress: dropoff,
     pickupAddress: a.pickup_address || '',
-    distanceText: typeof a.distance_km === 'number' ? `${a.distance_km.toFixed(1)} km` : '',
-    etaText: typeof a.estimated_time_minutes === 'number' ? `${a.estimated_time_minutes} min` : '',
+    distanceText: typeof a.distance_km === 'number' ? formatKm(a.distance_km.toFixed(1)) : '',
+    etaText: typeof a.estimated_time_minutes === 'number' ? formatMinutes(a.estimated_time_minutes) : '',
     priceText: `${total.toFixed(2)} €`,
     priceEur: total,
     delivery_fee: fee,
@@ -160,8 +161,8 @@ function makeMockOrder() {
     address: pick(MOCK_DROPOFFS),
     dropoffAddress: pick(MOCK_DROPOFFS),
     pickupAddress: pick(MOCK_PICKUPS),
-    distanceText: `${distance.toFixed(1)} km`,
-    etaText: `${eta} min`,
+    distanceText: formatKm(distance.toFixed(1)),
+    etaText: formatMinutes(eta),
     priceText: `${total.toFixed(2)} €`,
     priceEur: total,
     delivery_fee: fee,

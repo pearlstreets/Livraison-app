@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Linking, Animated, Image } fr
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useLanguage } from '../contexts/LanguageContext';
+import { formatKm, formatMinutes } from '../lib/i18nFormat';
 // Alias : le module a déjà un helper local `fmtPrice` (parse des chaînes
 // pré-formatées) — on importe donc le formateur devise sous un autre nom.
 import { useCurrency as useDriverCurrency } from '../contexts/CurrencyContext';
@@ -35,10 +36,10 @@ function findByKeyRegex(root, regex) {
 }
 const pickHybrid = (obj, tops, rx) => { const t = pickTop(obj, tops); return t !== undefined ? t : findByKeyRegex(obj, rx); };
 
-const fmtKm = (v)=> v==null?undefined : (typeof v==='number' ? `${(v>1000? v/1000:v).toFixed(1)} km`
-  : ((s=>{const n=parseFloat(s.replace(',','.')); return isNaN(n)?s:(/km/i.test(s)?s:`${n.toFixed(1)} km`);})(String(v))));
-const fmtMin=(v)=> v==null?undefined : (typeof v==='number' ? `${Math.round(v>180? v/60:v)} min`
-  : ((s=>{const n=parseFloat(s.replace(',','.')); return isNaN(n)?s:(/(min|mn)/i.test(s)?s:`${Math.round(n)} min`);})(String(v))));
+const fmtKm = (v)=> v==null?undefined : (typeof v==='number' ? formatKm((v>1000? v/1000:v).toFixed(1))
+  : ((s=>{const n=parseFloat(s.replace(',','.')); return isNaN(n)?s:(/km/i.test(s)?s:formatKm(n.toFixed(1)));})(String(v))));
+const fmtMin=(v)=> v==null?undefined : (typeof v==='number' ? formatMinutes(Math.round(v>180? v/60:v))
+  : ((s=>{const n=parseFloat(s.replace(',','.')); return isNaN(n)?s:(/(min|mn)/i.test(s)?s:formatMinutes(Math.round(n)));})(String(v))));
 const fmtPrice=(v)=> v==null?undefined : (typeof v==='number' ? `${(Number.isInteger(v)&&v>1000? v/100:v).toFixed(2)} €`
   : ((s=>{const n=parseFloat(s.replace(',','.')); return isNaN(n)?(s.includes('€')?s:`${s} €`):`${n.toFixed(2)} €`;})(String(v))));
 
