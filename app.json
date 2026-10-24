@@ -41,7 +41,7 @@
     },
     "android": {
       "package": "com.pearlstreets.delivery",
-      "versionCode": 1012,
+      "versionCode": 1013,
       "jsEngine": "hermes",
       "config": {
         "googleMaps": {
@@ -85,7 +85,8 @@
         }
       ],
       "./plugins/withFmtConstevalFix",
-      "./plugins/withSecuriteReseau"
+      "./plugins/withSecuriteReseau",
+      "./plugins/withUIScene"
     ],
     "extra": {
       "oneSignalAppId": "0c4d0c76-eedd-426a-9d48-156cc6f879c7",
