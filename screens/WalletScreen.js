@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Dimensions, Alert, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Dimensions, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +8,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { deliveryService } from '../services/deliveryService';
 import { payoutDateLabel } from '../lib/payouts';
 import useSecureScreen from '../hooks/useSecureScreen';
 
@@ -26,7 +25,6 @@ export default function WalletScreen({ navigation }) {
   // Libellé du compte bancaire dérivé du vrai IBAN (au lieu d'un ••••15 en dur).
   const bankTail = ((currentIban || '').match(/(\d{2,4})\s*$/) || [])[1] || '';
   const bankLabel = bankTail ? `••${bankTail}` : t('yourSavedAccount');
-  const [stripeLoading, setStripeLoading] = useState(false);
   const [encaissModal, setEncaissModal] = useState(false);
   const [encaissStep, setEncaissStep] = useState('confirm'); // confirm | processing | done
   const [cashedAmount, setCashedAmount] = useState('');
@@ -54,21 +52,10 @@ export default function WalletScreen({ navigation }) {
     setEncaissModal(true);
   }
 
-  async function handleStripeConnect() {
-    setStripeLoading(true);
-    try {
-      const res = await deliveryService.requestStripeConnect();
-      // Seul un lien https est ouvert (jamais tel:, intent:, ni autre schéma).
-      if (res && typeof res.url === 'string' && /^https:\/\//i.test(res.url)) {
-        await Linking.openURL(res.url);
-      } else if (res && res.payout_method === 'sepa_manual') {
-        Alert.alert(t('bankTransferPayouts'), t('noStripeConnectMsg'));
-      }
-    } catch {
-      Alert.alert(t('error'), t('stripeSetupError'));
-    } finally {
-      setStripeLoading(false);
-    }
+  // Formulaire « Recevoir mes virements » dans l'app (26/10/2026), au lieu
+  // de l'écran Stripe ; société et pays sans Stripe y gardent l'ancien parcours.
+  function handleStripeConnect() {
+    navigation.navigate('PayoutSetup');
   }
 
   function processEncaiss() {
@@ -150,12 +137,11 @@ export default function WalletScreen({ navigation }) {
         </View>
 
         <Pressable
-          style={[s.stripeBtn, stripeLoading && { opacity: 0.6 }]}
+          style={s.stripeBtn}
           onPress={handleStripeConnect}
-          disabled={stripeLoading}
         >
           <Ionicons name="card-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={s.stripeBtnTxt}>{stripeLoading ? t('loading') : t('setupPayments')}</Text>
+          <Text style={s.stripeBtnTxt}>{t('setupPayments')}</Text>
         </Pressable>
 
         <Pressable style={s.helpRow} onPress={() => navigation.navigate('Help')}>
