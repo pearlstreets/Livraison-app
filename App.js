@@ -1,5 +1,5 @@
 import React, { useEffect, lazy, Suspense } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 
 // Security: Disable React DevTools in production
 if (!__DEV__) {
@@ -59,6 +59,9 @@ import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import OpportunityDetailScreen from './screens/OpportunityDetailScreen';
 import VersementsListScreen from './screens/VersementsListScreen';
 import VersementDetailScreen from './screens/VersementDetailScreen';
+import { ecranDeplie, largeurMoitie } from './utils/deuxEcrans';
+import { createDeuxEcransNavigator, AuMilieu } from './navigation/DeuxEcransStack';
+import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli } from './utils/repliEcran';
 
 // Initialize OneSignal once at module load. The helper is a no-op when the
 // native module isn't bundled or when expo.extra.oneSignalAppId is empty,
@@ -101,9 +104,26 @@ try {
 
 const BRAND = '#00C29B';
 const Tab = createBottomTabNavigator();
-const HomeStack = createNativeStackNavigator();
-const MenuStack = createNativeStackNavigator();
-const EarningsStack = createNativeStackNavigator();
+// Pliable deplie : chaque onglet en deux moities, ecran de navigation a
+// gauche, page ouverte a droite (navigation/DeuxEcransStack.js). Plie ou
+// telephone : piles natives, rien ne change. Fixe au chargement, l'app se
+// recharge au pliage (utils/repliEcran.js).
+const DEPLIE = ecranDeplie();
+const createPile = DEPLIE ? createDeuxEcransNavigator : createNativeStackNavigator;
+const HomeStack = createPile();
+const MenuStack = createPile();
+const EarningsStack = createPile();
+const InboxStack = DEPLIE ? createDeuxEcransNavigator() : null;
+// Ecrans de navigation (moitie gauche) de chaque onglet ; les autres
+// s'ouvrent a droite. Le parcours de livraison remplace la liste des
+// courses a gauche, sans barre d'onglets, comme sur le telephone.
+const moitiesAccueil = DEPLIE ? { gauche: ['OrdersMain', 'DeliveryFlow'], sansBarre: ['DeliveryFlow'] } : {};
+const moitiesRevenus = DEPLIE ? { gauche: ['EarningsMain', 'VersementsList'] } : {};
+const moitiesProfil = DEPLIE ? { gauche: ['MenuMain', 'DeliveryHistory', 'Opportunities', 'TicketsList', 'Help', 'VersementsList'] } : {};
+// Deplie, la barre d'onglets est posee sous la moitie gauche seulement.
+const BARRE = DEPLIE
+  ? { backgroundColor: '#fff', position: 'absolute', left: 0, bottom: 0, width: largeurMoitie() }
+  : { backgroundColor: '#fff' };
 const navTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: BRAND, card: '#fff', text: '#111' } };
 
 Notifications.setNotificationHandler({
@@ -116,7 +136,7 @@ Notifications.setNotificationHandler({
 
 function HomeStackScreen() {
   return (
-    <HomeStack.Navigator screenOptions={{ headerShown: false, detachInactiveScreens: true }}>
+    <HomeStack.Navigator {...moitiesAccueil} screenOptions={{ headerShown: false, detachInactiveScreens: true }}>
       <HomeStack.Screen name="OrdersMain" component={OrdersScreen} />
       <HomeStack.Screen name="DeliveryFlow" component={DeliveryFlowScreen} />
       <HomeStack.Screen name="Heatmap" component={HeatmapScreen} />
@@ -127,7 +147,7 @@ function HomeStackScreen() {
 
 function EarningsStackScreen() {
   return (
-    <EarningsStack.Navigator screenOptions={{ headerShown: false, detachInactiveScreens: true }}>
+    <EarningsStack.Navigator {...moitiesRevenus} screenOptions={{ headerShown: false, detachInactiveScreens: true }}>
       <EarningsStack.Screen name="EarningsMain" component={EarningsScreen} />
       <EarningsStack.Screen name="WeekDetail" component={WeekDetailScreen} />
       <EarningsStack.Screen name="Wallet" component={WalletScreen} />
@@ -140,7 +160,7 @@ function EarningsStackScreen() {
 
 function MenuStackScreen() {
   return (
-    <MenuStack.Navigator screenOptions={{ detachInactiveScreens: true }}>
+    <MenuStack.Navigator {...moitiesProfil} screenOptions={{ detachInactiveScreens: true }}>
       <MenuStack.Screen name="MenuMain" component={MenuScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="EditProfile" component={EditProfileScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="Wallet" component={WalletScreen} options={{ headerShown: false }} />
@@ -164,6 +184,15 @@ function MenuStackScreen() {
       <MenuStack.Screen name="Warnings" component={WarningsScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: false }} />
     </MenuStack.Navigator>
+  );
+}
+
+// Deplie seulement : la messagerie a gauche, le panneau de repos a droite.
+function InboxStackScreen() {
+  return (
+    <InboxStack.Navigator screenOptions={{ headerShown: false }}>
+      <InboxStack.Screen name="InboxMain" component={InboxScreen} />
+    </InboxStack.Navigator>
   );
 }
 
@@ -196,7 +225,7 @@ function Main() {
   }, []);
 
   if (bootstrapping) return null;
-  if (!user) return <LoginScreen />;
+  if (!user) return DEPLIE ? <AuMilieu><LoginScreen /></AuMilieu> : <LoginScreen />;
 
   return (
     <Tab.Navigator
@@ -206,7 +235,9 @@ function Main() {
         headerTintColor: '#000',
         tabBarActiveTintColor: BRAND,
         tabBarInactiveTintColor: '#8e8e93',
-        tabBarStyle: { backgroundColor: '#fff' },
+        tabBarStyle: BARRE,
+        // Deplie : etiquettes sous les icones, comme sur le telephone.
+        ...(DEPLIE ? { tabBarLabelPosition: 'below-icon' } : null),
         detachInactiveScreens: true,
         tabBarIcon: ({ color, size }) => {
           if (route.name === 'Accueil') return <Ionicons name="home-outline" size={size} color={color} />;
@@ -219,9 +250,9 @@ function Main() {
     >
       <Tab.Screen name="Accueil" component={HomeStackScreen} options={({ route }) => {
           const routeName = getFocusedRouteNameFromRoute(route) ?? 'OrdersMain';
-          return { headerShown: false, tabBarLabel: t('tabHome'), tabBarStyle: routeName === 'DeliveryFlow' ? { display: 'none' } : { backgroundColor: '#fff' } };
+          return { headerShown: false, tabBarLabel: t('tabHome'), tabBarStyle: routeName === 'DeliveryFlow' ? { display: 'none' } : BARRE };
         }} />
-      <Tab.Screen name="MessagesTab" component={InboxScreen} options={{ headerShown: false, tabBarLabel: t('tabMessages') }} />
+      <Tab.Screen name="MessagesTab" component={DEPLIE ? InboxStackScreen : InboxScreen} options={{ headerShown: false, tabBarLabel: t('tabMessages') }} />
       <Tab.Screen name="Revenus" component={EarningsStackScreen} options={{ headerShown: false, tabBarLabel: t('tabEarnings') }} />
       <Tab.Screen name="Profil" component={MenuStackScreen} options={{ headerShown: false, tabBarLabel: t('tabProfile'), tabBarBadge: totalProfileNotifs > 0 ? totalProfileNotifs : undefined, tabBarBadgeStyle: { backgroundColor: '#e74c3c', fontSize: 10 } }}
         listeners={({ navigation }) => ({
@@ -244,15 +275,19 @@ function CurrencyGate({ children }) {
 }
 
 export default function App() {
+  // Pliable : rechargement au pliage et au depliage (utils/repliEcran.js).
+  useEffect(() => surveillerRepliEcran(), []);
   return (
     <SafeAreaProvider>
       <LanguageProvider>
         <AuthProvider>
           <CurrencyGate>
-            <NavigationContainer theme={navTheme} ref={navigationRef}>
-              <StatusBar style="dark" />
-              <Main />
-            </NavigationContainer>
+            <View style={{ flex: 1 }} onLayout={signalerTailleRacine}>
+              <NavigationContainer theme={navTheme} ref={navigationRef} onReady={restaurerEcranApresRepli}>
+                <StatusBar style="dark" />
+                <Main />
+              </NavigationContainer>
+            </View>
           </CurrencyGate>
         </AuthProvider>
       </LanguageProvider>
