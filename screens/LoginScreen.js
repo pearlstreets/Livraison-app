@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView } from 'react-native';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView, BackHandler } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,12 +10,19 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { uploadService } from '../services/uploadService';
 import useSecureScreen from '../hooks/useSecureScreen';
+import { noterBrouillonConnexion, lireBrouillonConnexion } from '../utils/repliEcran';
 
 import { countryName } from '../data/countryNames';
 
 const BRAND = '#00C29B';
 const MAX_LOGIN_FAILS = 3;
 const LOGIN_COOLDOWN_MS = 30000; // 30s cooldown after 3 fails
+
+// Pliage / depliage : l'ecran est demonte puis remonte. Sans rechargement du
+// JS (activite Android recreee), la saisie reste ici ; avec rechargement,
+// utils/repliEcran.js la sauve avant et la rend au demarrage.
+const VALIDITE_BROUILLON = 60 * 1000;
+let brouillonMemoire = null;
 
 const COUNTRIES = [
   { code: 'FR', flag: '🇫🇷', name: 'France', phoneCode: '+33' },
@@ -137,7 +144,9 @@ export default function LoginScreen() {
   const [step, setStep] = useState(1); // 1=email/pwd, 2=info, 3=docs(pro)
   const [pendingValidation, setPendingValidation] = useState(false);
 
-  // Fields
+  // Fields (connexion : etats a part, la saisie de l'inscription n'y passe pas)
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
@@ -180,6 +189,44 @@ export default function LoginScreen() {
   const loginFailsRef = useRef(0);
   const [loginDisabled, setLoginDisabled] = useState(false);
   const cooldownTimerRef = useRef(null);
+
+  // Saisie complete, pour la retrouver apres un pliage ou un depliage.
+  const brouillonRef = useRef(null);
+  brouillonRef.current = {
+    mode, isPro, step, loginEmail, loginPassword, email, password, confirmPwd,
+    nom, prenom, pseudo, companyName, phone, address, country, phoneCountry, vehicle,
+    docIdFront, docIdBack, docIban, docKbiss, docLicense, docPhoto, docProofAddress, docRcPro, docUrssaf,
+  };
+  // Connecte ou dossier envoye : rien a garder.
+  const termineRef = useRef(false);
+
+  useEffect(() => {
+    const appliquer = (b) => {
+      if (!b) return;
+      const fixe = (v, set) => { if (v !== undefined) set(v); };
+      fixe(b.mode, setMode); fixe(b.isPro, setIsPro); fixe(b.step, setStep);
+      fixe(b.loginEmail, setLoginEmail); fixe(b.loginPassword, setLoginPassword);
+      fixe(b.email, setEmail); fixe(b.password, setPassword); fixe(b.confirmPwd, setConfirmPwd);
+      fixe(b.nom, setNom); fixe(b.prenom, setPrenom); fixe(b.pseudo, setPseudo);
+      fixe(b.companyName, setCompanyName); fixe(b.phone, setPhone); fixe(b.address, setAddress);
+      fixe(b.country, setCountry); fixe(b.phoneCountry, setPhoneCountry); fixe(b.vehicle, setVehicle);
+      fixe(b.docIdFront, setDocIdFront); fixe(b.docIdBack, setDocIdBack); fixe(b.docIban, setDocIban);
+      fixe(b.docKbiss, setDocKbiss); fixe(b.docLicense, setDocLicense); fixe(b.docPhoto, setDocPhoto);
+      fixe(b.docProofAddress, setDocProofAddress); fixe(b.docRcPro, setDocRcPro); fixe(b.docUrssaf, setDocUrssaf);
+    };
+    const memoire = brouillonMemoire;
+    brouillonMemoire = null;
+    if (memoire && Date.now() - memoire.demonte < VALIDITE_BROUILLON) {
+      appliquer(memoire.brouillon);
+    } else {
+      lireBrouillonConnexion().then(appliquer).catch(() => {});
+    }
+    const retirer = noterBrouillonConnexion(() => (termineRef.current ? null : brouillonRef.current));
+    return () => {
+      retirer();
+      brouillonMemoire = termineRef.current ? null : { brouillon: brouillonRef.current, demonte: Date.now() };
+    };
+  }, []);
 
   const selectedCountry = COUNTRIES.find(c => c.code === country) || COUNTRIES[0];
   const selectedPhoneCountry = COUNTRIES.find(c => c.code === phoneCountry) || COUNTRIES[0];
@@ -240,6 +287,27 @@ export default function LoginScreen() {
     setMode('login');
   };
 
+  // Touche retour Android : etape precedente, puis la connexion. Sur la
+  // connexion, comportement normal (quitter l'app).
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (pendingValidation) {
+        setPendingValidation(false); setMode('login'); setIsPro(null); setStep(1); setError('');
+        return true;
+      }
+      if (mode === 'login') return false;
+      handleBack();
+      return true;
+    });
+    return () => sub.remove();
+  });
+
+  // Nouvelle etape : la page repart du haut.
+  const scrollRef = useRef(null);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [mode, step]);
+
   // Login with rate limiting and validation
   const handleLogin = async () => {
     setError('');
@@ -247,14 +315,14 @@ export default function LoginScreen() {
       setError(t('loginCooldown') || 'Trop de tentatives. Veuillez patienter 30 secondes.');
       return;
     }
-    if (!email.trim() && !password.trim()) { setError(t('errorBothEmpty') || 'Veuillez saisir votre email et mot de passe'); return; }
-    if (!email.trim()) { setError(t('errorNoEmail') || 'Veuillez saisir votre email'); return; }
-    if (!isValidEmail(email.trim())) { setError(t('errorInvalidEmail') || 'Format email invalide'); return; }
-    if (!password.trim()) { setError(t('errorNoPassword') || 'Veuillez saisir votre mot de passe'); return; }
+    if (!loginEmail.trim() && !loginPassword.trim()) { setError(t('errorBothEmpty') || 'Veuillez saisir votre email et mot de passe'); return; }
+    if (!loginEmail.trim()) { setError(t('errorNoEmail') || 'Veuillez saisir votre email'); return; }
+    if (!isValidEmail(loginEmail.trim())) { setError(t('errorInvalidEmail') || 'Format email invalide'); return; }
+    if (!loginPassword.trim()) { setError(t('errorNoPassword') || 'Veuillez saisir votre mot de passe'); return; }
     setLoading(true);
-    const result = await login(email.trim(), password);
+    const result = await login(loginEmail.trim(), loginPassword);
     setLoading(false);
-    if (result && result.ok) return; // AuthContext sets the user -> navigation happens
+    if (result && result.ok) { termineRef.current = true; return; } // AuthContext sets the user -> navigation happens
     loginFailsRef.current += 1;
     if (loginFailsRef.current >= MAX_LOGIN_FAILS) {
       setLoginDisabled(true);
@@ -342,7 +410,7 @@ export default function LoginScreen() {
     }
     const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), legal_address: address.trim(), vehicle_type: vehicle, role: isPro ? 'professionaluser' : 'user', documents: docUrls });
     setLoading(false);
-    if (result && result.ok) { setPendingValidation(true); return; }
+    if (result && result.ok) { termineRef.current = true; setPendingValidation(true); return; }
     setError((result && result.error) || t('genericError'));
   };
 
@@ -385,8 +453,18 @@ export default function LoginScreen() {
 
   const isSignup = mode === 'signup' || mode === 'choose';
 
+  const errorBox = error ? (
+    <View style={{backgroundColor:'#FEE2E2', borderRadius:10, padding:12, marginBottom:16, flexDirection:'row', alignItems:'center'}}>
+      <Ionicons name="alert-circle" size={18} color="#EF4444" />
+      <Text style={{color:'#EF4444', fontSize:13, marginLeft:8, flex:1}}>{error}</Text>
+    </View>
+  ) : null;
+  // Voile des fenetres sur tout l'ecran, barres systeme comprises.
+  const voile = { flex:1, backgroundColor:'rgba(0,0,0,0.5)', justifyContent:'flex-end' };
+  const basFeuille = Math.max(40, insets.bottom + 16);
+
   return (
-    <KeyboardAvoidingView style={{flex:1, backgroundColor:'#fff'}} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{flex:1, backgroundColor:'#fff'}} behavior="padding">
       <SafeAreaView style={{flex:1}}>
         {/* Back arrow */}
         {(mode !== 'login') && (
@@ -404,7 +482,7 @@ export default function LoginScreen() {
           </View>
         )}
 
-        <ScrollView contentContainerStyle={{flexGrow:1, justifyContent:'center', paddingHorizontal:24, paddingVertical:20}} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={scrollRef} contentContainerStyle={{flexGrow:1, justifyContent:'center', paddingHorizontal:24, paddingVertical:20}} keyboardShouldPersistTaps="handled">
 
           {/* Step title on form pages */}
           {mode === 'signup' && isPro !== null && (
@@ -413,13 +491,8 @@ export default function LoginScreen() {
             </Text>
           )}
 
-          {/* Error */}
-          {error ? (
-            <View style={{backgroundColor:'#FEE2E2', borderRadius:10, padding:12, marginBottom:16, flexDirection:'row', alignItems:'center'}}>
-              <Ionicons name="alert-circle" size={18} color="#EF4444" />
-              <Text style={{color:'#EF4444', fontSize:13, marginLeft:8, flex:1}}>{error}</Text>
-            </View>
-          ) : null}
+          {/* Error (connexion : sous le logo, contre le formulaire) */}
+          {mode !== 'login' && errorBox}
 
           {/* === LOGIN === */}
           {mode === 'login' && (
@@ -429,11 +502,12 @@ export default function LoginScreen() {
                 <Ionicons name="bicycle" size={54} color={BRAND} style={{marginBottom:8}} />
                 <Text style={{fontSize:26, fontWeight:'900', color:'#111'}}>Pearl Delivery</Text>
               </View>
+              {errorBox}
               <Text style={s.label}>{t('emailLabel')}</Text>
-              <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+              <TextInput style={s.input} value={loginEmail} onChangeText={setLoginEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
               <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
               <View style={s.pwdRow}>
-                <TextInput style={[s.input, {flex:1, marginBottom:0}]} value={password} onChangeText={setPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <TextInput style={[s.input, {flex:1, marginBottom:0}]} value={loginPassword} onChangeText={setLoginPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
                 <Pressable onPress={() => setShowPwd(v => !v)} style={s.eyeBtn}>
                   <Ionicons name={showPwd ? 'eye-off' : 'eye'} size={22} color="#888" />
                 </Pressable>
@@ -441,7 +515,7 @@ export default function LoginScreen() {
               <Pressable style={[s.btn, loginDisabled && { opacity: 0.5 }]} onPress={handleLogin} disabled={loginDisabled}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{t('loginButton') || 'Se connecter'}</Text>}
               </Pressable>
-              <TouchableOpacity onPress={() => { setMode('choose'); setError(''); }} style={{alignItems:'center', paddingVertical:16}}>
+              <TouchableOpacity onPress={() => { setMode('choose'); setIsPro(null); setStep(1); setError(''); }} style={{alignItems:'center', paddingVertical:16}}>
                 <Text style={{color:'#6B7280', fontSize:15}}>
                   {t('noAccount') || 'Pas de compte ?'} <Text style={{color:BRAND, fontWeight:'800'}}>{t('signUp') || "S'inscrire"}</Text>
                 </Text>
@@ -628,9 +702,10 @@ export default function LoginScreen() {
         {Platform.OS === 'ios' && <InputAccessoryView nativeID="noSuggest"><View /></InputAccessoryView>}
 
         {/* Country Picker */}
-        <Modal visible={countryPickerVisible} animationType="none" transparent>
-          <View style={{flex:1, backgroundColor:'rgba(0,0,0,0.5)', justifyContent:'flex-end'}}>
-            <View style={{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:40}}>
+        <Modal visible={countryPickerVisible} animationType="none" transparent statusBarTranslucent navigationBarTranslucent onRequestClose={() => setCountryPickerVisible(false)}>
+          <View style={voile}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setCountryPickerVisible(false)} />
+            <View style={{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:basFeuille}}>
               <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:'#F3F4F6'}}>
                 <Text style={{fontSize:18, fontWeight:'800', color:'#111'}}>{t('countryLabel') || 'Pays de résidence'}</Text>
                 <TouchableOpacity onPress={() => setCountryPickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
@@ -647,9 +722,10 @@ export default function LoginScreen() {
         </Modal>
 
         {/* Phone Code Picker */}
-        <Modal visible={phonePickerVisible} animationType="none" transparent>
-          <View style={{flex:1, backgroundColor:'rgba(0,0,0,0.5)', justifyContent:'flex-end'}}>
-            <View style={{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:40}}>
+        <Modal visible={phonePickerVisible} animationType="none" transparent statusBarTranslucent navigationBarTranslucent onRequestClose={() => setPhonePickerVisible(false)}>
+          <View style={voile}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setPhonePickerVisible(false)} />
+            <View style={{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:basFeuille}}>
               <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:'#F3F4F6'}}>
                 <Text style={{fontSize:18, fontWeight:'800', color:'#111'}}>{t('phoneCodeLabel') || 'Indicatif téléphonique'}</Text>
                 <TouchableOpacity onPress={() => setPhonePickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
@@ -667,9 +743,10 @@ export default function LoginScreen() {
         </Modal>
 
         {/* Language Picker */}
-        <Modal visible={langPickerVisible} animationType="none" transparent>
-          <View style={{flex:1, backgroundColor:'rgba(0,0,0,0.5)', justifyContent:'flex-end'}}>
-            <View style={{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'60%', paddingBottom:40}}>
+        <Modal visible={langPickerVisible} animationType="none" transparent statusBarTranslucent navigationBarTranslucent onRequestClose={() => setLangPickerVisible(false)}>
+          <View style={voile}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setLangPickerVisible(false)} />
+            <View style={{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'60%', paddingBottom:basFeuille}}>
               <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:'#F3F4F6'}}>
                 <Text style={{fontSize:18, fontWeight:'800', color:'#111'}}>{t('languageLabel') || 'Langue'}</Text>
                 <TouchableOpacity onPress={() => setLangPickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
