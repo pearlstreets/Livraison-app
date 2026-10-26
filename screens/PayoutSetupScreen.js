@@ -6,51 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { deliveryService } from '../services/deliveryService';
 import useSecureScreen from '../hooks/useSecureScreen';
+import { CONTRAT_STRIPE, creerJetonCompte, dateValide, formaterDate } from '../utils/stripeCompte';
 
 const BRAND = '#00C29B';
-// Page publique du contrat Stripe (aucun lien vers un compte ou un onboarding).
-const CONTRAT_STRIPE = 'https://stripe.com/fr/legal/connect-account';
 
 // « Recevoir mes virements » (26/10/2026) : le strict minimum demandé par
 // Stripe pour verser les gains d'un livreur en France, rempli dans l'app.
-// Le jeton de compte est fabriqué ici avec la clé publique (exigence Stripe
-// pour une plateforme française), le serveur crée ensuite le compte.
-function corpsJeton(f, pays) {
-  const [jour, mois, annee] = f.dob.split('/').map((x) => parseInt(x, 10));
-  const champs = {
-    'account[business_type]': 'individual',
-    'account[individual][first_name]': f.firstName.trim(),
-    'account[individual][last_name]': f.lastName.trim(),
-    'account[individual][dob][day]': String(jour),
-    'account[individual][dob][month]': String(mois),
-    'account[individual][dob][year]': String(annee),
-    'account[individual][address][line1]': f.line1.trim(),
-    'account[individual][address][postal_code]': f.postalCode.trim(),
-    'account[individual][address][city]': f.city.trim(),
-    'account[individual][address][country]': pays,
-    'account[tos_shown_and_accepted]': 'true',
-  };
-  if (f.email) champs['account[individual][email]'] = f.email;
-  return Object.entries(champs).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
-}
-
-function dateValide(dob) {
-  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dob.trim());
-  if (!m) return false;
-  const [j, mo, a] = [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)];
-  const d = new Date(a, mo - 1, j);
-  if (d.getFullYear() !== a || d.getMonth() !== mo - 1 || d.getDate() !== j) return false;
-  const age = (Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000);
-  return age >= 18 && age < 100;
-}
-
-// Saisie de la date : les barres s'ajoutent seules (JJ/MM/AAAA).
-function formaterDate(txt) {
-  const c = txt.replace(/\D/g, '').slice(0, 8);
-  if (c.length <= 2) return c;
-  if (c.length <= 4) return `${c.slice(0, 2)}/${c.slice(2)}`;
-  return `${c.slice(0, 2)}/${c.slice(2, 4)}/${c.slice(4)}`;
-}
 
 export default function PayoutSetupScreen({ navigation }) {
   const { t } = useLanguage();
@@ -106,14 +67,9 @@ export default function PayoutSetupScreen({ navigation }) {
     envoiEnCours.current = true;
     setEnvoi(true);
     try {
-      const rep = await fetch('https://api.stripe.com/v1/tokens', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${etat.publishable_key}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: corpsJeton(f, etat.country || 'FR'),
-      });
-      const jeton = await rep.json();
-      if (!rep.ok || !jeton?.id) {
-        Alert.alert(t('error'), jeton?.error?.message || t('stripeSetupError'));
+      const jeton = await creerJetonCompte(etat.publishable_key, f, etat.country || 'FR');
+      if (!jeton.id) {
+        Alert.alert(t('error'), jeton.erreur || t('stripeSetupError'));
         return;
       }
       const d = await deliveryService.submitPayoutSetup({
@@ -210,21 +166,22 @@ export default function PayoutSetupScreen({ navigation }) {
   );
 }
 
+// Fond blanc et champs au style de l'app pro (26/10/2026).
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, backgroundColor: '#fff' },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
-  body: { padding: 16, paddingBottom: 20 },
-  info: { fontSize: 13, color: '#888', paddingHorizontal: 4, marginBottom: 16, lineHeight: 18 },
-  okCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#e6faf5', borderRadius: 12, padding: 12, marginBottom: 12 },
-  okTxt: { color: BRAND, fontWeight: '800', fontSize: 14, flex: 1 },
-  fieldLabel: { fontSize: 13, fontWeight: '700', color: '#555', marginBottom: 6 },
-  input: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e0e0e0', paddingHorizontal: 14, paddingVertical: 14, fontSize: 15, color: '#111', fontWeight: '600', marginBottom: 14, letterSpacing: 0.5 },
-  hint: { fontSize: 12, color: '#888', marginTop: -8, marginBottom: 14, paddingHorizontal: 4 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#111' },
+  body: { padding: 20, paddingBottom: 20 },
+  info: { fontSize: 13, color: '#6B7280', marginBottom: 18, lineHeight: 19 },
+  okCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E0F5EF', borderRadius: 10, padding: 12, marginBottom: 14 },
+  okTxt: { color: BRAND, fontWeight: '700', fontSize: 14, flex: 1 },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#111', marginBottom: 5 },
+  input: { height: 45, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', paddingHorizontal: 10, fontSize: 13, color: '#111', marginBottom: 14 },
+  hint: { fontSize: 12, color: '#6B7280', marginTop: -8, marginBottom: 14 },
   checkRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 4, marginBottom: 8 },
   checkTxt: { flex: 1, fontSize: 13, color: '#333', lineHeight: 19 },
   link: { color: BRAND, fontWeight: '700', textDecorationLine: 'underline' },
-  btnRow: { paddingHorizontal: 16, paddingBottom: 20, backgroundColor: '#f5f5f5' },
-  saveBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
-  saveTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  btnRow: { paddingHorizontal: 20, paddingBottom: 20, paddingTop: 8, backgroundColor: '#fff' },
+  saveBtn: { height: 46, backgroundColor: BRAND, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  saveTxt: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

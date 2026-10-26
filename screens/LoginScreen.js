@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView, BackHandler } from 'react-native';
+import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView, BackHandler, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,6 +13,8 @@ import useSecureScreen from '../hooks/useSecureScreen';
 import { noterBrouillonConnexion, lireBrouillonConnexion } from '../utils/repliEcran';
 
 import { countryName } from '../data/countryNames';
+import { authService } from '../services/authService';
+import { CONTRAT_STRIPE, creerJetonCompte, dateIso, dateValide, formaterDate } from '../utils/stripeCompte';
 
 const BRAND = '#00C29B';
 const MAX_LOGIN_FAILS = 3;
@@ -141,7 +143,7 @@ export default function LoginScreen() {
   // Mode: 'login' | 'choose' | 'signup'
   const [mode, setMode] = useState('login');
   const [isPro, setIsPro] = useState(null); // null=choose, true=pro, false=particulier
-  const [step, setStep] = useState(1); // 1=email/pwd, 2=info, 3=docs(pro)
+  const [step, setStep] = useState(1); // 1=email/pwd, 2=tout le reste sur une page
   const [pendingValidation, setPendingValidation] = useState(false);
 
   // Fields (connexion : etats a part, la saisie de l'inscription n'y passe pas)
@@ -165,6 +167,18 @@ export default function LoginScreen() {
   const [phoneCountry, setPhoneCountry] = useState('FR');
   // Véhicule choisi à l'inscription (valeurs backend : bicycle/car/walk).
   const [vehicle, setVehicle] = useState('bicycle');
+  // Inscription en une page (26/10/2026) : statut, déclaration des revenus
+  // et compte de virement Stripe.
+  const [proStatus, setProStatus] = useState('auto_entrepreneur'); // pro : auto_entrepreneur | societe
+  const [dob, setDob] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [city, setCity] = useState('');
+  const [taxId, setTaxId] = useState('');
+  const [siret, setSiret] = useState('');
+  const [vatNumber, setVatNumber] = useState('');
+  const [iban, setIban] = useState('');
+  const [stripeAccepte, setStripeAccepte] = useState(false);
+  const [stripeInfo, setStripeInfo] = useState(null); // { publishable_key, country, stripe_form }
 
   // Documents
   const [docIdFront, setDocIdFront] = useState(null);
@@ -195,6 +209,7 @@ export default function LoginScreen() {
   brouillonRef.current = {
     mode, isPro, step, loginEmail, loginPassword, email, password, confirmPwd,
     nom, prenom, pseudo, companyName, phone, address, country, phoneCountry, vehicle,
+    proStatus, dob, postalCode, city, taxId, siret, vatNumber, iban, stripeAccepte,
     docIdFront, docIdBack, docIban, docKbiss, docLicense, docPhoto, docProofAddress, docRcPro, docUrssaf,
   };
   // Connecte ou dossier envoye : rien a garder.
@@ -204,12 +219,16 @@ export default function LoginScreen() {
     const appliquer = (b) => {
       if (!b) return;
       const fixe = (v, set) => { if (v !== undefined) set(v); };
-      fixe(b.mode, setMode); fixe(b.isPro, setIsPro); fixe(b.step, setStep);
+      // Ancienne étape 3 (documents) : désormais sur la page 2.
+      fixe(b.mode, setMode); fixe(b.isPro, setIsPro); fixe(b.step === 3 ? 2 : b.step, setStep);
       fixe(b.loginEmail, setLoginEmail); fixe(b.loginPassword, setLoginPassword);
       fixe(b.email, setEmail); fixe(b.password, setPassword); fixe(b.confirmPwd, setConfirmPwd);
       fixe(b.nom, setNom); fixe(b.prenom, setPrenom); fixe(b.pseudo, setPseudo);
       fixe(b.companyName, setCompanyName); fixe(b.phone, setPhone); fixe(b.address, setAddress);
       fixe(b.country, setCountry); fixe(b.phoneCountry, setPhoneCountry); fixe(b.vehicle, setVehicle);
+      fixe(b.proStatus, setProStatus); fixe(b.dob, setDob); fixe(b.postalCode, setPostalCode);
+      fixe(b.city, setCity); fixe(b.taxId, setTaxId); fixe(b.siret, setSiret);
+      fixe(b.vatNumber, setVatNumber); fixe(b.iban, setIban); fixe(b.stripeAccepte, setStripeAccepte);
       fixe(b.docIdFront, setDocIdFront); fixe(b.docIdBack, setDocIdBack); fixe(b.docIban, setDocIban);
       fixe(b.docKbiss, setDocKbiss); fixe(b.docLicense, setDocLicense); fixe(b.docPhoto, setDocPhoto);
       fixe(b.docProofAddress, setDocProofAddress); fixe(b.docRcPro, setDocRcPro); fixe(b.docUrssaf, setDocUrssaf);
@@ -231,6 +250,19 @@ export default function LoginScreen() {
   const selectedCountry = COUNTRIES.find(c => c.code === country) || COUNTRIES[0];
   const selectedPhoneCountry = COUNTRIES.find(c => c.code === phoneCountry) || COUNTRIES[0];
   const phoneFmt = phoneFmtFor(phoneCountry);
+  const legalStatus = isPro ? proStatus : 'particulier';
+
+  // Page 2 : le pays de résidence dit si le compte de virement Stripe est
+  // créé dès l'inscription (société : plus tard, depuis le profil).
+  useEffect(() => {
+    if (mode !== 'signup' || step !== 2) return undefined;
+    let actif = true;
+    authService.getStripeInscription(country)
+      .then((d) => { if (actif) setStripeInfo(d && d.publishable_key ? d : null); })
+      .catch(() => { if (actif) setStripeInfo(null); });
+    return () => { actif = false; };
+  }, [mode, step, country]);
+  const stripeActif = !!stripeInfo?.stripe_form && legalStatus !== 'societe';
 
   // Photos (selfie, ID card) use the image library; paperwork (KBIS, RIB,
   // proof of address, RC Pro, URSSAF) also accepts a PDF via the file picker.
@@ -281,7 +313,6 @@ export default function LoginScreen() {
     setError('');
     if (mode === 'login') return;
     if (mode === 'choose') { setMode('login'); return; }
-    if (step === 3) { setStep(2); return; }
     if (step === 2) { setStep(1); return; }
     if (isPro !== null) { setIsPro(null); setMode('choose'); return; }
     setMode('login');
@@ -359,9 +390,9 @@ export default function LoginScreen() {
             const pr = f.properties || {};
             const rue = [pr.housenumber, pr.street || pr.name].filter(Boolean).join(' ');
             const ville = [pr.postcode, pr.city || pr.district].filter(Boolean).join(' ');
-            return [rue, ville].filter(Boolean).join(', ');
+            return { label: [rue, ville].filter(Boolean).join(', '), rue, cp: pr.postcode || '', ville: pr.city || pr.district || '' };
           })
-          .filter((label) => label && !vus.has(label) && vus.add(label));
+          .filter((sg) => sg.label && !vus.has(sg.label) && vus.add(sg.label));
         setAddrSuggestions(items.slice(0, 5));
       } catch (e) {
         // Reseau ou geocodeur indisponible : on laisse la saisie libre,
@@ -385,16 +416,16 @@ export default function LoginScreen() {
       setStep(2);
       return;
     }
-    // Step 2: info
-    if (step === 2) {
-      if (!nom.trim() || !prenom.trim() || !phone.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
-      if (isPro && !companyName.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
-      // Every driver (individual + pro) continues to the documents step.
-      setStep(3);
-      return;
-    }
-    // Step 3: documents (every driver)
+    // Page 2 : tout le reste, puis envoi de la demande.
+    const ibanPropre = iban.replace(/\s+/g, '').toUpperCase();
+    const siretPropre = siret.replace(/\s+/g, '');
+    if (!prenom.trim() || !nom.trim() || !phone.trim() || !address.trim() || !postalCode.trim() || !city.trim() || !taxId.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
+    if (isPro && !companyName.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
+    if (!dateValide(dob)) { setError(t('payoutSetupInvalidDob')); return; }
+    if (isPro && !/^\d{14}$/.test(siretPropre)) { setError(t('errorSiret')); return; }
+    if (ibanPropre.length < 15) { setError(t('errorIban')); return; }
     if (docFields.some(f => !f.value?.uri)) { setError(t('errorDocsRequired') || 'Tous les documents sont obligatoires.'); return; }
+    if (stripeActif && !stripeAccepte) { setError(t('errorStripeTerms')); return; }
     setLoading(true);
     let docUrls;
     try {
@@ -408,7 +439,31 @@ export default function LoginScreen() {
       setError(t('errorUploadFailed') || "Échec de l'envoi des documents. Veuillez réessayer.");
       return;
     }
-    const result = await register({ email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(), phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(), legal_address: address.trim(), vehicle_type: vehicle, role: isPro ? 'professionaluser' : 'user', documents: docUrls });
+    // Compte de virement Stripe : jeton fabriqué ici, compte créé par le
+    // serveur avec l'inscription (annulée entière si Stripe refuse).
+    let accountToken;
+    if (stripeActif) {
+      try {
+        const jeton = await creerJetonCompte(stripeInfo.publishable_key, {
+          firstName: prenom, lastName: nom, dob, line1: address, postalCode, city, email: email.trim(),
+        }, stripeInfo.country || country);
+        if (!jeton.id) { setLoading(false); setError(jeton.erreur || t('stripeSetupError')); return; }
+        accountToken = jeton.id;
+      } catch {
+        setLoading(false); setError(t('errorNetwork') || t('genericError')); return;
+      }
+    }
+    const result = await register({
+      email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(),
+      phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(),
+      legal_status: legalStatus,
+      legal_address: `${address.trim()}, ${postalCode.trim()} ${city.trim()}`,
+      postal_code: postalCode.trim(), city: city.trim(), birth_date: dateIso(dob), tax_id: taxId.trim(),
+      siret: isPro ? siretPropre : '', vat_number: isPro ? vatNumber.trim() : '',
+      iban: ibanPropre, iban_holder_name: legalStatus === 'societe' ? companyName.trim() : `${prenom.trim()} ${nom.trim()}`,
+      account_token: accountToken,
+      vehicle_type: vehicle, role: isPro ? 'professionaluser' : 'user', documents: docUrls,
+    });
     setLoading(false);
     if (result && result.ok) { termineRef.current = true; setPendingValidation(true); return; }
     setError((result && result.error) || t('genericError'));
@@ -459,6 +514,14 @@ export default function LoginScreen() {
       <Text style={{color:'#EF4444', fontSize:13, marginLeft:8, flex:1}}>{error}</Text>
     </View>
   ) : null;
+  // Titre de section de la page 2 (icône + libellé, filet au-dessus).
+  const section = (icone, titre, premier = false) => (
+    <View style={[p.section, premier && p.sectionPremier]}>
+      <Ionicons name={icone} size={18} color={BRAND} />
+      <Text style={p.sectionTxt}>{titre}</Text>
+    </View>
+  );
+
   // Voile des fenetres sur tout l'ecran, barres systeme comprises.
   const voile = { flex:1, backgroundColor:'rgba(0,0,0,0.5)', justifyContent:'flex-end' };
   const basFeuille = Math.max(40, insets.bottom + 16);
@@ -487,7 +550,7 @@ export default function LoginScreen() {
           {/* Step title on form pages */}
           {mode === 'signup' && isPro !== null && (
             <Text style={{fontSize:18, fontWeight:'800', color:'#111', marginBottom:16}}>
-              {step === 1 ? (t('stepEmail') || 'Identifiants') : step === 2 ? (t('stepInfo') || 'Informations') : (t('stepDocs') || 'Documents')}
+              {step === 1 ? (t('stepEmail') || 'Identifiants') : (t('stepInfo') || 'Informations')}
             </Text>
           )}
 
@@ -550,118 +613,160 @@ export default function LoginScreen() {
           {/* === SIGNUP STEP 1: Email + Password === */}
           {mode === 'signup' && step === 1 && (
             <>
-              <Text style={s.label}>{t('emailLabel')}</Text>
-              <TextInput style={s.input} value={email} onChangeText={setEmail} placeholder={t('emailPlaceholder')} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
-              <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
-              <View style={s.pwdRow}>
-                <TextInput style={[s.input, {flex:1, marginBottom:0}]} value={password} onChangeText={setPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
-                <Pressable onPress={() => setShowPwd(v => !v)} style={s.eyeBtn}>
+              <Text style={p.label}>{t('emailLabel')}</Text>
+              <TextInput style={p.input} value={email} onChangeText={setEmail} placeholder={t('emailPlaceholder')} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+              <Text style={p.label}>{t('password') || 'Mot de passe'}</Text>
+              <View style={p.pwdRow}>
+                <TextInput style={[p.input, {flex:1}]} value={password} onChangeText={setPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <Pressable onPress={() => setShowPwd(v => !v)} style={p.eyeBtn}>
                   <Ionicons name={showPwd ? 'eye-off' : 'eye'} size={22} color="#888" />
                 </Pressable>
               </View>
-              <Text style={s.label}>{t('confirmPassword') || 'Confirmer le mot de passe'}</Text>
-              <View style={s.pwdRow}>
-                <TextInput style={[s.input, {flex:1, marginBottom:0}]} value={confirmPwd} onChangeText={setConfirmPwd} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showConfirmPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
-                <Pressable onPress={() => setShowConfirmPwd(v => !v)} style={s.eyeBtn}>
+              <Text style={p.label}>{t('confirmPassword') || 'Confirmer le mot de passe'}</Text>
+              <View style={p.pwdRow}>
+                <TextInput style={[p.input, {flex:1}]} value={confirmPwd} onChangeText={setConfirmPwd} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showConfirmPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <Pressable onPress={() => setShowConfirmPwd(v => !v)} style={p.eyeBtn}>
                   <Ionicons name={showConfirmPwd ? 'eye-off' : 'eye'} size={22} color="#888" />
                 </Pressable>
               </View>
-              <Pressable style={s.btn} onPress={handleSignup}>
-                <Text style={s.btnTxt}>{t('next') || 'Suivant'}</Text>
+              <Pressable style={p.btn} onPress={handleSignup}>
+                <Text style={p.btnTxt}>{t('next') || 'Suivant'}</Text>
               </Pressable>
             </>
           )}
 
-          {/* === SIGNUP STEP 2: Info === */}
+          {/* === PAGE 2 : tout le reste, sur une page (26/10/2026) === */}
           {mode === 'signup' && step === 2 && (
             <>
-              <Text style={s.label}>{t('driverLastName') || 'Nom du livreur'}</Text>
-              <TextInput style={s.input} value={nom} onChangeText={setNom} placeholder={t('lastNamePlaceholder')} placeholderTextColor="#aaa" />
-              <Text style={s.label}>{t('driverFirstName') || 'Prénom du livreur'}</Text>
-              <TextInput style={s.input} value={prenom} onChangeText={setPrenom} placeholder={t('firstNamePlaceholder')} placeholderTextColor="#aaa" />
               {isPro && (
                 <>
-                  <Text style={s.label}>{t('companyName') || "Nom de l'établissement"}</Text>
-                  <TextInput style={s.input} value={companyName} onChangeText={setCompanyName} placeholder={t('shopPlaceholder')} placeholderTextColor="#aaa" />
+                  {section('briefcase-outline', t('sectionStatus'), true)}
+                  <View style={p.chipsRow}>
+                    {[
+                      { id: 'auto_entrepreneur', label: t('statusAutoEntrepreneur') },
+                      { id: 'societe', label: t('statusCompany') },
+                    ].map((o) => {
+                      const actif = proStatus === o.id;
+                      return (
+                        <TouchableOpacity key={o.id} onPress={() => setProStatus(o.id)} style={[p.chip, actif && p.chipActif]}>
+                          <Ionicons name={actif ? 'radio-button-on' : 'radio-button-off'} size={18} color={actif ? BRAND : '#9CA3AF'} style={{marginRight:8}} />
+                          <Text style={[p.chipTxt, actif && {color:BRAND}]}>{o.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </>
               )}
-              <Text style={s.label}>{t('countryLabel') || 'Pays de résidence'}</Text>
-              <TouchableOpacity onPress={() => setCountryPickerVisible(true)} style={[s.input, {flexDirection:'row', alignItems:'center'}]}>
-                <Text style={{fontSize:20, marginRight:10}}>{selectedCountry.flag}</Text>
-                <Text style={{flex:1, fontSize:15, color:'#111', fontWeight:'600'}}>{countryName(selectedCountry.code, lang, selectedCountry.name)}</Text>
+
+              {section('person-outline', t('sectionIdentity'), !isPro)}
+              <View style={p.row}>
+                <View style={{flex:1, marginRight:10}}>
+                  <Text style={p.label}>{t('driverFirstName') || 'Prénom'}</Text>
+                  <TextInput style={p.input} value={prenom} onChangeText={setPrenom} placeholder={t('firstNamePlaceholder')} placeholderTextColor="#aaa" autoCapitalize="words" />
+                </View>
+                <View style={{flex:1}}>
+                  <Text style={p.label}>{t('driverLastName') || 'Nom'}</Text>
+                  <TextInput style={p.input} value={nom} onChangeText={setNom} placeholder={t('lastNamePlaceholder')} placeholderTextColor="#aaa" autoCapitalize="words" />
+                </View>
+              </View>
+              <Text style={p.label}>{t('birthDate')}</Text>
+              <TextInput style={p.input} value={dob} onChangeText={(v) => setDob(formaterDate(v))} placeholder={t('birthDatePlaceholder')} placeholderTextColor="#aaa" keyboardType="number-pad" maxLength={10} />
+              <Text style={p.label}>{t('phoneLabel') || 'Numéro de téléphone'}</Text>
+              <View style={p.row}>
+                <TouchableOpacity onPress={() => setPhonePickerVisible(true)} style={[p.input, p.select, {marginRight:8, paddingRight:8}]}>
+                  <Text style={{fontSize:16, marginRight:6}}>{selectedPhoneCountry.flag}</Text>
+                  <Text style={p.selectTxt}>{selectedPhoneCountry.phoneCode}</Text>
+                  <Ionicons name="chevron-down" size={14} color="#9CA3AF" style={{marginLeft:4}} />
+                </TouchableOpacity>
+                <TextInput style={[p.input, {flex:1}]} value={formatPhone(phone, phoneFmt)} onChangeText={(txt) => setPhone(txt.replace(/\D/g, '').slice(0, phoneFmt.len))} placeholder={phonePlaceholder(phoneFmt)} placeholderTextColor="#aaa" keyboardType="phone-pad" maxLength={phoneFmt.len + phoneFmt.groups.length} />
+              </View>
+
+              {section('home-outline', t('sectionAddress'))}
+              <Text style={p.label}>{t('countryLabel') || 'Pays de résidence'}</Text>
+              <TouchableOpacity onPress={() => setCountryPickerVisible(true)} style={[p.input, p.select]}>
+                <Text style={{fontSize:18, marginRight:10}}>{selectedCountry.flag}</Text>
+                <Text style={[p.selectTxt, {flex:1}]}>{countryName(selectedCountry.code, lang, selectedCountry.name)}</Text>
                 <Ionicons name="chevron-down" size={18} color="#9CA3AF" />
               </TouchableOpacity>
-              <Text style={s.label}>{t('driverAddressLabel') || 'Adresse'}</Text>
+              <Text style={p.label}>{t('streetAddress') || t('driverAddressLabel') || 'Adresse'}</Text>
               <TextInput
-                style={s.input}
+                style={p.input}
                 value={address}
                 onChangeText={(txt) => { setAddress(txt); fetchAddressSuggestions(txt, selectedCountry.code); }}
                 placeholder={t('addressPlaceholder')}
                 placeholderTextColor="#aaa"
               />
-              {addrSearching && <ActivityIndicator size="small" color={BRAND} style={{marginBottom:4}} />}
+              {addrSearching && <ActivityIndicator size="small" color={BRAND} style={{marginTop:6}} />}
               {addrSuggestions.length > 0 && (
-                <View style={{borderWidth:1, borderColor:'#E5E7EB', borderRadius:8, marginBottom:8, overflow:'hidden'}}>
+                <View style={p.suggestions}>
                   {addrSuggestions.map((sugg) => (
                     <TouchableOpacity
-                      key={sugg}
-                      onPress={() => { setAddress(sugg); setAddrSuggestions([]); }}
+                      key={sugg.label}
+                      onPress={() => {
+                        setAddress(sugg.rue || sugg.label);
+                        if (sugg.cp) setPostalCode(sugg.cp);
+                        if (sugg.ville) setCity(sugg.ville);
+                        setAddrSuggestions([]);
+                      }}
                       style={{paddingVertical:10, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6'}}
                     >
-                      <Text style={{fontSize:14, color:'#111'}}>{sugg}</Text>
+                      <Text style={{fontSize:13, color:'#111'}}>{sugg.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               )}
-              <Text style={s.label}>{t('phoneLabel') || 'Numéro de téléphone'}</Text>
-              <View style={{flexDirection:'row', marginBottom:4}}>
-                <TouchableOpacity onPress={() => setPhonePickerVisible(true)} style={[s.input, {flexDirection:'row', alignItems:'center', marginRight:8, flex:0}]}>
-                  <Text style={{fontSize:16, marginRight:6}}>{selectedPhoneCountry.flag}</Text>
-                  <Text style={{fontSize:14, fontWeight:'600', color:'#111'}}>{selectedPhoneCountry.phoneCode}</Text>
-                  <Ionicons name="chevron-down" size={14} color="#9CA3AF" style={{marginLeft:4}} />
-                </TouchableOpacity>
-                <TextInput style={[s.input, {flex:1}]} value={formatPhone(phone, phoneFmt)} onChangeText={(txt) => setPhone(txt.replace(/\D/g, '').slice(0, phoneFmt.len))} placeholder={phonePlaceholder(phoneFmt)} placeholderTextColor="#aaa" keyboardType="phone-pad" maxLength={phoneFmt.len + phoneFmt.groups.length} />
+              <View style={p.row}>
+                <View style={{flex:1, marginRight:10}}>
+                  <Text style={p.label}>{t('postalCode')}</Text>
+                  <TextInput style={p.input} value={postalCode} onChangeText={setPostalCode} placeholder="75002" placeholderTextColor="#aaa" keyboardType="number-pad" maxLength={10} />
+                </View>
+                <View style={{flex:2}}>
+                  <Text style={p.label}>{t('city')}</Text>
+                  <TextInput style={p.input} value={city} onChangeText={setCity} placeholder="Paris" placeholderTextColor="#aaa" autoCapitalize="words" />
+                </View>
               </View>
-              <Text style={s.label}>{t('vehicleLabel') || t('selectVehicle') || 'Véhicule'}</Text>
-              <View style={{flexDirection:'row', marginBottom:4}}>
+
+              {section('document-text-outline', t('sectionTax'))}
+              <Text style={p.hint}>{t('sectionTaxHint')}</Text>
+              <Text style={p.label}>{t('taxIdLabel')}</Text>
+              <TextInput style={p.input} value={taxId} onChangeText={setTaxId} placeholder="1234567890123" placeholderTextColor="#aaa" autoCapitalize="characters" autoCorrect={false} maxLength={32} />
+              <Text style={p.hintSous}>{t('taxIdHint')}</Text>
+              {isPro && (
+                <>
+                  <Text style={p.label}>{t('companyName') || "Nom de l'établissement"}</Text>
+                  <TextInput style={p.input} value={companyName} onChangeText={setCompanyName} placeholder={t('shopPlaceholder')} placeholderTextColor="#aaa" />
+                  <Text style={p.label}>{t('siretLabel')}</Text>
+                  <TextInput style={p.input} value={siret} onChangeText={(v) => setSiret(v.replace(/[^\d ]/g, ''))} placeholder="123 456 789 00012" placeholderTextColor="#aaa" keyboardType="number-pad" maxLength={17} />
+                  <Text style={p.label}>{t('vatNumberLabel')}</Text>
+                  <TextInput style={p.input} value={vatNumber} onChangeText={setVatNumber} placeholder="FR12345678901" placeholderTextColor="#aaa" autoCapitalize="characters" autoCorrect={false} maxLength={32} />
+                </>
+              )}
+
+              {section('bicycle-outline', t('sectionVehicle'))}
+              <View style={p.chipsRow}>
                 {SIGNUP_VEHICLES.map((v) => {
                   const active = vehicle === v.id;
                   return (
-                    <TouchableOpacity
-                      key={v.id}
-                      onPress={() => setVehicle(v.id)}
-                      style={{
-                        flex:1, alignItems:'center', paddingVertical:12, marginRight: v.id === 'walk' ? 0 : 8,
-                        borderWidth:1, borderRadius:12,
-                        borderColor: active ? BRAND : '#E5E7EB',
-                        backgroundColor: active ? '#F0FDF4' : '#fff',
-                      }}>
+                    <TouchableOpacity key={v.id} onPress={() => setVehicle(v.id)} style={[p.vehicule, active && p.chipActif, v.id === 'walk' && {marginRight:0}]}>
                       <Ionicons name={v.icon} size={22} color={active ? BRAND : '#9CA3AF'} />
-                      <Text style={{fontSize:11, marginTop:4, fontWeight: active ? '700' : '500', color: active ? BRAND : '#6B7280'}}>
-                        {t(v.labelKey) || v.id}
-                      </Text>
+                      <Text style={[p.vehiculeTxt, active && {color:BRAND, fontWeight:'700'}]}>{t(v.labelKey) || v.id}</Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
-              <Pressable style={s.btn} onPress={handleSignup}>
-                <Text style={s.btnTxt}>{isPro ? (t('next') || 'Suivant') : (t('signUp') || "S'inscrire")}</Text>
-              </Pressable>
-            </>
-          )}
 
-          {/* === SIGNUP STEP 3: Documents (every driver) === */}
-          {mode === 'signup' && step === 3 && (
-            <>
-              {docFields.map((doc, i) => (
-                <TouchableOpacity key={doc.slot} onPress={() => pickDocument(doc.setter, doc.pdf)} style={{
-                  flexDirection:'row', alignItems:'center', padding:14, borderWidth:1,
-                  borderColor: doc.value?.uri ? BRAND : '#E5E7EB', borderRadius:12, marginBottom:10,
-                  backgroundColor: doc.value?.uri ? '#F0FDF4' : '#fff'
-                }}>
+              {section('card-outline', t('sectionPayouts'))}
+              <Text style={p.hint}>{t('payoutSetupIntro')}</Text>
+              <Text style={p.label}>{t('ibanLabel')}</Text>
+              <TextInput style={p.input} value={iban} onChangeText={setIban} placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX" placeholderTextColor="#aaa" autoCapitalize="characters" autoCorrect={false} maxLength={42} />
+              {legalStatus === 'societe' && <Text style={p.hintSous}>{t('signupPayoutCompanyLater')}</Text>}
+
+              {section('folder-open-outline', t('sectionDocuments'))}
+              {docFields.map((doc) => (
+                <TouchableOpacity key={doc.slot} onPress={() => pickDocument(doc.setter, doc.pdf)} style={[p.doc, doc.value?.uri && p.chipActif]}>
                   <Ionicons name={doc.value?.uri ? 'checkmark-circle' : doc.icon} size={22} color={doc.value?.uri ? BRAND : '#9CA3AF'} style={{marginRight:12}} />
                   <View style={{flex:1}}>
-                    <Text style={{fontSize:14, fontWeight:'600', color:'#111'}}>{doc.label} *</Text>
+                    <Text style={{fontSize:13, fontWeight:'600', color:'#111'}}>{doc.label} *</Text>
                     <Text style={{fontSize:11, color: doc.value?.uri ? BRAND : '#9CA3AF', marginTop:2}}>{doc.value?.uri ? (t('docUploaded') || 'Document ajouté') : (t('docTapUpload') || 'Appuyez pour ajouter')}</Text>
                   </View>
                   {doc.value?.uri && (
@@ -671,8 +776,18 @@ export default function LoginScreen() {
                   )}
                 </TouchableOpacity>
               ))}
-              <Pressable style={s.btn} onPress={handleSignup}>
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{t('submitApplication') || 'Envoyer la demande'}</Text>}
+
+              {stripeActif && (
+                <Pressable style={p.checkRow} onPress={() => setStripeAccepte((v) => !v)}>
+                  <Ionicons name={stripeAccepte ? 'checkbox' : 'square-outline'} size={22} color={stripeAccepte ? BRAND : '#9CA3AF'} style={{marginRight:10}} />
+                  <Text style={p.checkTxt}>
+                    {t('stripeTermsAccept')}{' '}
+                    <Text style={p.lien} onPress={() => Linking.openURL(CONTRAT_STRIPE)}>{t('stripeTermsLink')}</Text>
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable style={[p.btn, loading && {opacity:0.6}]} onPress={handleSignup} disabled={loading}>
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={p.btnTxt}>{t('submitApplication') || 'Envoyer la demande'}</Text>}
               </Pressable>
             </>
           )}
@@ -779,4 +894,34 @@ const s = StyleSheet.create({
     alignItems: 'center', marginTop: 28,
   },
   btnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
+});
+
+// Inscription (26/10/2026) : champs, boutons et sections au style de l'app
+// pro, sur fond blanc.
+const p = StyleSheet.create({
+  section: { flexDirection: 'row', alignItems: 'center', marginTop: 26, paddingTop: 18, borderTopWidth: 1, borderTopColor: '#F0F0F0', marginBottom: 2 },
+  sectionPremier: { marginTop: 0, paddingTop: 0, borderTopWidth: 0 },
+  sectionTxt: { fontSize: 16, fontWeight: '700', color: '#111', marginLeft: 8 },
+  hint: { fontSize: 12, color: '#6B7280', lineHeight: 17, marginTop: 6 },
+  hintSous: { fontSize: 11, color: '#6B7280', lineHeight: 16, marginTop: 5 },
+  label: { fontSize: 12, fontWeight: '600', color: '#111', marginBottom: 5, marginTop: 14 },
+  input: { height: 45, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', paddingHorizontal: 10, fontSize: 13, color: '#111' },
+  row: { flexDirection: 'row', alignItems: 'flex-end' },
+  select: { flexDirection: 'row', alignItems: 'center' },
+  selectTxt: { fontSize: 13, fontWeight: '600', color: '#111' },
+  suggestions: { borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', borderRadius: 10, marginTop: 6, overflow: 'hidden' },
+  pwdRow: { flexDirection: 'row', alignItems: 'center' },
+  eyeBtn: { position: 'absolute', right: 10, padding: 4 },
+  chipsRow: { flexDirection: 'row', marginTop: 12 },
+  chip: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 45, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', marginRight: 10, backgroundColor: '#fff' },
+  chipActif: { borderColor: BRAND, backgroundColor: '#E0F5EF' },
+  chipTxt: { fontSize: 13, fontWeight: '600', color: '#374151', flexShrink: 1 },
+  vehicule: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', marginRight: 10, backgroundColor: '#fff' },
+  vehiculeTxt: { fontSize: 11, marginTop: 4, fontWeight: '500', color: '#6B7280' },
+  doc: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', marginTop: 10, backgroundColor: '#fff' },
+  checkRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 22 },
+  checkTxt: { flex: 1, fontSize: 13, color: '#333', lineHeight: 19 },
+  lien: { color: BRAND, fontWeight: '700', textDecorationLine: 'underline' },
+  btn: { height: 46, backgroundColor: BRAND, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
+  btnTxt: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });
