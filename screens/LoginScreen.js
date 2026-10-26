@@ -340,11 +340,9 @@ export default function LoginScreen() {
       { slot: 'driver_license', url: 'driver_license_url', label: t('driverLicense'), value: docLicense, setter: setDocLicense, icon: 'car-outline', pdf: true },
     ] : []),
     { slot: 'proof_of_address', url: 'proof_of_address_url', label: t('docProofOfAddress'), value: docProofAddress, setter: setDocProofAddress, icon: 'home-outline', pdf: true },
-    { slot: 'iban', url: 'iban_doc_url', label: t('ibanDoc'), value: docIban, setter: setDocIban, icon: 'wallet-outline', pdf: true },
     ...(isPro ? [
       { slot: 'rc_pro', url: 'rc_pro_url', label: t('docRcPro'), value: docRcPro, setter: setDocRcPro, icon: 'shield-checkmark-outline', pdf: true },
-      { slot: 'urssaf', url: 'urssaf_doc_url', label: t('docUrssaf'), value: docUrssaf, setter: setDocUrssaf, icon: 'document-text-outline', pdf: true },
-      { slot: 'kbis', url: 'kbis_doc_url', label: t('docKbiss'), value: docKbiss, setter: setDocKbiss, icon: 'document-text-outline', pdf: true },
+      ...(legalStatus === 'societe' ? [{ slot: 'kbis', url: 'kbis_doc_url', label: t('docKbiss'), value: docKbiss, setter: setDocKbiss, icon: 'document-text-outline', pdf: true }] : []),
     ] : []),
   ];
 
