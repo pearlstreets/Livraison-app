@@ -70,6 +70,16 @@ export const deliveryService = {
     return data;
   },
 
+  async getPayoutSetup() {
+    const { data } = await api.get('/api/v1/delivery/stripe/setup/');
+    return data;
+  },
+
+  async submitPayoutSetup(payload) {
+    const { data } = await api.post('/api/v1/delivery/stripe/setup/', payload);
+    return data;
+  },
+
   async requestStripeConnect() {
     const { data } = await api.post('/api/v1/delivery/stripe/connect/');
     return data;

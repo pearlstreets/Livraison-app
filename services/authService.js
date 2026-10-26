@@ -82,6 +82,19 @@ export const authService = {
     return data;
   },
 
+  // Inscription en une page (26/10/2026) : clé publique Stripe sans session,
+  // et si le pays de résidence ouvre le compte de virement dès l'inscription.
+  // Fiche publique d'une entreprise française depuis son SIRET (sans connexion).
+  async verifierSiret(siret) {
+    const { data } = await api.get('/api/v1/userprofessional/verify-registration/', { params: { country: 'FR', number: siret }, timeout: 9000 });
+    return data;
+  },
+
+  async getStripeInscription(country) {
+    const { data } = await api.get('/api/v1/delivery/stripe/cle-inscription/', { params: { country } });
+    return data;
+  },
+
   async register(payload) {
     // Validate email
     if (!isValidEmail(payload.email)) {

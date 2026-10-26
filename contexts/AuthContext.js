@@ -314,9 +314,15 @@ export function AuthProvider({ children }) {
         // Véhicule choisi à l'inscription (défaut vélo si absent).
         vehicle_type: data.vehicle_type || data.vehicle || 'bicycle',
         country: data.country || 'FR',
-        legal_status: isPro ? 'societe' : 'particulier',
+        legal_status: data.legal_status || (isPro ? 'societe' : 'particulier'),
       };
       if (data.companyName) payload.legal_name = data.companyName;
+      // Inscription en une page (26/10/2026) : adresse, déclaration des
+      // revenus et compte de virement Stripe.
+      [
+        'legal_address', 'birth_date', 'tax_id', 'postal_code', 'city', 'siret',
+        'vat_number', 'iban', 'iban_holder_name', 'account_token',
+      ].forEach((k) => { if (data[k]) payload[k] = data[k]; });
       if (data.documents) {
         const d = data.documents;
         [
@@ -329,7 +335,8 @@ export function AuthProvider({ children }) {
       // documents — no auto-login; the app shows the pending screen.
       return { ok: true, pending: true };
     } catch (e) {
-      return { ok: false, error: e?.message || 'register_failed' };
+      // Refus de Stripe (422) : son message, pour corriger sur la page.
+      return { ok: false, error: (e?.status === 422 && e?.serverMessage) || e?.message || 'register_failed' };
     }
   }, [applyProfile, refreshAll]);
 

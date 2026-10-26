@@ -52,6 +52,7 @@ import TicketChatScreen from './screens/TicketChatScreen';
 import ReportProblemScreen from './screens/ReportProblemScreen';
 import TicketsListScreen from './screens/TicketsListScreen';
 import EditIbanScreen from './screens/EditIbanScreen';
+import PayoutSetupScreen from './screens/PayoutSetupScreen';
 import WarningsScreen from './screens/WarningsScreen';
 import HeatmapScreen from './screens/HeatmapScreen';
 import MapScreen from './screens/MapScreen';
@@ -152,6 +153,7 @@ function EarningsStackScreen() {
       <EarningsStack.Screen name="WeekDetail" component={WeekDetailScreen} />
       <EarningsStack.Screen name="Wallet" component={WalletScreen} />
       <EarningsStack.Screen name="EditIban" component={EditIbanScreen} />
+      <EarningsStack.Screen name="PayoutSetup" component={PayoutSetupScreen} />
       <EarningsStack.Screen name="VersementsList" component={VersementsListScreen} />
       <EarningsStack.Screen name="VersementDetail" component={VersementDetailScreen} />
     </EarningsStack.Navigator>
@@ -179,6 +181,7 @@ function MenuStackScreen() {
       <MenuStack.Screen name="ReportProblem" component={ReportProblemScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="TicketsList" component={TicketsListScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="EditIban" component={EditIbanScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="PayoutSetup" component={PayoutSetupScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="VersementsList" component={VersementsListScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="VersementDetail" component={VersementDetailScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="Warnings" component={WarningsScreen} options={{ headerShown: false }} />
