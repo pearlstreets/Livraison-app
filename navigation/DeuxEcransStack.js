@@ -26,7 +26,12 @@ import {
 import {BottomTabBarHeightContext} from '@react-navigation/bottom-tabs';
 import {Freeze} from 'react-freeze';
 import {dimensionsReelles, largeurMoitie} from '../utils/deuxEcrans';
-import {aGauche, ecransVisibles, pileAvantOuverture} from '../utils/ecranPliable';
+import {
+  aGauche,
+  ecransVisibles,
+  pileAvantOuverture,
+  retourDeLaSource,
+} from '../utils/ecranPliable';
 
 // Delai avant de figer un ecran cache : les mises a jour lancees avec la
 // navigation (fermer une fenetre...) ont le temps d'etre appliquees. Sinon
@@ -48,7 +53,7 @@ const routeurDeuxEcrans = options => {
     getStateForAction(state, action, config) {
       return routeur.getStateForAction(
         pileAvantOuverture(gauche, state, action),
-        action,
+        retourDeLaSource(state, action),
         config,
       );
     },

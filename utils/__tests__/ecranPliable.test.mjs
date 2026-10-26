@@ -5,6 +5,7 @@ import {
   ecranChange,
   ecransVisibles,
   pileAvantOuverture,
+  retourDeLaSource,
 } from '../ecranPliable.js';
 
 test('pliage et depliage rechargent, rotation et clavier non', () => {
@@ -21,6 +22,7 @@ test('pliage et depliage rechargent, rotation et clavier non', () => {
 
 const gauche = ['MenuMain', 'DeliveryHistory'];
 const pile = noms => ({
+  key: 'pile-1',
   routeNames: ['MenuMain', 'DeliveryHistory', 'DeliveryDetail', 'TicketChat', 'Wallet'],
   index: noms.length - 1,
   routes: noms.map((name, i) => ({key: `${name}-${i}`, name})),
@@ -59,4 +61,16 @@ test('page ouverte depuis la droite, liste ouverte a gauche : rien ne change', (
   assert.equal(pileAvantOuverture(gauche, avant, retour), avant);
   const inconnu = {type: 'NAVIGATE', source: 'DeliveryHistory-1', payload: {name: 'Accueil'}};
   assert.equal(pileAvantOuverture(gauche, avant, inconnu), avant);
+});
+
+test('retour depuis la page de droite : ferme cette page, pas la liste du dessus', () => {
+  const avant = pile(['MenuMain', 'EditProfile', 'Opportunities']);
+  const retour = retourDeLaSource(avant, {type: 'GO_BACK', source: 'EditProfile-1'});
+  assert.equal(retour.target, 'pile-1');
+  const cible = {type: 'GO_BACK', source: 'EditProfile-1', target: 'autre'};
+  assert.equal(retourDeLaSource(avant, cible), cible);
+  const etranger = {type: 'GO_BACK', source: 'ailleurs'};
+  assert.equal(retourDeLaSource(avant, etranger), etranger);
+  const ouvrir = {type: 'NAVIGATE', source: 'MenuMain-0', payload: {name: 'Wallet'}};
+  assert.equal(retourDeLaSource(avant, ouvrir), ouvrir);
 });

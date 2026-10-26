@@ -61,7 +61,7 @@ import VersementsListScreen from './screens/VersementsListScreen';
 import VersementDetailScreen from './screens/VersementDetailScreen';
 import { ecranDeplie, largeurMoitie } from './utils/deuxEcrans';
 import { createDeuxEcransNavigator, AuMilieu } from './navigation/DeuxEcransStack';
-import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli } from './utils/repliEcran';
+import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli, noterEtatNavigation } from './utils/repliEcran';
 
 // Initialize OneSignal once at module load. The helper is a no-op when the
 // native module isn't bundled or when expo.extra.oneSignalAppId is empty,
@@ -283,7 +283,7 @@ export default function App() {
         <AuthProvider>
           <CurrencyGate>
             <View style={{ flex: 1 }} onLayout={signalerTailleRacine}>
-              <NavigationContainer theme={navTheme} ref={navigationRef} onReady={restaurerEcranApresRepli}>
+              <NavigationContainer theme={navTheme} ref={navigationRef} onReady={restaurerEcranApresRepli} onStateChange={noterEtatNavigation}>
                 <StatusBar style="dark" />
                 <Main />
               </NavigationContainer>

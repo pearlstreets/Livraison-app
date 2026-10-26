@@ -27,7 +27,18 @@ const DELAI_DEMARRAGE = 3000;
 const DELAI_RECHARGEMENT = 800;
 let debut = Date.now();
 let reference = null;
+let dejaSurveille = false;
+// Dernier etat des onglets, note a chaque navigation (App.js, onStateChange).
+// Le pliage peut recreer l'activite Android sans recharger le JS : l'app est
+// remontee sur l'Accueil avant le rechargement, l'etat d'avant est ici.
+let dernierEtat = null;
+// Apres un remontage, l'etat neuf (Accueil) ne remplace pas celui d'avant.
+let etatFigeJusqua = 0;
 let rechargementEnCours = false;
+// Numero du montage de l'app : un rechargement demande juste avant que le
+// pliage recree l'activite serait perdu (ecran blanc, mesure sur emulateur
+// le 26/10/2026). Il est abandonne et redemande par le nouveau montage.
+let montage = 0;
 let etatARestaurer = null;
 
 // Les onglets sont montes (livreur connecte) : l'etat est celui de l'app.
@@ -48,10 +59,15 @@ const recharger = async () => {
     return;
   }
   rechargementEnCours = true;
+  const montageDemande = montage;
   await new Promise(fin => setTimeout(fin, DELAI_RECHARGEMENT));
+  if (montageDemande !== montage) {
+    return;
+  }
   try {
-    if (ongletsPrets()) {
-      const etat = navigationRef.getRootState();
+    const etat =
+      dernierEtat || (ongletsPrets() ? navigationRef.getRootState() : null);
+    if (etat) {
       await AsyncStorage.setItem(
         CLE_ETAT,
         JSON.stringify({etat, pose: Date.now()}),
@@ -102,10 +118,19 @@ export function signalerTailleRacine(event) {
 
 // A appeler une fois au montage de l'app. Rend la fonction de retrait.
 export function surveillerRepliEcran() {
-  debut = Date.now();
-  // Deplie, Dimensions annonce une moitie (utils/deuxEcrans.js) : la
-  // reference et les mesures restent celles de l'ecran entier.
-  reference = dimensionsReelles() || Dimensions.get('window');
+  // Activite recreee par le pliage (meme JS) : l'app est remontee, la
+  // reference d'avant est gardee pour que le changement de taille recharge.
+  if (!dejaSurveille) {
+    dejaSurveille = true;
+    debut = Date.now();
+    // Deplie, Dimensions annonce une moitie (utils/deuxEcrans.js) : la
+    // reference et les mesures restent celles de l'ecran entier.
+    reference = dimensionsReelles() || Dimensions.get('window');
+  } else {
+    // Remontage : la vue racine remesuree redemande le rechargement.
+    montage += 1;
+    rechargementEnCours = false;
+  }
   const abonnement = Dimensions.addEventListener('change', ({window}) => {
     if (
       dimensionsReelles() &&
@@ -130,10 +155,25 @@ export function surveillerRepliEcran() {
     })
     .catch(() => {});
   return () => {
+    // App demontee (activite recreee) : l'etat neuf du remontage ne
+    // remplace pas celui d'avant.
+    etatFigeJusqua = Date.now() + DELAI_DEMARRAGE;
     try {
       abonnement && abonnement.remove && abonnement.remove();
     } catch (_) {}
   };
+}
+
+// onStateChange du NavigationContainer (App.js).
+export function noterEtatNavigation(etat) {
+  // Pas d'etat (demontage) : on garde le dernier connu.
+  if (!etat || Date.now() < etatFigeJusqua) {
+    return;
+  }
+  dernierEtat =
+    etat && etat.routeNames && etat.routeNames.includes('Accueil')
+      ? etat
+      : null;
 }
 
 // Appelee aussi quand les onglets s'affichent (livreur charge apres le

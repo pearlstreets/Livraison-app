@@ -75,3 +75,21 @@ export const pileAvantOuverture = (gauche, state, action) => {
   }
   return {...state, index: i, routes: state.routes.slice(0, i + 1)};
 };
+
+// Un retour lance depuis un ecran (goBack) arrive sans `target` : le
+// StackRouter ignore alors sa source et retire la page du DESSUS. Deplie, la
+// page du dessus peut etre une liste de gauche ouverte apres la page de
+// droite : le retour de la page de droite fermait la liste. On cible la pile
+// pour que le retour ferme l'ecran qui l'a demande.
+export const retourDeLaSource = (state, action) => {
+  const type = action && action.type;
+  if (
+    (type !== 'GO_BACK' && type !== 'POP') ||
+    action.target !== undefined ||
+    !action.source ||
+    !state.routes.some(r => r.key === action.source)
+  ) {
+    return action;
+  }
+  return {...action, target: state.key};
+};
