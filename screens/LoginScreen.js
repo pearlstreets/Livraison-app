@@ -175,7 +175,13 @@ export default function LoginScreen() {
   const [city, setCity] = useState('');
   const [taxId, setTaxId] = useState('');
   const [siret, setSiret] = useState('');
-  const [vatNumber, setVatNumber] = useState('');
+  // Fiche du registre lue depuis le SIRET (France) : remplit le nom,
+  // l'adresse, le code postal et la ville. null | 'recherche' | 'ok' | 'introuvable' | 'ferme'
+  const [siretEtat, setSiretEtat] = useState(null);
+  const [siretNom, setSiretNom] = useState('');
+  // Dernier SIRET déjà recopié : une nouvelle lecture du même numéro ne
+  // réécrase pas ce que le pro a corrigé à la main.
+  const siretRecopieRef = useRef('');
   const [iban, setIban] = useState('');
   const [stripeAccepte, setStripeAccepte] = useState(false);
   const [stripeInfo, setStripeInfo] = useState(null); // { publishable_key, country, stripe_form }
@@ -209,7 +215,7 @@ export default function LoginScreen() {
   brouillonRef.current = {
     mode, isPro, step, loginEmail, loginPassword, email, password, confirmPwd,
     nom, prenom, pseudo, companyName, phone, address, country, phoneCountry, vehicle,
-    proStatus, dob, postalCode, city, taxId, siret, vatNumber, iban, stripeAccepte,
+    proStatus, dob, postalCode, city, taxId, siret, iban, stripeAccepte,
     docIdFront, docIdBack, docIban, docKbiss, docLicense, docPhoto, docProofAddress, docRcPro, docUrssaf,
   };
   // Connecte ou dossier envoye : rien a garder.
@@ -228,7 +234,7 @@ export default function LoginScreen() {
       fixe(b.country, setCountry); fixe(b.phoneCountry, setPhoneCountry); fixe(b.vehicle, setVehicle);
       fixe(b.proStatus, setProStatus); fixe(b.dob, setDob); fixe(b.postalCode, setPostalCode);
       fixe(b.city, setCity); fixe(b.taxId, setTaxId); fixe(b.siret, setSiret);
-      fixe(b.vatNumber, setVatNumber); fixe(b.iban, setIban); fixe(b.stripeAccepte, setStripeAccepte);
+      fixe(b.iban, setIban); fixe(b.stripeAccepte, setStripeAccepte);
       fixe(b.docIdFront, setDocIdFront); fixe(b.docIdBack, setDocIdBack); fixe(b.docIban, setDocIban);
       fixe(b.docKbiss, setDocKbiss); fixe(b.docLicense, setDocLicense); fixe(b.docPhoto, setDocPhoto);
       fixe(b.docProofAddress, setDocProofAddress); fixe(b.docRcPro, setDocRcPro); fixe(b.docUrssaf, setDocUrssaf);
@@ -263,6 +269,40 @@ export default function LoginScreen() {
     return () => { actif = false; };
   }, [mode, step, country]);
   const stripeActif = !!stripeInfo?.stripe_form && legalStatus !== 'societe';
+
+  // SIRET complet (France) : la fiche du registre public remplit le nom,
+  // l'adresse, le code postal et la ville, toujours modifiables. Registre
+  // muet ou en panne : rien n'est bloqué, le pro saisit à la main.
+  const siretChiffres = siret.replace(/\D/g, '');
+  useEffect(() => {
+    if (mode !== 'signup' || step !== 2 || !isPro || country !== 'FR' || siretChiffres.length !== 14) {
+      setSiretEtat(null);
+      return undefined;
+    }
+    let actif = true;
+    setSiretEtat('recherche');
+    authService.verifierSiret(siretChiffres)
+      .then((r) => {
+        if (!actif) return;
+        const d = (r && r.data) || r || {};
+        if (r?.valid === false) { setSiretEtat('introuvable'); return; }
+        if (!r || r.valid !== true) { setSiretEtat(null); return; }
+        if (r.active === false || d.active === false) { setSiretEtat('ferme'); return; }
+        const adr = d.registered_address || {};
+        setSiretNom(d.name || '');
+        if (siretRecopieRef.current !== siretChiffres) {
+          siretRecopieRef.current = siretChiffres;
+          if (d.name) setCompanyName(d.name);
+          if (adr.line1) setAddress(adr.line1);
+          if (adr.postal_code) setPostalCode(adr.postal_code);
+          if (adr.city) setCity(adr.city);
+          setAddrSuggestions([]);
+        }
+        setSiretEtat('ok');
+      })
+      .catch(() => { if (actif) setSiretEtat(null); });
+    return () => { actif = false; };
+  }, [mode, step, isPro, country, siretChiffres]);
 
   // Photos (selfie, ID card) use the image library; paperwork (KBIS, RIB,
   // proof of address, RC Pro, URSSAF) also accepts a PDF via the file picker.
@@ -419,10 +459,12 @@ export default function LoginScreen() {
     // Page 2 : tout le reste, puis envoi de la demande.
     const ibanPropre = iban.replace(/\s+/g, '').toUpperCase();
     const siretPropre = siret.replace(/\s+/g, '');
-    if (!prenom.trim() || !nom.trim() || !phone.trim() || !address.trim() || !postalCode.trim() || !city.trim() || !taxId.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
+    if (!prenom.trim() || !nom.trim() || !phone.trim() || !address.trim() || !postalCode.trim() || !city.trim() || (!isPro && !taxId.trim())) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
     if (isPro && !companyName.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
     if (!dateValide(dob)) { setError(t('payoutSetupInvalidDob')); return; }
     if (isPro && !/^\d{14}$/.test(siretPropre)) { setError(t('errorSiret')); return; }
+    if (isPro && siretEtat === 'introuvable') { setError(t('siretNotFound')); return; }
+    if (isPro && siretEtat === 'ferme') { setError(t('siretClosed')); return; }
     if (ibanPropre.length < 15) { setError(t('errorIban')); return; }
     if (docFields.some(f => !f.value?.uri)) { setError(t('errorDocsRequired') || 'Tous les documents sont obligatoires.'); return; }
     if (stripeActif && !stripeAccepte) { setError(t('errorStripeTerms')); return; }
@@ -458,8 +500,8 @@ export default function LoginScreen() {
       phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(),
       legal_status: legalStatus,
       legal_address: `${address.trim()}, ${postalCode.trim()} ${city.trim()}`,
-      postal_code: postalCode.trim(), city: city.trim(), birth_date: dateIso(dob), tax_id: taxId.trim(),
-      siret: isPro ? siretPropre : '', vat_number: isPro ? vatNumber.trim() : '',
+      postal_code: postalCode.trim(), city: city.trim(), birth_date: dateIso(dob), tax_id: isPro ? '' : taxId.trim(),
+      siret: isPro ? siretPropre : '',
       iban: ibanPropre, iban_holder_name: legalStatus === 'societe' ? companyName.trim() : `${prenom.trim()} ${nom.trim()}`,
       account_token: accountToken,
       vehicle_type: vehicle, role: isPro ? 'professionaluser' : 'user', documents: docUrls,
@@ -655,6 +697,19 @@ export default function LoginScreen() {
                       );
                     })}
                   </View>
+                  <Text style={p.label}>{t('siretLabel')}</Text>
+                  <TextInput style={p.input} value={siret} onChangeText={(v) => setSiret(v.replace(/[^\d ]/g, ''))} placeholder="123 456 789 00012" placeholderTextColor="#aaa" keyboardType="number-pad" maxLength={17} />
+                  {siretEtat === 'recherche' && (
+                    <View style={p.siretLigne}><ActivityIndicator size="small" color={BRAND} /><Text style={[p.hintSous, {marginTop:0, marginLeft:6}]}>{t('siretSearching')}</Text></View>
+                  )}
+                  {siretEtat === 'ok' && (
+                    <View style={p.siretLigne}><Ionicons name="checkmark-circle" size={16} color={BRAND} /><Text style={[p.hintSous, {marginTop:0, marginLeft:6, color:BRAND, flex:1}]}>{siretNom ? `${t('siretFound')} : ${siretNom}` : t('siretFound')}</Text></View>
+                  )}
+                  {(siretEtat === 'introuvable' || siretEtat === 'ferme') && (
+                    <View style={p.siretLigne}><Ionicons name="alert-circle" size={16} color="#EF4444" /><Text style={[p.hintSous, {marginTop:0, marginLeft:6, color:'#EF4444', flex:1}]}>{t(siretEtat === 'ferme' ? 'siretClosed' : 'siretNotFound')}</Text></View>
+                  )}
+                  <Text style={p.label}>{t('companyName') || "Nom de l'établissement"}</Text>
+                  <TextInput style={p.input} value={companyName} onChangeText={setCompanyName} placeholder={t('shopPlaceholder')} placeholderTextColor="#aaa" />
                 </>
               )}
 
@@ -726,19 +781,13 @@ export default function LoginScreen() {
                 </View>
               </View>
 
-              {section('document-text-outline', t('sectionTax'))}
-              <Text style={p.hint}>{t('sectionTaxHint')}</Text>
-              <Text style={p.label}>{t('taxIdLabel')}</Text>
-              <TextInput style={p.input} value={taxId} onChangeText={setTaxId} placeholder="1234567890123" placeholderTextColor="#aaa" autoCapitalize="characters" autoCorrect={false} maxLength={32} />
-              <Text style={p.hintSous}>{t('taxIdHint')}</Text>
-              {isPro && (
+              {!isPro && (
                 <>
-                  <Text style={p.label}>{t('companyName') || "Nom de l'établissement"}</Text>
-                  <TextInput style={p.input} value={companyName} onChangeText={setCompanyName} placeholder={t('shopPlaceholder')} placeholderTextColor="#aaa" />
-                  <Text style={p.label}>{t('siretLabel')}</Text>
-                  <TextInput style={p.input} value={siret} onChangeText={(v) => setSiret(v.replace(/[^\d ]/g, ''))} placeholder="123 456 789 00012" placeholderTextColor="#aaa" keyboardType="number-pad" maxLength={17} />
-                  <Text style={p.label}>{t('vatNumberLabel')}</Text>
-                  <TextInput style={p.input} value={vatNumber} onChangeText={setVatNumber} placeholder="FR12345678901" placeholderTextColor="#aaa" autoCapitalize="characters" autoCorrect={false} maxLength={32} />
+                  {section('document-text-outline', t('sectionTax'))}
+                  <Text style={p.hint}>{t('sectionTaxHint')}</Text>
+                  <Text style={p.label}>{t('taxIdLabel')}</Text>
+                  <TextInput style={p.input} value={taxId} onChangeText={setTaxId} placeholder="1234567890123" placeholderTextColor="#aaa" autoCapitalize="characters" autoCorrect={false} maxLength={32} />
+                  <Text style={p.hintSous}>{t('taxIdHint')}</Text>
                 </>
               )}
 
@@ -903,6 +952,7 @@ const p = StyleSheet.create({
   sectionPremier: { marginTop: 0, paddingTop: 0, borderTopWidth: 0 },
   sectionTxt: { fontSize: 16, fontWeight: '700', color: '#111', marginLeft: 8 },
   hint: { fontSize: 12, color: '#6B7280', lineHeight: 17, marginTop: 6 },
+  siretLigne: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
   hintSous: { fontSize: 11, color: '#6B7280', lineHeight: 16, marginTop: 5 },
   label: { fontSize: 12, fontWeight: '600', color: '#111', marginBottom: 5, marginTop: 14 },
   input: { height: 45, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', paddingHorizontal: 10, fontSize: 13, color: '#111' },
