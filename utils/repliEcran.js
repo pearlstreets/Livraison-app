@@ -17,6 +17,10 @@ import {dimensionsReelles, largeurMoitie} from './deuxEcrans';
 import {ecranChange, ECART_MIN} from './ecranPliable';
 
 const CLE_ETAT = 'pd.repliEcran.etat';
+// Saisie de l'ecran de connexion / inscription (livreur pas encore connecte,
+// aucun onglet a restaurer). Mots de passe compris : rangee dans le coffre
+// chiffre (expo-secure-store), lue et effacee au redemarrage qui suit.
+const CLE_BROUILLON = 'pd.repliEcran.connexion';
 // L'etat sauvegarde ne sert qu'au redemarrage qui suit le pliage.
 const VALIDITE_ETAT = 60 * 1000;
 
@@ -40,6 +44,33 @@ let rechargementEnCours = false;
 // le 26/10/2026). Il est abandonne et redemande par le nouveau montage.
 let montage = 0;
 let etatARestaurer = null;
+// Fonction de l'ecran de connexion qui rend sa saisie (null hors de l'ecran).
+let fournisseurBrouillon = null;
+
+const coffre = () => {
+  try {
+    return require('expo-secure-store');
+  } catch (_) {
+    return null;
+  }
+};
+
+// Sans coffre chiffre, la saisie part dans AsyncStorage SANS mots de passe.
+const ecrireBrouillon = async brouillon => {
+  const brut = JSON.stringify({brouillon, pose: Date.now()});
+  const c = coffre();
+  if (c && c.setItemAsync) {
+    try {
+      await c.setItemAsync(CLE_BROUILLON, brut);
+      return;
+    } catch (_) {}
+  }
+  const {password, confirmPwd, loginPassword, ...reste} = brouillon;
+  await AsyncStorage.setItem(
+    CLE_BROUILLON,
+    JSON.stringify({brouillon: reste, pose: Date.now()}),
+  );
+};
 
 // Les onglets sont montes (livreur connecte) : l'etat est celui de l'app.
 const ongletsPrets = () => {
@@ -72,6 +103,12 @@ const recharger = async () => {
         CLE_ETAT,
         JSON.stringify({etat, pose: Date.now()}),
       );
+    }
+  } catch (_) {}
+  try {
+    const brouillon = fournisseurBrouillon && fournisseurBrouillon();
+    if (brouillon) {
+      await ecrireBrouillon(brouillon);
     }
   } catch (_) {}
   try {
@@ -189,4 +226,46 @@ export function restaurerEcranApresRepli() {
   try {
     navigationRef.reset(etat);
   } catch (_) {}
+}
+
+// Ecran de connexion : declare la fonction qui rend sa saisie, sauvee juste
+// avant le rechargement du pliage. Rend la fonction de retrait.
+export function noterBrouillonConnexion(fournisseur) {
+  fournisseurBrouillon = fournisseur;
+  return () => {
+    if (fournisseurBrouillon === fournisseur) {
+      fournisseurBrouillon = null;
+    }
+  };
+}
+
+// Saisie laissee par le rechargement precedent (ou null) : lue et effacee.
+export async function lireBrouillonConnexion() {
+  let brut = null;
+  const c = coffre();
+  if (c && c.getItemAsync) {
+    try {
+      brut = await c.getItemAsync(CLE_BROUILLON);
+      if (brut) {
+        c.deleteItemAsync(CLE_BROUILLON).catch(() => {});
+      }
+    } catch (_) {}
+  }
+  if (!brut) {
+    try {
+      brut = await AsyncStorage.getItem(CLE_BROUILLON);
+      if (brut) {
+        AsyncStorage.removeItem(CLE_BROUILLON).catch(() => {});
+      }
+    } catch (_) {}
+  }
+  if (!brut) {
+    return null;
+  }
+  try {
+    const {brouillon, pose} = JSON.parse(brut);
+    return brouillon && Date.now() - pose < VALIDITE_ETAT ? brouillon : null;
+  } catch (_) {
+    return null;
+  }
 }
