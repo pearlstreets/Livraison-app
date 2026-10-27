@@ -3,7 +3,21 @@
 // fabriqué dans l'app avec la clé publique (exigence Stripe pour une
 // plateforme française), le serveur crée ensuite le compte.
 
-export const CONTRAT_STRIPE = 'https://stripe.com/fr/legal/connect-account';
+// Contrat Stripe dans la langue de l'app (pages vérifiées le 27/10/2026).
+// Anglais, arabe, russe : pas de page traduite, version anglaise.
+const CHEMIN_STRIPE = {
+  fr: 'fr', de: 'de', es: 'es', it: 'it', nl: 'nl', pt: 'pt-pt',
+  ja: 'jp', sv: 'se', zh: 'cn', th: 'th',
+};
+export function contratStripe(lang) {
+  const chemin = CHEMIN_STRIPE[lang];
+  return chemin
+    ? `https://stripe.com/${chemin}/legal/connect-account`
+    : 'https://stripe.com/legal/connect-account';
+}
+
+// Politique de confidentialité des livreurs, sur le site.
+export const CONFIDENTIALITE_LIVREUR = 'https://pearlstreets.com/confidentialite-livreur';
 
 export function corpsJeton(f, pays) {
   const [jour, mois, annee] = f.dob.split('/').map((x) => parseInt(x, 10));

@@ -147,6 +147,13 @@ export const authService = {
     await secureStorage.clearAll();
   },
 
+  // RGPD (droit d'accès et portabilité) : copie de toutes les données du
+  // livreur, renvoyée telle quelle par le serveur.
+  async exporterMesDonnees() {
+    const res = await api.get('/api/v1/delivery/profile/mes-donnees/');
+    return res?.data?.data ?? res?.data ?? {};
+  },
+
   async refreshToken() {
     // Token rotation guard
     if (refreshCount >= MAX_REFRESHES_PER_SESSION) {
