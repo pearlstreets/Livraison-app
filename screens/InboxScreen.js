@@ -93,7 +93,7 @@ export default function InboxScreen() {
       <StatusBarShield />
 
       {/* Modal détail message */}
-      <Modal visible={!!selectedNotif} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={!!selectedNotif} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSelectedNotif(null)}>
         <View style={s.modalContainer}>
           <View style={s.modalHeader}>
             <Pressable onPress={() => setSelectedNotif(null)}>

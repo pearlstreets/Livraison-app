@@ -968,7 +968,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       )}
 
       {/* Problème code modal */}
-      <Modal visible={showCodeProblem} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showCodeProblem} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCodeProblem(false)}>
         <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
           <View style={ss.chatHeader}>
             <Pressable onPress={() => setShowCodeProblem(false)}>
@@ -1037,7 +1037,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       </Modal>
 
       {/* Chat client modal */}
-      <Modal visible={showChat} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={showChat} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowChat(false)}>
         <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#f5f5f5' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={ss.chatHeader}>
             <Pressable onPress={() => setShowChat(false)}>
@@ -1137,7 +1137,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       </Modal>
 
       {/* Client absent : consigne du commerçant + preuve écrite. */}
-      <Modal visible={absentOpen} animationType="slide" transparent>
+      <Modal visible={absentOpen} animationType="slide" transparent onRequestClose={() => { if (!absentBusy) setAbsentOpen(false); }}>
         <View style={ss.absentBackdrop}>
           <View style={ss.absentCard}>
             <Text style={ss.absentTitle}>{t('absentHandover')}</Text>

@@ -230,7 +230,7 @@ export default function MenuScreen({ navigation }) {
       </View>
 
       {/* Modal Langue */}
-      <Modal visible={langModal} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={langModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setLangModal(false)}>
         <View style={s.langModalContainer}>
           <View style={s.langModalHeader}>
             <Pressable onPress={() => setLangModal(false)}>
