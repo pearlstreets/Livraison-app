@@ -55,7 +55,13 @@ const coffre = () => {
   }
 };
 
-// Sans coffre chiffre, la saisie part dans AsyncStorage SANS mots de passe.
+// Sans coffre chiffre, AsyncStorage (en clair) ne garde que le non sensible :
+// ni mots de passe, ni IBAN, date de naissance, numero fiscal, adresse,
+// telephone, ni documents. Le livreur ressaisit le reste.
+const CHAMPS_NON_SENSIBLES = [
+  'mode', 'isPro', 'step', 'loginEmail', 'email', 'nom', 'prenom', 'pseudo',
+  'companyName', 'country', 'phoneCountry', 'vehicle', 'proStatus',
+];
 const ecrireBrouillon = async brouillon => {
   const brut = JSON.stringify({brouillon, pose: Date.now()});
   const c = coffre();
@@ -65,7 +71,12 @@ const ecrireBrouillon = async brouillon => {
       return;
     } catch (_) {}
   }
-  const {password, confirmPwd, loginPassword, ...reste} = brouillon;
+  const reste = {};
+  CHAMPS_NON_SENSIBLES.forEach(cle => {
+    if (brouillon[cle] !== undefined) {
+      reste[cle] = brouillon[cle];
+    }
+  });
   await AsyncStorage.setItem(
     CLE_BROUILLON,
     JSON.stringify({brouillon: reste, pose: Date.now()}),
@@ -251,14 +262,14 @@ export async function lireBrouillonConnexion() {
       }
     } catch (_) {}
   }
-  if (!brut) {
-    try {
-      brut = await AsyncStorage.getItem(CLE_BROUILLON);
-      if (brut) {
-        AsyncStorage.removeItem(CLE_BROUILLON).catch(() => {});
-      }
-    } catch (_) {}
-  }
+  // Copie en clair : toujours effacee, meme si le coffre a rendu la saisie.
+  try {
+    const clair = await AsyncStorage.getItem(CLE_BROUILLON);
+    if (clair) {
+      AsyncStorage.removeItem(CLE_BROUILLON).catch(() => {});
+      brut = brut || clair;
+    }
+  } catch (_) {}
   if (!brut) {
     return null;
   }
@@ -268,4 +279,18 @@ export async function lireBrouillonConnexion() {
   } catch (_) {
     return null;
   }
+}
+
+// Connexion reussie ou dossier envoye : plus aucun brouillon sur le disque
+// (coffre chiffre et AsyncStorage). Ne leve jamais.
+export async function effacerBrouillonConnexion() {
+  const c = coffre();
+  if (c && c.deleteItemAsync) {
+    try {
+      await c.deleteItemAsync(CLE_BROUILLON);
+    } catch (_) {}
+  }
+  try {
+    await AsyncStorage.removeItem(CLE_BROUILLON);
+  } catch (_) {}
 }

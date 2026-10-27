@@ -13,8 +13,9 @@ const BRAND = '#00C29B';
 
 // Mapping champ backend → clé i18n du label
 const DOC_FIELDS = [
-  { field: 'id_card_front_url', labelKey: 'idCardFront' },
-  { field: 'id_card_back_url', labelKey: 'idCardBack' },
+  // Effacée par le serveur dès la validation du compte (RGPD, 27/10/2026).
+  { field: 'id_card_front_url', labelKey: 'idCardFront', effaceeApresValidation: true },
+  { field: 'id_card_back_url', labelKey: 'idCardBack', effaceeApresValidation: true },
   { field: 'driver_license_url', labelKey: 'driverLicense' },
   { field: 'rc_pro_url', labelKey: 'insurance' },
   { field: 'urssaf_doc_url', labelKey: 'urssaf' },
@@ -34,6 +35,19 @@ function buildDocs(user, t) {
   }));
   return DOC_FIELDS.map(d => {
     const provided = typeof user[d.field] === 'string' && user[d.field].trim().length > 0;
+    // Compte validé, pièce effacée : ni « Manquant » ni demande de la renvoyer.
+    if (!provided && d.effaceeApresValidation && user.is_verified === true) {
+      return {
+        labelKey: d.labelKey,
+        field: d.field,
+        provided: false,
+        icon: 'shield-checkmark-outline',
+        color: BRAND,
+        statusText: t('docErasedAfterValidation'),
+        statusKey: 'validated',
+        url: null,
+      };
+    }
     return {
       labelKey: d.labelKey,
       field: d.field,

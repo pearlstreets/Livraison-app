@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { deliveryService } from '../services/deliveryService';
 import useSecureScreen from '../hooks/useSecureScreen';
-import { CONTRAT_STRIPE, creerJetonCompte, dateValide, formaterDate } from '../utils/stripeCompte';
+import { contratStripe, creerJetonCompte, dateValide, formaterDate } from '../utils/stripeCompte';
 
 const BRAND = '#00C29B';
 
@@ -14,7 +14,7 @@ const BRAND = '#00C29B';
 // Stripe pour verser les gains d'un livreur en France, rempli dans l'app.
 
 export default function PayoutSetupScreen({ navigation }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const insets = useSafeAreaInsets();
   useSecureScreen('PayoutSetup');
   const [etat, setEtat] = useState(null);
@@ -150,7 +150,7 @@ export default function PayoutSetupScreen({ navigation }) {
               <Ionicons name={accepte ? 'checkbox' : 'square-outline'} size={22} color={accepte ? BRAND : '#999'} style={{ marginRight: 10 }} />
               <Text style={s.checkTxt}>
                 {t('stripeTermsAccept')}{' '}
-                <Text style={s.link} onPress={() => Linking.openURL(CONTRAT_STRIPE)}>{t('stripeTermsLink')}</Text>
+                <Text style={s.link} onPress={() => Linking.openURL(contratStripe(lang)).catch(() => {})}>{t('stripeTermsLink')}</Text>
               </Text>
             </Pressable>
           </ScrollView>

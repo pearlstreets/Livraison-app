@@ -11,11 +11,11 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { uploadService } from '../services/uploadService';
 import useSecureScreen from '../hooks/useSecureScreen';
-import { noterBrouillonConnexion, lireBrouillonConnexion } from '../utils/repliEcran';
+import { noterBrouillonConnexion, lireBrouillonConnexion, effacerBrouillonConnexion } from '../utils/repliEcran';
 
 import { countryName } from '../data/countryNames';
 import { authService } from '../services/authService';
-import { CONTRAT_STRIPE, creerJetonCompte, dateIso, dateValide, formaterDate } from '../utils/stripeCompte';
+import { contratStripe, CONFIDENTIALITE_LIVREUR, creerJetonCompte, dateIso, dateValide, formaterDate } from '../utils/stripeCompte';
 
 const BRAND = '#00C29B';
 const MAX_LOGIN_FAILS = 3;
@@ -218,7 +218,7 @@ export default function LoginScreen() {
   brouillonRef.current = {
     mode, isPro, step, loginEmail, loginPassword, email, password, confirmPwd,
     nom, prenom, pseudo, companyName, phone, address, country, phoneCountry, vehicle,
-    proStatus, dob, postalCode, city, deliveryZone, taxId, siret, iban, stripeAccepte,
+    proStatus, dob, postalCode, city, deliveryZone, taxId, siret, iban,
     docIdFront, docIdBack, docIban, docKbiss, docLicense, docPhoto, docProofAddress, docRcPro, docUrssaf,
   };
   // Connecte ou dossier envoye : rien a garder.
@@ -229,7 +229,11 @@ export default function LoginScreen() {
       if (!b) return;
       const fixe = (v, set) => { if (v !== undefined) set(v); };
       // Ancienne étape 3 (documents) : désormais sur la page 2.
-      fixe(b.mode, setMode); fixe(b.isPro, setIsPro); fixe(b.step === 3 ? 2 : b.step, setStep);
+      fixe(b.mode, setMode); fixe(b.isPro, setIsPro);
+      // Brouillon sans mot de passe (repli hors coffre chiffre) : retour à la
+      // page 1 pour le ressaisir, la page 2 ne le redemande pas.
+      const etape = b.step === 3 ? 2 : b.step;
+      fixe(etape === 2 && !b.password ? 1 : etape, setStep);
       fixe(b.loginEmail, setLoginEmail); fixe(b.loginPassword, setLoginPassword);
       fixe(b.email, setEmail); fixe(b.password, setPassword); fixe(b.confirmPwd, setConfirmPwd);
       fixe(b.nom, setNom); fixe(b.prenom, setPrenom); fixe(b.pseudo, setPseudo);
@@ -237,7 +241,8 @@ export default function LoginScreen() {
       fixe(b.country, setCountry); fixe(b.phoneCountry, setPhoneCountry); fixe(b.vehicle, setVehicle);
       fixe(b.proStatus, setProStatus); fixe(b.dob, setDob); fixe(b.postalCode, setPostalCode);
       fixe(b.city, setCity); fixe(b.deliveryZone, setDeliveryZone); fixe(b.taxId, setTaxId); fixe(b.siret, setSiret);
-      fixe(b.iban, setIban); fixe(b.stripeAccepte, setStripeAccepte);
+      // La case du contrat Stripe n'est jamais rendue cochée.
+      fixe(b.iban, setIban);
       fixe(b.docIdFront, setDocIdFront); fixe(b.docIdBack, setDocIdBack); fixe(b.docIban, setDocIban);
       fixe(b.docKbiss, setDocKbiss); fixe(b.docLicense, setDocLicense); fixe(b.docPhoto, setDocPhoto);
       fixe(b.docProofAddress, setDocProofAddress); fixe(b.docRcPro, setDocRcPro); fixe(b.docUrssaf, setDocUrssaf);
@@ -332,20 +337,20 @@ export default function LoginScreen() {
   // pros also provide their company paperwork. `pdf: true` → the file
   // picker also accepts a PDF; photos (selfie, ID card) stay image-only.
   const docFields = [
-    { slot: 'profile_photo', url: 'profile_photo_url', label: t('docProfilePhoto'), value: docPhoto, setter: setDocPhoto, icon: 'person-circle-outline', pdf: false },
-    { slot: 'id_front', url: 'id_card_front_url', label: t('idCardFront'), value: docIdFront, setter: setDocIdFront, icon: 'card-outline', pdf: false },
-    { slot: 'id_back', url: 'id_card_back_url', label: t('idCardBack'), value: docIdBack, setter: setDocIdBack, icon: 'card-outline', pdf: false },
+    { slot: 'profile_photo', url: 'profile_photo_url', label: t('docProfilePhoto'), aide: t('docHelpPhoto'), value: docPhoto, setter: setDocPhoto, icon: 'person-circle-outline', pdf: false },
+    { slot: 'id_front', url: 'id_card_front_url', label: t('idCardFront'), aide: t('docHelpId'), value: docIdFront, setter: setDocIdFront, icon: 'card-outline', pdf: false },
+    { slot: 'id_back', url: 'id_card_back_url', label: t('idCardBack'), aide: t('docHelpId'), value: docIdBack, setter: setDocIdBack, icon: 'card-outline', pdf: false },
     // Réclamé dès que le livreur déclare une voiture : sans lui, un livreur
     // motorisé arrivait à la validation admin sans qu'aucun permis n'ait été
     // demandé. Le backend l'exige aussi, la liste ci-dessous étant tout ce que
     // l'écran envoie.
     ...(VEHICLES_REQUIRING_LICENSE.has(vehicle) ? [
-      { slot: 'driver_license', url: 'driver_license_url', label: t('driverLicense'), value: docLicense, setter: setDocLicense, icon: 'car-outline', pdf: true },
+      { slot: 'driver_license', url: 'driver_license_url', label: t('driverLicense'), aide: t('docHelpLicense'), value: docLicense, setter: setDocLicense, icon: 'car-outline', pdf: true },
     ] : []),
-    { slot: 'proof_of_address', url: 'proof_of_address_url', label: t('docProofOfAddress'), value: docProofAddress, setter: setDocProofAddress, icon: 'home-outline', pdf: true },
+    { slot: 'proof_of_address', url: 'proof_of_address_url', label: t('docProofOfAddress'), aide: t('docHelpAddress'), value: docProofAddress, setter: setDocProofAddress, icon: 'home-outline', pdf: true },
     ...(isPro ? [
-      { slot: 'rc_pro', url: 'rc_pro_url', label: t('docRcPro'), value: docRcPro, setter: setDocRcPro, icon: 'shield-checkmark-outline', pdf: true },
-      ...(legalStatus === 'societe' ? [{ slot: 'kbis', url: 'kbis_doc_url', label: t('docKbiss'), value: docKbiss, setter: setDocKbiss, icon: 'document-text-outline', pdf: true }] : []),
+      { slot: 'rc_pro', url: 'rc_pro_url', label: t('docRcPro'), aide: t('docHelpRcPro'), value: docRcPro, setter: setDocRcPro, icon: 'shield-checkmark-outline', pdf: true },
+      ...(legalStatus === 'societe' ? [{ slot: 'kbis', url: 'kbis_doc_url', label: t('docKbiss'), aide: t('docHelpKbis'), value: docKbiss, setter: setDocKbiss, icon: 'document-text-outline', pdf: true }] : []),
     ] : []),
   ];
 
@@ -394,7 +399,7 @@ export default function LoginScreen() {
     setLoading(true);
     const result = await login(loginEmail.trim(), loginPassword);
     setLoading(false);
-    if (result && result.ok) { termineRef.current = true; return; } // AuthContext sets the user -> navigation happens
+    if (result && result.ok) { termineRef.current = true; effacerBrouillonConnexion(); return; } // AuthContext sets the user -> navigation happens
     loginFailsRef.current += 1;
     if (loginFailsRef.current >= MAX_LOGIN_FAILS) {
       setLoginDisabled(true);
@@ -508,7 +513,7 @@ export default function LoginScreen() {
       vehicle_type: vehicle, role: isPro ? 'professionaluser' : 'user', documents: docUrls,
     });
     setLoading(false);
-    if (result && result.ok) { termineRef.current = true; setPendingValidation(true); return; }
+    if (result && result.ok) { termineRef.current = true; effacerBrouillonConnexion(); setPendingValidation(true); return; }
     setError((result && result.error) || t('genericError'));
   };
 
@@ -677,6 +682,11 @@ export default function LoginScreen() {
               <Pressable style={p.btn} onPress={handleSignup}>
                 <Text style={p.btnTxt}>{t('next') || 'Suivant'}</Text>
               </Pressable>
+              <Text style={p.hintSous}>
+                {t('privacyConsentBefore')}
+                <Text style={p.lien} onPress={() => Linking.openURL(CONFIDENTIALITE_LIVREUR).catch(() => {})}>{t('privacyPolicyLink')}</Text>
+                {t('privacyConsentAfter')}
+              </Text>
             </>
           )}
 
@@ -817,11 +827,13 @@ export default function LoginScreen() {
               {legalStatus === 'societe' && <Text style={p.hintSous}>{t('signupPayoutCompanyLater')}</Text>}
 
               {section('folder-open-outline', t('sectionDocuments'))}
+              <Text style={p.hint}>{t('docsWhyIntro')}</Text>
               {docFields.map((doc) => (
                 <TouchableOpacity key={doc.slot} onPress={() => pickDocument(doc.setter, doc.pdf)} style={[p.doc, doc.value?.uri && p.chipActif]}>
                   <Ionicons name={doc.value?.uri ? 'checkmark-circle' : doc.icon} size={22} color={doc.value?.uri ? BRAND : '#9CA3AF'} style={{marginRight:12}} />
                   <View style={{flex:1}}>
                     <Text style={{fontSize:13, fontWeight:'600', color:'#111'}}>{doc.label} *</Text>
+                    {!!doc.aide && <Text style={{fontSize:11, color:'#6B7280', marginTop:2}}>{doc.aide}</Text>}
                     <Text style={{fontSize:11, color: doc.value?.uri ? BRAND : '#9CA3AF', marginTop:2}}>{doc.value?.uri ? (t('docUploaded') || 'Document ajouté') : (t('docTapUpload') || 'Appuyez pour ajouter')}</Text>
                   </View>
                   {doc.value?.uri && (
@@ -837,7 +849,7 @@ export default function LoginScreen() {
                   <Ionicons name={stripeAccepte ? 'checkbox' : 'square-outline'} size={22} color={stripeAccepte ? BRAND : '#9CA3AF'} style={{marginRight:10}} />
                   <Text style={p.checkTxt}>
                     {t('stripeTermsAccept')}{' '}
-                    <Text style={p.lien} onPress={() => Linking.openURL(CONTRAT_STRIPE)}>{t('stripeTermsLink')}</Text>
+                    <Text style={p.lien} onPress={() => Linking.openURL(contratStripe(lang)).catch(() => {})}>{t('stripeTermsLink')}</Text>
                   </Text>
                 </Pressable>
               )}
