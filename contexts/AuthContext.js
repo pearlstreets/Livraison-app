@@ -320,7 +320,7 @@ export function AuthProvider({ children }) {
       // Inscription en une page (26/10/2026) : adresse, déclaration des
       // revenus et compte de virement Stripe.
       [
-        'legal_address', 'birth_date', 'tax_id', 'postal_code', 'city', 'siret',
+        'legal_address', 'birth_date', 'tax_id', 'postal_code', 'city', 'delivery_zone', 'siret',
         'vat_number', 'iban', 'iban_holder_name', 'account_token',
       ].forEach((k) => { if (data[k]) payload[k] = data[k]; });
       if (data.documents) {
