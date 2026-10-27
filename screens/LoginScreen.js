@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, Keyboar
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ecranDeplie, largeurMoitie } from '../utils/deuxEcrans';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { isValidEmail, sanitizeInput, isStrongPassword } from '../utils/validation';
@@ -565,6 +566,8 @@ export default function LoginScreen() {
   // Voile des fenetres sur tout l'ecran, barres systeme comprises.
   const voile = { flex:1, backgroundColor:'rgba(0,0,0,0.5)', justifyContent:'flex-end' };
   const basFeuille = Math.max(40, insets.bottom + 16);
+  // Deplie : feuille a la largeur d'un telephone, centree (plie : inchange).
+  const largeurFeuille = ecranDeplie() ? { width: largeurMoitie(), alignSelf:'center' } : null;
 
   return (
     <KeyboardAvoidingView style={{flex:1, backgroundColor:'#fff'}} behavior="padding">
@@ -852,7 +855,7 @@ export default function LoginScreen() {
         {/* Language button — fixed bottom */}
         <TouchableOpacity onPress={() => setLangPickerVisible(true)} style={{
           flexDirection:'row', alignItems:'center', justifyContent:'center',
-          marginHorizontal:24, marginBottom:12, paddingVertical:12, borderRadius:12, backgroundColor:'#fff'
+          marginHorizontal:24, marginBottom:12 + (Platform.OS === 'android' ? insets.bottom : 0), paddingVertical:12, borderRadius:12, backgroundColor:'#fff'
         }}>
           <Ionicons name="globe-outline" size={18} color="#6B7280" style={{marginRight:8}} />
           <Text style={{fontSize:14, fontWeight:'600', color:'#374151'}}>
@@ -867,7 +870,7 @@ export default function LoginScreen() {
         <Modal visible={countryPickerVisible} animationType="none" transparent statusBarTranslucent navigationBarTranslucent onRequestClose={() => setCountryPickerVisible(false)}>
           <View style={voile}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setCountryPickerVisible(false)} />
-            <View style={{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:basFeuille}}>
+            <View style={[{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:basFeuille}, largeurFeuille]}>
               <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:'#F3F4F6'}}>
                 <Text style={{fontSize:18, fontWeight:'800', color:'#111'}}>{t('countryLabel') || 'Pays de résidence'}</Text>
                 <TouchableOpacity onPress={() => setCountryPickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
@@ -887,7 +890,7 @@ export default function LoginScreen() {
         <Modal visible={phonePickerVisible} animationType="none" transparent statusBarTranslucent navigationBarTranslucent onRequestClose={() => setPhonePickerVisible(false)}>
           <View style={voile}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setPhonePickerVisible(false)} />
-            <View style={{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:basFeuille}}>
+            <View style={[{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:basFeuille}, largeurFeuille]}>
               <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:'#F3F4F6'}}>
                 <Text style={{fontSize:18, fontWeight:'800', color:'#111'}}>{t('phoneCodeLabel') || 'Indicatif téléphonique'}</Text>
                 <TouchableOpacity onPress={() => setPhonePickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
@@ -908,7 +911,7 @@ export default function LoginScreen() {
         <Modal visible={langPickerVisible} animationType="none" transparent statusBarTranslucent navigationBarTranslucent onRequestClose={() => setLangPickerVisible(false)}>
           <View style={voile}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setLangPickerVisible(false)} />
-            <View style={{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'60%', paddingBottom:basFeuille}}>
+            <View style={[{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'60%', paddingBottom:basFeuille}, largeurFeuille]}>
               <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:'#F3F4F6'}}>
                 <Text style={{fontSize:18, fontWeight:'800', color:'#111'}}>{t('languageLabel') || 'Langue'}</Text>
                 <TouchableOpacity onPress={() => setLangPickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>

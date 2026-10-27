@@ -3,11 +3,19 @@ import { Modal, View, Text, StyleSheet, Pressable, Animated, Dimensions, ScrollV
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatKm, formatMinutes } from '../lib/i18nFormat';
+import { ecranDeplie, largeurMoitie, dimensionsReelles } from '../utils/deuxEcrans';
 
 const { height: H } = Dimensions.get('window');
 const SHEET_HEIGHT = Math.round(H * 0.55); // ~55% de l'écran
 const BRAND = '#00C29B';
 const BTN_H = 40, BTN_R = 12;
+
+// Deplie : feuille a la largeur d'un telephone, centree (plie : inchange).
+const feuilleDeplie = () => {
+  if (!ecranDeplie()) return null;
+  const moitie = largeurMoitie();
+  return { left: Math.round((dimensionsReelles().width - moitie) / 2), right: undefined, width: moitie };
+};
 
 const isObj = v => v && typeof v === 'object';
 const pickTop = (obj, keys) => {
@@ -89,7 +97,7 @@ export default function DetailsSheet({ visible, order, onClose }) {
       <Pressable style={styles.backdrop} onPress={animateClose} />
 
       {/* Sheet */}
-      <Animated.View style={[styles.sheet, { transform: [{ translateY: y }] }]}>
+      <Animated.View style={[styles.sheet, feuilleDeplie(), { transform: [{ translateY: y }] }]}>
         <View style={styles.grabber} />
 
         <ScrollView contentContainerStyle={styles.content}>

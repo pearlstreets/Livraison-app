@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { payoutDateLabel } from '../lib/payouts';
 import useSecureScreen from '../hooks/useSecureScreen';
+import { ecranDeplie, largeurMoitie } from '../utils/deuxEcrans';
 
 const BRAND = '#00C29B';
 
@@ -153,9 +154,9 @@ export default function WalletScreen({ navigation }) {
       <StatusBarShield />
 
       {/* Modal Encaissement */}
-      <Modal visible={encaissModal} animationType="slide" transparent>
+      <Modal visible={encaissModal} animationType="slide" transparent onRequestClose={() => { if (encaissStep !== 'processing') setEncaissModal(false); }}>
         <View style={s.overlay}>
-          <View style={s.popup}>
+          <View style={[s.popup, ecranDeplie() && { width: largeurMoitie(), alignSelf: 'center' }]}>
             {encaissStep === 'confirm' && (
               <>
                 <View style={s.popupIconWrap}>
