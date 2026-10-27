@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert, Modal, FlatList, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Image, Alert, Modal, FlatList, Linking, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +10,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { isSameDay } from '../lib/i18nFormat';
 import { CONFIDENTIALITE_LIVREUR } from '../utils/stripeCompte';
+import { authService } from '../services/authService';
 
 const BRAND = '#00C29B';
 // Valeur backend du véhicule → clé de traduction du libellé.
@@ -83,6 +84,17 @@ export default function MenuScreen({ navigation }) {
       },
     ]);
   }, [t, deleteAccount]);
+
+  // RGPD : le livreur récupère ses données (fichier JSON partagé par le
+  // menu système : e-mail, Fichiers, AirDrop…).
+  const exporterMesDonnees = useCallback(async () => {
+    try {
+      const donnees = await authService.exporterMesDonnees();
+      await Share.share({ title: t('myDataMenu'), message: JSON.stringify(donnees, null, 2) });
+    } catch (e) {
+      Alert.alert(t('error'), t('myDataError'));
+    }
+  }, [t]);
 
   return (
     <>
@@ -228,6 +240,7 @@ export default function MenuScreen({ navigation }) {
 
       <View style={s.section}>
         <MenuItem icon="log-out-outline" label={t('logout')} onPress={confirmLogout} color="#e74c3c" />
+        <MenuItem icon="download-outline" label={t('myDataMenu')} onPress={exporterMesDonnees} />
         <MenuItem icon="trash-outline" label={t('deleteAccount')} onPress={confirmDeleteAccount} color="#e74c3c" />
       </View>
 
