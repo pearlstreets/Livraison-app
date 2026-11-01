@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -6,13 +6,22 @@ import MapView, { Marker, Polyline } from 'react-native-maps';
 import { mapsAvailable } from '../lib/maps';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
+import * as Location from 'expo-location';
+import { deliveryService } from '../services/deliveryService';
+import { enPoints, recoller, ecartAuTrace } from '../lib/itineraire';
 
 const BRAND = '#00C29B';
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
+const RELECTURE_MS = 30000;
+const ECART_MAX_M = 60;
 
 // Carte d'itinéraire d'une course : marqueur boutique (récupération) + marqueur
-// client (livraison), tracé entre les deux, depuis les VRAIES coordonnées de la
-// commande. Boutons de navigation externe (Google Maps / Waze) en secours.
+// client (livraison), depuis les VRAIES coordonnées de la commande. Le trait
+// suit les rues (tracé Apple Plans lu sur le serveur, vers la boutique avant
+// récupération, vers le client ensuite) et ne montre que ce qui reste à
+// parcourir depuis la position du livreur, suivie en continu. Sans tracé reçu,
+// ou course finie : aucun trait. Boutons de navigation externe (Google Maps /
+// Waze) en secours.
 export default function MapScreen({ route, navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
@@ -24,6 +33,75 @@ export default function MapScreen({ route, navigation }) {
   const hasPickup = pLat != null && pLng != null;
   const hasDrop = dLat != null && dLng != null;
   const mapRef = useRef(null);
+  const assignmentId = order._assignmentId || order.id || null;
+
+  // Position du livreur, suivie en continu tant que l'écran est ouvert.
+  const [position, setPosition] = useState(null);
+  const positionRef = useRef(null);
+  useEffect(() => {
+    let abonnement = null;
+    let vivant = true;
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (!vivant || status !== 'granted') return;
+        const sub = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.High, distanceInterval: 5 },
+          (loc) => {
+            const p = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+            positionRef.current = p;
+            setPosition(p);
+          },
+        );
+        if (vivant) abonnement = sub; else sub.remove();
+      } catch {}
+    })();
+    return () => {
+      vivant = false;
+      if (abonnement) abonnement.remove();
+    };
+  }, []);
+
+  // Tracé par les rues lu sur le serveur : au montage, toutes les 30 s, et
+  // quand le livreur s'éloigne de plus de 60 m du tracé (au plus une relecture
+  // par 30 s). Course finie (ou reprise par un autre livreur) : plus de trait.
+  const [trace, setTrace] = useState(null);
+  const [finie, setFinie] = useState(false);
+  const enCours = useRef(false);
+  const derniereLecture = useRef(0);
+  const lireTrace = useCallback(async () => {
+    if (!assignmentId || enCours.current) return;
+    enCours.current = true;
+    derniereLecture.current = Date.now();
+    try {
+      const res = await deliveryService.getItineraire(assignmentId, positionRef.current);
+      if (res?.statusCode === 404) {
+        setFinie(true);
+        setTrace(null);
+      } else {
+        setTrace(enPoints(res?.data?.trace));
+      }
+    } catch {
+      // Réseau coupé : on garde le dernier tracé.
+    } finally {
+      enCours.current = false;
+    }
+  }, [assignmentId]);
+
+  useEffect(() => {
+    if (finie || !assignmentId) return undefined;
+    lireTrace();
+    const minuterie = setInterval(lireTrace, RELECTURE_MS);
+    return () => clearInterval(minuterie);
+  }, [finie, assignmentId, lireTrace]);
+
+  useEffect(() => {
+    if (finie || !trace || !position) return;
+    if (Date.now() - derniereLecture.current < RELECTURE_MS) return;
+    if (ecartAuTrace(trace, position) > ECART_MAX_M) lireTrace();
+  }, [position, trace, finie, lireTrace]);
+
+  const trait = !finie && trace ? recoller(trace, position) : null;
 
   const pts = [];
   if (hasPickup) pts.push({ latitude: pLat, longitude: pLng });
@@ -73,8 +151,8 @@ export default function MapScreen({ route, navigation }) {
           {hasDrop && (
             <Marker coordinate={{ latitude: dLat, longitude: dLng }} title={t('delivery')} description={order.dropoffAddress || ''} pinColor="#e74c3c" />
           )}
-          {hasPickup && hasDrop && (
-            <Polyline coordinates={[{ latitude: pLat, longitude: pLng }, { latitude: dLat, longitude: dLng }]} strokeColor={BRAND} strokeWidth={4} lineDashPattern={[2, 6]} />
+          {!!trait && trait.length >= 2 && (
+            <Polyline coordinates={trait} strokeColor={BRAND} strokeWidth={4} lineDashPattern={[2, 6]} />
           )}
         </MapView>
       ) : (
