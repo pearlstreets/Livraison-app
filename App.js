@@ -82,7 +82,7 @@ try {
   OneSignal.Notifications.addEventListener('click', (event) => {
     try {
       const extra = (event && event.notification && event.notification.additionalData) || {};
-      deepLink(extra.route);
+      deepLink(extra.route, extra);
     } catch (_) {}
   });
 } catch (_) {
@@ -98,7 +98,7 @@ try {
         (reponse && reponse.notification && reponse.notification.request
           && reponse.notification.request.content
           && reponse.notification.request.content.data) || {};
-      deepLink(donnees.route);
+      deepLink(donnees.route, donnees);
     } catch (_) {}
   });
 } catch (_) {}

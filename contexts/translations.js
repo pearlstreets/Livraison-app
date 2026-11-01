@@ -3,6 +3,18 @@
 
 const translations = {
   fr: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: 'Le support a résolu ce ticket.',
+    ticketSystemClosed: 'Le support a fermé ce ticket.',
+    ticketSendError: 'Votre message n\'a pas pu être envoyé. Veuillez réessayer.',
+    ticketNowClosed: 'Ce ticket a été clôturé par le support, vous ne pouvez plus y répondre.',
+    ticketCreateError: 'Le signalement n\'a pas pu être envoyé. Vérifiez votre connexion et réessayez.',
+    ticketsLoadError: 'Impossible de charger vos tickets.',
+    deliveryRef: 'Course #{id}',
+    supportReplyWhereLabel: 'Réponse du support',
+    supportReplyWhere: 'Dans Profil, rubrique Tickets. Vous recevrez une notification.',
+    ticketSentSub: 'Le support vous répondra dans Profil, rubrique Tickets. Vous recevrez une notification.',
+    reportSentTicketMsg: 'Le support va examiner votre problème. Sa réponse arrivera dans ce ticket, avec une notification.',
     unitKm: '{n} km',
     unitMin: '{n} min',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
@@ -626,6 +638,18 @@ const translations = {
   },
 
   en: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: 'Support has resolved this ticket.',
+    ticketSystemClosed: 'Support has closed this ticket.',
+    ticketSendError: 'Your message could not be sent. Please try again.',
+    ticketNowClosed: 'Support has closed this ticket, you can no longer reply.',
+    ticketCreateError: 'The report could not be sent. Check your connection and try again.',
+    ticketsLoadError: 'Could not load your tickets.',
+    deliveryRef: 'Delivery #{id}',
+    supportReplyWhereLabel: 'Support reply',
+    supportReplyWhere: 'In Profile, Tickets section. You will get a notification.',
+    ticketSentSub: 'Support will reply in Profile, Tickets section. You will get a notification.',
+    reportSentTicketMsg: 'Support will review your issue. The reply will arrive in this ticket, with a notification.',
     unitKm: '{n} km',
     unitMin: '{n} min',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
@@ -1204,6 +1228,18 @@ const translations = {
   },
 
   es: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: 'El soporte ha resuelto este ticket.',
+    ticketSystemClosed: 'El soporte ha cerrado este ticket.',
+    ticketSendError: 'No se pudo enviar su mensaje. Inténtelo de nuevo.',
+    ticketNowClosed: 'El soporte ha cerrado este ticket, ya no puede responder.',
+    ticketCreateError: 'No se pudo enviar el informe. Compruebe su conexión e inténtelo de nuevo.',
+    ticketsLoadError: 'No se pudieron cargar sus tickets.',
+    deliveryRef: 'Entrega #{id}',
+    supportReplyWhereLabel: 'Respuesta del soporte',
+    supportReplyWhere: 'En Perfil, sección Tickets. Recibirá una notificación.',
+    ticketSentSub: 'El soporte le responderá en Perfil, sección Tickets. Recibirá una notificación.',
+    reportSentTicketMsg: 'El soporte revisará su problema. La respuesta llegará a este ticket, con una notificación.',
     unitKm: '{n} km',
     unitMin: '{n} min',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
@@ -1513,6 +1549,18 @@ const translations = {
   },
 
   zh: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: '客服已解决此工单。',
+    ticketSystemClosed: '客服已关闭此工单。',
+    ticketSendError: '您的消息未能发送，请重试。',
+    ticketNowClosed: '此工单已被客服关闭，您无法再回复。',
+    ticketCreateError: '报告未能发送，请检查您的网络连接后重试。',
+    ticketsLoadError: '无法加载您的工单。',
+    deliveryRef: '配送 #{id}',
+    supportReplyWhereLabel: '客服回复',
+    supportReplyWhere: '在“个人”页面的“工单”栏目中查看，届时您会收到通知。',
+    ticketSentSub: '客服将在“个人”页面的“工单”栏目中回复您，届时您会收到通知。',
+    reportSentTicketMsg: '客服将审核您的问题。回复将出现在此工单中，届时您会收到通知。',
     unitKm: '{n} 公里',
     unitMin: '{n} 分钟',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
@@ -1822,6 +1870,18 @@ const translations = {
   },
 
   ar: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: 'قام فريق الدعم بحل هذه التذكرة.',
+    ticketSystemClosed: 'قام فريق الدعم بإغلاق هذه التذكرة.',
+    ticketSendError: 'تعذّر إرسال رسالتكم. يرجى المحاولة مرة أخرى.',
+    ticketNowClosed: 'أغلق فريق الدعم هذه التذكرة، لم يعد بإمكانكم الرد.',
+    ticketCreateError: 'تعذّر إرسال البلاغ. تحققوا من اتصالكم وحاولوا مرة أخرى.',
+    ticketsLoadError: 'تعذّر تحميل تذاكركم.',
+    deliveryRef: 'توصيل #{id}',
+    supportReplyWhereLabel: 'رد فريق الدعم',
+    supportReplyWhere: 'في الملف، قسم التذاكر. سيصلكم إشعار.',
+    ticketSentSub: 'سيرد عليكم فريق الدعم في الملف، قسم التذاكر. سيصلكم إشعار.',
+    reportSentTicketMsg: 'سيراجع فريق الدعم مشكلتكم. سيصل الرد في هذه التذكرة مع إشعار.',
     unitKm: '{n} كم',
     unitMin: '{n} دقيقة',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
@@ -2131,6 +2191,18 @@ const translations = {
   },
 
   de: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: 'Der Support hat dieses Ticket gelöst.',
+    ticketSystemClosed: 'Der Support hat dieses Ticket geschlossen.',
+    ticketSendError: 'Ihre Nachricht konnte nicht gesendet werden. Bitte versuchen Sie es erneut.',
+    ticketNowClosed: 'Der Support hat dieses Ticket geschlossen, Sie können nicht mehr antworten.',
+    ticketCreateError: 'Die Meldung konnte nicht gesendet werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.',
+    ticketsLoadError: 'Ihre Tickets konnten nicht geladen werden.',
+    deliveryRef: 'Lieferung #{id}',
+    supportReplyWhereLabel: 'Antwort vom Support',
+    supportReplyWhere: 'Unter Profil, Bereich Tickets. Sie erhalten eine Benachrichtigung.',
+    ticketSentSub: 'Der Support antwortet Ihnen unter Profil, Bereich Tickets. Sie erhalten eine Benachrichtigung.',
+    reportSentTicketMsg: 'Der Support prüft Ihr Problem. Die Antwort kommt in dieses Ticket, mit einer Benachrichtigung.',
     unitKm: '{n} km',
     unitMin: '{n} Min.',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
@@ -2440,6 +2512,18 @@ const translations = {
   },
 
   nl: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: 'De support heeft dit ticket opgelost.',
+    ticketSystemClosed: 'De support heeft dit ticket gesloten.',
+    ticketSendError: 'Uw bericht kon niet worden verzonden. Probeer het opnieuw.',
+    ticketNowClosed: 'De support heeft dit ticket gesloten, u kunt niet meer reageren.',
+    ticketCreateError: 'De melding kon niet worden verzonden. Controleer uw verbinding en probeer het opnieuw.',
+    ticketsLoadError: 'Uw tickets konden niet worden geladen.',
+    deliveryRef: 'Bezorging #{id}',
+    supportReplyWhereLabel: 'Antwoord van de support',
+    supportReplyWhere: 'In Profiel, onderdeel Tickets. U ontvangt een melding.',
+    ticketSentSub: 'De support antwoordt u in Profiel, onderdeel Tickets. U ontvangt een melding.',
+    reportSentTicketMsg: 'De support bekijkt uw probleem. Het antwoord komt in dit ticket, met een melding.',
     unitKm: '{n} km',
     unitMin: '{n} min',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
@@ -2749,6 +2833,18 @@ const translations = {
   },
 
   it: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: 'Il supporto ha risolto questo ticket.',
+    ticketSystemClosed: 'Il supporto ha chiuso questo ticket.',
+    ticketSendError: 'Non è stato possibile inviare il suo messaggio. Riprovi.',
+    ticketNowClosed: 'Il supporto ha chiuso questo ticket, non può più rispondere.',
+    ticketCreateError: 'Non è stato possibile inviare la segnalazione. Controlli la connessione e riprovi.',
+    ticketsLoadError: 'Impossibile caricare i suoi ticket.',
+    deliveryRef: 'Consegna #{id}',
+    supportReplyWhereLabel: 'Risposta del supporto',
+    supportReplyWhere: 'In Profilo, sezione Ticket. Riceverà una notifica.',
+    ticketSentSub: 'Il supporto le risponderà in Profilo, sezione Ticket. Riceverà una notifica.',
+    reportSentTicketMsg: 'Il supporto esaminerà il problema. La risposta arriverà in questo ticket, con una notifica.',
     unitKm: '{n} km',
     unitMin: '{n} min',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
@@ -3058,6 +3154,18 @@ const translations = {
   },
 
   pt: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: 'O suporte resolveu este pedido.',
+    ticketSystemClosed: 'O suporte fechou este pedido.',
+    ticketSendError: 'Não foi possível enviar a sua mensagem. Tente novamente.',
+    ticketNowClosed: 'O suporte fechou este pedido, já não pode responder.',
+    ticketCreateError: 'Não foi possível enviar o relatório. Verifique a sua ligação e tente novamente.',
+    ticketsLoadError: 'Não foi possível carregar os seus pedidos.',
+    deliveryRef: 'Entrega #{id}',
+    supportReplyWhereLabel: 'Resposta do suporte',
+    supportReplyWhere: 'Em Perfil, secção Pedidos. Receberá uma notificação.',
+    ticketSentSub: 'O suporte responderá em Perfil, secção Pedidos. Receberá uma notificação.',
+    reportSentTicketMsg: 'O suporte vai analisar o seu problema. A resposta chegará neste pedido, com uma notificação.',
     unitKm: '{n} km',
     unitMin: '{n} min',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
@@ -3367,6 +3475,18 @@ const translations = {
   },
 
   ja: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: 'サポートがこのチケットを解決しました。',
+    ticketSystemClosed: 'サポートがこのチケットを終了しました。',
+    ticketSendError: 'メッセージを送信できませんでした。もう一度お試しください。',
+    ticketNowClosed: 'このチケットはサポートにより終了しました。これ以上返信できません。',
+    ticketCreateError: '報告を送信できませんでした。接続を確認して、もう一度お試しください。',
+    ticketsLoadError: 'チケットを読み込めませんでした。',
+    deliveryRef: '配達 #{id}',
+    supportReplyWhereLabel: 'サポートからの返信',
+    supportReplyWhere: 'プロフィールの「チケット」でご確認いただけます。通知でお知らせします。',
+    ticketSentSub: 'サポートからの返信はプロフィールの「チケット」に届きます。通知でお知らせします。',
+    reportSentTicketMsg: 'サポートが問題を確認いたします。返信はこのチケットに届き、通知でお知らせします。',
     unitKm: '{n} km',
     unitMin: '{n}分',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
@@ -3676,6 +3796,18 @@ const translations = {
   },
 
   th: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: 'ฝ่ายสนับสนุนได้แก้ไขตั๋วนี้แล้ว',
+    ticketSystemClosed: 'ฝ่ายสนับสนุนได้ปิดตั๋วนี้แล้ว',
+    ticketSendError: 'ไม่สามารถส่งข้อความของคุณได้ กรุณาลองอีกครั้ง',
+    ticketNowClosed: 'ฝ่ายสนับสนุนได้ปิดตั๋วนี้แล้ว คุณไม่สามารถตอบกลับได้อีก',
+    ticketCreateError: 'ไม่สามารถส่งรายงานได้ กรุณาตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง',
+    ticketsLoadError: 'ไม่สามารถโหลดตั๋วของคุณได้',
+    deliveryRef: 'การจัดส่ง #{id}',
+    supportReplyWhereLabel: 'การตอบกลับจากฝ่ายสนับสนุน',
+    supportReplyWhere: 'ในโปรไฟล์ หัวข้อตั๋วปัญหา คุณจะได้รับการแจ้งเตือน',
+    ticketSentSub: 'ฝ่ายสนับสนุนจะตอบกลับในโปรไฟล์ หัวข้อตั๋วปัญหา คุณจะได้รับการแจ้งเตือน',
+    reportSentTicketMsg: 'ฝ่ายสนับสนุนจะตรวจสอบปัญหาของคุณ คำตอบจะมาที่ตั๋วนี้พร้อมการแจ้งเตือน',
     unitKm: '{n} กม.',
     unitMin: '{n} นาที',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
@@ -3985,6 +4117,18 @@ const translations = {
   },
 
   sv: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: 'Supporten har löst ärendet.',
+    ticketSystemClosed: 'Supporten har stängt ärendet.',
+    ticketSendError: 'Ditt meddelande kunde inte skickas. Försök igen.',
+    ticketNowClosed: 'Supporten har stängt ärendet, du kan inte längre svara.',
+    ticketCreateError: 'Rapporten kunde inte skickas. Kontrollera din anslutning och försök igen.',
+    ticketsLoadError: 'Det gick inte att läsa in dina ärenden.',
+    deliveryRef: 'Leverans #{id}',
+    supportReplyWhereLabel: 'Svar från supporten',
+    supportReplyWhere: 'Under Profil, avsnittet Ärenden. Du får en avisering.',
+    ticketSentSub: 'Supporten svarar dig under Profil, avsnittet Ärenden. Du får en avisering.',
+    reportSentTicketMsg: 'Supporten går igenom ditt problem. Svaret kommer i det här ärendet, med en avisering.',
     unitKm: '{n} km',
     unitMin: '{n} min',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)
@@ -4294,6 +4438,18 @@ const translations = {
   },
 
   ru: {
+    // Tickets livreur (01/11/2026)
+    ticketSystemResolved: 'Служба поддержки решила это обращение.',
+    ticketSystemClosed: 'Служба поддержки закрыла это обращение.',
+    ticketSendError: 'Не удалось отправить ваше сообщение. Попробуйте ещё раз.',
+    ticketNowClosed: 'Служба поддержки закрыла это обращение, ответить больше нельзя.',
+    ticketCreateError: 'Не удалось отправить сообщение о проблеме. Проверьте подключение и попробуйте ещё раз.',
+    ticketsLoadError: 'Не удалось загрузить ваши обращения.',
+    deliveryRef: 'Доставка #{id}',
+    supportReplyWhereLabel: 'Ответ поддержки',
+    supportReplyWhere: 'В разделе «Профиль», «Обращения». Вы получите уведомление.',
+    ticketSentSub: 'Поддержка ответит вам в разделе «Профиль», «Обращения». Вы получите уведомление.',
+    reportSentTicketMsg: 'Поддержка рассмотрит вашу проблему. Ответ придёт в это обращение, вы получите уведомление.',
     unitKm: '{n} км',
     unitMin: '{n} мин',
     // Documents : remplacement depuis le détail (bouton Mettre à jour le document)

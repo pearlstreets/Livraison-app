@@ -226,12 +226,13 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
 export default function DeliveryFlowScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { user, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, saveTicketMessages, markOrderReported, refreshAll, setActiveDelivery } = useAuth();
+  const { user, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, markOrderReported, refreshAll, setActiveDelivery } = useAuth();
   const { fmtPrice } = useCurrency();
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [showCodeProblem, setShowCodeProblem] = useState(false);
   const [selectedCodeProblem, setSelectedCodeProblem] = useState(null);
   const [codeProblemDesc, setCodeProblemDesc] = useState('');
+  const [codeTicketSending, setCodeTicketSending] = useState(false);
 
   // labelKey : libellé affiché dans la langue du livreur ; le ticket envoyé au
   // support garde le libellé français (langue de l'équipe administrative).
@@ -1094,8 +1095,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
           <View style={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 16 }}>
             <Pressable
-              style={[ss.codeTicketBtn, !selectedCodeProblem && { opacity: 0.4 }]}
-              disabled={!selectedCodeProblem}
+              style={[ss.codeTicketBtn, (!selectedCodeProblem || codeTicketSending) && { opacity: 0.4 }]}
+              disabled={!selectedCodeProblem || codeTicketSending}
               onPress={async () => {
                 const problem = CODE_PROBLEMS.find(p => p.id === selectedCodeProblem);
                 // Mappe le type de problème de code → PROBLEM_CHOICES backend.
@@ -1103,9 +1104,18 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 const problem_type = PROBLEM_MAP[selectedCodeProblem] || 'autre';
                 const description = `${(problem && translations.fr[problem.labelKey]) || translations.fr.otherProblem}${codeProblemDesc.trim() ? `\n${codeProblemDesc.trim()}` : ''}`;
                 // VRAI ticket support côté backend (au lieu d'une conversation simulée).
+                // Échec : la fenêtre reste ouverte (le bouton sert à réessayer)
+                // et la course n'est PAS marquée « signalée », sinon le
+                // livreur croit le support prévenu alors qu'il ne l'est pas.
+                setCodeTicketSending(true);
                 try {
                   await ticketService.createTicket({ problem_type, description, assignment_id: assignmentId });
-                } catch (e) { /* réseau : on ferme quand même la livraison */ }
+                } catch {
+                  setCodeTicketSending(false);
+                  Alert.alert(t('error'), t('ticketCreateError'));
+                  return;
+                }
+                setCodeTicketSending(false);
                 markOrderReported(order.id);
                 setShowCodeProblem(false);
                 const problemOrder = { ...order, status: 'completed', completedAt: new Date().toISOString(), reported: true };
