@@ -2,7 +2,8 @@ import React, { useEffect, useRef } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, Animated, Dimensions, ScrollView, Linking, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
-import { formatKm, formatMinutes } from '../lib/i18nFormat';
+import { formatKm, formatMinutes, formatTime } from '../lib/i18nFormat';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { ecranDeplie, largeurMoitie, dimensionsReelles } from '../utils/deuxEcrans';
 
 const { height: H } = Dimensions.get('window');
@@ -36,13 +37,15 @@ const findByKeyRegex = (root, rx) => {
 };
 const pick = (obj, tops, rx) => pickTop(obj, tops) ?? findByKeyRegex(obj, rx);
 
+// Valeur absente : null, chaîne vide (distance ou temps inconnus) ou non numérique.
+const vide = v => v == null || (typeof v === 'string' && !v.trim());
 const fmt = {
   price: v => v==null?undefined : (typeof v==='number' ? `${(Number.isInteger(v)&&v>1000? v/100:v).toFixed(2)} €`
     : (String(v).includes('€') ? String(v) : `${String(v)} €`)),
-  km: v => v==null?undefined : (typeof v==='number' ? formatKm((v>1000? v/1000:v).toFixed(1))
-    : (/km/i.test(String(v))?String(v):formatKm(parseFloat(String(v).replace(',','.')).toFixed(1)))),
-  min: v => v==null?undefined : (typeof v==='number' ? formatMinutes(Math.round(v>180? v/60:v))
-    : (/(min|mn)/i.test(String(v))?String(v):formatMinutes(Math.round(parseFloat(String(v)))))),
+  km: v => vide(v) || v === 0 ? undefined : (typeof v==='number' ? formatKm((v>1000? v/1000:v).toFixed(1))
+    : (/km/i.test(String(v))?String(v):(n => Number.isNaN(n) ? undefined : formatKm(n.toFixed(1)))(parseFloat(String(v).replace(',','.'))))),
+  min: v => vide(v) || v === 0 ? undefined : (typeof v==='number' ? formatMinutes(Math.round(v>180? v/60:v))
+    : (/(min|mn)/i.test(String(v))?String(v):(n => Number.isNaN(n) ? undefined : formatMinutes(Math.round(n)))(parseFloat(String(v))))),
 };
 
 function openItinerary(order){
@@ -60,6 +63,7 @@ function openItinerary(order){
 
 export default function DetailsSheet({ visible, order, onClose }) {
   const { t } = useLanguage();
+  const { fmtPrice } = useCurrency();
   const y = useRef(new Animated.Value(SHEET_HEIGHT)).current;
 
   useEffect(() => {
@@ -84,7 +88,12 @@ export default function DetailsSheet({ visible, order, onClose }) {
   const customer = order?.customer_name || order?.customerName || '';
   const distance = fmt.km(pick(order, ['distanceText','distanceKm','distance'], /(distance|km)/i));
   const eta = fmt.min(pick(order, ['etaText','etaMinutes','duration','time'], /(eta|duration|time|min)/i));
-  const price = fmt.price(pick(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i));
+  // Gain en devise du livreur quand le montant numérique est connu (comme la carte).
+  const price = order?.priceEur != null
+    ? fmtPrice(order.priceEur)
+    : fmt.price(pick(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i));
+  // Heure à laquelle la commande sera prête en boutique (serveur).
+  const readyTime = order?.readyAt ? formatTime(order.readyAt) : '';
 
   const animateClose = () => {
     Animated.timing(y, { toValue: SHEET_HEIGHT, duration: 180, useNativeDriver: true })
@@ -155,6 +164,7 @@ export default function DetailsSheet({ visible, order, onClose }) {
           )}
 
           <View style={styles.chips}>
+            {!!readyTime && <View style={styles.pill}><Text style={styles.pillTxt}>{t('readyAtTime', { time: readyTime })}</Text></View>}
             {!!distance && <View style={styles.pill}><Text style={styles.pillTxt}>{distance}</Text></View>}
             {!!eta && <View style={styles.pill}><Text style={styles.pillTxt}>{eta}</Text></View>}
             {!!price && <View style={[styles.pill, { backgroundColor: BRAND }]}><Text style={[styles.pillTxt, { color:'#fff' }]}>{price}</Text></View>}

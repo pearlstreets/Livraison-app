@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Linking, Animated, Image } fr
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useLanguage } from '../contexts/LanguageContext';
-import { formatKm, formatMinutes } from '../lib/i18nFormat';
+import { formatKm, formatMinutes, formatTime } from '../lib/i18nFormat';
 // Alias : le module a déjà un helper local `fmtPrice` (parse des chaînes
 // pré-formatées) — on importe donc le formateur devise sous un autre nom.
 import { useCurrency as useDriverCurrency } from '../contexts/CurrencyContext';
@@ -109,9 +109,10 @@ function CountdownBar({ seconds, onExpire }) {
 }
 
 /* ---------- Inline metrics ---------- */
-function InlineMetrics({ distance, eta, items }) {
+function InlineMetrics({ distance, eta, items, readyTime }) {
   const { t } = useLanguage();
   const segments = [];
+  if (readyTime) segments.push({ icon: 'alarm-outline', label: t('readyAtTime', { time: readyTime }) });
   if (distance) segments.push({ icon: 'navigate-outline', label: distance });
   if (eta) segments.push({ icon: 'time-outline', label: eta });
   if (items) segments.push({ icon: 'cube-outline', label: `${items} ${items > 1 ? t('articles') : t('article')}` });
@@ -150,6 +151,8 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
     : fmtPrice(pickHybrid(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i));
   const items = pickHybrid(order, ['itemsCount','items','nbItems'], /(items|nb.*items)/i);
   const shopImage = order?.shopImage || order?.shop_image || '';
+  // Heure à laquelle la commande sera prête en boutique (serveur).
+  const readyTime = order?.readyAt ? formatTime(order.readyAt) : '';
 
   const handleAcceptOrItinerary = () => {
     if (!accepted) { setAccepted(true); try { if (typeof onAccept === 'function') onAccept(order); } catch {} }
@@ -207,8 +210,8 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
         </View>
       )}
 
-      {/* Métriques inline (km · min · articles) */}
-      <InlineMetrics distance={distance} eta={eta} items={items} />
+      {/* Métriques inline (prête à · km · min · articles) */}
+      <InlineMetrics distance={distance} eta={eta} items={items} readyTime={readyTime} />
 
       <View style={styles.divider} />
 
