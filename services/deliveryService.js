@@ -104,4 +104,14 @@ export const deliveryService = {
     const { data } = await api.post(`/api/v1/delivery/assignments/${assignmentId}/client-message/`, { text });
     return data;
   },
+
+  async getProMessages(assignmentId) {
+    const { data } = await api.get(`/api/v1/delivery/assignments/${assignmentId}/pro-messages/`);
+    return data;
+  },
+
+  async sendProMessage(assignmentId, text) {
+    const { data } = await api.post(`/api/v1/delivery/assignments/${assignmentId}/pro-messages/`, { text });
+    return data;
+  },
 };

@@ -53,7 +53,13 @@ function charger({ module, navigation }) {
   jest.isolateModules(() => {
     jest.doMock('react', () => m.react);
     jest.doMock('@react-navigation/native', () => ({ NavigationContext: {} }));
-    if (module) jest.doMock('expo-screen-capture', () => module, { virtual: true });
+    // Sans faux module : le require échoue comme sur un binaire qui ne l'embarque
+    // pas, que le paquet soit installé dans node_modules ou non.
+    jest.doMock(
+      'expo-screen-capture',
+      module ? () => module : () => { throw new Error("Cannot find module 'expo-screen-capture'"); },
+      { virtual: true }
+    );
     hook = require('../useSecureScreen').default;
   });
   const rendre = (...args) => {
@@ -73,8 +79,8 @@ afterEach(() => {
 });
 
 test('sans le module natif (binaire actuel) : inerte, aucune exception', async () => {
-  // expo-screen-capture n'est pas installé dans node_modules : son require
-  // échoue exactement comme sur un binaire qui ne l'embarque pas.
+  // Le require d'expo-screen-capture échoue exactement comme sur un binaire
+  // qui ne l'embarque pas.
   const { rendre, demonter } = charger({ navigation: fausseNavigation(true) });
   expect(() => rendre('Documents')).not.toThrow();
   expect(() => demonter()).not.toThrow();
