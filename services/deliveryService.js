@@ -45,6 +45,17 @@ export const deliveryService = {
     return data;
   },
 
+  // Tracé par les rues (Apple Plans) du livreur vers la boutique tant que la
+  // course n'est pas récupérée, vers le client ensuite. `depuis` : position
+  // affichée {latitude, longitude} ; absente, le serveur prend la position
+  // enregistrée du livreur. Réponse : { statusCode, data: { trace, destination } }.
+  async getItineraire(assignmentId, depuis) {
+    const params = { assignment_id: assignmentId };
+    if (depuis) params.depuis = `${depuis.latitude},${depuis.longitude}`;
+    const { data } = await api.get('/api/v1/delivery/driver/itineraire/', { params });
+    return data;
+  },
+
   async cancelDelivery(assignmentId, reason = '') {
     const { data } = await api.post(`/api/v1/delivery/assignments/${assignmentId}/cancel/`, { reason });
     return data;
