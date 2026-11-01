@@ -23,6 +23,33 @@ export function surRetourHorsLigne(fn) {
   quandHorsLigne = fn;
 }
 
+// Délais calculés par le serveur pour les courses actives, renvoyés dans la
+// réponse de chaque envoi de position : { "<assignment_id>": { etape_eta_minutes,
+// etape_eta_at, eta_minutes, eta_at, pickup_eta_minutes, pickup_eta_at } }.
+// Gardés ici pour qu'un écran ouvert après l'envoi lise la dernière valeur.
+let dernieresEtas = {};
+const ecouteursEtas = new Set();
+
+export function etasConnues(assignmentId) {
+  return assignmentId != null ? dernieresEtas[String(assignmentId)] || null : null;
+}
+
+// Appelé à chaque nouvelle réponse contenant `etas`. Renvoie la désinscription.
+export function surEtas(fn) {
+  ecouteursEtas.add(fn);
+  return () => { ecouteursEtas.delete(fn); };
+}
+
+function publierEtas(etas) {
+  if (!etas || typeof etas !== 'object') return;
+  dernieresEtas = etas;
+  ecouteursEtas.forEach((fn) => {
+    try { fn(etas); } catch {
+      // Un écran fautif ne bloque pas les autres.
+    }
+  });
+}
+
 function distanceM(a, b) {
   const rad = (d) => (d * Math.PI) / 180;
   const dLat = rad(b.lat - a.lat);
@@ -46,6 +73,7 @@ export async function envoyerPosition(lat, lng, { forcer = false, mocked = false
   try {
     const data = await deliveryService.updateLocation(lat, lng, mocked === true);
     if (data && data.is_online === false && quandHorsLigne) quandHorsLigne();
+    if (data && data.etas) publierEtas(data.etas);
     return true;
   } catch {
     // Réseau ou serveur indisponible : on retentera à la prochaine mesure.
