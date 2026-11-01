@@ -81,8 +81,13 @@ export default function MapScreen({ route, navigation }) {
       } else {
         setTrace(enPoints(res?.data?.trace));
       }
-    } catch {
-      // Réseau coupé : on garde le dernier tracé.
+    } catch (err) {
+      // Le serveur répond aussi la course finie en HTTP 404 (corps statusCode
+      // 404) : plus de trait. Réseau coupé : on garde le dernier tracé.
+      if (err?.status === 404) {
+        setFinie(true);
+        setTrace(null);
+      }
     } finally {
       enCours.current = false;
     }
