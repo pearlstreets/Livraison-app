@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import React, { useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, Pressable, TextInput, FlatList, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -8,18 +9,38 @@ import { ticketService } from '../services/ticketService';
 import { formatTime as formatClock } from '../lib/i18nFormat';
 
 const BRAND = '#00C29B';
+// Relecture du fil tant que le ticket est ouvert : la réponse du support
+// apparaît sans quitter l'écran.
+const RELECTURE_MS = 20000;
+
+// Codes des messages système écrits par le serveur (traduits ici). Les
+// anciens messages en anglais en dur sont reconnus aussi.
+const CODES_SYSTEME = {
+  ticket_resolved: 'ticketSystemResolved',
+  ticket_closed: 'ticketSystemClosed',
+};
+const ANCIEN_TEXTE_SYSTEME = /^Ticket has been (resolved|closed) by admin\.?$/i;
 
 function formatTime(dateStr) {
   return formatClock(dateStr);
 }
 
-function mapMessage(msg) {
+function cleSysteme(text) {
+  const brut = String(text || '').trim();
+  if (CODES_SYSTEME[brut]) return CODES_SYSTEME[brut];
+  const ancien = brut.match(ANCIEN_TEXTE_SYSTEME);
+  return ancien ? CODES_SYSTEME[`ticket_${ancien[1].toLowerCase()}`] : null;
+}
+
+function mapMessage(msg, t) {
   // sender_type: 'user' = livreur, 'admin'/'system' = support
   const type = msg.sender_type === 'user' ? 'user' : msg.sender_type === 'system' ? 'system' : 'admin';
+  const cle = type === 'system' ? cleSysteme(msg.text) : null;
   return {
     id: String(msg.id),
     type,
-    text: msg.text || '',
+    text: cle ? t(cle) : (msg.text || ''),
+    resolvedMark: Boolean(cle),
     time: msg.created_at || null,
   };
 }
@@ -32,6 +53,7 @@ export default function TicketChatScreen({ navigation, route }) {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
   const initialResolved = route.params?.resolved || false;
   const [isResolvedState, setIsResolvedState] = useState(initialResolved);
@@ -45,7 +67,7 @@ export default function TicketChatScreen({ navigation, route }) {
       const res = await ticketService.getTicketDetail(ticketId);
       const ticket = res?.data?.ticket || res?.ticket || {};
       const rawMsgs = res?.data?.messages || res?.messages || [];
-      const mapped = Array.isArray(rawMsgs) ? rawMsgs.map(mapMessage) : [];
+      const mapped = Array.isArray(rawMsgs) ? rawMsgs.map((m) => mapMessage(m, t)) : [];
 
       // Derive resolved state from ticket status
       const status = ticket.status || '';
@@ -55,19 +77,39 @@ export default function TicketChatScreen({ navigation, route }) {
 
       // Prepend system header if no system message present
       if (mapped.length === 0 || mapped[0].type !== 'system') {
-        const orderId = ticket.assignment_id ? `ORD-${ticket.assignment_id}` : `TK-${ticketId}`;
+        const orderId = ticket.order_id
+          ? `#${ticket.order_id}`
+          : ticket.assignment_id ? `#${ticket.assignment_id}` : `TK-${ticketId}`;
         mapped.unshift({ id: 'system-header', type: 'system', text: t('ticketOpenedFor', { id: orderId }), time: null });
       }
       setMessages(mapped);
     } catch {
-      setMessages([{ id: 'system-error', type: 'system', text: t('messagesLoadError'), time: null }]);
+      // Relecture en échec : on garde le fil déjà affiché.
+      setMessages((prev) => (prev.length && prev[0].id !== 'system-error'
+        ? prev
+        : [{ id: 'system-error', type: 'system', text: t('messagesLoadError'), time: null }]));
     } finally {
       setLoading(false);
     }
-  }, [ticketId]);
+  }, [ticketId, t]);
 
-  useEffect(() => {
+  // Rechargement à chaque retour sur l'écran (tap sur une notification,
+  // retour depuis un autre écran), puis relecture régulière tant que le
+  // ticket est ouvert et l'écran affiché.
+  useFocusEffect(useCallback(() => {
     loadMessages();
+    if (isResolvedState) return undefined;
+    const minuteur = setInterval(loadMessages, RELECTURE_MS);
+    return () => clearInterval(minuteur);
+  }, [loadMessages, isResolvedState]));
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadMessages();
+    } finally {
+      setRefreshing(false);
+    }
   }, [loadMessages]);
 
   async function sendMessage() {
@@ -79,7 +121,7 @@ export default function TicketChatScreen({ navigation, route }) {
       const res = await ticketService.sendMessage(ticketId, text);
       const newMsg = res?.data || res;
       if (newMsg && newMsg.id) {
-        setMessages(prev => [...prev, mapMessage(newMsg)]);
+        setMessages(prev => [...prev, mapMessage(newMsg, t)]);
       } else {
         // Optimistic fallback
         setMessages(prev => [...prev, {
@@ -89,9 +131,17 @@ export default function TicketChatScreen({ navigation, route }) {
           time: new Date().toISOString(),
         }]);
       }
-    } catch {
-      // Restore input on error
-      setInput(text);
+    } catch (e) {
+      if (e?.status === 400) {
+        // Le support a clôturé le ticket entre-temps : lecture seule.
+        setIsResolvedState(true);
+        Alert.alert(t('ticketClosed'), t('ticketNowClosed'));
+        loadMessages();
+      } else {
+        // Restore input on error
+        setInput(text);
+        Alert.alert(t('error'), t('ticketSendError'));
+      }
     } finally {
       setSending(false);
     }
@@ -99,7 +149,7 @@ export default function TicketChatScreen({ navigation, route }) {
 
   const renderMessage = ({ item }) => {
     if (item.type === 'system') {
-      const isResolvedMsg = item.id?.startsWith('system-resolved');
+      const isResolvedMsg = item.resolvedMark;
       return (
         <View style={[s.systemMsg, isResolvedMsg && { backgroundColor: BRAND + '20' }]}>
           <Text style={[s.systemText, isResolvedMsg && { color: BRAND }]}>{item.text}</Text>
@@ -137,14 +187,9 @@ export default function TicketChatScreen({ navigation, route }) {
         {isResolvedState ? (
           <>
             <Ionicons name="checkmark-circle" size={16} color="#7fff7f" style={{ marginRight: 4 }} />
-            <Text style={s.onlineText}>{t('resolved')}</Text>
+            <Text style={s.statusText}>{t('resolved')}</Text>
           </>
-        ) : (
-          <>
-            <View style={s.onlineDot} />
-            <Text style={s.onlineText}>{t('online')}</Text>
-          </>
-        )}
+        ) : null}
       </View>
 
       {/* Messages */}
@@ -158,6 +203,7 @@ export default function TicketChatScreen({ navigation, route }) {
           keyExtractor={item => item.id}
           contentContainerStyle={s.messagesList}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND} colors={[BRAND]} />}
         />
       )}
 
@@ -192,8 +238,7 @@ const s = StyleSheet.create({
   header: { backgroundColor: BRAND, paddingHorizontal: 16, paddingBottom: 14, flexDirection: 'row', alignItems: 'center' },
   headerTitle: { color: '#fff', fontWeight: '800', fontSize: 17 },
   headerSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 1 },
-  onlineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#7fff7f', marginRight: 6 },
-  onlineText: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600' },
+  statusText: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600' },
 
   messagesList: { padding: 16, paddingBottom: 16, flexGrow: 1, justifyContent: 'flex-end' },
 
