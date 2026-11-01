@@ -102,7 +102,7 @@ const WAIT_SECONDS = 7 * 60; // 7 minutes
 
 const CALL_DEADLINE = 4 * 60; // 4 minutes — must call before this
 
-function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showCallPopup, setShowCallPopup, onMessage, onOpenMap, onCall }) {
+function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showCallPopup, setShowCallPopup, onMessage, onMessagePro, onOpenMap, onCall }) {
   const { t } = useLanguage();
   const [remaining, setRemaining] = useState(WAIT_SECONDS);
   const timerRef = useRef(null);
@@ -198,6 +198,13 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
         <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('customerMessage')}</Text>
       </Pressable>
 
+      {!!onMessagePro && (
+        <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={onMessagePro}>
+          <Ionicons name="storefront-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
+          <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('writeToShop')}</Text>
+        </Pressable>
+      )}
+
       {/* Call popup overlay */}
       {showCallPopup && !hasCalled && (
         <View style={ss.callPopup}>
@@ -250,27 +257,71 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const [sentQuicks, setSentQuicks] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
   const chatListRef = useRef(null);
+  // Fil affiché dans la fenêtre de chat : 'client' ou 'pro' (boutique de la commande).
+  const [filChat, setFilChat] = useState('client');
+  const filChatRef = useRef('client');
+  // Accès boutique montré seulement si le serveur connaît un fil boutique pour la course.
+  const [proChatDispo, setProChatDispo] = useState(false);
+  const [chatError, setChatError] = useState('');
 
-  const openChat = useCallback(async () => {
+  // Relit le fil demandé. Les messages encore en cours d'envoi sont gardés.
+  const loadChat = useCallback(async (fil, { scroll = false } = {}) => {
+    if (!assignmentId) return;
+    try {
+      const res = fil === 'pro'
+        ? await deliveryService.getProMessages(assignmentId)
+        : await deliveryService.getClientMessages(assignmentId);
+      if (filChatRef.current !== fil) return;
+      const msgs = Array.isArray(res?.data) ? res.data : [];
+      const serveur = msgs.map(m => ({
+        id: m.id,
+        text: m.text,
+        from: m.sender_type === 'driver' || m.sender_type === 'user' ? 'me' : 'client',
+        time: m.created_at ? new Date(m.created_at) : new Date(),
+      }));
+      setChatMessages(prev => [...serveur, ...prev.filter(x => x.pending)]);
+      if (scroll) setTimeout(() => chatListRef.current?.scrollToEnd({ animated: false }), 100);
+    } catch (_) {
+      // Keep current messages on error
+    }
+  }, [assignmentId]);
+
+  const openChat = useCallback(async (fil) => {
+    const cible = fil === 'pro' ? 'pro' : 'client';
+    filChatRef.current = cible;
+    setFilChat(cible);
+    setChatError('');
+    setChatMessages([]);
     setShowChat(true);
     if (!assignmentId) return;
     setChatLoading(true);
     try {
-      const res = await deliveryService.getClientMessages(assignmentId);
-      const msgs = Array.isArray(res?.data) ? res.data : [];
-      setChatMessages(msgs.map(m => ({
-        id: m.id,
-        text: m.text,
-        from: m.sender_type === 'user' ? 'me' : 'client',
-        time: m.created_at ? new Date(m.created_at) : new Date(),
-      })));
-      setTimeout(() => chatListRef.current?.scrollToEnd({ animated: false }), 100);
-    } catch (_) {
-      // Keep empty messages on error
+      await loadChat(cible, { scroll: true });
     } finally {
       setChatLoading(false);
     }
-  }, [assignmentId]);
+  }, [assignmentId, loadChat]);
+
+  // Envoi d'un message sur le fil ouvert. Sur le fil boutique, un échec retire
+  // le message et affiche une erreur ; sur le fil client, comportement inchangé.
+  const sendChatMessage = useCallback(async (text) => {
+    const fil = filChatRef.current;
+    const localId = `local-${Date.now()}`;
+    setChatError('');
+    setChatMessages(prev => [...prev, { id: localId, text, from: 'me', time: new Date(), pending: true }]);
+    setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 100);
+    if (!assignmentId) return;
+    try {
+      if (fil === 'pro') await deliveryService.sendProMessage(assignmentId, text);
+      else await deliveryService.sendClientMessage(assignmentId, text);
+      setChatMessages(prev => prev.map(x => (x.id === localId ? { ...x, pending: false } : x)));
+    } catch (_) {
+      if (fil === 'pro') {
+        setChatMessages(prev => prev.filter(x => x.id !== localId));
+        if (filChatRef.current === 'pro') setChatError(t('shopMessageError'));
+      }
+    }
+  }, [assignmentId, t]);
   const QUICK_MSGS = [
     t('quickMsgOnMyWay'),
     t('quickMsgAtDoor'),
@@ -297,6 +348,23 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const orderId = order.orderNumber || order.id || order.code || t('order');
   // ID de l'assignment backend (pour updateDeliveryStatus / cancelDelivery)
   const assignmentId = order._assignmentId || order.id || null;
+
+  // Fil boutique : absent (404) pour une course sans commande marchand.
+  useEffect(() => {
+    if (!assignmentId) { setProChatDispo(false); return undefined; }
+    let actif = true;
+    deliveryService.getProMessages(assignmentId)
+      .then(() => { if (actif) setProChatDispo(true); })
+      .catch(() => { if (actif) setProChatDispo(false); });
+    return () => { actif = false; };
+  }, [assignmentId]);
+
+  // Fenêtre de chat ouverte : relecture du fil toutes les 10 s pour voir les réponses.
+  useEffect(() => {
+    if (!showChat || !assignmentId) return undefined;
+    const id = setInterval(() => { loadChat(filChat); }, 10000);
+    return () => clearInterval(id);
+  }, [showChat, filChat, assignmentId, loadChat]);
   // Livraison en cours tant que cet écran est monté → force le tracking GPS
   // même si le livreur passe hors-ligne, pour que le client garde la position
   // live. Remis à false à la fermeture de l'écran.
@@ -704,6 +772,13 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <Ionicons name="chatbubble-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
               <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('customerMessage')}</Text>
             </Pressable>
+
+            {proChatDispo && (
+              <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={() => openChat('pro')}>
+                <Ionicons name="storefront-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
+                <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('writeToShop')}</Text>
+              </Pressable>
+            )}
           </View>
         )}
 
@@ -718,6 +793,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             showCallPopup={showCallPopup}
             setShowCallPopup={setShowCallPopup}
             onMessage={openChat}
+            onMessagePro={proChatDispo ? () => openChat('pro') : undefined}
             onOpenMap={openMap}
             onCall={callClient}
           />
@@ -773,6 +849,13 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <Ionicons name="chatbubble-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
               <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('customerMessage')}</Text>
             </Pressable>
+
+            {proChatDispo && (
+              <Pressable style={[ss.callBtn, { paddingVertical: 10, marginBottom: 8 }]} onPress={() => openChat('pro')}>
+                <Ionicons name="storefront-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
+                <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('writeToShop')}</Text>
+              </Pressable>
+            )}
 
             {/* Client absent : proposé UNIQUEMENT si le commerçant l'a prévu.
                 Sinon le colis repart, comme avant (aucune sortie sans code). */}
@@ -1043,7 +1126,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             <Pressable onPress={() => setShowChat(false)}>
               <Ionicons name="close" size={28} color="#111" />
             </Pressable>
-            <Text style={ss.chatHeaderTitle}>{t('messageToCustomer')}</Text>
+            <Text style={ss.chatHeaderTitle}>{filChat === 'pro' ? t('chatShopTitle') : t('messageToCustomer')}</Text>
             <View style={{ width: 28 }} />
           </View>
 
@@ -1087,21 +1170,15 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           />
 
           {/* Input + quick chips */}
+          {filChat === 'client' && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={ss.quickChipsRow} contentContainerStyle={{ paddingHorizontal: 16, gap: 8, paddingVertical: 8 }}>
             {[...QUICK_MSGS.filter(m => !sentQuicks.includes(m)), ...sentQuicks].map((msg, i) => {
               const isSent = sentQuicks.includes(msg);
               return (
                 <Pressable key={i} style={[ss.quickChipSmall, isSent && ss.quickChipSent]} onPress={async () => {
                   if (isSent) return;
-                  const m = { id: Date.now(), text: msg, from: 'me', time: new Date() };
-                  setChatMessages(prev => [...prev, m]);
                   setSentQuicks(prev => [...prev, msg]);
-                  setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 100);
-                  if (assignmentId) {
-                    try {
-                      await deliveryService.sendClientMessage(assignmentId, msg);
-                    } catch (_) {}
-                  }
+                  await sendChatMessage(msg);
                 }} disabled={isSent}>
                   <Text style={[ss.quickChipSmallText, isSent && ss.quickChipSentText]}>{msg}</Text>
                   {isSent && <Ionicons name="checkmark" size={14} color="#999" style={{ marginLeft: 4 }} />}
@@ -1109,6 +1186,10 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               );
             })}
           </ScrollView>
+          )}
+          {!!chatError && (
+            <Text style={{ color: '#e74c3c', fontSize: 13, fontWeight: '600', backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 8 }}>{chatError}</Text>
+          )}
           <View style={[ss.chatInputRow, { paddingBottom: insets.bottom || 16 }]}>
             <TextInput
               style={ss.chatInputField}
@@ -1120,15 +1201,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               if (!chatInput.trim()) return;
               const sanitized = sanitizeInput(chatInput);
               if (!sanitized) return;
-              const m = { id: Date.now(), text: sanitized, from: 'me', time: new Date() };
-              setChatMessages(prev => [...prev, m]);
               setChatInput('');
-              setTimeout(() => chatListRef.current?.scrollToEnd({ animated: true }), 100);
-              if (assignmentId) {
-                try {
-                  await deliveryService.sendClientMessage(assignmentId, sanitized);
-                } catch (_) {}
-              }
+              await sendChatMessage(sanitized);
             }}>
               <Ionicons name="send" size={18} color="#fff" />
             </Pressable>
