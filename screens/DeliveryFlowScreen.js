@@ -261,7 +261,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       setChatMessages(msgs.map(m => ({
         id: m.id,
         text: m.text,
-        from: m.sender_type === 'user' ? 'me' : 'client',
+        // Le serveur écrit « driver » pour les messages du livreur.
+        from: m.sender_type === 'driver' || m.sender_type === 'user' ? 'me' : 'client',
         time: m.created_at ? new Date(m.created_at) : new Date(),
       })));
       setTimeout(() => chatListRef.current?.scrollToEnd({ animated: false }), 100);
