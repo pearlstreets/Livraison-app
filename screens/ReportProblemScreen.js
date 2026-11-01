@@ -24,6 +24,11 @@ export default function ReportProblemScreen({ navigation, route }) {
   const { markOrderReported } = useAuth();
   const insets = useSafeAreaInsets();
   const order = route.params?.order || {};
+  // Identifiant NUMÉRIQUE de l'affectation (pas `order.id`, qui vaut « ORD-123 »
+  // et que le serveur refuse).
+  const assignmentNum = Number(order.assignmentId ?? order._assignmentId);
+  const assignmentId = Number.isInteger(assignmentNum) && assignmentNum > 0 ? assignmentNum : undefined;
+  const orderRef = [`${t('order')} ${order.id || ''}`.trim(), order.restaurant].filter(Boolean).join(' · ');
   const [selectedProblem, setSelectedProblem] = useState(null);
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -35,16 +40,23 @@ export default function ReportProblemScreen({ navigation, route }) {
     }
     setSubmitting(true);
     try {
-      await ticketService.createTicket({
+      const res = await ticketService.createTicket({
         problem_type: selectedProblem,
         description: comment || undefined,
-        assignment_id: order.id || undefined,
+        assignment_id: assignmentId,
       });
+      const ticketId = res?.data?.id;
       markOrderReported(order.id);
+      // La réponse du support arrive dans le fil du ticket : on l'ouvre.
       Alert.alert(
         t('reportSent'),
-        t('reportSentMsg'),
-        [{ text: t('ok'), onPress: () => navigation.goBack() }]
+        t('reportSentTicketMsg'),
+        [{
+          text: t('ok'),
+          onPress: () => (ticketId
+            ? navigation.replace('TicketChat', { ticketId })
+            : navigation.goBack()),
+        }]
       );
     } catch {
       Alert.alert(t('error'), t('genericError'));
@@ -67,7 +79,7 @@ export default function ReportProblemScreen({ navigation, route }) {
       {/* Order ref */}
       <View style={s.orderRef}>
         <Ionicons name="receipt-outline" size={14} color="#888" style={{ marginRight: 6 }} />
-        <Text style={s.orderRefText}>Commande {order.id} · {order.restaurant}</Text>
+        <Text style={s.orderRefText}>{orderRef}</Text>
       </View>
 
       <Text style={s.sectionTitle}>{t('problemType')}</Text>

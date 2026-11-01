@@ -28,7 +28,9 @@ function mapTicket(ticket) {
   return {
     id: ticket.id,
     displayId: `TK-${ticket.id}`,
-    orderId: ticket.assignment_id ? `ORD-${ticket.assignment_id}` : `TK-${ticket.id}`,
+    // Vraie référence de commande (`order_id`), sinon numéro de course.
+    orderId: ticket.order_id || null,
+    assignmentId: ticket.assignment_id || null,
     problemType: ticket.problem_type || '',
     subject: ticket.description?.split('\n')[0] || '',
     dateRaw: ticket.updated_at || ticket.created_at || null,
@@ -56,7 +58,11 @@ const TicketCard = React.memo(({ ticket, navigation, t }) => {
         </View>
       </View>
       <Text style={s.ticketSubject}>{PROBLEM_LABEL_KEYS[ticket.problemType] ? t(PROBLEM_LABEL_KEYS[ticket.problemType]) : (ticket.problemType || ticket.subject || t('ticketTitle'))}</Text>
-      <Text style={s.ticketOrder}>{t('order')} {ticket.orderId}</Text>
+      {ticket.orderId ? (
+        <Text style={s.ticketOrder}>{t('order')} #{ticket.orderId}</Text>
+      ) : ticket.assignmentId ? (
+        <Text style={s.ticketOrder}>{t('deliveryRef', { id: ticket.assignmentId })}</Text>
+      ) : null}
       <View style={s.ticketFooter}>
         <Text style={s.ticketLastMsg} numberOfLines={1}>{ticket.lastMessage}</Text>
         <Text style={s.ticketDate}>{formatDayMonth(ticket.dateRaw, { year: true })}</Text>
@@ -64,21 +70,25 @@ const TicketCard = React.memo(({ ticket, navigation, t }) => {
     </Pressable>
   );
 });
+TicketCard.displayName = 'TicketCard';
 
 export default function TicketsListScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const fetchTickets = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const res = await ticketService.getTickets();
       const raw = res?.results || res?.data || [];
       setTickets(Array.isArray(raw) ? raw.map(mapTicket) : []);
     } catch {
-      setTickets([]);
+      // Échec réseau : message et bouton réessayer, la liste déjà lue reste.
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -119,6 +129,16 @@ export default function TicketsListScreen({ navigation }) {
       </View>
 
       {loading && <ActivityIndicator size="small" color={BRAND} style={{ marginTop: 20 }} />}
+
+      {!loading && loadError && (
+        <View style={s.errorCard}>
+          <Ionicons name="cloud-offline-outline" size={22} color="#e74c3c" />
+          <Text style={s.errorText}>{t('ticketsLoadError')}</Text>
+          <Pressable style={s.retryBtn} onPress={fetchTickets}>
+            <Text style={s.retryTxt}>{t('retry')}</Text>
+          </Pressable>
+        </View>
+      )}
 
       {/* Open tickets */}
       {!loading && openTickets.length > 0 && (
@@ -172,4 +192,9 @@ const s = StyleSheet.create({
   ticketFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 8 },
   ticketLastMsg: { flex: 1, fontSize: 13, color: '#999', marginRight: 8 },
   ticketDate: { fontSize: 12, color: '#bbb', fontWeight: '600' },
+
+  errorCard: { backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 14, padding: 16, marginBottom: 16, alignItems: 'center', gap: 10 },
+  errorText: { fontSize: 14, color: '#333', fontWeight: '600', textAlign: 'center' },
+  retryBtn: { backgroundColor: BRAND, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 24 },
+  retryTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
 });

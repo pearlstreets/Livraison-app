@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
-import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ticketService } from '../services/ticketService';
 
@@ -13,7 +12,6 @@ const BRAND = '#00C29B';
 export default function ContactSupportScreen({ navigation, route }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
   const subject = route.params?.subject || '';
   const [message, setMessage] = useState('');
   const [sent, setSent] = useState(false);
@@ -28,12 +26,18 @@ export default function ContactSupportScreen({ navigation, route }) {
     // Crée un VRAI ticket support côté backend (au lieu d'un faux envoi local).
     try {
       const description = subject ? `${subject}\n${message.trim()}` : message.trim();
-      await ticketService.createTicket({ problem_type: 'autre', description });
+      const res = await ticketService.createTicket({ problem_type: 'autre', description });
       setSending(false);
-      setSent(true);
-    } catch (e) {
+      // La réponse du support arrive dans le fil du ticket : on l'ouvre.
+      const ticketId = res?.data?.id;
+      if (ticketId) {
+        navigation.replace('TicketChat', { ticketId });
+      } else {
+        setSent(true);
+      }
+    } catch {
       setSending(false);
-      Alert.alert(t('error'), t('errorNetwork') || "Échec de l'envoi. Veuillez réessayer.");
+      Alert.alert(t('error'), t('errorNetwork'));
     }
   }
 
@@ -44,7 +48,7 @@ export default function ContactSupportScreen({ navigation, route }) {
           <Ionicons name="checkmark-circle" size={64} color={BRAND} />
         </View>
         <Text style={s.sentTitle}>{t('messageSent')}</Text>
-        <Text style={s.sentDesc}>{t('messageSentSub')}</Text>
+        <Text style={s.sentDesc}>{t('ticketSentSub')}</Text>
         <Pressable style={s.sentBtn} onPress={() => navigation.goBack()}>
           <Text style={s.sentBtnTxt}>{t('back')}</Text>
         </Pressable>
@@ -64,10 +68,10 @@ export default function ContactSupportScreen({ navigation, route }) {
         </View>
 
         <View style={s.infoCard}>
-          <Ionicons name="mail-outline" size={22} color={BRAND} style={{ marginRight: 12 }} />
+          <Ionicons name="chatbubbles-outline" size={22} color={BRAND} style={{ marginRight: 12 }} />
           <View style={{ flex: 1 }}>
-            <Text style={s.infoLabel}>{t('replyEmail')}</Text>
-            <Text style={s.infoValue}>{user?.email}</Text>
+            <Text style={s.infoLabel}>{t('supportReplyWhereLabel')}</Text>
+            <Text style={s.infoValue}>{t('supportReplyWhere')}</Text>
           </View>
         </View>
 
@@ -92,7 +96,7 @@ export default function ContactSupportScreen({ navigation, route }) {
 
         <Pressable style={[s.sendBtn, sending && { opacity: 0.6 }]} onPress={handleSend} disabled={sending}>
           <Ionicons name="send" size={18} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={s.sendTxt}>{sending ? (t('sending') || 'Envoi…') : t('send')}</Text>
+          <Text style={s.sendTxt}>{sending ? t('sending') : t('send')}</Text>
         </Pressable>
       </ScrollView>
       <StatusBarShield />

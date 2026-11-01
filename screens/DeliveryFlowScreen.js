@@ -6,11 +6,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import translations from '../contexts/translations';
-import { formatAmount, formatTime } from '../lib/i18nFormat';
+import { formatAmount, formatTime, formatMinutes } from '../lib/i18nFormat';
 import { dirIcon, isRTL } from '../lib/rtl';
 import { sanitizeInput, createRateLimiter } from '../utils/validation';
 import { deliveryService } from '../services/deliveryService';
 import { ticketService } from '../services/ticketService';
+import { etasConnues, surEtas } from '../services/positionLivreur';
 
 // Mapping étape QUITTÉE → statut(s) backend qui reflètent la NOUVELLE réalité.
 // Avant : le statut était décalé d'un cran (in_transit envoyé au moment où le
@@ -23,6 +24,22 @@ const STEP_TO_STATUS = {
   enroute: ['arrived'],
   // 'delivered' est envoyé séparément avec le code
 };
+
+// Délai de l'étape en cours calculé par le serveur (vers la boutique avant la
+// récupération, vers le client après). Lu dans une course (champs plats
+// etape_eta_*) ou dans `etas[assignment_id]` de la réponse de position.
+// Renvoie null si le serveur ne fournit pas ces champs (ancien serveur).
+function etapeEtaServeur(src) {
+  if (!src || typeof src !== 'object') return null;
+  if (!('etape_eta_minutes' in src) && !('etape_eta_at' in src)) return null;
+  const n = src.etape_eta_minutes == null || src.etape_eta_minutes === '' ? null : Number(src.etape_eta_minutes);
+  return { minutes: Number.isFinite(n) ? n : null, at: src.etape_eta_at || null };
+}
+
+// Réponse du changement de statut : la course seule, ou enveloppée.
+function etapeEtaReponse(res) {
+  return etapeEtaServeur(res) || etapeEtaServeur(res?.assignment) || etapeEtaServeur(res?.data);
+}
 
 // Rate limiter for slide buttons (prevent double triggers)
 const slideRateLimiter = createRateLimiter(2000);
@@ -226,12 +243,13 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
 export default function DeliveryFlowScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { user, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, saveTicketMessages, markOrderReported, refreshAll, setActiveDelivery } = useAuth();
+  const { user, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, markOrderReported, refreshAll, setActiveDelivery } = useAuth();
   const { fmtPrice } = useCurrency();
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [showCodeProblem, setShowCodeProblem] = useState(false);
   const [selectedCodeProblem, setSelectedCodeProblem] = useState(null);
   const [codeProblemDesc, setCodeProblemDesc] = useState('');
+  const [codeTicketSending, setCodeTicketSending] = useState(false);
 
   // labelKey : libellé affiché dans la langue du livreur ; le ticket envoyé au
   // support garde le libellé français (langue de l'équipe administrative).
@@ -342,9 +360,12 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
   const restaurant = order.restaurant || order.merchantName || t('restaurant');
   const address = order.dropoffAddress || order.address || t('deliveryAddress');
-  const price = order.priceEur != null ? fmtPrice(order.priceEur) : (order.priceText || order.price || '-');
+  // Gain du livreur calculé par le serveur (gain_net), affiché tel quel ;
+  // repli sur le montant existant pour un ancien serveur.
+  const price = order.gainNet != null
+    ? fmtPrice(order.gainNet)
+    : (order.priceEur != null ? fmtPrice(order.priceEur) : (order.priceText || order.price || '-'));
   const distance = order.distanceText || '-';
-  const eta = order.etaText || '-';
   const orderId = order.orderNumber || order.id || order.code || t('order');
   // ID de l'assignment backend (pour updateDeliveryStatus / cancelDelivery)
   const assignmentId = order._assignmentId || order.id || null;
@@ -365,6 +386,33 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     const id = setInterval(() => { loadChat(filChat); }, 10000);
     return () => clearInterval(id);
   }, [showChat, filChat, assignmentId, loadChat]);
+  // ETA de l'étape en cours, toujours celle du serveur : dernière réponse de
+  // position connue, sinon la course reçue à l'acceptation. Relue à chaque
+  // envoi de position (surEtas) et à chaque changement de statut (nextStep).
+  const [etapeEta, setEtapeEta] = useState(() => (
+    etapeEtaServeur(etasConnues(order._assignmentId))
+    || (order.etapeEtaMinutes != null || order.etapeEtaAt
+      ? { minutes: order.etapeEtaMinutes ?? null, at: order.etapeEtaAt || null }
+      : null)
+  ));
+  useEffect(() => {
+    if (!order._assignmentId) return undefined;
+    return surEtas((etas) => {
+      const suivante = etapeEtaServeur(etas[String(order._assignmentId)]);
+      if (suivante) setEtapeEta(suivante);
+    });
+  }, [order._assignmentId]);
+  const eta = (() => {
+    if (etapeEta && (etapeEta.minutes != null || etapeEta.at)) {
+      const heure = etapeEta.at ? formatTime(etapeEta.at) : '';
+      if (etapeEta.minutes == null) return heure;
+      const minutes = formatMinutes(Math.max(0, Math.round(etapeEta.minutes)));
+      return heure ? `${minutes} · ${heure}` : minutes;
+    }
+    return order.etaText || '-';
+  })();
+  // Heure à laquelle la commande sera prête en boutique (serveur).
+  const readyTime = order.readyAt ? formatTime(order.readyAt) : '';
   // Livraison en cours tant que cet écran est monté → force le tracking GPS
   // même si le livreur passe hors-ligne, pour que le client garde la position
   // live. Remis à false à la fermeture de l'écran.
@@ -424,7 +472,11 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       // d'erreur réseau.
       for (const backendStatus of backendStatuses) {
         try {
-          await deliveryService.updateDeliveryStatus(assignmentId, backendStatus);
+          const res = await deliveryService.updateDeliveryStatus(assignmentId, backendStatus);
+          // La réponse porte l'ETA de la nouvelle étape (ex. vers le client
+          // une fois la commande récupérée).
+          const suivante = etapeEtaReponse(res);
+          if (suivante) setEtapeEta(suivante);
         } catch {
           // ignore — best effort
         }
@@ -670,6 +722,12 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 <Ionicons name="time-outline" size={14} color="#666" />
                 <Text style={ss.infoBadgeText}>{eta}</Text>
               </View>
+              {!!readyTime && (
+                <View style={ss.infoBadge}>
+                  <Ionicons name="alarm-outline" size={14} color="#666" />
+                  <Text style={ss.infoBadgeText}>{t('readyAtTime', { time: readyTime })}</Text>
+                </View>
+              )}
               <View style={[ss.infoBadge, { backgroundColor: BRAND }]}>
                 <Ionicons name="cash-outline" size={14} color="#fff" />
                 <Text style={[ss.infoBadgeText, { color: '#fff' }]}>{price}</Text>
@@ -1094,8 +1152,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
           <View style={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 16 }}>
             <Pressable
-              style={[ss.codeTicketBtn, !selectedCodeProblem && { opacity: 0.4 }]}
-              disabled={!selectedCodeProblem}
+              style={[ss.codeTicketBtn, (!selectedCodeProblem || codeTicketSending) && { opacity: 0.4 }]}
+              disabled={!selectedCodeProblem || codeTicketSending}
               onPress={async () => {
                 const problem = CODE_PROBLEMS.find(p => p.id === selectedCodeProblem);
                 // Mappe le type de problème de code → PROBLEM_CHOICES backend.
@@ -1103,9 +1161,18 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 const problem_type = PROBLEM_MAP[selectedCodeProblem] || 'autre';
                 const description = `${(problem && translations.fr[problem.labelKey]) || translations.fr.otherProblem}${codeProblemDesc.trim() ? `\n${codeProblemDesc.trim()}` : ''}`;
                 // VRAI ticket support côté backend (au lieu d'une conversation simulée).
+                // Échec : la fenêtre reste ouverte (le bouton sert à réessayer)
+                // et la course n'est PAS marquée « signalée », sinon le
+                // livreur croit le support prévenu alors qu'il ne l'est pas.
+                setCodeTicketSending(true);
                 try {
                   await ticketService.createTicket({ problem_type, description, assignment_id: assignmentId });
-                } catch (e) { /* réseau : on ferme quand même la livraison */ }
+                } catch {
+                  setCodeTicketSending(false);
+                  Alert.alert(t('error'), t('ticketCreateError'));
+                  return;
+                }
+                setCodeTicketSending(false);
                 markOrderReported(order.id);
                 setShowCodeProblem(false);
                 const problemOrder = { ...order, status: 'completed', completedAt: new Date().toISOString(), reported: true };

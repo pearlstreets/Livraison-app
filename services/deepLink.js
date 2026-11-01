@@ -12,9 +12,17 @@ import { navigate } from './navigationService';
 
 const ACCUEIL = { screen: 'Accueil', params: { screen: 'OrdersMain' } };
 
-export function resolveRoute(route) {
+// Identifiant de ticket lu dans `data.ticket_id` (push « réponse du
+// support », « ticket résolu ») ou dans la route `TicketChat/<id>`.
+function idTicket(valeur) {
+  const n = Number(valeur);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+export function resolveRoute(route, data) {
   if (!route || typeof route !== 'string') return ACCUEIL;
-  const [screen] = route.replace(/^\/+/, '').split('/');
+  const [screen, segment] = route.replace(/^\/+/, '').split('/');
+  const ticketId = idTicket(segment) || idTicket(data && data.ticket_id);
   switch (screen) {
     case 'Orders':
     case 'OrdersMain':
@@ -43,6 +51,11 @@ export function resolveRoute(route) {
       // Jalon de livraisons, remerciement après course.
       return { screen: 'Profil', params: { screen: 'DeliveryHistory' } };
     case 'TicketsList':
+    case 'TicketChat':
+      // Réponse du support : le fil du ticket ; sans identifiant, la liste.
+      if (ticketId) {
+        return { screen: 'Profil', params: { screen: 'TicketChat', params: { ticketId } } };
+      }
       return { screen: 'Profil', params: { screen: 'TicketsList' } };
     case 'Inbox':
       return { screen: 'MessagesTab' };
@@ -51,9 +64,9 @@ export function resolveRoute(route) {
   }
 }
 
-export function deepLink(route) {
+export function deepLink(route, data) {
   try {
-    const { screen, params } = resolveRoute(route);
+    const { screen, params } = resolveRoute(route, data);
     navigate(screen, params);
   } catch (e) {
     try {

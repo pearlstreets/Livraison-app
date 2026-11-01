@@ -136,14 +136,6 @@ function adaptWarning(w) {
   };
 }
 
-const ADMIN_REPLIES = [
-  'Nous avons bien pris en compte votre demande. Un membre de l\'équipe va vous répondre sous peu.',
-  'Merci pour votre patience. Nous analysons votre dossier.',
-  'Votre demande est en cours de traitement par notre équipe.',
-  'Nous revenons vers vous très rapidement avec une solution.',
-  'Bien noté. Notre équipe travaille sur votre demande.',
-];
-
 export function AuthProvider({ children }) {
   // Traductions lues par référence : setIsOnline garde la même identité quand
   // la langue change (le suivi de position en dépend).
@@ -177,7 +169,6 @@ export function AuthProvider({ children }) {
   const MAX_WEEKLY_CANCELS = 5;
 
   const ibanRef = useRef('');
-  const adminReplyTimers = useRef({});
 
   const applyProfile = useCallback((raw) => {
     const p = adaptProfile(raw);
@@ -511,31 +502,6 @@ export function AuthProvider({ children }) {
     });
   }
 
-  function scheduleAdminReply(ticketId) {
-    if (adminReplyTimers.current[ticketId]) clearTimeout(adminReplyTimers.current[ticketId]);
-    const delay = 3000 + Math.random() * 4000;
-    adminReplyTimers.current[ticketId] = setTimeout(() => {
-      const reply = ADMIN_REPLIES[Math.floor(Math.random() * ADMIN_REPLIES.length)];
-      setTicketMessages((prev) => {
-        const msgs = prev[ticketId] || [];
-        return { ...prev, [ticketId]: [...msgs, {
-          id: `admin-auto-${Date.now()}`,
-          type: 'admin',
-          text: reply,
-          time: new Date().toISOString(),
-        }] };
-      });
-      delete adminReplyTimers.current[ticketId];
-    }, delay);
-  }
-
-  function cancelAdminReply(ticketId) {
-    if (adminReplyTimers.current[ticketId]) {
-      clearTimeout(adminReplyTimers.current[ticketId]);
-      delete adminReplyTimers.current[ticketId];
-    }
-  }
-
   function getUnreadTicketCount() {
     // Nombre de tickets support non résolus (réel, rafraîchi via refreshTickets).
     return openTicketCount;
@@ -559,7 +525,7 @@ export function AuthProvider({ children }) {
       addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount,
       deliveryHistory, addToHistory, markOrderReported, refreshAll,
       getTicketMessages, saveTicketMessages, markTicketRead, getUnreadTicketCount,
-      scheduleAdminReply, cancelAdminReply, ticketMessages, ticketReadCounts,
+      ticketMessages, ticketReadCounts,
       currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban,
       isOnline, setIsOnline, activeDelivery, setActiveDelivery, warningsList, ratingsSummary, refreshRatings,
       readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount,

@@ -33,10 +33,23 @@ function buildZoneLabel(a) {
 /* === Adaptateur backend assignment → forme attendue par OrderCard ===
    `revealCustomer` : vrai une fois la course acceptée (le backend envoie alors
    l'adresse complète et le téléphone). Faux pour la liste des disponibles. */
+// Nombre fourni par le serveur (float ou chaîne décimale), sinon null.
+function serverNumber(v) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 function adaptAssignment(a, { revealCustomer = true } = {}) {
   const fee = typeof a.delivery_fee === 'number' ? a.delivery_fee : 0;
   const tip = typeof a.tip_amount === 'number' ? a.tip_amount : 0;
-  const total = fee + tip;
+  // Gain du livreur calculé par le serveur (frais + pourboire - commission) :
+  // affiché tel quel. Repli sur frais + pourboire pour un ancien serveur.
+  const gainNet = serverNumber(a.gain_net);
+  const total = gainNet != null ? gainNet : fee + tip;
+  // Distance et temps calculés par le serveur : 0 = inconnu, donc non affiché.
+  const distanceKm = serverNumber(a.distance_km);
+  const etaMinutes = serverNumber(a.estimated_time_minutes);
   const items = Array.isArray(a.order_items)
     ? a.order_items.map(it => ({ name: it.name || '', qty: typeof it.quantity === 'number' ? it.quantity : 1 }))
     : [];
@@ -57,12 +70,23 @@ function adaptAssignment(a, { revealCustomer = true } = {}) {
     address: a.pickup_address || dropoff || '',
     dropoffAddress: dropoff,
     pickupAddress: a.pickup_address || '',
-    distanceText: typeof a.distance_km === 'number' ? formatKm(a.distance_km.toFixed(1)) : '',
-    etaText: typeof a.estimated_time_minutes === 'number' ? formatMinutes(a.estimated_time_minutes) : '',
+    distanceText: distanceKm > 0 ? formatKm(distanceKm.toFixed(1)) : '',
+    etaText: etaMinutes > 0 ? formatMinutes(Math.round(etaMinutes)) : '',
     priceText: `${total.toFixed(2)} €`,
     priceEur: total,
+    gainNet,
     delivery_fee: fee,
     tip_amount: tip,
+    // Heure à laquelle la commande sera prête en boutique (ISO UTC ou null).
+    readyAt: a.ready_at || null,
+    // Délais calculés par le serveur pour une course acceptée : étape en cours
+    // (boutique avant récupération, client après), boutique, client.
+    etapeEtaMinutes: serverNumber(a.etape_eta_minutes),
+    etapeEtaAt: a.etape_eta_at || null,
+    pickupEtaMinutes: serverNumber(a.pickup_eta_minutes),
+    pickupEtaAt: a.pickup_eta_at || null,
+    dropoffEtaMinutes: serverNumber(a.eta_minutes),
+    dropoffEtaAt: a.eta_at || null,
     itemsCount: items.reduce((s, it) => s + it.qty, 0),
     items,
     // coordonnées
