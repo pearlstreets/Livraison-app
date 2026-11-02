@@ -32,6 +32,9 @@ function optionsTrousseau() {
 // réessaie plus tard.
 const CLES_JETONS = ['accessToken', 'refreshToken'];
 const MARQUEUR_MIGRATION = 'trousseauApresPremierDeverrouillage';
+// Retraits d'appareil à rejouer (services/pushDirect.js) : gardés à la
+// déconnexion.
+const CLE_REVOCATIONS_PUSH = 'pushDirect.revocationsEnAttente';
 const DELAI_NOUVEL_ESSAI_MS = 60 * 1000;
 let migrationEnCours = null;
 let migrationFaite = false;
@@ -204,7 +207,7 @@ const secureStorage = {
     Object.keys(aReecrire).forEach((k) => { delete aReecrire[k]; });
     // Le marqueur de migration reste : les jetons écrits ensuite ont déjà la
     // bonne accessibilité.
-    const keys = (await AsyncStorage.getAllKeys()).filter((k) => k !== MARQUEUR_MIGRATION);
+    const keys = (await AsyncStorage.getAllKeys()).filter((k) => k !== MARQUEUR_MIGRATION && k !== CLE_REVOCATIONS_PUSH);
     if (keys.length > 0) {
       await AsyncStorage.multiRemove(keys);
     }

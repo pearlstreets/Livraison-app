@@ -95,8 +95,8 @@ api.interceptors.request.use(async (config) => {
 
 async function purgerSession() {
   // Session déjà perdue : l'appareil ne peut plus être retiré côté serveur
-  // (route authentifiée), on l'oublie localement. Le compte qui se connecte
-  // ensuite sur ce téléphone le reprend. Import tardif : pushDirect importe api.
+  // (route authentifiée), le retrait est gardé en attente et rejoué au
+  // prochain enregistrement. Import tardif : pushDirect importe api.
   try {
     require('./pushDirect').oublierAppareil();
   } catch {
