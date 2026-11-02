@@ -67,8 +67,18 @@ import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli, n
 // `data.route` (backend DeliveryApp/notifications). Push en envoi direct
 // (Firebase / Apple, services/pushDirect.js) : plus de OneSignal dans l'app.
 // Enregistré au chargement du module pour capter aussi le tap qui LANCE
-// l'app ; un même tap n'est traité qu'une fois.
+// l'app ; un même tap n'est traité qu'une fois. Tap qui lance l'app : la
+// destination est gardée en attente et ouverte par Main une fois la session
+// rechargée et les onglets affichés (sinon l'accueil la recouvrait).
 let _dernierTap = null;
+let _destinationEnAttente = null;
+let _ongletsAffiches = false;
+function ouvrirDestinationEnAttente() {
+  if (!_destinationEnAttente || !_ongletsAffiches) return;
+  const { route, donnees } = _destinationEnAttente;
+  _destinationEnAttente = null;
+  deepLink(route, donnees);
+}
 function ouvrirDepuisNotification(reponse) {
   try {
     const requete = reponse && reponse.notification && reponse.notification.request;
@@ -76,7 +86,9 @@ function ouvrirDepuisNotification(reponse) {
     if (id && id === _dernierTap) return;
     _dernierTap = id || null;
     const donnees = (requete && requete.content && requete.content.data) || {};
-    deepLink(donnees.route, donnees);
+    console.log('[push] toucher, route :', donnees.route || '(aucune)');
+    _destinationEnAttente = { route: donnees.route, donnees };
+    ouvrirDestinationEnAttente();
   } catch (_) {}
 }
 try {
@@ -191,6 +203,20 @@ function Main() {
   useLocationTracking(isOnline || activeDelivery);
   const totalProfileNotifs = getUnreadTicketCount() + getUnreadOpportunitiesCount(4);
   const { t } = useLanguage();
+
+  // Tap qui a lancé l'app (méthode recommandée par Expo pour le démarrage à
+  // froid), puis ouverture de la destination dès que les onglets existent.
+  const derniereReponse = Notifications.useLastNotificationResponse();
+  useEffect(() => {
+    if (derniereReponse) ouvrirDepuisNotification(derniereReponse);
+  }, [derniereReponse]);
+  const ongletsAffiches = Boolean(user) && !bootstrapping;
+  useEffect(() => {
+    _ongletsAffiches = ongletsAffiches;
+    if (!ongletsAffiches) return undefined;
+    const minuteur = setTimeout(ouvrirDestinationEnAttente, 0);
+    return () => clearTimeout(minuteur);
+  }, [ongletsAffiches]);
 
   // Une seule demande d'autorisation, au premier lancement (et le canal
   // Android des courses). L'enregistrement du téléphone suit la connexion
