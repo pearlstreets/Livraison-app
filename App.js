@@ -1,5 +1,5 @@
 import React, { useEffect, lazy, Suspense } from 'react';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 
 // Security: Disable React DevTools in production
 if (!__DEV__) {
@@ -21,8 +21,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import { initOneSignalOnce } from './services/oneSignalInit';
+import { demanderAutorisation } from './services/pushDirect';
 import { navigationRef } from './services/navigationService';
 import { deepLink } from './services/deepLink';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -64,43 +63,27 @@ import { ecranDeplie, largeurMoitie } from './utils/deuxEcrans';
 import { createDeuxEcransNavigator, AuMilieu } from './navigation/DeuxEcransStack';
 import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli, noterEtatNavigation } from './utils/repliEcran';
 
-// Initialize OneSignal once at module load. The helper is a no-op when the
-// native module isn't bundled or when expo.extra.oneSignalAppId is empty,
-// so the app continues to boot identically until a build with credentials
-// ships. Required to be called before render so OneSignal can attach its
-// notification handlers ahead of the first user interaction.
-initOneSignalOnce();
-
-// Tap sur une notification → écran concerné. AUCUN écouteur n'existait :
-// toucher « pourboire reçu » ou « document qui expire » ouvrait simplement
-// l'app là où le livreur l'avait laissée, à lui de retrouver l'écran.
-// La destination arrive dans `data.route` (backend DeliveryApp/notifications).
-// Enregistré au chargement du module, comme l'init OneSignal, pour capter
-// aussi le tap qui LANCE l'app.
-try {
-  const { OneSignal } = require('react-native-onesignal');
-  OneSignal.Notifications.addEventListener('click', (event) => {
-    try {
-      const extra = (event && event.notification && event.notification.additionalData) || {};
-      deepLink(extra.route, extra);
-    } catch (_) {}
-  });
-} catch (_) {
-  // module natif absent (build sans OneSignal) : rien à brancher.
+// Tap sur une notification : écran concerné. La destination arrive dans
+// `data.route` (backend DeliveryApp/notifications). Push en envoi direct
+// (Firebase / Apple, services/pushDirect.js) : plus de OneSignal dans l'app.
+// Enregistré au chargement du module pour capter aussi le tap qui LANCE
+// l'app ; un même tap n'est traité qu'une fois.
+let _dernierTap = null;
+function ouvrirDepuisNotification(reponse) {
+  try {
+    const requete = reponse && reponse.notification && reponse.notification.request;
+    const id = requete && requete.identifier;
+    if (id && id === _dernierTap) return;
+    _dernierTap = id || null;
+    const donnees = (requete && requete.content && requete.content.data) || {};
+    deepLink(donnees.route, donnees);
+  } catch (_) {}
 }
-
-// Chemin de repli Expo : le backend sait aussi pousser par jeton Expo quand
-// OneSignal n'est pas disponible sur le binaire installé.
 try {
-  Notifications.addNotificationResponseReceivedListener((reponse) => {
-    try {
-      const donnees =
-        (reponse && reponse.notification && reponse.notification.request
-          && reponse.notification.request.content
-          && reponse.notification.request.content.data) || {};
-      deepLink(donnees.route, donnees);
-    } catch (_) {}
-  });
+  Notifications.addNotificationResponseReceivedListener(ouvrirDepuisNotification);
+  Notifications.getLastNotificationResponseAsync()
+    .then((reponse) => { if (reponse) ouvrirDepuisNotification(reponse); })
+    .catch(() => {});
 } catch (_) {}
 
 const BRAND = '#00C29B';
@@ -130,6 +113,8 @@ const navTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: B
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: false,
     shouldSetBadge: false,
   }),
@@ -208,23 +193,11 @@ function Main() {
   const totalProfileNotifs = getUnreadTicketCount() + getUnreadOpportunitiesCount(4);
   const { t } = useLanguage();
 
+  // Une seule demande d'autorisation, au premier lancement (et le canal
+  // Android des courses). L'enregistrement du téléphone suit la connexion
+  // (contexts/AuthContext.js).
   useEffect(() => {
-    (async () => {
-      if (Device.isDevice) {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          finalStatus = status;
-        }
-        if (finalStatus === 'granted' && Platform.OS === 'android') {
-          await Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
-            importance: Notifications.AndroidImportance.DEFAULT,
-          });
-        }
-      }
-    })();
+    demanderAutorisation().catch(() => {});
   }, []);
 
   if (bootstrapping) return null;

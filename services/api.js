@@ -3,7 +3,6 @@ import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import secureStorage from './secureStorage';
 import { sanitizeForApi } from '../utils/validation';
-import { delierLivreurOneSignal } from './oneSignalInit';
 
 // Pearl Streets backend. Dev → local Django (port 8000); prod → public API.
 // Testing on a physical device in dev: replace localhost with your LAN IP.
@@ -95,7 +94,14 @@ api.interceptors.request.use(async (config) => {
 });
 
 async function purgerSession() {
-  delierLivreurOneSignal();
+  // Session déjà perdue : l'appareil ne peut plus être retiré côté serveur
+  // (route authentifiée), on l'oublie localement. Le compte qui se connecte
+  // ensuite sur ce téléphone le reprend. Import tardif : pushDirect importe api.
+  try {
+    require('./pushDirect').oublierAppareil();
+  } catch {
+    // Module indisponible : rien à oublier.
+  }
   await secureStorage.removeSecure('accessToken');
   await secureStorage.removeSecure('refreshToken');
   await AsyncStorage.removeItem('userData');
