@@ -3,7 +3,7 @@
     "name": "Pearl Delivery",
     "slug": "pearl-delivery",
     "scheme": "pearldelivery",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -37,11 +37,11 @@
         }
       },
       "bundleIdentifier": "com.pearlstreets.delivery",
-      "buildNumber": "1013"
+      "buildNumber": "1014"
     },
     "android": {
       "package": "com.pearlstreets.delivery",
-      "versionCode": 1014,
+      "versionCode": 1015,
       "jsEngine": "hermes",
       "config": {
         "googleMaps": {
@@ -64,11 +64,18 @@
         "android.permission.WRITE_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_IMAGES"
       ],
-      "allowBackup": false
+      "allowBackup": false,
+      "googleServicesFile": "./google-services.json"
     },
     "jsEngine": "hermes",
     "plugins": [
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "mode": "production",
+          "defaultChannel": "courses"
+        }
+      ],
       [
         "expo-location",
         {
@@ -78,18 +85,11 @@
           "isAndroidBackgroundLocationEnabled": false
         }
       ],
-      [
-        "onesignal-expo-plugin",
-        {
-          "mode": "production"
-        }
-      ],
       "./plugins/withFmtConstevalFix",
       "./plugins/withSecuriteReseau",
       "./plugins/withUIScene"
     ],
     "extra": {
-      "oneSignalAppId": "0c4d0c76-eedd-426a-9d48-156cc6f879c7",
       "eas": {
         "projectId": "3be79991-dd51-479d-8ff7-d6c45a1af111"
       }

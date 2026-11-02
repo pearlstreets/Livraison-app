@@ -7,7 +7,7 @@ import { authService } from '../services/authService';
 import { deliveryService } from '../services/deliveryService';
 import { earningsService } from '../services/earningsService';
 import { ticketService } from '../services/ticketService';
-import { lierLivreurOneSignal } from '../services/oneSignalInit';
+import { enregistrerAppareil } from '../services/pushDirect';
 
 import { formatDayMonth, formatTime, formatKm } from '../lib/i18nFormat';
 
@@ -181,9 +181,9 @@ export function AuthProvider({ children }) {
     setCurrentIban(p.iban || '');
     ibanRef.current = p.iban || '';
     if (typeof p.is_online === 'boolean') setIsOnlineState(p.is_online);
-    // Push ciblés : le serveur adresse le livreur par l'id de son profil
-    // (include_external_user_ids). Sans effet si OneSignal est absent.
-    lierLivreurOneSignal(p.id);
+    // Push ciblés : ce téléphone est enregistré pour ce livreur (le serveur
+    // vise l'id de son profil). Idempotent, ne lève jamais.
+    enregistrerAppareil();
   }, []);
 
   const refreshEarnings = useCallback(async () => {

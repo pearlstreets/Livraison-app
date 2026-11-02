@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import secureStorage from './secureStorage';
 import { isValidEmail, sanitizeForApi } from '../utils/validation';
 import { arreterSuivi, suiviEnCours } from './positionLivreur';
-import { delierLivreurOneSignal } from './oneSignalInit';
+import { retirerAppareil } from './pushDirect';
 
 // Session timeout: auto-logout after 30 minutes of inactivity
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
@@ -114,6 +114,9 @@ export const authService = {
   },
 
   async logout() {
+    // Plus aucun push vers ce téléphone pour ce livreur. Avant l'appel de
+    // déconnexion : la route qui retire l'appareil exige la session.
+    await retirerAppareil();
     try {
       const refreshToken = await secureStorage.getSecure('refreshToken');
       if (refreshToken) {
@@ -129,8 +132,6 @@ export const authService = {
     // Plus aucune position envoyée après la déconnexion (tâche d'arrière-plan
     // arrêtée), quel que soit le chemin qui a mené ici.
     arreterSuivi().catch(() => {});
-    // Plus aucun push ciblé vers ce téléphone pour ce livreur.
-    delierLivreurOneSignal();
     await secureStorage.clearAll();
   },
 
@@ -139,11 +140,13 @@ export const authService = {
   // cas de succès on purge la session locale. Si l'appel échoue, on relance
   // l'erreur SANS vider la session (le compte n'a pas été supprimé côté serveur).
   async deleteAccount() {
+    // Appareil retiré tant que la session est valable. Si la suppression
+    // échoue ensuite, le prochain chargement du profil le réenregistre.
+    await retirerAppareil();
     await api.delete('/api/v1/delivery/delete-account/');
     clearSessionTimer();
     refreshCount = 0;
     arreterSuivi().catch(() => {});
-    delierLivreurOneSignal();
     await secureStorage.clearAll();
   },
 

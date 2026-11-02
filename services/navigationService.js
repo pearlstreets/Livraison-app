@@ -1,7 +1,7 @@
 /**
  * Référence de navigation utilisable HORS composant React.
  *
- * Le tap sur une notification arrive dans un écouteur OneSignal enregistré au
+ * Le tap sur une notification arrive dans un écouteur expo-notifications enregistré au
  * niveau du module : il n'a aucun accès au hook `useNavigation`. Sans cette
  * référence, la seule chose que sait faire l'app à la réception d'un tap est
  * de s'ouvrir là où l'utilisateur l'avait laissée.
