@@ -11,8 +11,10 @@ import { createNavigationContainerRef } from '@react-navigation/native';
 export const navigationRef = createNavigationContainerRef();
 
 export function navigate(name, params) {
-  // `isReady()` est faux pendant le tout premier rendu (app lancée PAR le tap
-  // sur la notification) : on retente brièvement plutôt que de perdre le tap.
+  // `isReady()` est faux tant que la session n'est pas rechargée (app lancée
+  // PAR le tap sur la notification : profil et gains chargés d'abord). On
+  // retente jusqu'à 30 secondes plutôt que de perdre le tap sur un téléphone
+  // lent ou un réseau faible.
   if (navigationRef.isReady()) {
     navigationRef.navigate(name, params);
     return;
@@ -23,7 +25,7 @@ export function navigate(name, params) {
     if (navigationRef.isReady()) {
       clearInterval(timer);
       navigationRef.navigate(name, params);
-    } else if (essais > 20) {
+    } else if (essais > 120) {
       clearInterval(timer);
     }
   }, 250);

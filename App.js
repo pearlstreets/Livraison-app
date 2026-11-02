@@ -112,7 +112,6 @@ const navTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: B
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
     shouldShowBanner: true,
     shouldShowList: true,
     shouldPlaySound: false,
