@@ -11,7 +11,6 @@
  */
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from './api';
@@ -50,7 +49,9 @@ async function preparerCanal() {
  * Expo). Renvoie true si les notifications sont permises.
  */
 export async function demanderAutorisation() {
-  if (!Device.isDevice) return false;
+  // Pas de test « vrai téléphone » : un émulateur Android avec les services
+  // Google reçoit les push Firebase. Sans jeton (simulateur iPhone), l'appel
+  // échoue plus loin et reste sans effet.
   try {
     await preparerCanal();
     const actuel = await Notifications.getPermissionsAsync();
