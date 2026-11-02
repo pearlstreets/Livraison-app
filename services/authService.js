@@ -140,10 +140,10 @@ export const authService = {
   // cas de succès on purge la session locale. Si l'appel échoue, on relance
   // l'erreur SANS vider la session (le compte n'a pas été supprimé côté serveur).
   async deleteAccount() {
-    // Appareil retiré tant que la session est valable. Si la suppression
-    // échoue ensuite, le prochain chargement du profil le réenregistre.
-    await retirerAppareil();
     await api.delete('/api/v1/delivery/delete-account/');
+    // Après la suppression seulement (le serveur retire déjà les jetons du
+    // compte) : si elle échoue, l'appareil reste enregistré.
+    await retirerAppareil();
     clearSessionTimer();
     refreshCount = 0;
     arreterSuivi().catch(() => {});

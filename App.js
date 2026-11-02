@@ -1,5 +1,6 @@
-import React, { useEffect, lazy, Suspense } from 'react';
-import { View } from 'react-native';
+import React, { useEffect, useRef, lazy, Suspense } from 'react';
+import { View, AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Security: Disable React DevTools in production
 if (!__DEV__) {
@@ -21,7 +22,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
-import { demanderAutorisation } from './services/pushDirect';
+import { demanderAutorisation, enregistrerAppareil } from './services/pushDirect';
 import { navigationRef } from './services/navigationService';
 import { deepLink } from './services/deepLink';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -69,26 +70,56 @@ import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli, n
 // Enregistré au chargement du module pour capter aussi le tap qui LANCE
 // l'app ; un même tap n'est traité qu'une fois. Tap qui lance l'app : la
 // destination est gardée en attente et ouverte par Main une fois la session
-// rechargée et les onglets affichés (sinon l'accueil la recouvrait).
+// rechargée et les onglets affichés (sinon l'accueil la recouvrait). Une
+// destination trop ancienne n'est plus ouverte.
+// Le dernier tap traité est aussi gardé quelques minutes en stockage : un
+// rechargement du JS (pliage) rejoue le tap de lancement côté natif.
+const CLE_DERNIER_TAP = 'push.dernierTap';
+const DUREE_DERNIER_TAP = 5 * 60 * 1000;
+const DUREE_DESTINATION = 120 * 1000;
 let _dernierTap = null;
 let _destinationEnAttente = null;
 let _ongletsAffiches = false;
 function ouvrirDestinationEnAttente() {
-  if (!_destinationEnAttente || !_ongletsAffiches) return;
+  if (!_destinationEnAttente) return;
+  if (Date.now() - _destinationEnAttente.pose > DUREE_DESTINATION) {
+    _destinationEnAttente = null;
+    return;
+  }
+  if (!_ongletsAffiches) return;
   const { route, donnees } = _destinationEnAttente;
   _destinationEnAttente = null;
   deepLink(route, donnees);
 }
-function ouvrirDepuisNotification(reponse) {
+async function dejaTraite(cle) {
   try {
-    const requete = reponse && reponse.notification && reponse.notification.request;
-    const id = requete && requete.identifier;
-    if (id && id === _dernierTap) return;
-    _dernierTap = id || null;
-    const donnees = (requete && requete.content && requete.content.data) || {};
+    const brut = await AsyncStorage.getItem(CLE_DERNIER_TAP);
+    const dernier = brut ? JSON.parse(brut) : null;
+    if (dernier && dernier.cle === cle && Date.now() - dernier.a < DUREE_DERNIER_TAP) return true;
+    await AsyncStorage.setItem(CLE_DERNIER_TAP, JSON.stringify({ cle, a: Date.now() }));
+  } catch (_) {}
+  return false;
+}
+async function ouvrirDepuisNotification(reponse) {
+  try {
+    const notification = reponse && reponse.notification;
+    const requete = notification && notification.request;
+    // Sans identifiant, la date de la notification sert de repère.
+    const cle = (requete && requete.identifier) || (notification && notification.date ? `date:${notification.date}` : null);
+    if (cle) {
+      if (cle === _dernierTap) return;
+      _dernierTap = cle;
+      if (await dejaTraite(cle)) return;
+    }
+    // iOS : les données d'une push distante sont dans trigger.payload.
+    const brut = requete && requete.content && requete.content.data;
+    const donnees = (brut && Object.keys(brut).length ? brut : requete && requete.trigger && requete.trigger.payload) || {};
     console.log('[push] toucher, route :', donnees.route || '(aucune)');
-    _destinationEnAttente = { route: donnees.route, donnees };
+    _destinationEnAttente = { route: donnees.route, donnees, pose: Date.now() };
     ouvrirDestinationEnAttente();
+    try {
+      if (typeof Notifications.clearLastNotificationResponse === 'function') Notifications.clearLastNotificationResponse();
+    } catch (_) {}
   } catch (_) {}
 }
 try {
@@ -211,8 +242,12 @@ function Main() {
     if (derniereReponse) ouvrirDepuisNotification(derniereReponse);
   }, [derniereReponse]);
   const ongletsAffiches = Boolean(user) && !bootstrapping;
+  const ongletsDejaAffiches = useRef(false);
   useEffect(() => {
     _ongletsAffiches = ongletsAffiches;
+    // Déconnexion : la destination en attente n'est plus pour ce compte.
+    if (ongletsDejaAffiches.current && !ongletsAffiches) _destinationEnAttente = null;
+    ongletsDejaAffiches.current = ongletsAffiches;
     if (!ongletsAffiches) return undefined;
     const minuteur = setTimeout(ouvrirDestinationEnAttente, 0);
     return () => clearTimeout(minuteur);
@@ -224,6 +259,16 @@ function Main() {
   useEffect(() => {
     demanderAutorisation().catch(() => {});
   }, []);
+
+  // Retour au premier plan (autorisation accordée dans les réglages, envoi
+  // précédent échoué) : nouvel enregistrement, sans effet s'il est à jour.
+  useEffect(() => {
+    if (!user) return undefined;
+    const abonnement = AppState.addEventListener('change', (etat) => {
+      if (etat === 'active') enregistrerAppareil();
+    });
+    return () => abonnement.remove();
+  }, [user]);
 
   if (bootstrapping) return null;
   if (!user) return DEPLIE ? <AuMilieu><LoginScreen /></AuMilieu> : <LoginScreen />;

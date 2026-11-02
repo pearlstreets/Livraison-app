@@ -23,6 +23,9 @@ import api from './api';
 export const CANAL_ANDROID = 'courses';
 
 const CLE_APPAREIL = 'pushDirect.cleAppareil';
+// Clés dont le retrait côté serveur a échoué (réseau, session perdue),
+// rejouées au prochain enregistrement.
+const CLE_REVOCATIONS = 'pushDirect.revocationsEnAttente';
 const ROUTE_ENREGISTRER = '/api/v1/notifications/device-tokens/direct/';
 const ROUTE_RETIRER = '/api/v1/notifications/device-tokens/current/';
 
@@ -81,6 +84,46 @@ async function fournisseurIos() {
   return __DEV__ ? 'apns_sandbox' : 'apns';
 }
 
+async function lireRevocations() {
+  try {
+    const brut = await AsyncStorage.getItem(CLE_REVOCATIONS);
+    const liste = brut ? JSON.parse(brut) : [];
+    return Array.isArray(liste) ? liste : [];
+  } catch {
+    return [];
+  }
+}
+
+async function ecrireRevocations(liste) {
+  try {
+    if (liste.length) await AsyncStorage.setItem(CLE_REVOCATIONS, JSON.stringify(liste));
+    else await AsyncStorage.removeItem(CLE_REVOCATIONS);
+  } catch { /* sans gravité */ }
+}
+
+async function marquerRevocation(cle) {
+  if (!cle) return;
+  const liste = await lireRevocations();
+  if (!liste.includes(cle)) await ecrireRevocations([...liste, cle]);
+}
+
+// Rejouées AVANT l'envoi du jeton : la même clé peut ensuite revenir au
+// compte connecté. Avec un autre compte, la route filtre par propriétaire
+// et ne retire rien, la révocation est alors abandonnée.
+async function rejouerRevocations() {
+  const liste = await lireRevocations();
+  if (!liste.length) return;
+  const restantes = [];
+  for (const cle of liste) {
+    try {
+      await api.delete(ROUTE_RETIRER, { params: { player_id: cle }, timeout: 4000 });
+    } catch (e) {
+      if (e?.response?.status !== 404) restantes.push(cle);
+    }
+  }
+  await ecrireRevocations(restantes);
+}
+
 async function envoyerJeton(jeton) {
   if (!jeton || !jeton.data) return;
   const ios = Platform.OS === 'ios';
@@ -91,9 +134,18 @@ async function envoyerJeton(jeton) {
     push_token: String(jeton.data),
     app_version: String(Constants.expoConfig?.version || ''),
   };
+  let ancienne = null;
+  try { ancienne = await AsyncStorage.getItem(CLE_APPAREIL); } catch { /* illisible */ }
   const res = await api.post(ROUTE_ENREGISTRER, corps);
-  const cle = res?.data?.onesignal_player_id;
-  if (cle) await AsyncStorage.setItem(CLE_APPAREIL, String(cle));
+  const cle = res?.data?.onesignal_player_id ? String(res.data.onesignal_player_id) : null;
+  if (!cle) return;
+  // Jeton renouvelé : l'ancienne ligne du serveur est retirée.
+  if (ancienne && ancienne !== cle) {
+    try {
+      await api.delete(ROUTE_RETIRER, { params: { player_id: ancienne }, timeout: 4000 });
+    } catch { /* l'ancien jeton finira refusé et nettoyé */ }
+  }
+  await AsyncStorage.setItem(CLE_APPAREIL, cle);
 }
 
 /**
@@ -106,15 +158,17 @@ export function enregistrerAppareil() {
   if (_enCours) return _enCours;
   _enCours = (async () => {
     try {
+      try { await rejouerRevocations(); } catch { /* nouvel essai au prochain */ }
       if (!(await demanderAutorisation())) return;
-      const jeton = await Notifications.getDevicePushTokenAsync();
-      await envoyerJeton(jeton);
-      // Jeton renouvelé par Firebase ou Apple : on renvoie le nouveau.
+      // Jeton renouvelé par Firebase ou Apple : on renvoie le nouveau. Posé
+      // avant l'envoi, pour rester en place même si celui-ci échoue.
       if (!_abonnementJeton) {
         _abonnementJeton = Notifications.addPushTokenListener((nouveau) => {
           envoyerJeton(nouveau).catch(() => {});
         });
       }
+      const jeton = await Notifications.getDevicePushTokenAsync();
+      await envoyerJeton(jeton);
     } catch {
       // Pas de jeton (réseau, Play Services absent) : nouvel essai au
       // prochain chargement du profil.
@@ -128,7 +182,7 @@ export function enregistrerAppareil() {
 /**
  * Retire ce téléphone du compte. À appeler AVANT d'effacer la session (la
  * route exige d'être connecté). Ne lève jamais : un échec n'empêche pas la
- * déconnexion, et le compte suivant reprendra l'appareil de toute façon.
+ * déconnexion, le retrait est alors rejoué au prochain enregistrement.
  */
 export async function retirerAppareil() {
   if (_abonnementJeton) {
@@ -141,17 +195,26 @@ export async function retirerAppareil() {
   try {
     // Délai court : la déconnexion n'attend jamais plus de 4 secondes.
     await api.delete(ROUTE_RETIRER, { params: { player_id: cle }, timeout: 4000 });
-  } catch {
-    // Session déjà expirée ou réseau coupé : rien de plus à faire ici.
+  } catch (e) {
+    // Session déjà expirée ou réseau coupé : retrait gardé en attente.
+    if (e?.response?.status !== 404) {
+      await marquerRevocation(cle);
+      return;
+    }
   }
   try { await AsyncStorage.removeItem(CLE_APPAREIL); } catch { /* sans gravité */ }
 }
 
-/** Oublie l'appareil localement, sans appel serveur (session déjà perdue). */
+/**
+ * Session déjà perdue, sans appel serveur possible : le retrait de
+ * l'appareil est gardé en attente, rejoué au prochain enregistrement.
+ */
 export function oublierAppareil() {
   if (_abonnementJeton) {
     try { _abonnementJeton.remove(); } catch { /* déjà retiré */ }
     _abonnementJeton = null;
   }
-  AsyncStorage.removeItem(CLE_APPAREIL).catch(() => {});
+  AsyncStorage.getItem(CLE_APPAREIL)
+    .then((cle) => marquerRevocation(cle))
+    .catch(() => {});
 }
