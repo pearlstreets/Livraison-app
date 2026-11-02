@@ -87,7 +87,8 @@
       ],
       "./plugins/withFmtConstevalFix",
       "./plugins/withSecuriteReseau",
-      "./plugins/withUIScene"
+      "./plugins/withUIScene",
+      "./plugins/withToucherNotification"
     ],
     "extra": {
       "eas": {
