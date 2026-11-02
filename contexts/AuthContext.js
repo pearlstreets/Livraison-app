@@ -345,6 +345,13 @@ export function AuthProvider({ children }) {
     setIsOnlineState(false);
   }, []);
 
+  // Fin de session (30 min) : passe par ce logout pour que l'écran revienne
+  // à la connexion, pas seulement par celui du service.
+  useEffect(() => {
+    authService.setOnSessionTimeout(() => { logout(); });
+    return () => authService.setOnSessionTimeout(null);
+  }, [logout]);
+
   // Suppression de compte (Apple 5.1.1(v)). Relaie l'erreur si l'appel serveur
   // échoue (l'appelant garde l'utilisateur connecté + affiche l'erreur) ; en cas
   // de succès, purge la session comme un logout → retour à l'écran de connexion.

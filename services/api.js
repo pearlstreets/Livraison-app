@@ -78,9 +78,13 @@ api.interceptors.request.use(async (config) => {
   config.headers['X-Client-Version'] = VERSION_APPLI;
   config.headers['X-Client-Revision'] = String(REVISION_JS);
 
-  // Set timeout based on method
+  // Set timeout based on method, sauf délai explicite de l'appelant (retrait
+  // d'appareil à 4 s, vérification SIRET à 9 s) : seul le délai par défaut de
+  // l'instance est remplacé.
   const method = (config.method || 'GET').toUpperCase();
-  config.timeout = TIMEOUTS[method] || 15000;
+  if (config.timeout == null || config.timeout === api.defaults.timeout) {
+    config.timeout = TIMEOUTS[method] || 15000;
+  }
 
   // Sanitize request body (skip file uploads)
   if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
@@ -117,7 +121,9 @@ function rafraichirJetons() {
     rafraichissementEnCours = (async () => {
       const refreshToken = await secureStorage.getSecure('refreshToken');
       if (!refreshToken) return null;
-      const { data } = await axios.post(`${API_BASE}/api/v1/delivery/token/refresh/`, { refresh: refreshToken });
+      // Délai borné : sans lui, un réseau muet bloquait tous les appels en
+      // attente de ce rafraîchissement.
+      const { data } = await axios.post(`${API_BASE}/api/v1/delivery/token/refresh/`, { refresh: refreshToken }, { timeout: 8000 });
       await secureStorage.setSecure('accessToken', data.access);
       if (data.refresh) await secureStorage.setSecure('refreshToken', data.refresh);
       return data.access;

@@ -8,18 +8,28 @@ import { retirerAppareil } from './pushDirect';
 // Session timeout: auto-logout after 30 minutes of inactivity
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 let sessionTimer = null;
+// Déconnexion de l'interface (logout d'AuthContext), posée par le contexte.
+// Sans elle, la fin de session retirait l'appareil et vidait le stockage mais
+// l'écran restait connecté : plus aucun push, appels en échec.
+let surFinDeSession = null;
 
-function resetSessionTimer(onTimeout) {
+function setOnSessionTimeout(rappel) {
+  surFinDeSession = typeof rappel === 'function' ? rappel : null;
+}
+
+function resetSessionTimer() {
   if (sessionTimer) clearTimeout(sessionTimer);
   sessionTimer = setTimeout(() => {
     // Livreur en ligne ou en course : sa position part sans qu'il touche
     // l'écran. Une déconnexion silencieuse couperait son suivi : on réarme.
     if (suiviEnCours()) {
-      resetSessionTimer(onTimeout);
+      resetSessionTimer();
       return;
     }
-    authService.logout();
-    if (onTimeout) onTimeout();
+    // Le logout du contexte appelle authService.logout() puis remet user à
+    // null : l'écran de connexion s'affiche.
+    if (surFinDeSession) surFinDeSession();
+    else authService.logout();
   }, SESSION_TIMEOUT_MS);
 }
 
@@ -241,4 +251,5 @@ export const authService = {
   // Session management
   resetSessionTimer,
   clearSessionTimer,
+  setOnSessionTimeout,
 };
