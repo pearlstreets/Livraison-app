@@ -322,6 +322,11 @@ export function AuthProvider({ children }) {
       await refreshAll();
       return { ok: true };
     } catch (e) {
+      // Compte pas encore validé (403 « pending validation ») : l'écran
+      // d'attente, jamais « mot de passe incorrect ».
+      if (e?.status === 403 && /pending validation/i.test(e?.serverMessage || '')) {
+        return { ok: false, pending: true, error: 'pending_validation' };
+      }
       return { ok: false, error: e?.message || 'login_failed' };
     }
   }, [applyProfile, refreshAll]);
