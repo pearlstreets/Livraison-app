@@ -292,7 +292,7 @@ const s = StyleSheet.create({
   profileName: { fontWeight: '900', fontSize: 18, color: '#fff', letterSpacing: 0.5 },
   profileSub: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 2 },
   statusBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND, paddingHorizontal: 16, paddingBottom: 14 },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff', marginRight: 8 },
+  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00C29B', marginRight: 8 },
   statusText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   section: { backgroundColor: '#fff' },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
