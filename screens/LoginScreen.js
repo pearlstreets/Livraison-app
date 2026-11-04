@@ -17,7 +17,7 @@ import { countryName } from '../data/countryNames';
 import { authService } from '../services/authService';
 import { contratStripe, CONFIDENTIALITE_LIVREUR, creerJetonCompte, dateIso, dateValide, formaterDate } from '../utils/stripeCompte';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13'; // orange du logo de l'app (essai 04/11)
 const LOGO = require('../assets/icon.png');
 const MAX_LOGIN_FAILS = 3;
 const LOGIN_COOLDOWN_MS = 30000; // 30s cooldown after 3 fails
@@ -656,7 +656,7 @@ export default function LoginScreen() {
                   points: [['person-outline', t('choixPartPoint1')], ['wallet-outline', t('choixPartPoint2')], ['swap-horizontal-outline', t('choixPartPoint3')]] },
               ].map((opt, i) => (
                 <TouchableOpacity key={i} onPress={() => { setIsPro(opt.pro); setMode('signup'); setStep(1); setError(''); }} style={s.carteChoix}>
-                  <View style={{width:52, height:52, borderRadius:16, backgroundColor:'#E0F5EF', alignItems:'center', justifyContent:'center', marginRight:16}}>
+                  <View style={{width:52, height:52, borderRadius:16, backgroundColor:'#FFF1E8', alignItems:'center', justifyContent:'center', marginRight:16}}>
                     <Ionicons name={opt.icon} size={26} color={BRAND} />
                   </View>
                   <View style={{flex:1}}>
@@ -918,7 +918,7 @@ export default function LoginScreen() {
                 <TouchableOpacity onPress={() => setCountryPickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
               </View>
               <FlatList data={COUNTRIES} keyExtractor={c => c.code} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: c}) => (
-                <TouchableOpacity onPress={() => { setCountry(c.code); setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setCountryPickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: country === c.code ? '#F0FDF4' : '#fff'}}>
+                <TouchableOpacity onPress={() => { setCountry(c.code); setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setCountryPickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: country === c.code ? '#FFF7F2' : '#fff'}}>
                   <Text style={{fontSize:24, marginRight:14}}>{c.flag}</Text>
                   <Text style={{flex:1, fontSize:16, fontWeight: country === c.code ? '700' : '500', color: country === c.code ? BRAND : '#111'}}>{countryName(c.code, lang, c.name)}</Text>
                   {country === c.code && <Ionicons name="checkmark-circle" size={20} color={BRAND} />}
@@ -938,7 +938,7 @@ export default function LoginScreen() {
                 <TouchableOpacity onPress={() => setPhonePickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
               </View>
               <FlatList data={COUNTRIES} keyExtractor={c => c.code + '_p'} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: c}) => (
-                <TouchableOpacity onPress={() => { setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setPhonePickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: phoneCountry === c.code ? '#F0FDF4' : '#fff'}}>
+                <TouchableOpacity onPress={() => { setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setPhonePickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: phoneCountry === c.code ? '#FFF7F2' : '#fff'}}>
                   <Text style={{fontSize:24, marginRight:14}}>{c.flag}</Text>
                   <Text style={{flex:1, fontSize:16, fontWeight: phoneCountry === c.code ? '700' : '500', color: phoneCountry === c.code ? BRAND : '#111'}}>{countryName(c.code, lang, c.name)}</Text>
                   <Text style={{fontSize:14, fontWeight:'700', color:'#374151'}}>{c.phoneCode}</Text>
@@ -959,7 +959,7 @@ export default function LoginScreen() {
                 <TouchableOpacity onPress={() => setLangPickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
               </View>
               <FlatList data={LANGUAGES} keyExtractor={l => l.code} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: l}) => (
-                <TouchableOpacity onPress={() => { setLang(l.code); setLangPickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: lang === l.code ? '#F0FDF4' : '#fff'}}>
+                <TouchableOpacity onPress={() => { setLang(l.code); setLangPickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: lang === l.code ? '#FFF7F2' : '#fff'}}>
                   <Text style={{fontSize:24, marginRight:14}}>{l.flag}</Text>
                   <Text style={{flex:1, fontSize:16, fontWeight: lang === l.code ? '700' : '500', color: lang === l.code ? BRAND : '#111'}}>{l.native}</Text>
                   {lang === l.code && <Ionicons name="checkmark-circle" size={20} color={BRAND} />}
@@ -1023,7 +1023,7 @@ const p = StyleSheet.create({
   eyeBtn: { position: 'absolute', right: 10, padding: 4 },
   chipsRow: { flexDirection: 'row', marginTop: 12 },
   chip: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 45, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', marginRight: 10, backgroundColor: '#fff' },
-  chipActif: { borderColor: BRAND, backgroundColor: '#E0F5EF' },
+  chipActif: { borderColor: BRAND, backgroundColor: '#FFF1E8' },
   chipTxt: { fontSize: 13, fontWeight: '600', color: '#374151', flexShrink: 1 },
   vehicule: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', marginRight: 10, backgroundColor: '#fff' },
   vehiculeTxt: { fontSize: 11, marginTop: 4, fontWeight: '500', color: '#6B7280' },
