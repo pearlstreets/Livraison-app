@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,16 +8,16 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { payoutDateLabel } from '../lib/payouts';
+import { payoutDateLabel, payoutStatusLabel, payoutTypeLabel } from '../lib/payouts';
 import useSecureScreen from '../hooks/useSecureScreen';
-import { ecranDeplie, largeurMoitie } from '../utils/deuxEcrans';
+import InstantCashoutSheet, { instantBlockedMessage, nextPayoutText } from '../components/InstantCashoutSheet';
 
 const BRAND = '#FF6A13';
 
 
 export default function WalletScreen({ navigation }) {
   const { t } = useLanguage();
-  const { currentEarningsCents, cashOut, versements, currentIban } = useAuth();
+  const { currentEarningsCents, wallet, versements, currentIban } = useAuth();
   const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
   // IBAN du compte de versement affiché en clair.
@@ -27,8 +27,6 @@ export default function WalletScreen({ navigation }) {
   const bankTail = ((currentIban || '').match(/(\d{2,4})\s*$/) || [])[1] || '';
   const bankLabel = bankTail ? `••${bankTail}` : t('yourSavedAccount');
   const [encaissModal, setEncaissModal] = useState(false);
-  const [encaissStep, setEncaissStep] = useState('confirm'); // confirm | processing | done
-  const [cashedAmount, setCashedAmount] = useState('');
   const showVersements = versements.slice(0, 3);
   const scrollRef = useRef(null);
 
@@ -36,20 +34,14 @@ export default function WalletScreen({ navigation }) {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []));
 
-  const todayDate = new Date().toLocaleDateString('fr-FR');
-  const alreadyCashedToday = versements.some(v => {
-    if (!v.createdAtRaw) return false;
-    return new Date(v.createdAtRaw).toLocaleDateString('fr-FR') === todayDate;
-  });
-
+  // Virement instantané : limites lues sur le serveur (3 par jour, minimum, banque).
+  const blocked = instantBlockedMessage(wallet, earn.earningsCents, t, fmtPrice);
   function startEncaiss() {
     if (earn.earningsCents <= 0) return;
-    if (alreadyCashedToday) {
-      Alert.alert(t('limitReached'), t('oneCashoutPerDayMsg'));
+    if (blocked) {
+      Alert.alert(t('instantCashout'), blocked);
       return;
     }
-    setCashedAmount(earn.earnings);
-    setEncaissStep('confirm');
     setEncaissModal(true);
   }
 
@@ -57,14 +49,6 @@ export default function WalletScreen({ navigation }) {
   // de l'écran Stripe ; société et pays sans Stripe y gardent l'ancien parcours.
   function handleStripeConnect() {
     navigation.navigate('PayoutSetup');
-  }
-
-  function processEncaiss() {
-    setEncaissStep('processing');
-    setTimeout(() => {
-      cashOut();
-      setEncaissStep('done');
-    }, 1500);
   }
 
   return (
@@ -84,11 +68,14 @@ export default function WalletScreen({ navigation }) {
             <Text style={s.balanceAmount}>{fmtPrice((earn.earningsCents || 0) / 100)}</Text>
             <Ionicons name={dirIcon('chevron-forward')} size={22} color="#999" />
           </View>
-          <Text style={s.nextPayout}>{t('weeklyAutoPayouts')}</Text>
-          <Pressable style={[s.encaissBtn, earn.earningsCents <= 0 && { opacity: 0.4 }]} onPress={startEncaiss}>
+          <Text style={s.nextPayout}>{nextPayoutText(wallet, t, fmtPrice)}</Text>
+          <Pressable style={[s.encaissBtn, (earn.earningsCents <= 0 || blocked) && { opacity: 0.4 }]} onPress={startEncaiss}>
             <Ionicons name="flash" size={16} color={BRAND} />
             <Text style={s.encaissTxt}>{t('cashout')}</Text>
           </Pressable>
+          {wallet?.instant?.available && (
+            <Text style={s.instantInfo}>{t('instantInfo', { fee: fmtPrice(wallet.instant.feeEur), left: wallet.instant.remainingToday })}</Text>
+          )}
         </View>
 
         <View style={s.sectionHeaderRow}>
@@ -101,10 +88,10 @@ export default function WalletScreen({ navigation }) {
             <Pressable key={i} style={[s.versementRow, i < showVersements.length - 1 && s.versementBorder]} onPress={() => navigation.navigate('VersementDetail', { versement: v })}>
               <Ionicons name="calendar-outline" size={22} color="#666" style={{ marginRight: 12 }} />
               <View style={{ flex: 1 }}>
-                <Text style={s.versementLabel}>{t('payoutLabel')}</Text>
+                <Text style={s.versementLabel}>{payoutTypeLabel(v, t)}</Text>
                 <View style={s.versementDateRow}>
                   <Text style={s.versementAmount}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
-                  <Text style={s.versementDate}>{payoutDateLabel(v, t)}</Text>
+                  <Text style={s.versementDate}>{payoutDateLabel(v, t)} · {payoutStatusLabel(v.status, t)}</Text>
                 </View>
               </View>
               <Ionicons name={dirIcon('chevron-forward')} size={16} color="#ccc" style={{ marginLeft: 8 }} />
@@ -153,50 +140,7 @@ export default function WalletScreen({ navigation }) {
       </ScrollView>
       <StatusBarShield />
 
-      {/* Modal Encaissement */}
-      <Modal visible={encaissModal} animationType="slide" transparent onRequestClose={() => { if (encaissStep !== 'processing') setEncaissModal(false); }}>
-        <View style={s.overlay}>
-          <View style={[s.popup, ecranDeplie() && { width: largeurMoitie(), alignSelf: 'center' }]}>
-            {encaissStep === 'confirm' && (
-              <>
-                <View style={s.popupIconWrap}>
-                  <Ionicons name="flash" size={40} color={BRAND} />
-                </View>
-                <Text style={s.popupTitle}>{t('instantCashout')}</Text>
-                <Text style={s.popupDesc}>{t('cashoutConfirmDesc', { amount: cashedAmount, account: bankLabel })}</Text>
-                <Text style={s.popupFee}>{t('cashoutFee')}</Text>
-                <Pressable style={s.popupBtnPrimary} onPress={processEncaiss}>
-                  <Text style={s.popupBtnPrimaryTxt}>{t('confirmCashout')}</Text>
-                </Pressable>
-                <Pressable style={s.popupBtnCancel} onPress={() => setEncaissModal(false)}>
-                  <Text style={s.popupBtnCancelTxt}>{t('cancel')}</Text>
-                </Pressable>
-              </>
-            )}
-            {encaissStep === 'processing' && (
-              <>
-                <View style={s.popupIconWrap}>
-                  <Ionicons name="hourglass-outline" size={40} color="#f5a623" />
-                </View>
-                <Text style={s.popupTitle}>{t('processing')}</Text>
-                <Text style={s.popupDesc}>{t('processingMsg')}</Text>
-              </>
-            )}
-            {encaissStep === 'done' && (
-              <>
-                <View style={[s.popupIconWrap, { backgroundColor: BRAND + '20' }]}>
-                  <Ionicons name="checkmark-circle" size={48} color={BRAND} />
-                </View>
-                <Text style={s.popupTitle}>{t('cashoutSuccess')}</Text>
-                <Text style={s.popupDesc}>{t('cashoutDoneDesc', { amount: cashedAmount, account: bankLabel })}</Text>
-                <Pressable style={s.popupBtnPrimary} onPress={() => setEncaissModal(false)}>
-                  <Text style={s.popupBtnPrimaryTxt}>{t('close')}</Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
+      <InstantCashoutSheet visible={encaissModal} onClose={() => setEncaissModal(false)} accountLabel={bankLabel} />
 
 
 
@@ -214,6 +158,7 @@ const s = StyleSheet.create({
   nextPayout: { color: '#fff', fontSize: 13, marginBottom: 12 },
   encaissBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: 20, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start' },
   encaissTxt: { fontWeight: '700', fontSize: 14, color: BRAND },
+  instantInfo: { color: '#fff', fontSize: 12, marginTop: 8, fontWeight: '600' },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 },
   sectionTitle: { fontSize: 20, fontWeight: '900', color: '#111' },
   seeAll: { fontSize: 14, fontWeight: '600', color: BRAND },
@@ -241,15 +186,6 @@ const s = StyleSheet.create({
 
   // Popup encaissement
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  popup: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, alignItems: 'center' },
-  popupIconWrap: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  popupTitle: { fontSize: 22, fontWeight: '900', color: '#111', marginBottom: 8 },
-  popupDesc: { fontSize: 15, color: '#666', textAlign: 'center', lineHeight: 22, marginBottom: 8 },
-  popupFee: { fontSize: 14, color: '#999', marginBottom: 20 },
-  popupBtnPrimary: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, alignItems: 'center', width: '100%', marginBottom: 10 },
-  popupBtnPrimaryTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  popupBtnCancel: { paddingVertical: 12, alignItems: 'center', width: '100%' },
-  popupBtnCancelTxt: { color: '#666', fontWeight: '700', fontSize: 15 },
 
   showAllBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, marginHorizontal: 16, marginBottom: 24, paddingVertical: 14, marginTop: -2 },
   showAllTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },

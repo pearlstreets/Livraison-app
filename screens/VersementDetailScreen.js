@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { payoutDateLabel, payoutStatusLabel } from '../lib/payouts';
+import { payoutDateLabel, payoutStatusLabel, payoutTypeLabel } from '../lib/payouts';
 import useSecureScreen from '../hooks/useSecureScreen';
 
 const BRAND = '#FF6A13';
@@ -37,12 +37,14 @@ export default function VersementDetailScreen({ navigation, route }) {
           <View style={[s.iconCircle, isExceptionnel && { backgroundColor: '#fff3e0' }]}>
             <Ionicons name={isExceptionnel ? 'flash' : 'calendar-outline'} size={28} color={isExceptionnel ? '#f5a623' : BRAND} />
           </View>
-          <Text style={s.typeLabel}>{t('payoutLabel')}</Text>
+          <Text style={s.typeLabel}>{payoutTypeLabel(v, t)}</Text>
           <Text style={s.amount}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
           <View style={s.statusRow}>
-            <Ionicons name="checkmark-circle" size={16} color={BRAND} />
+            <Ionicons name={v.detail?.status === 'failed' ? 'close-circle' : (v.detail?.status === 'paid' ? 'checkmark-circle' : 'time-outline')} size={16} color={BRAND} />
             <Text style={s.statusTxt}>{payoutStatusLabel(v.detail?.status, t)}</Text>
           </View>
+          {v.detail?.status === 'failed' && <Text style={s.noteTxt}>{t('payoutFailedNote')}</Text>}
+          {v.detail?.status === 'standard' && <Text style={s.noteTxt}>{t('payoutStandardNote')}</Text>}
         </View>
 
         {/* Détails */}
@@ -71,6 +73,12 @@ export default function VersementDetailScreen({ navigation, route }) {
             <Text style={s.detailLabel}>{t('courses')}</Text>
             <Text style={s.detailValue}>{v.detail?.courses || '-'}</Text>
           </View>
+          {v.kind === 'instant' && v.detail?.feeEur > 0 && (
+            <View style={s.detailRow}>
+              <Text style={s.detailLabel}>{t('instantFeeLabel')}</Text>
+              <Text style={s.detailValue}>{v.detail.feeRefunded ? t('feeRefunded') : `- ${fmtPrice(v.detail.feeEur)}`}</Text>
+            </View>
+          )}
           <View style={s.divider} />
 
           <View style={s.detailRow}>
@@ -101,6 +109,7 @@ const s = StyleSheet.create({
   amount: { fontSize: 32, fontWeight: '900', color: '#111', marginBottom: 6 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   statusTxt: { fontSize: 14, fontWeight: '700', color: BRAND },
+  noteTxt: { fontSize: 13, color: '#666', textAlign: 'center', marginTop: 8, paddingHorizontal: 16, lineHeight: 18 },
 
   detailCard: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, padding: 16 },
   detailCardTitle: { fontSize: 16, fontWeight: '800', color: '#111', marginBottom: 12 },

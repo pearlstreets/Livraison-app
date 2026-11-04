@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { payoutDateLabel, payoutStatusLabel } from '../lib/payouts';
+import { payoutDateLabel, payoutStatusLabel, payoutTypeLabel } from '../lib/payouts';
 import useSecureScreen from '../hooks/useSecureScreen';
 
 const BRAND = '#FF6A13';
@@ -37,10 +37,10 @@ export default function VersementsListScreen({ navigation, route }) {
               <Pressable key={i} style={[s.versementRow, i < versements.length - 1 && s.versementBorder]} onPress={() => navigation.navigate('VersementDetail', { versement: v })}>
                 <Ionicons name="calendar-outline" size={22} color="#666" style={{ marginRight: 12 }} />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.versementLabel}>{t('payoutLabel')}</Text>
+                  <Text style={s.versementLabel}>{payoutTypeLabel(v, t)}</Text>
                   <View style={s.versementDateRow}>
                     <Text style={s.versementAmount}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
-                    <Text style={s.versementDate}>{payoutDateLabel(v, t)}</Text>
+                    <Text style={s.versementDate}>{payoutDateLabel(v, t)} · {payoutStatusLabel(v.status, t)}</Text>
                   </View>
                 </View>
                 <Ionicons name={dirIcon('chevron-forward')} size={16} color="#ccc" style={{ marginLeft: 8 }} />
@@ -56,7 +56,7 @@ export default function VersementsListScreen({ navigation, route }) {
                     <Ionicons name={v.label === 'Versement exceptionnel' ? 'flash' : 'calendar-outline'} size={18} color={v.label === 'Versement exceptionnel' ? '#f5a623' : BRAND} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={s.virementLabel}>{t('payoutLabel')}</Text>
+                    <Text style={s.virementLabel}>{payoutTypeLabel(v, t)}</Text>
                     <Text style={s.virementDateSmall}>{payoutDateLabel(v, t)}</Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>

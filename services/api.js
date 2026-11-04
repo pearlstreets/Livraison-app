@@ -182,6 +182,8 @@ function createSafeError(error) {
     if (typeof corps.code === 'string') safeError.code = corps.code;
     safeError.serverData = corps;
   }
+  // Code court d'un 502 du virement instantané (echec_virement), lu par l'écran Gains.
+  if (!safeError.code && status >= 500 && typeof corps?.code === 'string') safeError.code = corps.code;
   return safeError;
 }
 
