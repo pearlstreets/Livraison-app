@@ -63,6 +63,7 @@ import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import OpportunityDetailScreen from './screens/OpportunityDetailScreen';
 import VersementsListScreen from './screens/VersementsListScreen';
 import VersementDetailScreen from './screens/VersementDetailScreen';
+import VerificationIdentiteScreen from './screens/VerificationIdentiteScreen';
 import { ecranDeplie, largeurMoitie } from './utils/deuxEcrans';
 import { createDeuxEcransNavigator, AuMilieu } from './navigation/DeuxEcransStack';
 import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli, noterEtatNavigation } from './utils/repliEcran';
@@ -172,6 +173,7 @@ function HomeStackScreen() {
       <HomeStack.Screen name="DeliveryFlow" component={DeliveryFlowScreen} />
       <HomeStack.Screen name="Heatmap" component={HeatmapScreen} />
       <HomeStack.Screen name="RouteMap" component={MapScreen} />
+      <HomeStack.Screen name="VerificationIdentite" component={VerificationIdentiteScreen} />
       <HomeStack.Screen name="DocumentsSeuil" component={DocumentsSeuilScreen} />
     </HomeStack.Navigator>
   );

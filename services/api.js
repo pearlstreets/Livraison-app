@@ -2,6 +2,7 @@ import axios from 'axios';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import secureStorage from './secureStorage';
+import { enteteSelfie } from './selfieCamera';
 import { sanitizeForApi } from '../utils/validation';
 
 // Pearl Streets backend. Dev → local Django (port 8000); prod → public API.
@@ -79,6 +80,9 @@ api.interceptors.request.use(async (config) => {
   // Rate limiting headers : vraie version de l'appli, 1.0.0 si illisible.
   config.headers['X-Client-Version'] = VERSION_APPLI;
   config.headers['X-Client-Revision'] = String(REVISION_JS);
+  // Vérification d'identité par selfie vidéo : 1 si la caméra peut filmer,
+  // 0 sinon (permission refusée pour de bon ou absente de l'appareil).
+  config.headers['X-Pearl-Selfie'] = enteteSelfie();
 
   // Set timeout based on method, sauf délai explicite de l'appelant (retrait
   // d'appareil à 4 s, vérification SIRET à 9 s) : seul le délai par défaut de
@@ -187,9 +191,15 @@ function createSafeError(error) {
   // Message rédigé par le serveur pour le livreur (refus 4xx seulement, jamais
   // une erreur 5xx ni une page HTML) : affiché tel quel par l'écran appelant.
   safeError.serverMessage = messageServeur(status, error?.response?.data);
+  const corps = error?.response?.data;
+  // Vérification d'identité (423 bloqué, 409 vérification expirée) : état
+  // renvoyé par le serveur, lu par l'écran de vérification.
+  if (corps && typeof corps === 'object') {
+    if (corps.identite && typeof corps.identite === 'object') safeError.identite = corps.identite;
+    if (typeof corps.status === 'string') safeError.statutServeur = corps.status;
+  }
   // Code machine d'un refus 4xx (ex. 403 « documents_requis ») et son corps,
   // lus par les écrans qui savent les traiter ; jamais affichés tels quels.
-  const corps = error?.response?.data;
   if (status >= 400 && status < 500 && corps && typeof corps === 'object' && !Array.isArray(corps)) {
     if (typeof corps.code === 'string') safeError.code = corps.code;
     safeError.serverData = corps;

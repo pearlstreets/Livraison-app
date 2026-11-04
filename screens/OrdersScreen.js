@@ -14,6 +14,7 @@ import { formatKm, formatMinutes } from '../lib/i18nFormat';
 import filtersUI from '../constants/filters-ui.json';
 import { deliveryService } from '../services/deliveryService';
 import { envoyerPosition, positionObligatoire } from '../services/positionLivreur';
+import { ouvrirVerification } from '../services/identiteService';
 import BandeauDocumentsSeuil from '../components/BandeauDocumentsSeuil';
 import { chargerDocumentsSeuil, donneesConnues, ecouter, estDocumentsRequis, signalerDocumentsRequis } from '../services/documentsSeuil';
 
@@ -378,6 +379,14 @@ export default function OrdersScreen({ navigation, route }) {
     } catch (e) {
       // Remettre la commande dans la liste si l'accept échoue
       setAvailable(prev => [order, ...prev]);
+      // Vérification d'identité en attente ou compte bloqué : plus de nouvelle course.
+      if (e?.status === 423) {
+        Alert.alert(t('idvTitre'), e.serverMessage || t('idvAcceptRefuse'), [
+          { text: t('cancel'), style: 'cancel' },
+          { text: t('idvOuvrir'), onPress: () => ouvrirVerification(e.identite || null) },
+        ]);
+        return;
+      }
       // Documents demandés par le serveur : pas d'erreur générique.
       if (estDocumentsRequis(e)) signalerDocumentsRequis(e, t);
       else Alert.alert(t('error'), t('acceptOrderError'));
