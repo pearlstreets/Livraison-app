@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { uploadService } from '../services/uploadService';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 function EditableField({ label, value, onChangeText, editing, onEdit, ...inputProps }) {
   return (

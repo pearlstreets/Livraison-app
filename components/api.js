@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 let orders = [
   { id: 'ORD-1001', category: 'Food & Drink', pickup: { label: 'Pizzeria Roma, Carcassonne', lat: 43.2147, lng: 2.3508 }, dropoff: { label: '12 Rue Voltaire, Carcassonne', lat: 43.214, lng: 2.3532 }, items: ['2 Margherita','1 Coca 33cl'], amountCents: 2380, distanceKm: 2.1, etaMin: 15, status: 'available', customer: { name: 'Marc', phone: '+33600000001' } }
 ];

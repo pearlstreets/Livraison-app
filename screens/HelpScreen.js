@@ -8,7 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useFocusEffect } from '@react-navigation/native';
 import Constants from 'expo-constants';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 const TOPICS = [
   { icon: 'bicycle-outline', labelKey: 'helpProblem', descKey: 'helpProblemSub' },

@@ -44,7 +44,7 @@ function etapeEtaReponse(res) {
 // Rate limiter for slide buttons (prevent double triggers)
 const slideRateLimiter = createRateLimiter(2000);
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 const { width: W } = Dimensions.get('window');
 const SLIDER_W = W - 64;
 const THUMB_SIZE = 56;

@@ -5,7 +5,7 @@ import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 export default function OpportunityDetailScreen({ navigation, route }) {
   const { t } = useLanguage();

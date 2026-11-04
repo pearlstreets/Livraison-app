@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { formatRange, weekdayShortNames } from '../lib/i18nFormat';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 function getDatesForWeek(startStr) {
   const d = new Date(startStr);

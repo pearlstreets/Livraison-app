@@ -12,7 +12,7 @@ import { payoutDateLabel } from '../lib/payouts';
 import useSecureScreen from '../hooks/useSecureScreen';
 import { ecranDeplie, largeurMoitie } from '../utils/deuxEcrans';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 
 export default function WalletScreen({ navigation }) {

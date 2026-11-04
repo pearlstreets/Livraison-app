@@ -10,7 +10,7 @@ import { ticketService } from '../services/ticketService';
 
 import { formatDayMonth } from '../lib/i18nFormat';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 // Clés de traduction des types de problème backend (cf. ReportProblemScreen).
 const PROBLEM_LABEL_KEYS = {

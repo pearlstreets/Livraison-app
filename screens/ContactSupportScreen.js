@@ -7,7 +7,7 @@ import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ticketService } from '../services/ticketService';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 export default function ContactSupportScreen({ navigation, route }) {
   const { t } = useLanguage();

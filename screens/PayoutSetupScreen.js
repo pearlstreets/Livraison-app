@@ -8,7 +8,7 @@ import { deliveryService } from '../services/deliveryService';
 import useSecureScreen from '../hooks/useSecureScreen';
 import { contratStripe, creerJetonCompte, dateValide, formaterDate } from '../utils/stripeCompte';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 // « Recevoir mes virements » (26/10/2026) : le strict minimum demandé par
 // Stripe pour verser les gains d'un livreur en France, rempli dans l'app.
@@ -173,7 +173,7 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#111' },
   body: { padding: 20, paddingBottom: 20 },
   info: { fontSize: 13, color: '#6B7280', marginBottom: 18, lineHeight: 19 },
-  okCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#E0F5EF', borderRadius: 10, padding: 12, marginBottom: 14 },
+  okCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF1E8', borderRadius: 10, padding: 12, marginBottom: 14 },
   okTxt: { color: BRAND, fontWeight: '700', fontSize: 14, flex: 1 },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: '#111', marginBottom: 5 },
   input: { height: 45, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', paddingHorizontal: 10, fontSize: 13, color: '#111', marginBottom: 14 },

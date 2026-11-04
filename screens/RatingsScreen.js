@@ -8,7 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 export default function RatingsScreen({ navigation }) {
   const { t } = useLanguage();
@@ -47,7 +47,7 @@ export default function RatingsScreen({ navigation }) {
         <Text style={s.avgScore}>{avg}</Text>
         <View style={s.starsRow}>
           {[1,2,3,4,5].map(i => (
-            <Ionicons key={i} name={i <= avgRounded ? 'star' : 'star-outline'} size={28} color="#00C29B" />
+            <Ionicons key={i} name={i <= avgRounded ? 'star' : 'star-outline'} size={28} color="#FF6A13" />
           ))}
         </View>
         <Text style={s.avgLabel}>{totalDeliveries} {t('evaluations') || 'livraisons'}</Text>
@@ -56,7 +56,7 @@ export default function RatingsScreen({ navigation }) {
       {/* Pourboires reçus (cumulés) — réel */}
       <View style={s.tipsCard}>
         <View style={s.tipsIconWrap}>
-          <Ionicons name="gift" size={24} color="#00C29B" />
+          <Ionicons name="gift" size={24} color="#FF6A13" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={s.tipsTitle}>{t('tipsReceived')}</Text>
@@ -75,7 +75,7 @@ export default function RatingsScreen({ navigation }) {
           return (
             <View key={star} style={s.distRow}>
               <Text style={s.distStar}>{star}</Text>
-              <Ionicons name="star" size={14} color="#00C29B" />
+              <Ionicons name="star" size={14} color="#FF6A13" />
               <View style={s.distBarBg}>
                 <View style={[s.distBarFill, { width: `${pct}%` }]} />
               </View>
@@ -93,7 +93,7 @@ export default function RatingsScreen({ navigation }) {
             <View style={s.reviewHead}>
               <View style={{ flexDirection: 'row' }}>
                 {[1,2,3,4,5].map(k => (
-                  <Ionicons key={k} name={k <= (rv.rating || 0) ? 'star' : 'star-outline'} size={14} color="#00C29B" />
+                  <Ionicons key={k} name={k <= (rv.rating || 0) ? 'star' : 'star-outline'} size={14} color="#FF6A13" />
                 ))}
               </View>
               <Text style={s.reviewDate}>{fmtReviewDate(rv.created_at)}</Text>

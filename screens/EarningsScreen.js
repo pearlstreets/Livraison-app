@@ -10,7 +10,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { formatRange, weekdayInitials } from '../lib/i18nFormat';
 import { ecranDeplie, largeurMoitie } from '../utils/deuxEcrans';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 function MiniChart({ bars }) {
   const max = Math.max(...bars, 1);

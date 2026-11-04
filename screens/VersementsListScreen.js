@@ -9,7 +9,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { payoutDateLabel, payoutStatusLabel } from '../lib/payouts';
 import useSecureScreen from '../hooks/useSecureScreen';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 export default function VersementsListScreen({ navigation, route }) {
   const { t } = useLanguage();
