@@ -300,7 +300,7 @@ function Main() {
         detachInactiveScreens: true,
         tabBarIcon: ({ color, size }) => {
           if (route.name === 'Accueil') return <Ionicons name="home-outline" size={size} color={color} />;
-          if (route.name === 'MessagesTab') return <Ionicons name="mail-outline" size={size} color={color} />;
+          if (route.name === 'MessagesTab') return <Ionicons name="notifications-outline" size={size} color={color} />;
           if (route.name === 'Revenus') return <Ionicons name="wallet-outline" size={size} color={color} />;
           if (route.name === 'Profil') return <Ionicons name="person-outline" size={size} color={color} />;
           return null;
