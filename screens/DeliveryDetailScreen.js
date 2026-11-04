@@ -84,10 +84,16 @@ export default function DeliveryDetailScreen({ navigation, route }) {
               <Text style={[s.detailValue, { color: BRAND }]}>{order.tip}</Text>
             </View>
           )}
+          {Number(order.bonusEur) > 0 && (
+            <View style={s.detailRow}>
+              <Text style={s.detailLabel}>{t('demandBonus')}</Text>
+              <Text style={[s.detailValue, { color: '#00A86B' }]}>{fmtPrice(Number(order.bonusEur))}</Text>
+            </View>
+          )}
           <View style={[s.detailRow, { borderBottomWidth: 0 }]}>
             <Text style={[s.detailLabel, { fontWeight: '800' }]}>{t('total')}</Text>
             <Text style={[s.detailValue, { fontWeight: '900', fontSize: 18, color: BRAND }]}>
-              {fmtPrice(parseNum(order.priceText || order.price) + parseNum(order.tip))}
+              {fmtPrice(parseNum(order.priceText || order.price) + parseNum(order.tip) + (Number(order.bonusEur) || 0))}
             </Text>
           </View>
         </View>

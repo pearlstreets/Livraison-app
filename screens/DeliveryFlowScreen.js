@@ -13,6 +13,7 @@ import { deliveryService } from '../services/deliveryService';
 import { ticketService } from '../services/ticketService';
 import { etasConnues, surEtas } from '../services/positionLivreur';
 import { prendrePhoto, envoyerPreuve, renvoyerPreuvesEnAttente } from '../services/preuvePhoto';
+import { lienApplePlansVers } from '../lib/carteDemande';
 
 // Mapping étape QUITTÉE → statut(s) backend qui reflètent la NOUVELLE réalité.
 // Avant : le statut était décalé d'un cran (in_transit envoyé au moment où le
@@ -368,7 +369,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   ];
   const [showMapSheet, setShowMapSheet] = useState(false);
   const [mapSheetDest, setMapSheetDest] = useState('');
-  const [mapSheetUrls, setMapSheetUrls] = useState({ google: '', waze: '' });
+  const [mapSheetUrls, setMapSheetUrls] = useState({ google: '', waze: '', apple: '' });
   const sheetPan = useRef(new Animated.Value(0)).current;
   // Remise en l'absence du client (lieu sûr / voisin).
   const [absentOpen, setAbsentOpen] = useState(false);
@@ -526,7 +527,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       : `https://waze.com/ul?q=${addr}&navigate=yes`;
 
     setMapSheetDest(dest);
-    setMapSheetUrls({ google: googleUrl, waze: wazeUrl });
+    const appleUrl = lienApplePlansVers(lat && lng ? `${lat},${lng}` : addr);
+
+    setMapSheetUrls({ google: googleUrl, waze: wazeUrl, apple: appleUrl });
     sheetPan.setValue(0);
     setShowMapSheet(true);
   }, [order.dropoffLat, order.dropoffLng, sheetPan]);
@@ -1203,6 +1206,18 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <Text style={ss.sheetAddr} numberOfLines={2}>{mapSheetDest}</Text>
 
               <View style={ss.sheetGroup}>
+                {Platform.OS === 'ios' && (
+                  <>
+                    <Pressable style={ss.sheetOption} onPress={() => { closeMapSheet(); setTimeout(() => Linking.openURL(mapSheetUrls.apple).catch(() => {}), 250); }}>
+                      <View style={[ss.sheetIconWrap, { backgroundColor: '#e8f0fe' }]}>
+                        <Ionicons name="compass" size={20} color="#007AFF" />
+                      </View>
+                      <Text style={ss.sheetOptionText}>{t('navAppleMaps')}</Text>
+                      <Ionicons name={dirIcon('chevron-forward')} size={18} color="#c7c7cc" />
+                    </Pressable>
+                    <View style={ss.sheetSep} />
+                  </>
+                )}
                 <Pressable style={ss.sheetOption} onPress={() => { closeMapSheet(); setTimeout(() => Linking.openURL(mapSheetUrls.google), 250); }}>
                   <View style={[ss.sheetIconWrap, { backgroundColor: '#e8f5e9' }]}>
                     <Ionicons name="map" size={20} color="#34a853" />
