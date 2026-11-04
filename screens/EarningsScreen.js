@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
 import { useFocusEffect } from '@react-navigation/native';
@@ -74,6 +75,17 @@ export default function EarningsScreen({ navigation }) {
           )}
         </View>
 
+        <Pressable style={s.releveRow} onPress={() => navigation.navigate('ReleveComptable')}>
+          <View style={s.releveIcon}>
+            <Ionicons name="document-text-outline" size={20} color={BRAND} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.releveTitle}>{t('releveComptable')}</Text>
+            <Text style={s.releveDesc}>{t('releveComptableDesc')}</Text>
+          </View>
+          <Ionicons name={dirIcon('chevron-forward')} size={16} color="#ccc" />
+        </Pressable>
+
         <Text style={s.sectionHeader}>{t('selectWeek')}</Text>
         <View style={s.tableHeader}>
           <Text style={s.tableHeaderLeft}>{t('weeklyEarnings')}</Text>
@@ -105,6 +117,10 @@ const s = StyleSheet.create({
   encaissBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: 20, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start', marginTop: 4 },
   encaissTxt: { fontWeight: '700', fontSize: 14, color: BRAND },
   cashoutLimit: { color: '#fff', fontSize: 12, marginTop: 8, fontWeight: '600' },
+  releveRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, marginBottom: 24, padding: 14 },
+  releveIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  releveTitle: { fontSize: 15, fontWeight: '800', color: '#111' },
+  releveDesc: { fontSize: 13, color: '#888', marginTop: 2 },
   sectionHeader: { fontSize: 22, fontWeight: '900', color: '#111', paddingHorizontal: 16, marginBottom: 12 },
   tableHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#e0e0e0', backgroundColor: '#fff' },
   tableHeaderLeft: { fontSize: 13, fontWeight: '600', color: '#666' },
