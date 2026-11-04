@@ -99,10 +99,10 @@ export default function MenuScreen({ navigation }) {
   return (
     <>
     <ScrollView ref={scrollRef} style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      <View style={{ backgroundColor: isOnline ? BRAND : '#8e8e93', height: insets.top }} />
+      <View style={{ backgroundColor: isOnline ? BRAND : '#D9A07F', height: insets.top }} />
 
       {/* En-tête profil */}
-      <View style={[s.profileHeader, !isOnline && { backgroundColor: '#8e8e93' }]}>
+      <View style={[s.profileHeader, !isOnline && { backgroundColor: '#D9A07F' }]}>
         <Pressable style={s.avatarWrap} onPress={() => navigation.navigate('EditProfile')}>
           {user?.photo ? (
             <Image source={{ uri: user.photo }} style={s.avatar} />
@@ -125,7 +125,7 @@ export default function MenuScreen({ navigation }) {
       </View>
 
       {/* Statut en ligne */}
-      <View style={[s.statusBanner, !isOnline && { backgroundColor: '#8e8e93' }]}>
+      <View style={[s.statusBanner, !isOnline && { backgroundColor: '#D9A07F' }]}>
         <View style={[s.statusDot, !isOnline && { backgroundColor: '#e74c3c' }, !accountActive && { backgroundColor: '#111' }]} />
         <Text style={s.statusText}>{!accountActive ? t('deactivatedTitle') : isOnline ? t('youAreOnline') : t('offline')}</Text>
       </View>
@@ -278,7 +278,7 @@ export default function MenuScreen({ navigation }) {
         </View>
       </Modal>
     </ScrollView>
-    <StatusBarShield color={isOnline ? BRAND : '#8e8e93'} />
+    <StatusBarShield color={isOnline ? BRAND : '#D9A07F'} />
     </>
   );
 }
