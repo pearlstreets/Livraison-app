@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
   // Offline
   offlineTitle: { fontSize: 18, fontWeight: '800', color: '#999', marginTop: 12 },
   offlineSub: { fontSize: 14, color: '#bbb', marginTop: 4, textAlign: 'center', paddingHorizontal: 32 },
-  goOnlineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF6A13', borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginBottom: 16 },
+  goOnlineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#00C29B', borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginBottom: 16 },
   goOnlineBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
 
   // Deactivated
