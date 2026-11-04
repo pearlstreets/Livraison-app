@@ -49,9 +49,12 @@ export const deliveryService = {
   // course n'est pas récupérée, vers le client ensuite. `depuis` : position
   // affichée {latitude, longitude} ; absente, le serveur prend la position
   // enregistrée du livreur. Réponse : { statusCode, data: { trace, destination } }.
-  async getItineraire(assignmentId, depuis) {
+  // `essai` : course d'essai, « <retrait>,<livraison> » (adresses d'essai
+  // connues du serveur), tracé de la boutique au client.
+  async getItineraire(assignmentId, depuis, essai) {
     const params = { assignment_id: assignmentId };
     if (depuis) params.depuis = `${depuis.latitude},${depuis.longitude}`;
+    if (essai) params.essai = essai;
     const { data } = await api.get('/api/v1/delivery/driver/itineraire/', { params });
     return data;
   },

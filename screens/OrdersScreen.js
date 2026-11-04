@@ -145,17 +145,20 @@ const rint = (min, max) => Math.floor(Math.random()*(max-min+1))+min;
 
 /* ---------- Mock generator (outil dev — simule une commande sans backend) ---------- */
 const MOCK_RESTAURANTS = ['Burger Pearl', 'Pizza Marco', 'Sushi Yama', 'Tacos Express', 'Curry House', 'Le Petit Bistrot'];
+// Adresses et VRAIES coordonnées des courses d'essai. ⛔ Même ordre que
+// `ESSAI_RETRAITS` / `ESSAI_LIVRAISONS` du serveur (DeliveryApp/itineraire.py) :
+// la carte demande le tracé par les rues avec `essai=<retrait>,<livraison>`.
 const MOCK_PICKUPS = [
-  '12 Rue du Commerce, 75015 Paris',
-  '34 Avenue Foch, 75116 Paris',
-  '8 Rue de Rivoli, 75004 Paris',
-  '45 Boulevard Haussmann, 75009 Paris',
+  { address: '12 Rue du Commerce, 75015 Paris', lat: 48.8469, lng: 2.2945 },
+  { address: '34 Avenue Foch, 75116 Paris', lat: 48.8724, lng: 2.2840 },
+  { address: '8 Rue de Rivoli, 75004 Paris', lat: 48.8553, lng: 2.3601 },
+  { address: '45 Boulevard Haussmann, 75009 Paris', lat: 48.8735, lng: 2.3311 },
 ];
 const MOCK_DROPOFFS = [
-  '56 Rue Lafayette, 75009 Paris',
-  '21 Boulevard Voltaire, 75011 Paris',
-  '7 Rue de la Roquette, 75011 Paris',
-  '99 Avenue des Champs-Élysées, 75008 Paris',
+  { address: '56 Rue Lafayette, 75009 Paris', lat: 48.8751, lng: 2.3433 },
+  { address: '21 Boulevard Voltaire, 75011 Paris', lat: 48.8649, lng: 2.3700 },
+  { address: '7 Rue de la Roquette, 75011 Paris', lat: 48.8538, lng: 2.3713 },
+  { address: '99 Avenue des Champs-Élysées, 75008 Paris', lat: 48.8718, lng: 2.3006 },
 ];
 const MOCK_ITEMS_SETS = [
   [{ name: 'Burger Classique', qty: 1 }, { name: 'Frites', qty: 1 }, { name: 'Coca 33cl', qty: 1 }],
@@ -174,6 +177,10 @@ function makeMockOrder() {
   const tip = Math.random() > 0.5 ? +(1 + Math.random() * 3).toFixed(2) : 0;
   const total = +(fee + tip).toFixed(2);
   const items = pick(MOCK_ITEMS_SETS);
+  const iRetrait = Math.floor(Math.random() * MOCK_PICKUPS.length);
+  const iLivraison = Math.floor(Math.random() * MOCK_DROPOFFS.length);
+  const retrait = MOCK_PICKUPS[iRetrait];
+  const livraison = MOCK_DROPOFFS[iLivraison];
   const seq = __MOCK_SEQ++;
   return {
     _isMock: true,
@@ -182,9 +189,10 @@ function makeMockOrder() {
     _assignmentId: `mock-asg-${seq}`,
     order_id: `mock-${seq}`,
     restaurant: pick(MOCK_RESTAURANTS),
-    address: pick(MOCK_DROPOFFS),
-    dropoffAddress: pick(MOCK_DROPOFFS),
-    pickupAddress: pick(MOCK_PICKUPS),
+    _essai: `${iRetrait},${iLivraison}`,
+    address: livraison.address,
+    dropoffAddress: livraison.address,
+    pickupAddress: retrait.address,
     distanceText: formatKm(distance.toFixed(1)),
     etaText: formatMinutes(eta),
     priceText: `${total.toFixed(2)} €`,
@@ -193,10 +201,10 @@ function makeMockOrder() {
     tip_amount: tip,
     itemsCount: items.reduce((s, it) => s + it.qty, 0),
     items,
-    dropoffLat: 48.8566 + (Math.random() - 0.5) * 0.05,
-    dropoffLng: 2.3522 + (Math.random() - 0.5) * 0.05,
-    pickupLat: 48.8566 + (Math.random() - 0.5) * 0.05,
-    pickupLng: 2.3522 + (Math.random() - 0.5) * 0.05,
+    dropoffLat: livraison.lat,
+    dropoffLng: livraison.lng,
+    pickupLat: retrait.lat,
+    pickupLng: retrait.lng,
     status: 'available',
     delivery_code: String(Math.floor(1000 + Math.random() * 9000)),
     customer_name: pick(MOCK_CUSTOMERS),
