@@ -72,8 +72,9 @@ export async function renvoyerPreuvesEnAttente() {
 }
 
 // Envoie une preuve. Résout 'envoyee', 'en_attente' (gardée, renvoyée plus
-// tard) ou 'refusee' (refus du serveur). Ne rejette jamais.
-export async function envoyerPreuve(assignmentId, kind, uri) {
+// tard), 'echec' (non gardée, `garder: false`) ou 'refusee' (refus du
+// serveur). Ne rejette jamais.
+export async function envoyerPreuve(assignmentId, kind, uri, { garder = true } = {}) {
   if (!assignmentId || !uri) return 'en_attente';
   renvoyerPreuvesEnAttente().catch(() => {});
   for (const delai of DELAIS_ESSAIS_MS) {
@@ -85,6 +86,7 @@ export async function envoyerPreuve(assignmentId, kind, uri) {
       if (refusDefinitif(err)) return 'refusee';
     }
   }
+  if (!garder) return 'echec';
   const liste = await lireFile();
   liste.push({ assignmentId, kind, uri, at: Date.now() });
   await ecrireFile(liste);
