@@ -34,6 +34,8 @@ export default function MapScreen({ route, navigation }) {
   const hasDrop = dLat != null && dLng != null;
   const mapRef = useRef(null);
   const assignmentId = order._assignmentId || order.id || null;
+  // Course d'essai : tracé entier de la boutique au client, sans suivi du livreur.
+  const essai = order._isMock ? (order._essai || null) : null;
 
   // Position du livreur, suivie en continu tant que l'écran est ouvert.
   const [position, setPosition] = useState(null);
@@ -70,11 +72,11 @@ export default function MapScreen({ route, navigation }) {
   const enCours = useRef(false);
   const derniereLecture = useRef(0);
   const lireTrace = useCallback(async () => {
-    if (!assignmentId || enCours.current) return;
+    if (!assignmentId || enCours.current || (order._isMock && !essai)) return;
     enCours.current = true;
     derniereLecture.current = Date.now();
     try {
-      const res = await deliveryService.getItineraire(assignmentId, positionRef.current);
+      const res = await deliveryService.getItineraire(assignmentId, essai ? null : positionRef.current, essai);
       if (res?.statusCode === 404) {
         setFinie(true);
         setTrace(null);
@@ -91,7 +93,7 @@ export default function MapScreen({ route, navigation }) {
     } finally {
       enCours.current = false;
     }
-  }, [assignmentId]);
+  }, [assignmentId, essai, order._isMock]);
 
   useEffect(() => {
     if (finie || !assignmentId) return undefined;
@@ -101,12 +103,12 @@ export default function MapScreen({ route, navigation }) {
   }, [finie, assignmentId, lireTrace]);
 
   useEffect(() => {
-    if (finie || !trace || !position) return;
+    if (finie || !trace || !position || essai) return;
     if (Date.now() - derniereLecture.current < RELECTURE_MS) return;
     if (ecartAuTrace(trace, position) > ECART_MAX_M) lireTrace();
   }, [position, trace, finie, lireTrace]);
 
-  const trait = !finie && trace ? recoller(trace, position) : null;
+  const trait = !finie && trace ? (essai ? trace : recoller(trace, position)) : null;
 
   const pts = [];
   if (hasPickup) pts.push({ latitude: pLat, longitude: pLng });
