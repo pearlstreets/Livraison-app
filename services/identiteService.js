@@ -57,6 +57,62 @@ export const identiteService = {
 
 export { TAILLE_MAX_VIDEO };
 
+// Vidéo filmée mais pas encore reçue par le serveur (réseau coupé, délai
+// dépassé, erreur 5xx) : gardée, avec son chemin local, pour être renvoyée
+// automatiquement, même après une fermeture de l'app. Le serveur l'accepte
+// jusqu'à 15 min après l'échéance de la vérification. Oubliée seulement après
+// une réponse 200, 400 ou 409.
+const CLE_VIDEO_EN_ATTENTE = 'IDV_VIDEO_EN_ATTENTE';
+const MARGE_RENVOI_MS = 15 * 60 * 1000;
+let videoEnAttente = null;
+
+export function erreurAReessayer(e) {
+  const statut = e?.status;
+  return !statut || statut >= 500;
+}
+
+// `echeance` : fin de la vérification (ms), 15 min de marge en plus.
+export async function garderVideoEnAttente(verificationId, video, echeance) {
+  videoEnAttente = {
+    verificationId: String(verificationId),
+    video: { uri: video.uri, mimeType: video.mimeType || null },
+    limite: (Number.isFinite(echeance) ? echeance : Date.now()) + MARGE_RENVOI_MS,
+  };
+  try {
+    await AsyncStorage.setItem(CLE_VIDEO_EN_ATTENTE, JSON.stringify(videoEnAttente));
+  } catch {
+    // Stockage indisponible : la vidéo reste gardée en mémoire.
+  }
+  return videoEnAttente;
+}
+
+export async function lireVideoEnAttente(verificationId) {
+  if (!videoEnAttente) {
+    try {
+      const brut = await AsyncStorage.getItem(CLE_VIDEO_EN_ATTENTE);
+      videoEnAttente = brut ? JSON.parse(brut) : null;
+    } catch {
+      videoEnAttente = null;
+    }
+  }
+  if (!videoEnAttente) return null;
+  if (videoEnAttente.limite < Date.now()) {
+    await oublierVideoEnAttente();
+    return null;
+  }
+  if (verificationId != null && videoEnAttente.verificationId !== String(verificationId)) return null;
+  return videoEnAttente;
+}
+
+export async function oublierVideoEnAttente() {
+  videoEnAttente = null;
+  try {
+    await AsyncStorage.removeItem(CLE_VIDEO_EN_ATTENTE);
+  } catch {
+    // Rien à faire.
+  }
+}
+
 // Vérifications déjà montrées au livreur : une seule alerte par vérification.
 const verificationsVues = new Set();
 

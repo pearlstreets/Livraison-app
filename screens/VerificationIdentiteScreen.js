@@ -7,7 +7,11 @@ import { dirIcon } from '../lib/rtl';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDayMonth, formatTime } from '../lib/i18nFormat';
-import { identiteService, marquerVerificationVue, TAILLE_MAX_VIDEO } from '../services/identiteService';
+import {
+  identiteService, marquerVerificationVue, TAILLE_MAX_VIDEO,
+  garderVideoEnAttente, lireVideoEnAttente, oublierVideoEnAttente, erreurAReessayer,
+} from '../services/identiteService';
+import { marquerCameraIndisponible } from '../services/selfieCamera';
 
 const BRAND = '#FF6A13';
 const VERT = '#00C29B';
@@ -15,14 +19,24 @@ const APPEL_MIN = 10;
 const APPEL_MAX = 2000;
 const MOTIFS_BLOCAGE = ['echec_visage', 'echec_mouvement', 'pas_de_video', 'plusieurs_visages', 'aucun_visage'];
 const STATUTS_APPEL = ['en_cours', 'debloque', 'agent_humain', 'maintenu'];
+// Conseils montrés après un essai refusé, selon la raison donnée par le serveur.
+const CONSEILS_ESSAI = {
+  aucun_visage: ['idvConseilLumiere', 'idvConseilCadre', 'idvConseilLunettes', 'idvConseilCasque'],
+  echec_visage: ['idvConseilLumiere', 'idvConseilLunettes', 'idvConseilCasque', 'idvConseilCadre'],
+  plusieurs_visages: ['idvConseilSeul', 'idvConseilCadre'],
+  echec_mouvement: ['idvConseilTete', 'idvConseilCadre'],
+};
+const CONSEILS_TOUS = ['idvConseilLumiere', 'idvConseilLunettes', 'idvConseilCasque', 'idvConseilCadre', 'idvConseilSeul', 'idvConseilTete'];
+// Renvois automatiques de la vidéo après une coupure : 3 s, 10 s, puis 30 s.
+const DELAIS_RENVOI = [3000, 10000, 30000];
 
-// Instant de fin : date ISO du serveur, sinon secondes restantes comptées
-// depuis la réception.
-function finDepuis(dateIso, secondes) {
+// Instant de fin : secondes restantes du serveur comptées depuis la réception
+// (insensible à l'heure du téléphone), sinon date ISO.
+function finDepuis(secondes, dateIso) {
+  const n = secondes == null ? NaN : Number(secondes);
+  if (Number.isFinite(n)) return Date.now() + n * 1000;
   const d = dateIso ? Date.parse(dateIso) : NaN;
-  if (Number.isFinite(d)) return d;
-  const n = Number(secondes);
-  return Number.isFinite(n) ? Date.now() + n * 1000 : null;
+  return Number.isFinite(d) ? d : null;
 }
 
 function formatDuree(ms) {
@@ -44,7 +58,7 @@ function useMaintenant() {
 
 export default function VerificationIdentiteScreen({ navigation, route }) {
   const { t } = useLanguage();
-  const { setIsOnlineState } = useAuth();
+  const { setIsOnline, setIsOnlineState } = useAuth();
   const insets = useSafeAreaInsets();
   const maintenant = useMaintenant();
 
@@ -52,6 +66,8 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
   const [chargement, setChargement] = useState(!route?.params?.etat);
   const [envoi, setEnvoi] = useState(false);
   const [resultat, setResultat] = useState(null); // { resultat, is_online, motif }
+  const [essai, setEssai] = useState(null); // { motif_echec, essais_restants } après « reessayer »
+  const [reprise, setReprise] = useState(false); // vidéo gardée, renvoi automatique en cours
   const [dernierAppel, setDernierAppel] = useState(null);
   const [appelOuvert, setAppelOuvert] = useState(false);
   const [messageAppel, setMessageAppel] = useState('');
@@ -59,13 +75,21 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
   const [finVerification, setFinVerification] = useState(null);
   const [finBlocage, setFinBlocage] = useState(null);
   const rechargeApresDelai = useRef(null);
+  const envoiEnCours = useRef(false);
+  const minuteurRenvoi = useRef(null);
+  const nbRenvois = useRef(0);
+  const verificationCourante = useRef(null);
+  const finVerificationRef = useRef(null);
 
   const setEtat = useCallback((e) => {
     setEtatBrut(e || null);
     const v = e && e.verification;
     const b = e && e.blocage;
-    setFinVerification(v ? finDepuis(v.echeance, v.secondes_restantes) : null);
-    setFinBlocage(b && b.fin_blocage ? finDepuis(b.fin_blocage, b.selfie_possible_dans_secondes) : null);
+    const fin = v ? finDepuis(v.secondes_restantes, v.echeance) : null;
+    finVerificationRef.current = fin;
+    if (v) verificationCourante.current = v;
+    setFinVerification(fin);
+    setFinBlocage(b && b.fin_blocage ? finDepuis(b.selfie_possible_dans_secondes, b.fin_blocage) : null);
     if (v && v.id != null) marquerVerificationVue(v.id);
     if (b && b.appel) setDernierAppel(b.appel);
   }, []);
@@ -73,6 +97,7 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
   useEffect(() => {
     if (route?.params?.etat) {
       setResultat(null);
+      setEssai(null);
       setEtat(route.params.etat);
     }
   }, [route?.params?.etat, setEtat]);
@@ -88,12 +113,107 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
     }
   }, [setEtat]);
 
-  // Rafraîchi à chaque ouverture de l'écran.
-  useEffect(() => {
-    const desabonner = navigation.addListener('focus', () => { charger(); });
+  // Réponse du serveur à la vidéo (HTTP 200).
+  const traiterResultat = useCallback((res) => {
+    const motif = verificationCourante.current?.motif;
+    if (res?.resultat === 'reessayer') {
+      const v = res.identite?.verification;
+      setEssai({
+        motif_echec: res.motif_echec || v?.motif_echec || null,
+        essais_restants: v?.essais_restants ?? res.essais_restants ?? null,
+      });
+      if (res.identite) setEtat(res.identite);
+      else charger();
+      return;
+    }
+    setEssai(null);
+    if (res?.resultat === 'echouee') {
+      setEtat(res.identite || null);
+      if (!res.identite) charger();
+      return;
+    }
+    if (res?.resultat === 'reussie' || res?.resultat === 'a_revoir') {
+      if (res.is_online === true) setIsOnlineState(true);
+      setResultat({ resultat: res.resultat, is_online: res.is_online === true, motif });
+      setEtat(res.identite || null);
+      return;
+    }
     charger();
+  }, [setEtat, charger, setIsOnlineState]);
+
+  // Envoi de la vidéo gardée. Coupure réseau ou erreur 5xx : nouvel envoi
+  // automatique tant que le serveur peut l'accepter. La vidéo n'est oubliée
+  // qu'après une réponse 200, 400 ou 409.
+  const envoyer = useCallback(async (verificationId, video) => {
+    if (envoiEnCours.current) return;
+    envoiEnCours.current = true;
+    clearTimeout(minuteurRenvoi.current);
+    setEnvoi(true);
+    try {
+      const res = await identiteService.envoyerVideo(verificationId, video);
+      await oublierVideoEnAttente();
+      nbRenvois.current = 0;
+      setReprise(false);
+      traiterResultat(res);
+    } catch (e) {
+      if (erreurAReessayer(e)) {
+        const attente = await lireVideoEnAttente(verificationId);
+        if (attente) {
+          const delai = DELAIS_RENVOI[Math.min(nbRenvois.current, DELAIS_RENVOI.length - 1)];
+          nbRenvois.current += 1;
+          setReprise(true);
+          minuteurRenvoi.current = setTimeout(() => {
+            lireVideoEnAttente(verificationId).then((a) => { if (a) envoyer(a.verificationId, a.video); });
+          }, delai);
+        } else {
+          setReprise(false);
+          Alert.alert(t('idvTitre'), t('idvRepriseEchec'));
+          charger();
+        }
+        return;
+      }
+      setReprise(false);
+      nbRenvois.current = 0;
+      if (e?.status === 409) {
+        await oublierVideoEnAttente();
+        if (e.identite) setEtat(e.identite);
+        else charger();
+        Alert.alert(t('idvTitre'), t('idvExpiree'));
+      } else if (e?.status === 400) {
+        // Fichier illisible, aucun essai compté : il faut filmer à nouveau.
+        await oublierVideoEnAttente();
+        Alert.alert(t('idvTitre'), e.serverMessage || t('idvVideoInvalide'));
+      } else {
+        Alert.alert(t('error'), t('genericError'));
+      }
+    } finally {
+      envoiEnCours.current = false;
+      setEnvoi(false);
+    }
+  }, [t, setEtat, charger, traiterResultat]);
+
+  useEffect(() => () => clearTimeout(minuteurRenvoi.current), []);
+
+  // Vidéo restée en attente (app fermée pendant une coupure) : renvoyée dès
+  // l'ouverture de l'écran.
+  const reprendreVideo = useCallback(async () => {
+    const attente = await lireVideoEnAttente(null);
+    if (attente && !envoiEnCours.current) envoyer(attente.verificationId, attente.video);
+  }, [envoyer]);
+
+  // Rafraîchi à chaque ouverture de l'écran, et à chaque notification (même
+  // écran déjà ouvert).
+  useEffect(() => {
+    const desabonner = navigation.addListener('focus', () => { charger(); reprendreVideo(); });
+    charger();
+    reprendreVideo();
     return desabonner;
-  }, [navigation, charger]);
+  }, [navigation, charger, reprendreVideo]);
+
+  const ouvertLe = route?.params?.ouvertLe;
+  useEffect(() => {
+    if (ouvertLe) charger();
+  }, [ouvertLe, charger]);
 
   const verification = etat && etat.verification;
   const blocage = etat && etat.blocage;
@@ -114,12 +234,31 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
     else navigation.navigate('OrdersMain');
   }, [navigation]);
 
+  // Caméra impossible à ouvrir (permission refusée pour de bon, absente de
+  // l'appareil) : aucun blocage, l'appareil est signalé sans caméra (en-tête
+  // X-Pearl-Selfie: 0) et le passage en ligne est retenté.
+  const cameraIndisponible = useCallback(() => {
+    marquerCameraIndisponible();
+    const motif = verificationCourante.current?.motif;
+    Alert.alert(t('idvTitre'), t('idvCameraIndispo'), [{
+      text: t('ok'),
+      onPress: () => {
+        if (motif === 'passage_en_ligne') setIsOnline(true);
+        quitter();
+      },
+    }]);
+  }, [t, setIsOnline, quitter]);
+
   const filmer = useCallback(async () => {
     if (!verification || envoi) return;
     let video = null;
     try {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
       if (!perm.granted) {
+        if (perm.canAskAgain === false) {
+          cameraIndisponible();
+          return;
+        }
         Alert.alert(t('idvTitre'), t('idvCameraRefusee'), [
           { text: t('cancel'), style: 'cancel' },
           { text: t('openSettings'), onPress: () => Linking.openSettings() },
@@ -136,42 +275,18 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
       if (res.canceled || !res.assets?.length) return;
       video = res.assets[0];
     } catch {
-      Alert.alert(t('error'), t('genericError'));
+      cameraIndisponible();
       return;
     }
     if (video.fileSize && video.fileSize > TAILLE_MAX_VIDEO) {
       Alert.alert(t('idvTitre'), t('idvVideoTropLourde'));
       return;
     }
-    setEnvoi(true);
-    try {
-      const res = await identiteService.envoyerVideo(verification.id, video);
-      if (res?.resultat === 'echouee') {
-        setEtat(res.identite || null);
-        if (!res.identite) charger();
-        return;
-      }
-      if (res?.resultat === 'reussie' || res?.resultat === 'a_revoir') {
-        if (res.is_online === true) setIsOnlineState(true);
-        setResultat({ resultat: res.resultat, is_online: res.is_online === true, motif: verification.motif });
-        setEtat(res.identite || null);
-        return;
-      }
-      charger();
-    } catch (e) {
-      if (e?.status === 409) {
-        if (e.identite) setEtat(e.identite);
-        else charger();
-        Alert.alert(t('idvTitre'), t('idvExpiree'));
-      } else if (e?.status === 400) {
-        Alert.alert(t('idvTitre'), e.serverMessage || t('idvVideoInvalide'));
-      } else {
-        Alert.alert(t('error'), t('genericError'));
-      }
-    } finally {
-      setEnvoi(false);
-    }
-  }, [verification, envoi, t, setEtat, charger, setIsOnlineState]);
+    setEssai(null);
+    nbRenvois.current = 0;
+    const gardee = await garderVideoEnAttente(verification.id, video, finVerificationRef.current);
+    envoyer(gardee.verificationId, gardee.video);
+  }, [verification, envoi, t, cameraIndisponible, envoyer]);
 
   const annuler = useCallback(async () => {
     if (!verification) return;
@@ -264,6 +379,37 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
         </Pressable>
       </View>
     );
+  } else if (reprise) {
+    contenu = (
+      <View style={s.centre}>
+        <ActivityIndicator size="large" color={BRAND} />
+        <Text style={s.sousTitre}>{t('idvReprise')}</Text>
+      </View>
+    );
+  } else if (verification && essai) {
+    const conseils = CONSEILS_ESSAI[essai.motif_echec] || CONSEILS_TOUS;
+    const restants = verification.essais_restants ?? essai.essais_restants;
+    contenu = (
+      <View style={s.card}>
+        <View style={s.iconeRond}>
+          <Ionicons name="refresh" size={36} color={BRAND} />
+        </View>
+        <Text style={s.grandTitre}>{t('idvReessayerTitre')}</Text>
+        <Text style={s.cardText}>{t('idvReessayerMsg')}</Text>
+        {conseils.map((cle) => (
+          <View key={cle} style={s.conseilLigne}>
+            <Ionicons name="checkmark-circle-outline" size={18} color={VERT} style={{ marginRight: 8 }} />
+            <Text style={s.conseilTxt}>{t(cle)}</Text>
+          </View>
+        ))}
+        {restants != null && (
+          <Text style={[s.chronoTxt, { marginVertical: 10 }]}>{t('idvEssaisRestants', { n: restants })}</Text>
+        )}
+        <Pressable style={s.btnVert} onPress={() => setEssai(null)}>
+          <Text style={s.btnVertTxt}>{t('idvReessayer')}</Text>
+        </Pressable>
+      </View>
+    );
   } else if (verification) {
     const motifTexte = verification.motif === 'passage_en_ligne'
       ? t('idvMotifPassage')
@@ -272,12 +418,20 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
     contenu = (
       <>
         <View style={s.card}>
-          <View style={s.iconeRond}>
-            <Ionicons name="person-circle-outline" size={44} color={BRAND} />
-          </View>
           <Text style={s.cardText}>{motifTexte}</Text>
-          <Text style={s.consigne}>{t('idvConsigne')}</Text>
+          <Text style={s.consigne}>{t('idvGuideTitre')}</Text>
+          <View style={s.cadreVisage}>
+            <Ionicons name="person-outline" size={72} color="#bbb" />
+          </View>
+          <Text style={s.consigne}>{t('idvGuideTete')}</Text>
+          <View style={s.pastilleDuree}>
+            <Ionicons name="timer-outline" size={15} color="#555" style={{ marginRight: 4 }} />
+            <Text style={s.pastilleDureeTxt}>{t('idvGuideDuree')}</Text>
+          </View>
           <Text style={s.conseil}>{t('idvConseil')}</Text>
+          {verification.essais_restants != null && (
+            <Text style={s.conseil}>{t('idvEssaisRestants', { n: verification.essais_restants })}</Text>
+          )}
         </View>
         {resteVerification != null && (
           <View style={s.chrono}>
@@ -303,8 +457,9 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
     const finConnue = blocage.fin_blocage != null;
     const peutRefaire = blocage.peut_refaire_selfie === true || (finConnue && resteBlocage != null && resteBlocage <= 0);
     const finAppel = blocage.fin_appel ? new Date(blocage.fin_appel) : null;
+    const resteAppel = finAppel ? finAppel.getTime() - maintenant : null;
     const appelPossible = blocage.peut_faire_appel === true && !blocage.appel
-      && (!finAppel || finAppel.getTime() > maintenant);
+      && (resteAppel == null || resteAppel > 0);
     const nbCar = messageAppel.trim().length;
     contenu = (
       <>
@@ -340,6 +495,9 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
               <Text style={s.conseil}>
                 {t('idvAppelDelai', { date: formatDayMonth(finAppel), heure: formatTime(finAppel) })}
               </Text>
+            )}
+            {resteAppel != null && (
+              <Text style={[s.chronoTxt, { marginBottom: 8 }]}>{t('idvAppelRestant', { temps: formatDuree(resteAppel) })}</Text>
             )}
             <Pressable style={s.btnSecondaire} onPress={() => setAppelOuvert(true)}>
               <Text style={s.btnSecondaireTxt}>{t('idvFaireAppel')}</Text>
@@ -417,6 +575,12 @@ const s = StyleSheet.create({
   conseil: { fontSize: 12, color: '#777', lineHeight: 17, textAlign: 'center', marginBottom: 8 },
   reponse: { fontSize: 13, color: '#333', lineHeight: 19, backgroundColor: '#f7f7f7', borderRadius: 10, padding: 10, marginTop: 4 },
   iconeRond: { alignSelf: 'center', width: 64, height: 64, borderRadius: 32, backgroundColor: BRAND + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+
+  cadreVisage: { alignSelf: 'center', width: 150, height: 190, borderRadius: 95, borderWidth: 3, borderColor: BRAND, borderStyle: 'dashed', backgroundColor: '#fafafa', alignItems: 'center', justifyContent: 'center', marginVertical: 6 },
+  pastilleDuree: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8 },
+  pastilleDureeTxt: { fontSize: 13, fontWeight: '700', color: '#555' },
+  conseilLigne: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  conseilTxt: { flex: 1, fontSize: 14, color: '#333', lineHeight: 20 },
 
   chrono: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   chronoTxt: { fontSize: 14, fontWeight: '700', color: '#555', textAlign: 'center' },

@@ -61,7 +61,12 @@ export function resolveRoute(route, data) {
       return { screen: 'MessagesTab' };
     case 'VerificationIdentite':
       // Selfie vidéo demandé (passage en ligne, signalement, contrôle).
-      return { screen: 'Accueil', params: { screen: 'VerificationIdentite' } };
+      // L'écran relit identite/etat/ (selfie demandé, fin du blocage, décision
+      // d'appel), même s'il est déjà ouvert.
+      return {
+        screen: 'Accueil',
+        params: { screen: 'VerificationIdentite', params: { verificationId: data?.verification_id ?? null, ouvertLe: Date.now() } },
+      };
     default:
       return ACCUEIL;
   }

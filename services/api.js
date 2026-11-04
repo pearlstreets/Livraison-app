@@ -2,6 +2,7 @@ import axios from 'axios';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import secureStorage from './secureStorage';
+import { enteteSelfie } from './selfieCamera';
 import { sanitizeForApi } from '../utils/validation';
 
 // Pearl Streets backend. Dev → local Django (port 8000); prod → public API.
@@ -77,8 +78,9 @@ api.interceptors.request.use(async (config) => {
   // Rate limiting headers : vraie version de l'appli, 1.0.0 si illisible.
   config.headers['X-Client-Version'] = VERSION_APPLI;
   config.headers['X-Client-Revision'] = String(REVISION_JS);
-  // Vérification d'identité par selfie vidéo gérée par cette version.
-  config.headers['X-Pearl-Selfie'] = '1';
+  // Vérification d'identité par selfie vidéo : 1 si la caméra peut filmer,
+  // 0 sinon (permission refusée pour de bon ou absente de l'appareil).
+  config.headers['X-Pearl-Selfie'] = enteteSelfie();
 
   // Set timeout based on method, sauf délai explicite de l'appelant (retrait
   // d'appareil à 4 s, vérification SIRET à 9 s) : seul le délai par défaut de
