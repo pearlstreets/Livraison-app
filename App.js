@@ -63,6 +63,7 @@ import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import OpportunityDetailScreen from './screens/OpportunityDetailScreen';
 import VersementsListScreen from './screens/VersementsListScreen';
 import VersementDetailScreen from './screens/VersementDetailScreen';
+import ReleveComptableScreen from './screens/ReleveComptableScreen';
 import { ecranDeplie, largeurMoitie } from './utils/deuxEcrans';
 import { createDeuxEcransNavigator, AuMilieu } from './navigation/DeuxEcransStack';
 import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli, noterEtatNavigation } from './utils/repliEcran';
@@ -160,6 +161,7 @@ function EarningsStackScreen() {
       <EarningsStack.Screen name="PayoutSetup" component={PayoutSetupScreen} />
       <EarningsStack.Screen name="VersementsList" component={VersementsListScreen} />
       <EarningsStack.Screen name="VersementDetail" component={VersementDetailScreen} />
+      <EarningsStack.Screen name="ReleveComptable" component={ReleveComptableScreen} />
     </EarningsStack.Navigator>
   );
 }

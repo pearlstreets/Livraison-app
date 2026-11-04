@@ -128,14 +128,20 @@ function adaptPayout(p, iban) {
     createdAtRaw: p.created_at || null,
     // Détail réel du versement (DriverEarnings) : net, pourboires, nb de courses.
     detail: {
-      net: `${Number(p.net_amount ?? p.amount ?? 0).toFixed(2)} €`,
+      net: `${Number(p.total_before_deductions ?? p.net_amount ?? p.amount ?? 0).toFixed(2)} €`,
       tips: p.tips_amount != null ? `${Number(p.tips_amount).toFixed(2)} €` : '-',
-      netEur: Number(p.net_amount ?? p.amount ?? 0),
+      netEur: Number(p.total_before_deductions ?? p.net_amount ?? p.amount ?? 0),
       tipsEur: p.tips_amount != null ? Number(p.tips_amount) : null,
       courses: p.total_deliveries != null ? p.total_deliveries : '-',
       status: statut,
       feeEur: Number(p.fee_amount ?? 0),
       feeRefunded: !!p.fee_refunded,
+      // Retenues (04/11/2026) : total des courses, commission Pearl Streets,
+      // cotisations URSSAF payées par Pearl Streets pour le livreur.
+      grossEur: p.total_before_deductions != null ? Number(p.total_before_deductions) : null,
+      commissionEur: Number(p.commission ?? 0),
+      urssafEur: Number(p.urssaf_amount ?? 0),
+      urssafRate: Number(p.urssaf_rate ?? 0),
     },
   };
 }
