@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
@@ -8,7 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { formatRange, weekdayInitials } from '../lib/i18nFormat';
-import { ecranDeplie, largeurMoitie } from '../utils/deuxEcrans';
+import InstantCashoutSheet, { instantBlockedMessage, nextPayoutText } from '../components/InstantCashoutSheet';
 
 const BRAND = '#FF6A13';
 
@@ -33,15 +33,15 @@ function MiniChart({ bars }) {
 export default function EarningsScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { currentEarningsCents, cashOut, weeklyEarnings, currentIban } = useAuth();
+  const { currentEarningsCents, wallet, weeklyEarnings, currentIban } = useAuth();
   const { fmtPrice } = useCurrency();
   const scrollRef = useRef(null);
   const earn = { earningsCents: currentEarningsCents, earnings: fmtPrice(currentEarningsCents / 100) };
   const bankTail = ((currentIban || '').match(/(\d{2,4})\s*$/) || [])[1] || '';
   const bankLabel = bankTail ? `••${bankTail}` : t('yourSavedAccount');
   const [encaissModal, setEncaissModal] = useState(false);
-  const [encaissStep, setEncaissStep] = useState('confirm');
-  const [cashedAmount, setCashedAmount] = useState('');
+  // Virement instantané : limites lues sur le serveur (3 par jour, minimum, banque).
+  const blocked = instantBlockedMessage(wallet, earn.earningsCents, t, fmtPrice);
 
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -49,17 +49,11 @@ export default function EarningsScreen({ navigation }) {
 
   function startEncaiss() {
     if (earn.earningsCents <= 0) return;
-    setCashedAmount(earn.earnings);
-    setEncaissStep('confirm');
+    if (blocked) {
+      Alert.alert(t('instantCashout'), blocked);
+      return;
+    }
     setEncaissModal(true);
-  }
-
-  function processEncaiss() {
-    setEncaissStep('processing');
-    setTimeout(() => {
-      cashOut();
-      setEncaissStep('done');
-    }, 1500);
   }
 
   return (
@@ -70,11 +64,14 @@ export default function EarningsScreen({ navigation }) {
         <View style={s.balanceCard}>
           <Text style={s.balanceLabel}>{t('currentBalance')}</Text>
           <Text style={s.balanceAmount}>{earn.earnings}</Text>
-          <Pressable style={[s.encaissBtn, earn.earningsCents <= 0 && { opacity: 0.4 }]} onPress={startEncaiss}>
+          <Text style={s.cashoutLimit}>{nextPayoutText(wallet, t, fmtPrice)}</Text>
+          <Pressable style={[s.encaissBtn, (earn.earningsCents <= 0 || blocked) && { opacity: 0.4 }]} onPress={startEncaiss}>
             <Ionicons name="flash" size={16} color={BRAND} />
             <Text style={s.encaissTxt}>{t('cashout')}</Text>
           </Pressable>
-          <Text style={s.cashoutLimit}>{t('oneCashoutPerDay')}</Text>
+          {wallet?.instant?.available && (
+            <Text style={s.cashoutLimit}>{t('instantInfo', { fee: fmtPrice(wallet.instant.feeEur), left: wallet.instant.remainingToday })}</Text>
+          )}
         </View>
 
         <Text style={s.sectionHeader}>{t('selectWeek')}</Text>
@@ -95,50 +92,7 @@ export default function EarningsScreen({ navigation }) {
       </ScrollView>
       <StatusBarShield />
 
-      {/* Modal Encaissement */}
-      <Modal visible={encaissModal} animationType="slide" transparent onRequestClose={() => { if (encaissStep !== 'processing') setEncaissModal(false); }}>
-        <View style={s.overlay}>
-          <View style={[s.popup, ecranDeplie() && { width: largeurMoitie(), alignSelf: 'center' }]}>
-            {encaissStep === 'confirm' && (
-              <>
-                <View style={s.popupIconWrap}>
-                  <Ionicons name="flash" size={40} color={BRAND} />
-                </View>
-                <Text style={s.popupTitle}>{t('instantCashout')}</Text>
-                <Text style={s.popupDesc}>{t('cashoutConfirmDesc', { amount: cashedAmount, account: bankLabel })}</Text>
-                <Text style={s.popupFee}>{t('cashoutFee')}</Text>
-                <Pressable style={s.popupBtnPrimary} onPress={processEncaiss}>
-                  <Text style={s.popupBtnPrimaryTxt}>{t('confirmCashout')}</Text>
-                </Pressable>
-                <Pressable style={s.popupBtnCancel} onPress={() => setEncaissModal(false)}>
-                  <Text style={s.popupBtnCancelTxt}>{t('cancel')}</Text>
-                </Pressable>
-              </>
-            )}
-            {encaissStep === 'processing' && (
-              <>
-                <View style={s.popupIconWrap}>
-                  <Ionicons name="hourglass-outline" size={40} color="#f5a623" />
-                </View>
-                <Text style={s.popupTitle}>{t('processing')}</Text>
-                <Text style={s.popupDesc}>{t('processingMsg')}</Text>
-              </>
-            )}
-            {encaissStep === 'done' && (
-              <>
-                <View style={[s.popupIconWrap, { backgroundColor: BRAND + '20' }]}>
-                  <Ionicons name="checkmark-circle" size={48} color={BRAND} />
-                </View>
-                <Text style={s.popupTitle}>{t('cashoutSuccess')}</Text>
-                <Text style={s.popupDesc}>{t('cashoutDoneDesc', { amount: cashedAmount, account: bankLabel })}</Text>
-                <Pressable style={s.popupBtnPrimary} onPress={() => setEncaissModal(false)}>
-                  <Text style={s.popupBtnPrimaryTxt}>{t('close')}</Text>
-                </Pressable>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
+      <InstantCashoutSheet visible={encaissModal} onClose={() => setEncaissModal(false)} accountLabel={bankLabel} />
     </View>
   );
 }
@@ -165,15 +119,4 @@ const s = StyleSheet.create({
   daysRow: { flexDirection: 'row', gap: 4, marginTop: 4 },
   dayLabel: { width: 12, textAlign: 'center', fontSize: 9, color: '#999', fontWeight: '600' },
 
-  // Popup
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  popup: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, alignItems: 'center' },
-  popupIconWrap: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  popupTitle: { fontSize: 22, fontWeight: '900', color: '#111', marginBottom: 8 },
-  popupDesc: { fontSize: 15, color: '#666', textAlign: 'center', lineHeight: 22, marginBottom: 8 },
-  popupFee: { fontSize: 14, color: '#999', marginBottom: 20 },
-  popupBtnPrimary: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, alignItems: 'center', width: '100%', marginBottom: 10 },
-  popupBtnPrimaryTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  popupBtnCancel: { paddingVertical: 12, alignItems: 'center', width: '100%' },
-  popupBtnCancelTxt: { color: '#666', fontWeight: '700', fontSize: 15 },
 });

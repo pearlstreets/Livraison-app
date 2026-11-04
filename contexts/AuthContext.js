@@ -105,18 +105,25 @@ function adaptHistoryEntry(a) {
   };
 }
 
+// État d'un virement montré au livreur (`state` du serveur, 04/11/2026) :
+// verse, en_cours, echoue, standard (instantané parti en virement standard).
+const ETAT_VERSEMENT = { verse: 'paid', en_cours: 'processing', echoue: 'failed', standard: 'standard' };
+
 function adaptPayout(p, iban) {
   const amt = `${Number(p.amount ?? 0).toFixed(2)} €`;
+  const statut = ETAT_VERSEMENT[p.state] || p.status || '';
   return {
     id: p.id,
-    label: 'Versement',
+    // « Versement exceptionnel » = virement instantané (icône éclair des écrans).
+    label: p.kind === 'instant' ? 'Versement exceptionnel' : 'Versement',
+    kind: p.kind || 'weekly',
     date: fmtDate(p.created_at),
     amount: amt,
     // Montants bruts en euros (cf. adaptAssignment) pour l'affichage en devise
     // locale ; le versement bancaire réel reste en euros.
     amountEur: Number(p.amount ?? 0),
     iban: iban || '',
-    status: p.status || '',
+    status: statut,
     paidAt: p.paid_at || null,
     createdAtRaw: p.created_at || null,
     // Détail réel du versement (DriverEarnings) : net, pourboires, nb de courses.
@@ -126,7 +133,9 @@ function adaptPayout(p, iban) {
       netEur: Number(p.net_amount ?? p.amount ?? 0),
       tipsEur: p.tips_amount != null ? Number(p.tips_amount) : null,
       courses: p.total_deliveries != null ? p.total_deliveries : '-',
-      status: p.status || '',
+      status: statut,
+      feeEur: Number(p.fee_amount ?? 0),
+      feeRefunded: !!p.fee_refunded,
     },
   };
 }
@@ -163,6 +172,9 @@ export function AuthProvider({ children }) {
   const [warningsList, setWarningsList] = useState([]);
   const [deliveryHistory, setDeliveryHistory] = useState([]);
   const [currentEarningsCents, setCurrentEarningsCents] = useState(0);
+  // Portefeuille (04/11/2026) : prochain virement du lundi et virement
+  // instantané (frais, minimum, nombre restant aujourd'hui), lus sur le serveur.
+  const [wallet, setWallet] = useState(null);
   const [currentIban, setCurrentIban] = useState('');
   const [weeklyEarnings, setWeeklyEarnings] = useState([]);
   const [versements, setVersements] = useState([]);
@@ -200,6 +212,20 @@ export function AuthProvider({ children }) {
     try {
       const b = await earningsService.getCurrentBalance();
       setCurrentEarningsCents(Math.round(Number(b?.available_balance ?? 0) * 100));
+      setWallet({
+        bankReady: !!b?.bank_ready,
+        nextPayoutDate: b?.next_payout?.date || null,
+        nextPayoutEur: Number(b?.next_payout?.amount ?? 0),
+        instant: b?.instant ? {
+          available: !!b.instant.available,
+          reason: b.instant.reason || '',
+          feeEur: Number(b.instant.fee ?? 0.99),
+          minBalanceEur: Number(b.instant.min_balance ?? 1.99),
+          maxPerDay: Number(b.instant.max_per_day ?? 3),
+          remainingToday: Number(b.instant.remaining_today ?? 0),
+          youReceiveEur: Number(b.instant.you_receive ?? 0),
+        } : null,
+      });
     } catch (e) { /* keep last known */ }
     try {
       const p = await earningsService.getPayoutHistory();
@@ -455,11 +481,19 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
+  // Virement instantané : renvoie le vrai résultat du serveur, jamais d'exception.
+  // { ok, code, amountEur } ; code : instantane, standard, en_attente, ou le
+  // motif du refus (limite_jour, minimum, banque_non_eligible...).
   const cashOut = useCallback(async () => {
+    let res;
     try {
-      await earningsService.requestCashout();
-      await refreshEarnings();
-    } catch (e) { /* surfaced by the calling screen */ }
+      const r = await earningsService.requestCashout();
+      res = { ok: true, code: r?.code || 'instantane', amountEur: Number(r?.data?.amount ?? 0) };
+    } catch (e) {
+      res = { ok: false, code: e?.code || (e?.isNetworkError ? 'reseau' : 'erreur') };
+    }
+    await refreshEarnings();
+    return res;
   }, [refreshEarnings]);
 
   // A delivery is recorded server-side on completion; just pull fresh data.
@@ -545,7 +579,7 @@ export function AuthProvider({ children }) {
       deliveryHistory, addToHistory, markOrderReported, refreshAll,
       getTicketMessages, saveTicketMessages, markTicketRead, getUnreadTicketCount,
       ticketMessages, ticketReadCounts,
-      currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban,
+      currentEarningsCents, wallet, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban,
       isOnline, setIsOnline, activeDelivery, setActiveDelivery, warningsList, ratingsSummary, refreshRatings,
       readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount,
     }}>
