@@ -165,7 +165,7 @@ export function demarrerSuivi(t) {
       foregroundService: {
         notificationTitle: t('onlineNotifTitle'),
         notificationBody: t('onlineNotifBody'),
-        notificationColor: '#00C29B',
+        notificationColor: '#FF6A13',
       },
     });
   });

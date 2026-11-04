@@ -8,7 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { deliveryService } from '../services/deliveryService';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 export default function OpportunitiesScreen({ navigation }) {
   const { t } = useLanguage();

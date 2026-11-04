@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { formatDayMonth, isSameDay } from '../lib/i18nFormat';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 const HistoryOrderItem = React.memo(({ order, navigation, t }) => {
   const isCancelled = order.status === 'cancelled';
@@ -130,7 +130,7 @@ export default function DeliveryHistoryScreen({ navigation }) {
             <Text style={s.statLabel}>{t('gains')}</Text>
           </View>
           <View style={s.statCard}>
-            <Text style={[s.statValue, { color: '#00C29B' }]}>{fmtPrice(totalTips)}</Text>
+            <Text style={[s.statValue, { color: '#FF6A13' }]}>{fmtPrice(totalTips)}</Text>
             <Text style={s.statLabel}>{t('tips')}</Text>
           </View>
         </View>
@@ -172,7 +172,7 @@ const s = StyleSheet.create({
   orderId: { fontWeight: '800', fontSize: 14, color: '#111' },
   orderTime: { fontSize: 11, color: '#999', marginTop: 1 },
   orderPrice: { fontWeight: '900', fontSize: 15, color: BRAND },
-  orderTip: { fontSize: 11, color: '#00C29B', fontWeight: '700', marginTop: 1 },
+  orderTip: { fontSize: 11, color: '#FF6A13', fontWeight: '700', marginTop: 1 },
   orderTotal: { fontSize: 12, fontWeight: '900', color: '#111', marginTop: 1 },
 
   orderDetails: { marginLeft: 30 },

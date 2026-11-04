@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import useSecureScreen from '../hooks/useSecureScreen';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 // Mapping champ backend → clé i18n du label
 const DOC_FIELDS = [

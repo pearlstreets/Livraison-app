@@ -21,7 +21,7 @@ export default function InlineFilters({ filters = [], selected, onChange }) {
             borderRadius: R,
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: selected === f.id ? '#00C29B' : '#F2F3F5',
+            backgroundColor: selected === f.id ? '#FF6A13' : '#F2F3F5',
             marginLeft: i === 0 ? 0 : GAP
           }}
         >

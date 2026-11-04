@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 export default function ProfileScreen({ navigation }) {
   const { t } = useLanguage();

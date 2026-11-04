@@ -11,7 +11,7 @@ import { uploadService } from '../services/uploadService';
 import { dirIcon } from '../lib/rtl';
 import useSecureScreen from '../hooks/useSecureScreen';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 export default function DocumentDetailScreen({ navigation, route }) {
   const { t } = useLanguage();

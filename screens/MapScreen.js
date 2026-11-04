@@ -10,7 +10,7 @@ import * as Location from 'expo-location';
 import { deliveryService } from '../services/deliveryService';
 import { enPoints, recoller, ecartAuTrace } from '../lib/itineraire';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
 const RELECTURE_MS = 30000;
 const ECART_MAX_M = 60;

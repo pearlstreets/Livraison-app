@@ -7,7 +7,7 @@ import StatusBarShield from '../components/StatusBarShield';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 // Valeurs backend : bicycle / car / walk
 const VEHICLES = [

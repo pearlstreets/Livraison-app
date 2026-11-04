@@ -8,7 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { deliveryService } from '../services/deliveryService';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 const FILTERS = [
   { key: 'Tout', tKey: 'all' },
   { key: 'Messages', tKey: 'messages' },

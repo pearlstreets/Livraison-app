@@ -8,7 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { ticketService } from '../services/ticketService';
 import { formatTime as formatClock } from '../lib/i18nFormat';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 // Relecture du fil tant que le ticket est ouvert : la réponse du support
 // apparaît sans quitter l'écran.
 const RELECTURE_MS = 20000;

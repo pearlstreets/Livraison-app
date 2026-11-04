@@ -8,7 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDayMonth, formatTime } from '../lib/i18nFormat';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 export default function WarningsScreen({ navigation }) {
   const { t } = useLanguage();

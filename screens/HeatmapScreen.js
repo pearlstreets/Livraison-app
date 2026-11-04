@@ -11,7 +11,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { deliveryService } from '../services/deliveryService';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 const { width, height } = Dimensions.get('window');
 
 // Meaux center

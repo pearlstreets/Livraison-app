@@ -12,7 +12,7 @@ import { isSameDay } from '../lib/i18nFormat';
 import { CONFIDENTIALITE_LIVREUR } from '../utils/stripeCompte';
 import { authService } from '../services/authService';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 // Valeur backend du véhicule → clé de traduction du libellé.
 const VEHICLE_LABEL_KEYS = { bicycle: 'bike', car: 'car', walk: 'walk' };
 

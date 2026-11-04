@@ -6,7 +6,7 @@ import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { dirIcon } from '../lib/rtl';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 // Questions par rubrique d'aide, indexées par la CLÉ de la rubrique (et non par
 // son titre traduit : hors français, la page restait vide). Chaque entrée donne
