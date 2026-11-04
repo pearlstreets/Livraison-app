@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { formatRange, weekdayShortNames } from '../lib/i18nFormat';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 function getDatesForWeek(startStr) {
   const d = new Date(startStr);
@@ -160,6 +160,6 @@ const s = StyleSheet.create({
   detailLabel: { fontSize: 15, color: '#333' },
   detailValue: { fontSize: 15, color: '#111' },
   detailRowDashed: { height: 1, borderStyle: 'dashed', borderWidth: 0.5, borderColor: '#ddd', marginHorizontal: 16 },
-  closeBtn: { backgroundColor: '#111', borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginTop: 8, alignItems: 'center' },
+  closeBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginTop: 8, alignItems: 'center' },
   closeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

@@ -8,7 +8,7 @@ import { formatKm, formatMinutes, formatTime } from '../lib/i18nFormat';
 // pré-formatées) — on importe donc le formateur devise sous un autre nom.
 import { useCurrency as useDriverCurrency } from '../contexts/CurrencyContext';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 const BTN_HEIGHT = 40;
 const BTN_RADIUS = 12;
 const GAP = 10;

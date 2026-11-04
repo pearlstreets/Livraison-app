@@ -12,7 +12,7 @@ import { isSameDay } from '../lib/i18nFormat';
 import { CONFIDENTIALITE_LIVREUR } from '../utils/stripeCompte';
 import { authService } from '../services/authService';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 // Valeur backend du véhicule → clé de traduction du libellé.
 const VEHICLE_LABEL_KEYS = { bicycle: 'bike', car: 'car', walk: 'walk' };
 
@@ -99,10 +99,10 @@ export default function MenuScreen({ navigation }) {
   return (
     <>
     <ScrollView ref={scrollRef} style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      <View style={{ backgroundColor: isOnline ? BRAND : '#8e8e93', height: insets.top }} />
+      <View style={{ backgroundColor: isOnline ? BRAND : '#D9A07F', height: insets.top }} />
 
       {/* En-tête profil */}
-      <View style={[s.profileHeader, !isOnline && { backgroundColor: '#8e8e93' }]}>
+      <View style={[s.profileHeader, !isOnline && { backgroundColor: '#D9A07F' }]}>
         <Pressable style={s.avatarWrap} onPress={() => navigation.navigate('EditProfile')}>
           {user?.photo ? (
             <Image source={{ uri: user.photo }} style={s.avatar} />
@@ -125,7 +125,7 @@ export default function MenuScreen({ navigation }) {
       </View>
 
       {/* Statut en ligne */}
-      <View style={[s.statusBanner, !isOnline && { backgroundColor: '#8e8e93' }]}>
+      <View style={[s.statusBanner, !isOnline && { backgroundColor: '#D9A07F' }]}>
         <View style={[s.statusDot, !isOnline && { backgroundColor: '#e74c3c' }, !accountActive && { backgroundColor: '#111' }]} />
         <Text style={s.statusText}>{!accountActive ? t('deactivatedTitle') : isOnline ? t('youAreOnline') : t('offline')}</Text>
       </View>
@@ -278,7 +278,7 @@ export default function MenuScreen({ navigation }) {
         </View>
       </Modal>
     </ScrollView>
-    <StatusBarShield color={isOnline ? BRAND : '#8e8e93'} />
+    <StatusBarShield color={isOnline ? BRAND : '#D9A07F'} />
     </>
   );
 }
@@ -292,7 +292,7 @@ const s = StyleSheet.create({
   profileName: { fontWeight: '900', fontSize: 18, color: '#fff', letterSpacing: 0.5 },
   profileSub: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 2 },
   statusBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND, paddingHorizontal: 16, paddingBottom: 14 },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff', marginRight: 8 },
+  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00C29B', marginRight: 8 },
   statusText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   section: { backgroundColor: '#fff' },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
@@ -332,7 +332,7 @@ const s = StyleSheet.create({
   langModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   langModalTitle: { fontSize: 17, fontWeight: '800', color: '#111' },
   langRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
-  langRowActive: { backgroundColor: '#e6faf5' },
+  langRowActive: { backgroundColor: '#FFF1E8' },
   langFlag: { fontSize: 24, marginRight: 14 },
   langTextRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   langLabel: { fontSize: 16, fontWeight: '600', color: '#111' },

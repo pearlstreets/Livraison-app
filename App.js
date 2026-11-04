@@ -129,7 +129,7 @@ try {
     .catch(() => {});
 } catch (_) {}
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 const Tab = createBottomTabNavigator();
 // Pliable deplie : chaque onglet en deux moities, ecran de navigation a
 // gauche, page ouverte a droite (navigation/DeuxEcransStack.js). Plie ou

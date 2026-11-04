@@ -7,7 +7,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import useSecureScreen from '../hooks/useSecureScreen';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 export default function EditIbanScreen({ navigation }) {
   const { t } = useLanguage();
@@ -140,10 +140,10 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
   body: { padding: 16, paddingBottom: 20 },
   currentCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 },
-  currentIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#e6faf5', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  currentIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   currentLabel: { fontSize: 13, color: '#888', fontWeight: '600' },
   currentValue: { fontSize: 16, fontWeight: '800', color: '#111', marginTop: 2, letterSpacing: 0.5 },
-  activeBadge: { backgroundColor: '#e6faf5', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+  activeBadge: { backgroundColor: '#FFF1E8', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
   activeTxt: { color: BRAND, fontWeight: '800', fontSize: 12 },
   info: { fontSize: 13, color: '#888', paddingHorizontal: 4, marginBottom: 16, lineHeight: 18 },
   divider: { height: 1, backgroundColor: '#e0e0e0', marginBottom: 16 },

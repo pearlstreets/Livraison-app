@@ -10,7 +10,7 @@ import { ticketService } from '../services/ticketService';
 
 import { formatDayMonth } from '../lib/i18nFormat';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 // Clés de traduction des types de problème backend (cf. ReportProblemScreen).
 const PROBLEM_LABEL_KEYS = {
@@ -183,7 +183,7 @@ const s = StyleSheet.create({
   ticketId: { fontSize: 15, fontWeight: '800', color: '#111' },
   statusBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },
   statusOpen: { backgroundColor: '#fff8e6' },
-  statusResolved: { backgroundColor: '#e6faf5' },
+  statusResolved: { backgroundColor: '#FFF1E8' },
   statusText: { fontSize: 12, fontWeight: '700' },
   statusOpenText: { color: '#f5a623' },
   statusResolvedText: { color: BRAND },

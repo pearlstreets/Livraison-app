@@ -7,7 +7,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ticketService } from '../services/ticketService';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 const PROBLEMS = [
   { id: 'client_absent', icon: 'person-outline', labelKey: 'clientAbsent' },

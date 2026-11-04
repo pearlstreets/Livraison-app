@@ -8,7 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDayMonth, formatTime } from '../lib/i18nFormat';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 export default function WarningsScreen({ navigation }) {
   const { t } = useLanguage();
@@ -130,7 +130,7 @@ const s = StyleSheet.create({
   gaugeWarn: { fontSize: 14, color: '#f5a623', fontWeight: '600' },
   gaugeAlert: { fontSize: 14, color: '#e74c3c', fontWeight: '600', textAlign: 'center' },
 
-  infoCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#e6faf5', borderRadius: 14, marginHorizontal: 16, padding: 14, marginBottom: 20 },
+  infoCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FFF1E8', borderRadius: 14, marginHorizontal: 16, padding: 14, marginBottom: 20 },
   infoText: { flex: 1, fontSize: 13, color: '#333', lineHeight: 19 },
 
   sectionTitle: { fontSize: 17, fontWeight: '800', color: '#111', paddingHorizontal: 16, marginBottom: 10 },

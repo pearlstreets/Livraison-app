@@ -9,7 +9,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { payoutDateLabel, payoutStatusLabel } from '../lib/payouts';
 import useSecureScreen from '../hooks/useSecureScreen';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 export default function VersementDetailScreen({ navigation, route }) {
   const { t } = useLanguage();
@@ -96,7 +96,7 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
 
   topCard: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, padding: 20, alignItems: 'center', marginBottom: 12 },
-  iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#e6faf5', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   typeLabel: { fontSize: 15, fontWeight: '700', color: '#555', marginBottom: 4 },
   amount: { fontSize: 32, fontWeight: '900', color: '#111', marginBottom: 6 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
@@ -110,6 +110,6 @@ const s = StyleSheet.create({
   divider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 6 },
 
   bottomWrap: { paddingTop: 6, paddingHorizontal: 16 },
-  closeBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', borderRadius: 14, paddingVertical: 14 },
+  closeBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 14 },
   closeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Switch, Text, StyleSheet } from 'react-native';
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 export default function DriverStatus({ onChange }) {
   const [online, setOnline] = useState(true);

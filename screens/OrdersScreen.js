@@ -128,7 +128,7 @@ const OrdersInlineFilters = React.memo(({ selected, onChange, filters = [] }) =>
           style={{
             height:H, paddingHorizontal:PH, borderRadius:R,
             alignItems:'center', justifyContent:'center',
-            backgroundColor: selected===f.id ? '#00C29B' : '#F2F3F5'
+            backgroundColor: selected===f.id ? '#FF6A13' : '#F2F3F5'
           }}
         >
           <Text style={{ fontSize:FZ, fontWeight:'700', color: selected===f.id ? '#fff' : '#111' }}>
@@ -400,7 +400,7 @@ export default function OrdersScreen({ navigation, route }) {
         <Text style={[styles.onlineText, !online && { color: '#999' }]}>{online ? t('online') : t('offline')}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable style={styles.mapBtn} onPress={() => navigation.navigate('Heatmap')}>
-            <Ionicons name="map" size={18} color="#00C29B" />
+            <Ionicons name="map" size={18} color="#FF6A13" />
           </Pressable>
           <Switch
             value={online}
@@ -412,7 +412,7 @@ export default function OrdersScreen({ navigation, route }) {
               if (val) passerEnLigne();
               else setOnline(false);
             }}
-            trackColor={{ true: '#00C29B', false: '#E6E8EB' }}
+            trackColor={{ true: '#FF6A13', false: '#E6E8EB' }}
             thumbColor={online ? '#fff' : '#fff'}
           />
         </View>
@@ -471,7 +471,7 @@ export default function OrdersScreen({ navigation, route }) {
                     </View>
                     <View style={styles.activeFooter}>
                       <Text style={styles.activeContinue}>{t('continueDelivery')}</Text>
-                      <Ionicons name={dirIcon('chevron-forward')} size={16} color="#00C29B" />
+                      <Ionicons name={dirIcon('chevron-forward')} size={16} color="#FF6A13" />
                     </View>
                   </View>
                 </Pressable>
@@ -542,13 +542,13 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2
   },
-  onlineText: { color: '#00C29B', fontWeight: '700', fontSize: 16 },
-  mapBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#e6faf5', alignItems: 'center', justifyContent: 'center' },
+  onlineText: { color: '#FF6A13', fontWeight: '700', fontSize: 16 },
+  mapBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center' },
 
   sectionTitle: { fontSize: 28, fontWeight: '800', color: '#111', marginTop: 4, marginBottom: 8 },
   sectionTitleGap: {  marginTop: 8  },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  mockBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#00C29B', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
+  mockBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FF6A13', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
   mockBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
   cardsBlock: {  marginBottom: 0  },
   cardWrap: { marginBottom: 8 },
@@ -566,15 +566,15 @@ const styles = StyleSheet.create({
   deactivatedSub: { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20 },
 
   // Active (en cours)
-  activeCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderLeftWidth: 4, borderLeftColor: '#00C29B' },
-  activeStepBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#00C29B', borderRadius: 12, paddingVertical: 4, paddingHorizontal: 10, gap: 5, marginBottom: 8 },
+  activeCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderLeftWidth: 4, borderLeftColor: '#FF6A13' },
+  activeStepBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#FF6A13', borderRadius: 12, paddingVertical: 4, paddingHorizontal: 10, gap: 5, marginBottom: 8 },
   activeStepText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   activeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   activeCode: { fontWeight: '800', fontSize: 15, color: '#111' },
-  activePrice: { fontWeight: '900', fontSize: 16, color: '#00C29B' },
+  activePrice: { fontWeight: '900', fontSize: 16, color: '#FF6A13' },
   activeDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
   activeDetailText: { fontSize: 13, color: '#666', flexShrink: 1 },
   activeFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 6, gap: 4 },
-  activeContinue: { fontSize: 13, fontWeight: '700', color: '#00C29B' },
+  activeContinue: { fontSize: 13, fontWeight: '700', color: '#FF6A13' },
 
 });

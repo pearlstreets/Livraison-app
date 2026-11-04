@@ -10,7 +10,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { formatRange, weekdayInitials } from '../lib/i18nFormat';
 import { ecranDeplie, largeurMoitie } from '../utils/deuxEcrans';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 function MiniChart({ bars }) {
   const max = Math.max(...bars, 1);
@@ -71,7 +71,7 @@ export default function EarningsScreen({ navigation }) {
           <Text style={s.balanceLabel}>{t('currentBalance')}</Text>
           <Text style={s.balanceAmount}>{earn.earnings}</Text>
           <Pressable style={[s.encaissBtn, earn.earningsCents <= 0 && { opacity: 0.4 }]} onPress={startEncaiss}>
-            <Ionicons name="flash" size={16} color="#111" />
+            <Ionicons name="flash" size={16} color={BRAND} />
             <Text style={s.encaissTxt}>{t('cashout')}</Text>
           </Pressable>
           <Text style={s.cashoutLimit}>{t('oneCashoutPerDay')}</Text>
@@ -145,12 +145,12 @@ export default function EarningsScreen({ navigation }) {
 
 const s = StyleSheet.create({
   header: { fontSize: 28, fontWeight: '900', color: '#111', paddingHorizontal: 16, paddingTop: 16, marginBottom: 16 },
-  balanceCard: { backgroundColor: '#111', borderRadius: 20, padding: 20, marginHorizontal: 16, marginBottom: 24 },
-  balanceLabel: { color: '#999', fontSize: 13, fontWeight: '600' },
+  balanceCard: { backgroundColor: BRAND, borderRadius: 20, padding: 20, marginHorizontal: 16, marginBottom: 24 },
+  balanceLabel: { color: '#fff', fontSize: 13, fontWeight: '600' },
   balanceAmount: { color: '#fff', fontSize: 36, fontWeight: '900', marginVertical: 6 },
   encaissBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: 20, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start', marginTop: 4 },
-  encaissTxt: { fontWeight: '700', fontSize: 14, color: '#111' },
-  cashoutLimit: { color: '#aaa', fontSize: 12, marginTop: 8, fontWeight: '600' },
+  encaissTxt: { fontWeight: '700', fontSize: 14, color: BRAND },
+  cashoutLimit: { color: '#fff', fontSize: 12, marginTop: 8, fontWeight: '600' },
   sectionHeader: { fontSize: 22, fontWeight: '900', color: '#111', paddingHorizontal: 16, marginBottom: 12 },
   tableHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#e0e0e0', backgroundColor: '#fff' },
   tableHeaderLeft: { fontSize: 13, fontWeight: '600', color: '#666' },

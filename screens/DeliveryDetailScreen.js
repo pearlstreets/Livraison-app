@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { formatDayMonth, formatTime } from '../lib/i18nFormat';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 const parseNum = (v) => { if (!v) return 0; const n = parseFloat(String(v).replace(',', '.').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; };
 
 export default function DeliveryDetailScreen({ navigation, route }) {
@@ -162,6 +162,6 @@ const s = StyleSheet.create({
   helpText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#666' },
 
   closeBtnWrap: { backgroundColor: '#f5f5f5', paddingTop: 4, paddingBottom: 10, paddingHorizontal: 16 },
-  closeBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', borderRadius: 14, paddingVertical: 14 },
+  closeBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 14 },
   closeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

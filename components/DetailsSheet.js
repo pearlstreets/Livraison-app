@@ -8,7 +8,7 @@ import { ecranDeplie, largeurMoitie, dimensionsReelles } from '../utils/deuxEcra
 
 const { height: H } = Dimensions.get('window');
 const SHEET_HEIGHT = Math.round(H * 0.55); // ~55% de l'écran
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 const BTN_H = 40, BTN_R = 12;
 
 // Deplie : feuille a la largeur d'un telephone, centree (plie : inchange).

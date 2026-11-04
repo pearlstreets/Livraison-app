@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 import useSecureScreen from '../hooks/useSecureScreen';
 
-const BRAND = '#00C29B';
+const BRAND = '#FF6A13';
 
 // Mapping champ backend → clé i18n du label
 const DOC_FIELDS = [
@@ -86,7 +86,7 @@ export default function DocumentsScreen({ navigation }) {
       </View>
 
       {/* Badge vérification global */}
-      <View style={[s.verifiedBadge, { backgroundColor: isVerified ? '#e6faf5' : '#fff8e1' }]}>
+      <View style={[s.verifiedBadge, { backgroundColor: isVerified ? '#FFF1E8' : '#fff8e1' }]}>
         <Ionicons
           name={isVerified ? 'shield-checkmark' : 'shield-outline'}
           size={20}
