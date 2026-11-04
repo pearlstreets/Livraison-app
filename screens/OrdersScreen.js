@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     elevation: 2
   },
   onlineText: { color: '#FF6A13', fontWeight: '700', fontSize: 16 },
-  mapBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#e6faf5', alignItems: 'center', justifyContent: 'center' },
+  mapBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center' },
 
   sectionTitle: { fontSize: 28, fontWeight: '800', color: '#111', marginTop: 4, marginBottom: 8 },
   sectionTitleGap: {  marginTop: 8  },
