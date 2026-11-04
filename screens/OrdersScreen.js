@@ -45,10 +45,12 @@ function serverNumber(v) {
 function adaptAssignment(a, { revealCustomer = true } = {}) {
   const fee = typeof a.delivery_fee === 'number' ? a.delivery_fee : 0;
   const tip = typeof a.tip_amount === 'number' ? a.tip_amount : 0;
-  // Gain du livreur calculé par le serveur (frais + pourboire - commission) :
-  // affiché tel quel. Repli sur frais + pourboire pour un ancien serveur.
+  // Bonus de demande (zone de forte demande), figé à l'acceptation.
+  const bonus = serverNumber(a.bonus_demande) || 0;
+  // Gain du livreur calculé par le serveur (frais + pourboire + bonus -
+  // commission) : affiché tel quel. Repli sur frais + pourboire + bonus.
   const gainNet = serverNumber(a.gain_net);
-  const total = gainNet != null ? gainNet : fee + tip;
+  const total = gainNet != null ? gainNet : fee + tip + bonus;
   // Distance et temps calculés par le serveur : 0 = inconnu, donc non affiché.
   const distanceKm = serverNumber(a.distance_km);
   const etaMinutes = serverNumber(a.estimated_time_minutes);
@@ -77,6 +79,7 @@ function adaptAssignment(a, { revealCustomer = true } = {}) {
     priceText: `${total.toFixed(2)} €`,
     priceEur: total,
     gainNet,
+    bonusEur: bonus > 0 ? bonus : 0,
     delivery_fee: fee,
     tip_amount: tip,
     // Heure à laquelle la commande sera prête en boutique (ISO UTC ou null).

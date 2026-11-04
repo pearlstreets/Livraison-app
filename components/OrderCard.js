@@ -181,9 +181,16 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
           {!!category && <Text style={styles.category}>· {String(category)}</Text>}
         </View>
         {!!price && (
-          <View style={styles.priceWrap}>
-            <Text style={styles.priceLead}>+</Text>
-            <Text style={styles.priceText}>{price}</Text>
+          <View style={styles.priceCol}>
+            <View style={styles.priceWrap}>
+              <Text style={styles.priceLead}>+</Text>
+              <Text style={styles.priceText}>{price}</Text>
+            </View>
+            {order?.bonusEur > 0 && (
+              <View style={styles.bonusPill}>
+                <Text style={styles.bonusPillText}>{t('bonusIncluded', { montant: fmtDriverPrice(order.bonusEur) })}</Text>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -290,7 +297,10 @@ const styles = StyleSheet.create({
   idPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F4F6F8', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   idPillText: { fontSize: 11, fontWeight: '800', color: '#6B7280', letterSpacing: 0.5 },
   category: { color: BRAND, fontWeight: '700', fontSize: 11, marginLeft: 4 },
+  priceCol: { alignItems: 'flex-end' },
   priceWrap: { flexDirection: 'row', alignItems: 'baseline' },
+  bonusPill: { marginTop: 3, backgroundColor: '#00A86B', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
+  bonusPillText: { color: '#fff', fontSize: 11, fontWeight: '800' },
   priceLead: { color: BRAND, fontSize: 14, fontWeight: '800', marginRight: 1 },
   priceText: { color: BRAND, fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
 
