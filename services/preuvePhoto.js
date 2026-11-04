@@ -10,14 +10,28 @@ import api from './api';
 const CLE_FILE = 'pearl_preuves_photo_en_attente';
 const DELAIS_ESSAIS_MS = [0, 2000, 5000];
 
-// Ouvre la caméra. Renvoie l'URI de la photo, null si annulé,
-// { refus: true } si la caméra n'est pas autorisée.
+// Ouvre la caméra ; caméra refusée ou indisponible (binaire Android sans la
+// permission CAMERA, refus sur iOS) : sélecteur de photos du système, sans
+// permission. Renvoie l'URI de la photo, null si la caméra a été annulée,
+// { indisponible: true } si aucune photo n'a pu être obtenue.
 export async function prendrePhoto() {
-  const perm = await ImagePicker.requestCameraPermissionsAsync();
-  if (!perm.granted) return { refus: true };
-  const res = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 });
-  if (res.canceled || !res.assets?.length) return null;
-  return res.assets[0].uri;
+  try {
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (perm.granted) {
+      const res = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 });
+      if (res.canceled || !res.assets?.length) return null;
+      return res.assets[0].uri;
+    }
+  } catch {
+    // caméra indisponible : repli sur la galerie
+  }
+  try {
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 });
+    if (!res.canceled && res.assets?.length) return res.assets[0].uri;
+  } catch {
+    // galerie indisponible aussi
+  }
+  return { indisponible: true };
 }
 
 async function envoyerUneFois(assignmentId, kind, uri) {
