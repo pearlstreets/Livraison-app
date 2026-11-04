@@ -62,7 +62,7 @@ export default function VersementDetailScreen({ navigation, route }) {
           <View style={s.divider} />
 
           <View style={s.detailRow}>
-            <Text style={s.detailLabel}>{t('netAmount')}</Text>
+            <Text style={s.detailLabel}>{t('payoutGross')}</Text>
             <Text style={s.detailValue}>{v.detail?.netEur != null ? fmtPrice(v.detail.netEur) : (v.detail?.net || v.amount)}</Text>
           </View>
           <View style={s.detailRow}>
@@ -78,6 +78,23 @@ export default function VersementDetailScreen({ navigation, route }) {
               <Text style={s.detailLabel}>{t('instantFeeLabel')}</Text>
               <Text style={s.detailValue}>{v.detail.feeRefunded ? t('feeRefunded') : `- ${fmtPrice(v.detail.feeEur)}`}</Text>
             </View>
+          )}
+          {v.detail?.commissionEur > 0 && (
+            <View style={s.detailRow}>
+              <Text style={s.detailLabel}>{t('payoutCommission')}</Text>
+              <Text style={s.detailValue}>- {fmtPrice(v.detail.commissionEur)}</Text>
+            </View>
+          )}
+          {v.detail?.urssafEur > 0 && (
+            <>
+              <View style={s.detailRow}>
+                <Text style={[s.detailLabel, { flex: 1, paddingRight: 8 }]}>
+                  {t('payoutUrssaf')}{v.detail.urssafRate > 0 ? ` (${(v.detail.urssafRate * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })} %)` : ''}
+                </Text>
+                <Text style={s.detailValue}>- {fmtPrice(v.detail.urssafEur)}</Text>
+              </View>
+              <Text style={s.note}>{t('payoutUrssafNote')}</Text>
+            </>
           )}
           <View style={s.divider} />
 
@@ -116,6 +133,7 @@ const s = StyleSheet.create({
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
   detailLabel: { fontSize: 14, color: '#888' },
   detailValue: { fontSize: 14, fontWeight: '700', color: '#111' },
+  note: { fontSize: 12, color: '#888', lineHeight: 17, marginTop: 2, marginBottom: 4 },
   divider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 6 },
 
   bottomWrap: { paddingTop: 6, paddingHorizontal: 16 },
