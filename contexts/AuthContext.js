@@ -71,6 +71,8 @@ function adaptEarningsWeek(rec) {
       : [0, 0, 0, 0, 0, 0, 0],
     net: Number(rec.net_amount ?? 0),
     tips: Number(rec.tips_amount ?? 0),
+    // Bonus de demande versés (déjà compris dans le total).
+    bonus: Number(rec.bonus_amount ?? 0) || 0,
     courses: Number(rec.total_deliveries ?? 0),
     status: rec.status || '',
   };
@@ -92,6 +94,9 @@ function adaptHistoryEntry(a) {
     // Les chaînes `priceText`/`tip` restent inchangées (aucun consommateur cassé).
     priceEur: Number(a.delivery_fee ?? a.order_price ?? 0),
     tipEur: a.tip_amount != null ? Number(a.tip_amount) : null,
+    // Bonus de demande figé à l'acceptation (versé seulement si livrée).
+    bonus: !isCancelled && Number(a.bonus_demande) > 0 ? `${Number(a.bonus_demande).toFixed(2)} €` : null,
+    bonusEur: !isCancelled && Number(a.bonus_demande) > 0 ? Number(a.bonus_demande) : 0,
     date: fmtDate(ts),
     time: fmtTime(ts),
     status: isCancelled ? 'cancelled' : 'completed',

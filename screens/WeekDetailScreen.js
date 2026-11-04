@@ -116,6 +116,15 @@ export default function WeekDetailScreen({ route, navigation }) {
         <Text style={s.detailValue}>{fmtPrice(week.tips)}</Text>
       </View>
       <View style={s.detailRowDashed} />
+      {week.bonus > 0 && (
+        <>
+          <View style={s.detailRow}>
+            <Text style={s.detailLabel}>{t('demandBonus')}</Text>
+            <Text style={s.detailValue}>{fmtPrice(week.bonus)}</Text>
+          </View>
+          <View style={s.detailRowDashed} />
+        </>
+      )}
       <View style={s.detailRow}>
         <Text style={[s.detailLabel, { fontWeight: '800' }]}>{t('totalEarnings')}</Text>
         <Text style={[s.detailValue, { fontWeight: '900' }]}>{fmtPrice(week.total)}</Text>
