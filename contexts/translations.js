@@ -3,6 +3,14 @@
 
 const translations = {
   fr: {
+    bonusNight: 'nuit',
+    bonusHeat: 'canicule',
+    bonusQuietZone: 'zone calme',
+    bonusLabel: 'bonus',
+    payoutGross: 'Total des courses',
+    payoutCommission: 'Commission Pearl Streets',
+    payoutUrssaf: 'Cotisations URSSAF',
+    payoutUrssafNote: 'Pearl Streets déclare et paie ces cotisations à l\'URSSAF pour vous.',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "Documents à fournir",
     docsSeuilRib: "RIB",
@@ -813,6 +821,14 @@ const translations = {
   },
 
   en: {
+    bonusNight: 'night',
+    bonusHeat: 'heatwave',
+    bonusQuietZone: 'quiet area',
+    bonusLabel: 'bonus',
+    payoutGross: 'Deliveries total',
+    payoutCommission: 'Pearl Streets commission',
+    payoutUrssaf: 'URSSAF contributions',
+    payoutUrssafNote: 'Pearl Streets declares and pays these contributions to URSSAF for you.',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "Documents required",
     docsSeuilRib: "Bank details (RIB)",
@@ -1578,6 +1594,14 @@ const translations = {
   },
 
   es: {
+    bonusNight: 'noche',
+    bonusHeat: 'ola de calor',
+    bonusQuietZone: 'zona tranquila',
+    bonusLabel: 'bonus',
+    payoutGross: 'Total de las entregas',
+    payoutCommission: 'Comisión de Pearl Streets',
+    payoutUrssaf: 'Cotizaciones URSSAF',
+    payoutUrssafNote: 'Pearl Streets declara y paga estas cotizaciones a la URSSAF por usted.',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "Documentos que aportar",
     docsSeuilRib: "Datos bancarios (RIB)",
@@ -2074,6 +2098,14 @@ const translations = {
   },
 
   zh: {
+    bonusNight: '夜间',
+    bonusHeat: '高温',
+    bonusQuietZone: '冷清区域',
+    bonusLabel: '奖励',
+    payoutGross: '配送总额',
+    payoutCommission: 'Pearl Streets 佣金',
+    payoutUrssaf: 'URSSAF 社保费',
+    payoutUrssafNote: 'Pearl Streets 为您向 URSSAF 申报并缴纳这些费用。',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "需提供的文件",
     docsSeuilRib: "银行账户信息 (RIB)",
@@ -2570,6 +2602,14 @@ const translations = {
   },
 
   ar: {
+    bonusNight: 'ليلي',
+    bonusHeat: 'موجة حر',
+    bonusQuietZone: 'منطقة هادئة',
+    bonusLabel: 'مكافأة',
+    payoutGross: 'إجمالي التوصيلات',
+    payoutCommission: 'عمولة Pearl Streets',
+    payoutUrssaf: 'اشتراكات URSSAF',
+    payoutUrssafNote: 'تصرّح Pearl Streets بهذه الاشتراكات وتدفعها إلى URSSAF نيابةً عنكم.',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "المستندات المطلوبة",
     docsSeuilRib: "بيانات الحساب البنكي (RIB)",
@@ -3066,6 +3106,14 @@ const translations = {
   },
 
   de: {
+    bonusNight: 'Nacht',
+    bonusHeat: 'Hitze',
+    bonusQuietZone: 'ruhige Zone',
+    bonusLabel: 'Bonus',
+    payoutGross: 'Summe der Lieferungen',
+    payoutCommission: 'Provision Pearl Streets',
+    payoutUrssaf: 'URSSAF-Beiträge',
+    payoutUrssafNote: 'Pearl Streets meldet und zahlt diese Beiträge für Sie an die URSSAF.',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "Erforderliche Dokumente",
     docsSeuilRib: "Bankverbindung (RIB)",
@@ -3562,6 +3610,14 @@ const translations = {
   },
 
   nl: {
+    bonusNight: 'nacht',
+    bonusHeat: 'hittegolf',
+    bonusQuietZone: 'rustige zone',
+    bonusLabel: 'bonus',
+    payoutGross: 'Totaal bezorgingen',
+    payoutCommission: 'Commissie Pearl Streets',
+    payoutUrssaf: 'URSSAF-bijdragen',
+    payoutUrssafNote: 'Pearl Streets geeft deze bijdragen voor u aan bij de URSSAF en betaalt ze.',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "Te leveren documenten",
     docsSeuilRib: "Bankgegevens (RIB)",
@@ -4058,6 +4114,14 @@ const translations = {
   },
 
   it: {
+    bonusNight: 'notte',
+    bonusHeat: 'caldo',
+    bonusQuietZone: 'zona tranquilla',
+    bonusLabel: 'bonus',
+    payoutGross: 'Totale consegne',
+    payoutCommission: 'Commissione Pearl Streets',
+    payoutUrssaf: 'Contributi URSSAF',
+    payoutUrssafNote: 'Pearl Streets dichiara e versa questi contributi all\'URSSAF per Lei.',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "Documenti da fornire",
     docsSeuilRib: "Coordinate bancarie (RIB)",
@@ -4554,6 +4618,14 @@ const translations = {
   },
 
   pt: {
+    bonusNight: 'noite',
+    bonusHeat: 'onda de calor',
+    bonusQuietZone: 'zona calma',
+    bonusLabel: 'bónus',
+    payoutGross: 'Total das entregas',
+    payoutCommission: 'Comissão Pearl Streets',
+    payoutUrssaf: 'Contribuições URSSAF',
+    payoutUrssafNote: 'A Pearl Streets declara e paga estas contribuições à URSSAF por si.',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "Documentos a fornecer",
     docsSeuilRib: "Dados bancários (RIB)",
@@ -5050,6 +5122,14 @@ const translations = {
   },
 
   ja: {
+    bonusNight: '夜間',
+    bonusHeat: '猛暑',
+    bonusQuietZone: '閑散エリア',
+    bonusLabel: 'ボーナス',
+    payoutGross: '配達の合計',
+    payoutCommission: 'Pearl Streets 手数料',
+    payoutUrssaf: 'URSSAF 社会保険料',
+    payoutUrssafNote: 'Pearl Streets がお客様に代わって URSSAF に申告し、納付いたします。',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "提出が必要な書類",
     docsSeuilRib: "銀行口座情報 (RIB)",
@@ -5546,6 +5626,14 @@ const translations = {
   },
 
   th: {
+    bonusNight: 'กลางคืน',
+    bonusHeat: 'อากาศร้อนจัด',
+    bonusQuietZone: 'พื้นที่เงียบ',
+    bonusLabel: 'โบนัส',
+    payoutGross: 'ยอดรวมการจัดส่ง',
+    payoutCommission: 'ค่าคอมมิชชัน Pearl Streets',
+    payoutUrssaf: 'เงินสมทบ URSSAF',
+    payoutUrssafNote: 'Pearl Streets ยื่นและชำระเงินสมทบนี้ให้ URSSAF แทนคุณ',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "เอกสารที่ต้องส่ง",
     docsSeuilRib: "ข้อมูลบัญชีธนาคาร (RIB)",
@@ -6042,6 +6130,14 @@ const translations = {
   },
 
   sv: {
+    bonusNight: 'natt',
+    bonusHeat: 'värmebölja',
+    bonusQuietZone: 'lugnt område',
+    bonusLabel: 'bonus',
+    payoutGross: 'Summa leveranser',
+    payoutCommission: 'Pearl Streets provision',
+    payoutUrssaf: 'URSSAF-avgifter',
+    payoutUrssafNote: 'Pearl Streets deklarerar och betalar dessa avgifter till URSSAF åt dig.',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "Dokument att lämna in",
     docsSeuilRib: "Bankuppgifter (RIB)",
@@ -6538,6 +6634,14 @@ const translations = {
   },
 
   ru: {
+    bonusNight: 'ночь',
+    bonusHeat: 'жара',
+    bonusQuietZone: 'тихая зона',
+    bonusLabel: 'бонус',
+    payoutGross: 'Сумма доставок',
+    payoutCommission: 'Комиссия Pearl Streets',
+    payoutUrssaf: 'Взносы URSSAF',
+    payoutUrssafNote: 'Pearl Streets декларирует и оплачивает эти взносы в URSSAF за вас.',
     // Documents demandés au seuil de gains (04/11/2026)
     docsSeuilTitre: "Необходимые документы",
     docsSeuilRib: "Банковские реквизиты (RIB)",

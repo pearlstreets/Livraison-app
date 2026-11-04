@@ -3,6 +3,10 @@ import { View, Text, TouchableOpacity, StyleSheet, Linking, Animated, Image } fr
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useLanguage } from '../contexts/LanguageContext';
+
+// Bonus du livreur envoyés par le serveur (`bonus.details[].cle`).
+const BONUS_ICONES = { nuit: 'weather-night', canicule: 'white-balance-sunny', zone_calme: 'map-marker-radius' };
+const BONUS_LIBELLES = { nuit: 'bonusNight', canicule: 'bonusHeat', zone_calme: 'bonusQuietZone' };
 import { formatKm, formatMinutes, formatTime } from '../lib/i18nFormat';
 // Alias : le module a déjà un helper local `fmtPrice` (parse des chaînes
 // pré-formatées) — on importe donc le formateur devise sous un autre nom.
@@ -195,6 +199,20 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
         )}
       </View>
 
+      {/* Bonus compris dans le prix (nuit, canicule, zone calme). */}
+      {Array.isArray(order?.bonus) && order.bonus.length > 0 && (
+        <View style={styles.bonusRow}>
+          {order.bonus.map((b) => (
+            <View key={b.cle} style={styles.bonusChip}>
+              <MaterialCommunityIcons name={BONUS_ICONES[b.cle] || 'star-circle'} size={13} color={BRAND} />
+              <Text style={styles.bonusTxt}>
+                +{fmtDriverPrice(Number(b.montant) || 0)} {t(BONUS_LIBELLES[b.cle] || 'bonusLabel')}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* Restaurant — titre principal */}
       {!!merchant && (
         <TouchableOpacity activeOpacity={0.7} onPress={openDetails} style={styles.merchantRow}>
@@ -301,6 +319,9 @@ const styles = StyleSheet.create({
   priceWrap: { flexDirection: 'row', alignItems: 'baseline' },
   bonusPill: { marginTop: 3, backgroundColor: '#00A86B', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
   bonusPillText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  bonusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  bonusChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFF1E8', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 },
+  bonusTxt: { color: BRAND, fontSize: 12, fontWeight: '800' },
   priceLead: { color: BRAND, fontSize: 14, fontWeight: '800', marginRight: 1 },
   priceText: { color: BRAND, fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
 
