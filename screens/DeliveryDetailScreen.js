@@ -162,6 +162,6 @@ const s = StyleSheet.create({
   helpText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#666' },
 
   closeBtnWrap: { backgroundColor: '#f5f5f5', paddingTop: 4, paddingBottom: 10, paddingHorizontal: 16 },
-  closeBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', borderRadius: 14, paddingVertical: 14 },
+  closeBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 14 },
   closeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

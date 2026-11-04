@@ -86,7 +86,7 @@ export default function WalletScreen({ navigation }) {
           </View>
           <Text style={s.nextPayout}>{t('weeklyAutoPayouts')}</Text>
           <Pressable style={[s.encaissBtn, earn.earningsCents <= 0 && { opacity: 0.4 }]} onPress={startEncaiss}>
-            <Ionicons name="flash" size={16} color="#111" />
+            <Ionicons name="flash" size={16} color={BRAND} />
             <Text style={s.encaissTxt}>{t('cashout')}</Text>
           </Pressable>
         </View>
@@ -207,13 +207,13 @@ export default function WalletScreen({ navigation }) {
 const s = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
-  balanceCard: { backgroundColor: '#111', borderRadius: 20, padding: 20, marginHorizontal: 16, marginBottom: 24 },
-  balanceLabel: { color: '#999', fontSize: 13, fontWeight: '600' },
+  balanceCard: { backgroundColor: BRAND, borderRadius: 20, padding: 20, marginHorizontal: 16, marginBottom: 24 },
+  balanceLabel: { color: '#fff', fontSize: 13, fontWeight: '600' },
   balanceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   balanceAmount: { color: '#fff', fontSize: 36, fontWeight: '900', marginVertical: 4 },
-  nextPayout: { color: '#aaa', fontSize: 13, marginBottom: 12 },
+  nextPayout: { color: '#fff', fontSize: 13, marginBottom: 12 },
   encaissBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: 20, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start' },
-  encaissTxt: { fontWeight: '700', fontSize: 14, color: '#111' },
+  encaissTxt: { fontWeight: '700', fontSize: 14, color: BRAND },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 },
   sectionTitle: { fontSize: 20, fontWeight: '900', color: '#111' },
   seeAll: { fontSize: 14, fontWeight: '600', color: BRAND },
@@ -251,7 +251,7 @@ const s = StyleSheet.create({
   popupBtnCancel: { paddingVertical: 12, alignItems: 'center', width: '100%' },
   popupBtnCancelTxt: { color: '#666', fontWeight: '700', fontSize: 15 },
 
-  showAllBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', borderRadius: 12, marginHorizontal: 16, marginBottom: 24, paddingVertical: 14, marginTop: -2 },
+  showAllBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, marginHorizontal: 16, marginBottom: 24, paddingVertical: 14, marginTop: -2 },
   showAllTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
   // Historique virements
