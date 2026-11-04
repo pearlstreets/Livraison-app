@@ -227,9 +227,9 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
         </Pressable>
       )}
 
-      {/* Fin de l'attente, client absent : sac posé devant la porte, photo
-          obligatoire pour confirmer (seulement si le commerçant autorise le
-          dépôt en lieu sûr, cf. handling_options). */}
+      {/* Fin de l'attente, client absent : « J'ai déposé la commande », sac
+          posé devant la porte, la photo valide la livraison sans code
+          (jamais pour une commande avec alcool, cf. validate_depot_porte). */}
       {remaining === 0 && depotPorte && (
         <View style={ss.preuveCard}>
           <Text style={ss.preuveHint}>{t('bagDoorHint')}</Text>
@@ -663,17 +663,21 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     const fin = () => setStepIndex(STEPS.indexOf('done'));
     if (!assignmentId) { fin(); return; }
     setDepotBusy(true);
-    envoyerPreuve(assignmentId, 'safe_place', uri).catch(() => {});
+    // La photo VALIDE la livraison : elle doit être reçue par le serveur
+    // avant la clôture (sinon le livreur réessaie ou passe par le code).
+    const etat = await envoyerPreuve(assignmentId, 'safe_place', uri, { garder: false });
+    if (etat !== 'envoyee') {
+      setDepotBusy(false);
+      Alert.alert(t('bagDoorFailedTitle'), t('bagDoorPhotoFailed'));
+      return;
+    }
     try {
-      await deliveryService.updateDeliveryStatus(assignmentId, 'delivered', null, {
-        outcome: 'safe_place',
-        note: t('bagDoorNote'),
-      });
+      await deliveryService.updateDeliveryStatus(assignmentId, 'delivered', null, null, true);
       setDepotBusy(false);
       fin();
     } catch {
       setDepotBusy(false);
-      Alert.alert(t('absentRefusedTitle'), t('absentRefusedMsg'));
+      Alert.alert(t('bagDoorFailedTitle'), t('bagDoorRefused'));
     }
   }, [depotBusy, ouvrirCamera, assignmentId, t]);
 
@@ -964,7 +968,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             onMessagePro={proChatDispo ? () => openChat('pro') : undefined}
             onOpenMap={openMap}
             onCall={callClient}
-            depotPorte={canDeliverWhenAbsent && absentPolicy === 'safe_place'}
+            depotPorte={!hasAlcohol}
             onDepotPorte={depotDevantPorte}
             depotBusy={depotBusy}
           />

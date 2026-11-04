@@ -31,7 +31,7 @@ export const deliveryService = {
     return data;
   },
 
-  async updateDeliveryStatus(assignmentId, status, deliveryCode, absent) {
+  async updateDeliveryStatus(assignmentId, status, deliveryCode, absent, deposePorte) {
     // The final `delivered` transition requires the customer's 4-digit code.
     const body = { status };
     if (deliveryCode) body.delivery_code = deliveryCode;
@@ -41,6 +41,9 @@ export const deliveryService = {
       body.absent_outcome = absent.outcome;
       if (absent.note) body.absent_note = absent.note;
     }
+    // Dépôt devant la porte en fin d'attente : la photo déjà reçue par le
+    // serveur vaut remise (le serveur vérifie l'attente et la photo).
+    if (deposePorte) body.depose_porte = true;
     const { data } = await api.patch(`/api/v1/delivery/assignments/${assignmentId}/status/`, body);
     return data;
   },
