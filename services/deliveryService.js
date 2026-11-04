@@ -107,6 +107,14 @@ export const deliveryService = {
     return data;
   },
 
+  // Carte de la demande au lancement : restaurants ouverts autour de la
+  // position (absente : position enregistrée par le serveur).
+  async getCarteDemande(position) {
+    const params = position ? { lat: position.lat, lng: position.lng } : {};
+    const { data } = await api.get('/api/v1/delivery/driver/carte-demande/', { params });
+    return data;
+  },
+
   async getNotifications() {
     const { data } = await api.get('/api/v1/delivery/notifications/');
     return data;
