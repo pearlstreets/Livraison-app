@@ -650,8 +650,10 @@ export default function LoginScreen() {
           {mode === 'choose' && (
             <>
               {[
-                { pro: true, icon: 'storefront', label: t('proPro') || 'Livreur Pro', desc: t('proProDesc') || 'Vous avez un établissement ou un statut professionnel' },
-                { pro: false, icon: 'bicycle', label: t('driverParticulier') || 'Livreur Particulier', desc: t('driverParticulierDesc') || 'Vous souhaitez livrer en complément de revenu' },
+                { pro: true, icon: 'storefront', label: t('proPro') || 'Livreur Pro', desc: t('proProDesc') || 'Vous avez un établissement ou un statut professionnel',
+                  points: [['document-text-outline', t('choixProPoint1')], ['business-outline', t('choixProPoint2')], ['trending-up-outline', t('choixProPoint3')]] },
+                { pro: false, icon: 'bicycle', label: t('driverParticulier') || 'Livreur Particulier', desc: t('driverParticulierDesc') || 'Vous souhaitez livrer en complément de revenu',
+                  points: [['person-outline', t('choixPartPoint1')], ['wallet-outline', t('choixPartPoint2')], ['swap-horizontal-outline', t('choixPartPoint3')]] },
               ].map((opt, i) => (
                 <TouchableOpacity key={i} onPress={() => { setIsPro(opt.pro); setMode('signup'); setStep(1); setError(''); }} style={s.carteChoix}>
                   <View style={{width:52, height:52, borderRadius:16, backgroundColor:'#E0F5EF', alignItems:'center', justifyContent:'center', marginRight:16}}>
@@ -660,6 +662,15 @@ export default function LoginScreen() {
                   <View style={{flex:1}}>
                     <Text style={{fontSize:17, fontWeight:'800', color:'#111'}}>{opt.label}</Text>
                     <Text style={{fontSize:13, color:'#6B7280', marginTop:4}}>{opt.desc}</Text>
+                    {/* Ce que chaque statut implique : documents (pro), plafond de revenus (particulier). */}
+                    <View style={s.points}>
+                      {opt.points.map(([icone, texte], j) => (
+                        <View key={j} style={s.point}>
+                          <Ionicons name={icone} size={15} color={BRAND} style={{marginTop:1}} />
+                          <Text style={s.pointTxt}>{texte}</Text>
+                        </View>
+                      ))}
+                    </View>
                   </View>
                   <Ionicons name={dirIcon('chevron-forward')} size={20} color={BRAND} />
                 </TouchableOpacity>
@@ -984,6 +995,9 @@ const s = StyleSheet.create({
     alignItems: 'center', marginTop: 28, ...ombre,
   },
   btnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  points: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  point: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 },
+  pointTxt: { flex: 1, fontSize: 13, color: '#374151', marginLeft: 8, lineHeight: 18 },
   carteChoix: {
     flexDirection: 'row', alignItems: 'center', padding: 18, marginBottom: 14,
     borderRadius: 18, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff', ...ombre,
