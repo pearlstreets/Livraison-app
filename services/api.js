@@ -38,7 +38,9 @@ try {
 //   2 : écrans IBAN, profil, véhicule et documents qui attendent la réponse du
 //       serveur et affichent son message de refus (409, 403...) ; passage en
 //       ligne annulé, avec le message du serveur, s'il le refuse (4xx).
-const REVISION_JS = 2;
+//   3 : refus 403 « documents_requis » (passage en ligne, acceptation)
+//       reconnu : écran des documents demandés au seuil de gains.
+const REVISION_JS = 3;
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -185,6 +187,13 @@ function createSafeError(error) {
   // Message rédigé par le serveur pour le livreur (refus 4xx seulement, jamais
   // une erreur 5xx ni une page HTML) : affiché tel quel par l'écran appelant.
   safeError.serverMessage = messageServeur(status, error?.response?.data);
+  // Code machine d'un refus 4xx (ex. 403 « documents_requis ») et son corps,
+  // lus par les écrans qui savent les traiter ; jamais affichés tels quels.
+  const corps = error?.response?.data;
+  if (status >= 400 && status < 500 && corps && typeof corps === 'object' && !Array.isArray(corps)) {
+    if (typeof corps.code === 'string') safeError.code = corps.code;
+    safeError.serverData = corps;
+  }
   return safeError;
 }
 

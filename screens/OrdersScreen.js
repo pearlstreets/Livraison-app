@@ -14,6 +14,8 @@ import { formatKm, formatMinutes } from '../lib/i18nFormat';
 import filtersUI from '../constants/filters-ui.json';
 import { deliveryService } from '../services/deliveryService';
 import { envoyerPosition, positionObligatoire } from '../services/positionLivreur';
+import BandeauDocumentsSeuil from '../components/BandeauDocumentsSeuil';
+import { chargerDocumentsSeuil, donneesConnues, ecouter, estDocumentsRequis, signalerDocumentsRequis } from '../services/documentsSeuil';
 
 // Libellé de l'étape en cours d'une course acceptée (index DeliveryFlow).
 const ACTIVE_STEP_KEYS = ['pickup', 'enRoute', 'arrived', 'deliveryCode', 'deliveryDone'];
@@ -240,6 +242,14 @@ export default function OrdersScreen({ navigation, route }) {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, []));
 
+  // Documents demandés par le serveur (seuil de gains) : lus à chaque retour
+  // sur l'accueil, une seule requête, et mis à jour après chaque envoi.
+  const [docsSeuil, setDocsSeuil] = useState(donneesConnues);
+  useEffect(() => ecouter(setDocsSeuil), []);
+  useFocusEffect(useCallback(() => {
+    chargerDocumentsSeuil();
+  }, []));
+
   // --- Poll commandes disponibles toutes les 15s quand En ligne ---
   const pollRef = useRef(null);
 
@@ -362,10 +372,12 @@ export default function OrdersScreen({ navigation, route }) {
       setActive(prev => [{ ...assignment, status: 'active' }, ...prev]);
       setActiveSteps(prev => ({ ...prev, [orderKey(assignment)]: { stepIndex: 0, stepLabel: '' } }));
       navigation.navigate('DeliveryFlow', { order: assignment });
-    } catch {
+    } catch (e) {
       // Remettre la commande dans la liste si l'accept échoue
       setAvailable(prev => [order, ...prev]);
-      Alert.alert(t('error'), t('acceptOrderError'));
+      // Documents demandés par le serveur : pas d'erreur générique.
+      if (estDocumentsRequis(e)) signalerDocumentsRequis(e, t);
+      else Alert.alert(t('error'), t('acceptOrderError'));
     }
   }, [navigation, t]);
 
@@ -429,6 +441,8 @@ export default function OrdersScreen({ navigation, route }) {
           />
         </View>
       </View>
+
+      <BandeauDocumentsSeuil donnees={docsSeuil} onPress={() => navigation.navigate('DocumentsSeuil')} />
 
       {/* Hors ligne message — centered vertically */}
       {!online && active.length === 0 && (
