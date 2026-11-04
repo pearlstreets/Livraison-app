@@ -400,6 +400,7 @@ export default function LoginScreen() {
     const result = await login(loginEmail.trim(), loginPassword);
     setLoading(false);
     if (result && result.ok) { termineRef.current = true; effacerBrouillonConnexion(); return; } // AuthContext sets the user -> navigation happens
+    if (result && result.pending) { setPendingValidation(true); return; }
     loginFailsRef.current += 1;
     if (loginFailsRef.current >= MAX_LOGIN_FAILS) {
       setLoginDisabled(true);
