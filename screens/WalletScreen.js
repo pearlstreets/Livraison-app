@@ -229,7 +229,7 @@ const s = StyleSheet.create({
   pmHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   pmTitle: { fontWeight: '700', fontSize: 15, color: '#111' },
   pmIbanRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f8f8', borderRadius: 12, padding: 12, marginBottom: 12 },
-  pmIbanIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#e6faf5', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  pmIbanIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   pmIbanLabel: { fontSize: 12, color: '#888', fontWeight: '600' },
   pmIbanValue: { fontSize: 15, fontWeight: '800', color: '#111', marginTop: 2, letterSpacing: 0.5 },
   pmEditBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, paddingVertical: 12 },

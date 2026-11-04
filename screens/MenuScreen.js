@@ -332,7 +332,7 @@ const s = StyleSheet.create({
   langModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   langModalTitle: { fontSize: 17, fontWeight: '800', color: '#111' },
   langRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
-  langRowActive: { backgroundColor: '#e6faf5' },
+  langRowActive: { backgroundColor: '#FFF1E8' },
   langFlag: { fontSize: 24, marginRight: 14 },
   langTextRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   langLabel: { fontSize: 16, fontWeight: '600', color: '#111' },

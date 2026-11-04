@@ -86,7 +86,7 @@ export default function DocumentsScreen({ navigation }) {
       </View>
 
       {/* Badge vérification global */}
-      <View style={[s.verifiedBadge, { backgroundColor: isVerified ? '#e6faf5' : '#fff8e1' }]}>
+      <View style={[s.verifiedBadge, { backgroundColor: isVerified ? '#FFF1E8' : '#fff8e1' }]}>
         <Ionicons
           name={isVerified ? 'shield-checkmark' : 'shield-outline'}
           size={20}

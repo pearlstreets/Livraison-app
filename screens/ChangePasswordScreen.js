@@ -167,7 +167,7 @@ const s = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
 
   iconWrap: { alignItems: 'center', marginBottom: 28 },
-  iconCircle: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#e6faf5', alignItems: 'center', justifyContent: 'center' },
+  iconCircle: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center' },
 
   label: { fontWeight: '700', fontSize: 14, color: '#333', marginBottom: 6, marginTop: 16 },
   inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e0e0e0' },

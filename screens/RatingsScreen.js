@@ -123,7 +123,7 @@ const s = StyleSheet.create({
   avgLabel: { color: '#888', fontSize: 14 },
 
   tipsCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, padding: 16, marginBottom: 12 },
-  tipsIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#e6faf5', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  tipsIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   tipsTitle: { fontWeight: '800', fontSize: 15, color: '#111' },
   tipsSub: { fontSize: 12, color: '#888', marginTop: 2 },
   tipsTotal: { fontWeight: '900', fontSize: 20, color: '#aaa' },
