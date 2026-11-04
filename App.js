@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { View, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -56,6 +56,8 @@ import PayoutSetupScreen from './screens/PayoutSetupScreen';
 import WarningsScreen from './screens/WarningsScreen';
 import HeatmapScreen from './screens/HeatmapScreen';
 import MapScreen from './screens/MapScreen';
+import CarteDemandeModal from './components/CarteDemandeModal';
+import { aMontrerAuLancement } from './lib/carteDemande';
 import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import OpportunityDetailScreen from './screens/OpportunityDetailScreen';
 import VersementsListScreen from './screens/VersementsListScreen';
@@ -270,10 +272,18 @@ function Main() {
     return () => abonnement.remove();
   }, [user]);
 
+  // Carte de la demande : une fois par ouverture de l'app, livreur connecté.
+  const [carteDemande, setCarteDemande] = useState(false);
+  useEffect(() => {
+    if (ongletsAffiches && aMontrerAuLancement()) setCarteDemande(true);
+  }, [ongletsAffiches]);
+
   if (bootstrapping) return null;
   if (!user) return DEPLIE ? <AuMilieu><LoginScreen /></AuMilieu> : <LoginScreen />;
 
   return (
+    <>
+    <CarteDemandeModal visible={carteDemande} onClose={() => setCarteDemande(false)} />
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerTitleAlign: 'center',
@@ -306,6 +316,7 @@ function Main() {
         })}
       />
     </Tab.Navigator>
+    </>
   );
 }
 
