@@ -131,7 +131,7 @@ const s = StyleSheet.create({
   header: { fontSize: 28, fontWeight: '900', color: '#111', paddingHorizontal: 16, paddingTop: 16, marginBottom: 12 },
   filtersRow: { paddingHorizontal: 16, marginBottom: 16, flexGrow: 0 },
   filterChip: { backgroundColor: '#e8e8e8', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
-  filterChipActive: { backgroundColor: '#111' },
+  filterChipActive: { backgroundColor: BRAND },
   filterText: { fontWeight: '700', fontSize: 14, color: '#333' },
   filterTextActive: { color: '#fff' },
   empty: { color: '#888', paddingHorizontal: 16, paddingVertical: 20 },
