@@ -3,6 +3,8 @@
 
 const translations = {
   fr: {
+    deliveryOpensSoonTitle: 'La livraison ouvre bientôt',
+    deliveryOpensSoonText: 'Nous vous préviendrons par e-mail dès l\'ouverture. En attendant, vous pouvez simuler une course pour découvrir l\'app.',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'Le support a résolu ce ticket.',
     ticketSystemClosed: 'Le support a fermé ce ticket.',
@@ -645,6 +647,8 @@ const translations = {
   },
 
   en: {
+    deliveryOpensSoonTitle: 'Deliveries open soon',
+    deliveryOpensSoonText: 'We will let you know by email as soon as we open. Meanwhile, you can simulate a delivery to discover the app.',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'Support has resolved this ticket.',
     ticketSystemClosed: 'Support has closed this ticket.',
@@ -1242,6 +1246,8 @@ const translations = {
   },
 
   es: {
+    deliveryOpensSoonTitle: 'Las entregas abren pronto',
+    deliveryOpensSoonText: 'Le avisaremos por correo electrónico en cuanto abramos. Mientras tanto, puede simular una entrega para descubrir la app.',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'El soporte ha resuelto este ticket.',
     ticketSystemClosed: 'El soporte ha cerrado este ticket.',
@@ -1570,6 +1576,8 @@ const translations = {
   },
 
   zh: {
+    deliveryOpensSoonTitle: '配送即将开放',
+    deliveryOpensSoonText: '开放后我们会第一时间通过电子邮件通知您。在此期间，您可以模拟一次配送来了解应用。',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: '客服已解决此工单。',
     ticketSystemClosed: '客服已关闭此工单。',
@@ -1898,6 +1906,8 @@ const translations = {
   },
 
   ar: {
+    deliveryOpensSoonTitle: 'التوصيل سيفتح قريبًا',
+    deliveryOpensSoonText: 'سنخبركم عبر البريد الإلكتروني فور الافتتاح. في الأثناء، يمكنكم محاكاة توصيلة لاكتشاف التطبيق.',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'قام فريق الدعم بحل هذه التذكرة.',
     ticketSystemClosed: 'قام فريق الدعم بإغلاق هذه التذكرة.',
@@ -2226,6 +2236,8 @@ const translations = {
   },
 
   de: {
+    deliveryOpensSoonTitle: 'Die Lieferungen starten bald',
+    deliveryOpensSoonText: 'Wir benachrichtigen Sie per E-Mail, sobald es losgeht. Bis dahin können Sie eine Lieferung simulieren, um die App kennenzulernen.',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'Der Support hat dieses Ticket gelöst.',
     ticketSystemClosed: 'Der Support hat dieses Ticket geschlossen.',
@@ -2554,6 +2566,8 @@ const translations = {
   },
 
   nl: {
+    deliveryOpensSoonTitle: 'Bezorgingen starten binnenkort',
+    deliveryOpensSoonText: 'We laten het u per e-mail weten zodra we openen. Intussen kunt u een bezorging simuleren om de app te ontdekken.',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'De support heeft dit ticket opgelost.',
     ticketSystemClosed: 'De support heeft dit ticket gesloten.',
@@ -2882,6 +2896,8 @@ const translations = {
   },
 
   it: {
+    deliveryOpensSoonTitle: 'Le consegne aprono presto',
+    deliveryOpensSoonText: 'La avviseremo via e-mail non appena apriremo. Nel frattempo, può simulare una consegna per scoprire l\'app.',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'Il supporto ha risolto questo ticket.',
     ticketSystemClosed: 'Il supporto ha chiuso questo ticket.',
@@ -3210,6 +3226,8 @@ const translations = {
   },
 
   pt: {
+    deliveryOpensSoonTitle: 'As entregas abrem em breve',
+    deliveryOpensSoonText: 'Vamos avisá-lo por e-mail assim que abrirmos. Enquanto isso, pode simular uma entrega para conhecer a app.',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'O suporte resolveu este pedido.',
     ticketSystemClosed: 'O suporte fechou este pedido.',
@@ -3538,6 +3556,8 @@ const translations = {
   },
 
   ja: {
+    deliveryOpensSoonTitle: '配達はまもなく開始します',
+    deliveryOpensSoonText: '開始しだい、メールでお知らせいたします。それまでの間、配達をシミュレーションしてアプリをお試しいただけます。',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'サポートがこのチケットを解決しました。',
     ticketSystemClosed: 'サポートがこのチケットを終了しました。',
@@ -3866,6 +3886,8 @@ const translations = {
   },
 
   th: {
+    deliveryOpensSoonTitle: 'การจัดส่งจะเปิดเร็วๆ นี้',
+    deliveryOpensSoonText: 'เราจะแจ้งให้คุณทราบทางอีเมลทันทีที่เปิด ระหว่างนี้คุณสามารถจำลองการจัดส่งเพื่อทำความรู้จักแอปได้',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'ฝ่ายสนับสนุนได้แก้ไขตั๋วนี้แล้ว',
     ticketSystemClosed: 'ฝ่ายสนับสนุนได้ปิดตั๋วนี้แล้ว',
@@ -4194,6 +4216,8 @@ const translations = {
   },
 
   sv: {
+    deliveryOpensSoonTitle: 'Leveranserna öppnar snart',
+    deliveryOpensSoonText: 'Vi meddelar dig via e-post så fort vi öppnar. Under tiden kan du simulera en leverans för att upptäcka appen.',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'Supporten har löst ärendet.',
     ticketSystemClosed: 'Supporten har stängt ärendet.',
@@ -4522,6 +4546,8 @@ const translations = {
   },
 
   ru: {
+    deliveryOpensSoonTitle: 'Доставка скоро откроется',
+    deliveryOpensSoonText: 'Мы сообщим вам по электронной почте, как только откроемся. А пока вы можете смоделировать доставку, чтобы познакомиться с приложением.',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'Служба поддержки решила это обращение.',
     ticketSystemClosed: 'Служба поддержки закрыла это обращение.',
