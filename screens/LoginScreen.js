@@ -176,7 +176,6 @@ export default function LoginScreen() {
   const [postalCode, setPostalCode] = useState('');
   const [city, setCity] = useState('');
   // Zone de livraison : ville ou le livreur veut livrer (pas forcement la sienne).
-  const [deliveryZone, setDeliveryZone] = useState('');
   const [taxId, setTaxId] = useState('');
   const [siret, setSiret] = useState('');
   // Fiche du registre lue depuis le SIRET (France) : remplit le nom,
@@ -219,7 +218,7 @@ export default function LoginScreen() {
   brouillonRef.current = {
     mode, isPro, step, loginEmail, loginPassword, email, password, confirmPwd,
     nom, prenom, pseudo, companyName, phone, address, country, phoneCountry, vehicle,
-    proStatus, dob, postalCode, city, deliveryZone, taxId, siret, iban,
+    proStatus, dob, postalCode, city, taxId, siret, iban,
     docIdFront, docIdBack, docIban, docKbiss, docLicense, docPhoto, docProofAddress, docRcPro, docUrssaf,
   };
   // Connecte ou dossier envoye : rien a garder.
@@ -241,7 +240,7 @@ export default function LoginScreen() {
       fixe(b.companyName, setCompanyName); fixe(b.phone, setPhone); fixe(b.address, setAddress);
       fixe(b.country, setCountry); fixe(b.phoneCountry, setPhoneCountry); fixe(b.vehicle, setVehicle);
       fixe(b.proStatus, setProStatus); fixe(b.dob, setDob); fixe(b.postalCode, setPostalCode);
-      fixe(b.city, setCity); fixe(b.deliveryZone, setDeliveryZone); fixe(b.taxId, setTaxId); fixe(b.siret, setSiret);
+      fixe(b.city, setCity); fixe(b.taxId, setTaxId); fixe(b.siret, setSiret);
       // La case du contrat Stripe n'est jamais rendue cochée.
       fixe(b.iban, setIban);
       fixe(b.docIdFront, setDocIdFront); fixe(b.docIdBack, setDocIdBack); fixe(b.docIban, setDocIban);
@@ -466,7 +465,7 @@ export default function LoginScreen() {
     // Page 2 : tout le reste, puis envoi de la demande.
     const ibanPropre = iban.replace(/\s+/g, '').toUpperCase();
     const siretPropre = siret.replace(/\s+/g, '');
-    if (!prenom.trim() || !nom.trim() || !phone.trim() || !address.trim() || !postalCode.trim() || !city.trim() || !deliveryZone.trim() || (!isPro && !taxId.trim())) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
+    if (!prenom.trim() || !nom.trim() || !phone.trim() || !address.trim() || !postalCode.trim() || !city.trim() || (!isPro && !taxId.trim())) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
     if (isPro && !companyName.trim()) { setError(t('errorEmpty') || 'Veuillez remplir tous les champs'); return; }
     if (!dateValide(dob)) { setError(t('payoutSetupInvalidDob')); return; }
     if (isPro && !/^\d{14}$/.test(siretPropre)) { setError(t('errorSiret')); return; }
@@ -507,7 +506,7 @@ export default function LoginScreen() {
       phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(),
       legal_status: legalStatus,
       legal_address: `${address.trim()}, ${postalCode.trim()} ${city.trim()}`,
-      postal_code: postalCode.trim(), city: city.trim(), delivery_zone: deliveryZone.trim(), birth_date: dateIso(dob), tax_id: isPro ? '' : taxId.trim(),
+      postal_code: postalCode.trim(), city: city.trim(), birth_date: dateIso(dob), tax_id: isPro ? '' : taxId.trim(),
       siret: isPro ? siretPropre : '',
       iban: ibanPropre, iban_holder_name: legalStatus === 'societe' ? companyName.trim() : `${prenom.trim()} ${nom.trim()}`,
       account_token: accountToken,
@@ -839,9 +838,6 @@ export default function LoginScreen() {
                   );
                 })}
               </View>
-              <Text style={p.label}>{t('deliveryZone')}</Text>
-              <TextInput style={p.input} value={deliveryZone} onChangeText={setDeliveryZone} placeholder={t('deliveryZonePlaceholder')} placeholderTextColor="#aaa" autoCapitalize="words" maxLength={120} />
-              <Text style={p.hintSous}>{t('deliveryZoneHint')}</Text>
 
               {section('card-outline', t('sectionPayouts'))}
               <Text style={p.hint}>{t('payoutSetupIntro')}</Text>
