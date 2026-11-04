@@ -5,6 +5,7 @@ import { isValidEmail } from '../utils/validation';
 import secureStorage from '../services/secureStorage';
 import { authService } from '../services/authService';
 import { deliveryService } from '../services/deliveryService';
+import { ouvrirVerification } from '../services/identiteService';
 import { earningsService } from '../services/earningsService';
 import { ticketService } from '../services/ticketService';
 import { enregistrerAppareil } from '../services/pushDirect';
@@ -423,13 +424,29 @@ export function AuthProvider({ children }) {
   const setIsOnline = useCallback((value) => {
     setIsOnlineState((prev) => {
       const next = typeof value === 'function' ? value(prev) : value;
-      authService.updateProfile({ is_online: next })
+      // Passage en ligne par toggle-online : le serveur peut demander d'abord
+      // un selfie vidéo (verification_requise) ou refuser un compte bloqué (423).
+      const appel = next === true
+        ? deliveryService.toggleOnline(true)
+        : authService.updateProfile({ is_online: next });
+      appel
         .then((res) => {
+          if (next !== true) return;
+          if (res?.status === 'verification_requise') {
+            setIsOnlineState(false);
+            ouvrirVerification(res.identite || { bloque: false, blocage: null, verification: res.verification || null });
+            return;
+          }
           // Passage en ligne refusé par le serveur (réponse is_online false) :
           // l'app ne reste pas « en ligne » sans recevoir de courses.
-          if (next === true && res?.data?.is_online === false) setIsOnlineState(false);
+          if (res?.is_online === false || res?.data?.is_online === false) setIsOnlineState(false);
         })
         .catch((e) => {
+          if (next === true && e?.status === 423) {
+            setIsOnlineState(false);
+            ouvrirVerification(e.identite || null);
+            return;
+          }
           // Seul un refus explicite du serveur (4xx hors session expirée) remet
           // hors ligne, avec son message. Réseau coupé : on reste en ligne, la
           // position continue de partir. Le passage hors ligne n'est jamais annulé.
@@ -534,7 +551,7 @@ export function AuthProvider({ children }) {
       getTicketMessages, saveTicketMessages, markTicketRead, getUnreadTicketCount,
       ticketMessages, ticketReadCounts,
       currentEarningsCents, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban,
-      isOnline, setIsOnline, activeDelivery, setActiveDelivery, warningsList, ratingsSummary, refreshRatings,
+      isOnline, setIsOnline, setIsOnlineState, activeDelivery, setActiveDelivery, warningsList, ratingsSummary, refreshRatings,
       readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount,
     }}>
       {children}

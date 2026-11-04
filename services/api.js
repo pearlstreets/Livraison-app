@@ -77,6 +77,8 @@ api.interceptors.request.use(async (config) => {
   // Rate limiting headers : vraie version de l'appli, 1.0.0 si illisible.
   config.headers['X-Client-Version'] = VERSION_APPLI;
   config.headers['X-Client-Revision'] = String(REVISION_JS);
+  // Vérification d'identité par selfie vidéo gérée par cette version.
+  config.headers['X-Pearl-Selfie'] = '1';
 
   // Set timeout based on method, sauf délai explicite de l'appelant (retrait
   // d'appareil à 4 s, vérification SIRET à 9 s) : seul le délai par défaut de
@@ -185,6 +187,13 @@ function createSafeError(error) {
   // Message rédigé par le serveur pour le livreur (refus 4xx seulement, jamais
   // une erreur 5xx ni une page HTML) : affiché tel quel par l'écran appelant.
   safeError.serverMessage = messageServeur(status, error?.response?.data);
+  // Vérification d'identité (423 bloqué, 409 vérification expirée) : état
+  // renvoyé par le serveur, lu par l'écran de vérification.
+  const corps = error?.response?.data;
+  if (corps && typeof corps === 'object') {
+    if (corps.identite && typeof corps.identite === 'object') safeError.identite = corps.identite;
+    if (typeof corps.status === 'string') safeError.statutServeur = corps.status;
+  }
   return safeError;
 }
 

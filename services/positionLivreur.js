@@ -9,6 +9,7 @@ import { Alert, Linking } from 'react-native';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import { deliveryService } from './deliveryService';
+import { signalerIdentiteCourse } from './identiteService';
 
 export const TACHE_POSITION = 'pearl-delivery-position';
 const DISTANCE_MIN_M = 100;
@@ -74,6 +75,8 @@ export async function envoyerPosition(lat, lng, { forcer = false, mocked = false
     const data = await deliveryService.updateLocation(lat, lng, mocked === true);
     if (data && data.is_online === false && quandHorsLigne) quandHorsLigne();
     if (data && data.etas) publierEtas(data.etas);
+    // Vérification d'identité demandée pendant la course : alerte, la course continue.
+    if (data && data.identite) signalerIdentiteCourse(data.identite);
     return true;
   } catch {
     // Réseau ou serveur indisponible : on retentera à la prochaine mesure.

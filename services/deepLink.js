@@ -59,6 +59,9 @@ export function resolveRoute(route, data) {
       return { screen: 'Profil', params: { screen: 'TicketsList' } };
     case 'Inbox':
       return { screen: 'MessagesTab' };
+    case 'VerificationIdentite':
+      // Selfie vidéo demandé (passage en ligne, signalement, contrôle).
+      return { screen: 'Accueil', params: { screen: 'VerificationIdentite' } };
     default:
       return ACCUEIL;
   }

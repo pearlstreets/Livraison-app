@@ -14,6 +14,7 @@ import { formatKm, formatMinutes } from '../lib/i18nFormat';
 import filtersUI from '../constants/filters-ui.json';
 import { deliveryService } from '../services/deliveryService';
 import { envoyerPosition, positionObligatoire } from '../services/positionLivreur';
+import { ouvrirVerification } from '../services/identiteService';
 
 // Libellé de l'étape en cours d'une course acceptée (index DeliveryFlow).
 const ACTIVE_STEP_KEYS = ['pickup', 'enRoute', 'arrived', 'deliveryCode', 'deliveryDone'];
@@ -362,9 +363,17 @@ export default function OrdersScreen({ navigation, route }) {
       setActive(prev => [{ ...assignment, status: 'active' }, ...prev]);
       setActiveSteps(prev => ({ ...prev, [orderKey(assignment)]: { stepIndex: 0, stepLabel: '' } }));
       navigation.navigate('DeliveryFlow', { order: assignment });
-    } catch {
+    } catch (e) {
       // Remettre la commande dans la liste si l'accept échoue
       setAvailable(prev => [order, ...prev]);
+      // Vérification d'identité en attente ou compte bloqué : plus de nouvelle course.
+      if (e?.status === 423) {
+        Alert.alert(t('idvTitre'), e.serverMessage || t('idvAcceptRefuse'), [
+          { text: t('cancel'), style: 'cancel' },
+          { text: t('idvOuvrir'), onPress: () => ouvrirVerification(e.identite || null) },
+        ]);
+        return;
+      }
       Alert.alert(t('error'), t('acceptOrderError'));
     }
   }, [navigation, t]);
