@@ -12,6 +12,7 @@ import { sanitizeInput, createRateLimiter } from '../utils/validation';
 import { deliveryService } from '../services/deliveryService';
 import { ticketService } from '../services/ticketService';
 import { etasConnues, surEtas } from '../services/positionLivreur';
+import { prendrePhoto, envoyerPreuve, renvoyerPreuvesEnAttente } from '../services/preuvePhoto';
 
 // Mapping étape QUITTÉE → statut(s) backend qui reflètent la NOUVELLE réalité.
 // Avant : le statut était décalé d'un cran (in_transit envoyé au moment où le
@@ -62,8 +63,12 @@ const STEP_LABEL_KEYS = {
   done: 'deliveryDone',
 };
 
-function SlideButton({ label, onComplete, color = BRAND }) {
+function SlideButton({ label, onComplete, color: couleur = BRAND, disabled = false }) {
+  const color = disabled ? '#bdbdbd' : couleur;
   const pan = useRef(new Animated.Value(0)).current;
+  // Glissière verrouillée (preuve de retrait manquante) : geste ignoré.
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
   // En arabe, la piste est inversée par la mise en page, mais ni le geste ni
   // la translation : on les retourne pour glisser de droite à gauche.
   const translateX = useRef(isRTL ? Animated.multiply(pan, -1) : pan).current;
@@ -79,15 +84,15 @@ function SlideButton({ label, onComplete, color = BRAND }) {
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponder: () => !disabledRef.current,
+      onMoveShouldSetPanResponder: () => !disabledRef.current,
       onPanResponderMove: (_, gs) => {
-        if (completed.current) return;
+        if (completed.current || disabledRef.current) return;
         const x = Math.max(0, Math.min(isRTL ? -gs.dx : gs.dx, maxSlide));
         pan.setValue(x);
       },
       onPanResponderRelease: (_, gs) => {
-        if (completed.current) return;
+        if (completed.current || disabledRef.current) return;
         if ((isRTL ? -gs.dx : gs.dx) > maxSlide * 0.7) {
           completed.current = true;
           Animated.timing(pan, { toValue: maxSlide, duration: 150, useNativeDriver: false }).start(() => {
@@ -119,7 +124,7 @@ const WAIT_SECONDS = 7 * 60; // 7 minutes
 
 const CALL_DEADLINE = 4 * 60; // 4 minutes — must call before this
 
-function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showCallPopup, setShowCallPopup, onMessage, onMessagePro, onOpenMap, onCall }) {
+function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showCallPopup, setShowCallPopup, onMessage, onMessagePro, onOpenMap, onCall, depotPorte, onDepotPorte, depotBusy }) {
   const { t } = useLanguage();
   const [remaining, setRemaining] = useState(WAIT_SECONDS);
   const timerRef = useRef(null);
@@ -220,6 +225,19 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
           <Ionicons name="storefront-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
           <Text style={[ss.callBtnTxt, { fontSize: 14 }]}>{t('writeToShop')}</Text>
         </Pressable>
+      )}
+
+      {/* Fin de l'attente, client absent : sac posé devant la porte, photo
+          obligatoire pour confirmer (seulement si le commerçant autorise le
+          dépôt en lieu sûr, cf. handling_options). */}
+      {remaining === 0 && depotPorte && (
+        <View style={ss.preuveCard}>
+          <Text style={ss.preuveHint}>{t('bagDoorHint')}</Text>
+          <Pressable style={[ss.preuveBtn, depotBusy && { opacity: 0.5 }]} onPress={onDepotPorte} disabled={depotBusy}>
+            <Ionicons name="camera" size={18} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={ss.preuveBtnTxt}>{t('bagDoorBtn')}</Text>
+          </Pressable>
+        </View>
       )}
 
       {/* Call popup overlay */}
@@ -356,6 +374,10 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const [absentOpen, setAbsentOpen] = useState(false);
   const [absentNote, setAbsentNote] = useState('');
   const [absentBusy, setAbsentBusy] = useState(false);
+  // Preuve de retrait : photo du ticket ou du reçu, exigée avant « Commande récupérée ».
+  const [ticketPhoto, setTicketPhoto] = useState(null);
+  const [ticketEnvoi, setTicketEnvoi] = useState(null); // 'envoi' | 'envoyee' | 'en_attente' | 'refusee'
+  const [depotBusy, setDepotBusy] = useState(false);
   const step = STEPS[stepIndex];
 
   const restaurant = order.restaurant || order.merchantName || t('restaurant');
@@ -597,6 +619,64 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       });
   }, [assignmentId, absentBusy, absentNote, absentPolicy, nextStep, t]);
 
+  // Ouvre la caméra ; caméra refusée : renvoi vers les réglages.
+  const ouvrirCamera = useCallback(async () => {
+    try {
+      const res = await prendrePhoto();
+      if (res && res.refus) {
+        Alert.alert(t('cameraDeniedTitle'), t('cameraDeniedMsg'), [
+          { text: t('cancel'), style: 'cancel' },
+          { text: t('openSettings'), onPress: () => Linking.openSettings().catch(() => {}) },
+        ]);
+        return null;
+      }
+      return typeof res === 'string' ? res : null;
+    } catch {
+      Alert.alert(t('cameraDeniedTitle'), t('cameraDeniedMsg'));
+      return null;
+    }
+  }, [t]);
+
+  // Preuves gardées sur le téléphone lors d'une course précédente : renvoi.
+  useEffect(() => {
+    if (!order._isMock) renvoyerPreuvesEnAttente().catch(() => {});
+  }, [order._isMock]);
+
+  // Photo du ticket au retrait. Débloque aussitôt la glissière ; l'envoi part
+  // en arrière-plan (course d'essai : aucun envoi).
+  const photographierTicket = useCallback(async () => {
+    const uri = await ouvrirCamera();
+    if (!uri) return;
+    setTicketPhoto(uri);
+    if (!assignmentId) { setTicketEnvoi(null); return; }
+    setTicketEnvoi('envoi');
+    const etat = await envoyerPreuve(assignmentId, 'pickup', uri);
+    setTicketEnvoi(etat);
+  }, [ouvrirCamera, assignmentId]);
+
+  // Fin de l'attente, client absent : sac posé devant la porte, photo, puis
+  // remise sans code (dépôt en lieu sûr, revalidé par le serveur).
+  const depotDevantPorte = useCallback(async () => {
+    if (depotBusy) return;
+    const uri = await ouvrirCamera();
+    if (!uri) return;
+    const fin = () => setStepIndex(STEPS.indexOf('done'));
+    if (!assignmentId) { fin(); return; }
+    setDepotBusy(true);
+    envoyerPreuve(assignmentId, 'safe_place', uri).catch(() => {});
+    try {
+      await deliveryService.updateDeliveryStatus(assignmentId, 'delivered', null, {
+        outcome: 'safe_place',
+        note: t('bagDoorNote'),
+      });
+      setDepotBusy(false);
+      fin();
+    } catch {
+      setDepotBusy(false);
+      Alert.alert(t('absentRefusedTitle'), t('absentRefusedMsg'));
+    }
+  }, [depotBusy, ouvrirCamera, assignmentId, t]);
+
   // Progress indicator (memoized)
   const progress = useMemo(() => stepIndex / (STEPS.length - 1), [stepIndex]);
 
@@ -739,6 +819,35 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <Ionicons name="navigate" size={16} color="#fff" style={{ marginRight: 6 }} />
               <Text style={ss.mapBtnTxt}>{t('itinerary')}</Text>
             </Pressable>
+
+            {/* Preuve de retrait : photo du ticket ou du reçu (QR compris). */}
+            {ticketPhoto ? (
+              <View style={[ss.preuveCard, ss.preuveCardOk]}>
+                <Image source={{ uri: ticketPhoto }} style={ss.preuveThumb} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="checkmark-circle" size={16} color={BRAND} style={{ marginRight: 6 }} />
+                    <Text style={ss.preuveOkTitle}>{t('ticketPhotoDone')}</Text>
+                  </View>
+                  {!!ticketEnvoi && (
+                    <Text style={ss.preuveEtat}>
+                      {ticketEnvoi === 'envoyee' ? t('proofSent') : ticketEnvoi === 'envoi' ? t('proofSending') : t('proofQueued')}
+                    </Text>
+                  )}
+                  <Pressable onPress={photographierTicket} hitSlop={8}>
+                    <Text style={ss.preuveRetake}>{t('ticketPhotoRetake')}</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : (
+              <View style={ss.preuveCard}>
+                <Text style={ss.preuveHint}>{t('ticketPhotoHint')}</Text>
+                <Pressable style={ss.preuveBtn} onPress={photographierTicket}>
+                  <Ionicons name="camera" size={18} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={ss.preuveBtnTxt}>{t('ticketPhotoBtn')}</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         )}
 
@@ -855,6 +964,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             onMessagePro={proChatDispo ? () => openChat('pro') : undefined}
             onOpenMap={openMap}
             onCall={callClient}
+            depotPorte={canDeliverWhenAbsent && absentPolicy === 'safe_place'}
+            onDepotPorte={depotDevantPorte}
+            depotBusy={depotBusy}
           />
         )}
 
@@ -1009,7 +1121,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       {/* Fixed bottom slide button + cancel */}
       {(step === 'pickup' || step === 'enroute' || step === 'arrived') && (
         <View style={ss.bottomBar}>
-          {step === 'pickup' && <SlideButton label={t('orderPickedUp')} onComplete={() => slideRateLimiter(nextStep)} />}
+          {step === 'pickup' && !ticketPhoto && <Text style={ss.preuveLock}>{t('ticketPhotoRequired')}</Text>}
+          {step === 'pickup' && <SlideButton label={t('orderPickedUp')} disabled={!ticketPhoto} onComplete={() => { if (ticketPhoto) slideRateLimiter(nextStep); }} />}
           {step === 'enroute' && <SlideButton label={t('iArrived')} onComplete={() => slideRateLimiter(nextStep)} color="#2196F3" />}
           {step === 'arrived' && <SlideButton label={t('orderGiven')} onComplete={() => slideRateLimiter(nextStep)} color="#f5a623" />}
           <Pressable style={ss.cancelBtn} onPress={() => setShowCancelPopup(true)}>
@@ -1503,6 +1616,17 @@ const ss = StyleSheet.create({
   absentTitle: { fontSize: 18, fontWeight: '800', color: '#111', marginBottom: 6 },
   absentHint: { fontSize: 13, color: '#666', lineHeight: 18, marginBottom: 14 },
   absentInput: { backgroundColor: '#f5f5f5', borderRadius: 12, padding: 14, fontSize: 15, color: '#111', minHeight: 80, textAlignVertical: 'top', marginBottom: 14 },
+  // Preuve photo (ticket au retrait, sac devant la porte)
+  preuveCard: { backgroundColor: '#fff', borderRadius: 14, padding: 12, marginTop: 10, borderWidth: 1, borderColor: BRAND + '40' },
+  preuveCardOk: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND + '10', borderColor: BRAND + '30' },
+  preuveHint: { fontSize: 13, color: '#333', lineHeight: 18, marginBottom: 10 },
+  preuveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 12 },
+  preuveBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  preuveThumb: { width: 56, height: 56, borderRadius: 10, backgroundColor: '#f0f0f0' },
+  preuveOkTitle: { fontSize: 14, fontWeight: '700', color: '#111' },
+  preuveEtat: { fontSize: 12, color: '#666', marginTop: 2 },
+  preuveRetake: { fontSize: 13, fontWeight: '700', color: BRAND, marginTop: 4 },
+  preuveLock: { fontSize: 13, color: '#666', textAlign: 'center', marginBottom: 8 },
   absentBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
   absentBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
   absentCancel: { paddingVertical: 14, alignItems: 'center' },
