@@ -178,7 +178,7 @@ function makeMockOrder() {
   return {
     _isMock: true,
     _uid: `mock-${Date.now()}-${seq}`,
-    id: `MOCK-${String(seq).padStart(4, '0')}`,
+    id: `ESSAI-${String(seq).padStart(4, '0')}`,
     _assignmentId: `mock-asg-${seq}`,
     order_id: `mock-${seq}`,
     restaurant: pick(MOCK_RESTAURANTS),
@@ -214,6 +214,8 @@ const orderKey = (o) => o?._uid || o?.id || o?.code;
 // générateur de commande de test pour que le parcours complet reste
 // vérifiable, sans exposer le bouton aux vrais livreurs.
 const REVIEW_ACCOUNT_EMAIL = 'king@gmail.com';
+// Livraison pas encore ouverte : bouton Simuler et message d'ouverture pour tous.
+const SIMULATION_POUR_TOUS = true;
 
 export default function OrdersScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -269,7 +271,9 @@ export default function OrdersScreen({ navigation, route }) {
     setMockOrders(prev => [makeMockOrder(), ...prev]);
   }, []);
 
-  const canSimulate = __DEV__
+  // Avant l'ouverture de la livraison : tous les livreurs peuvent simuler une
+  // course pour découvrir l'app (aucun appel au serveur).
+  const canSimulate = SIMULATION_POUR_TOUS || __DEV__
     || String(user?.email || '').trim().toLowerCase() === REVIEW_ACCOUNT_EMAIL;
 
   const displayedAvailable = useMemo(() => [...mockOrders, ...available], [mockOrders, available]);
@@ -500,6 +504,13 @@ export default function OrdersScreen({ navigation, route }) {
             )}
           </View>
           <View style={styles.cardsBlock}>
+            {SIMULATION_POUR_TOUS && available.length === 0 && (
+              <View style={styles.opensSoonCard}>
+                <Ionicons name="time-outline" size={28} color="#FF6A13" />
+                <Text style={styles.opensSoonTitle}>{t('deliveryOpensSoonTitle')}</Text>
+                <Text style={styles.opensSoonText}>{t('deliveryOpensSoonText')}</Text>
+              </View>
+            )}
             {displayedAvailable.length > 0 ? (
               displayedAvailable.map((order, i) => (
                 <View key={keyOf(order, i)} style={styles.cardWrap}>
@@ -511,7 +522,7 @@ export default function OrdersScreen({ navigation, route }) {
                   />
                 </View>
               ))
-            ) : (
+            ) : SIMULATION_POUR_TOUS ? null : (
               <Text style={styles.emptyText}>{t('noOrders')}</Text>
             )}
           </View>
@@ -549,6 +560,9 @@ const styles = StyleSheet.create({
   sectionTitleGap: {  marginTop: 8  },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   mockBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FF6A13', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
+  opensSoonCard: { backgroundColor: '#fff', borderRadius: 16, paddingVertical: 24, paddingHorizontal: 20, alignItems: 'center', marginBottom: 12 },
+  opensSoonTitle: { fontSize: 17, fontWeight: '700', color: '#1c1c1e', marginTop: 10, textAlign: 'center' },
+  opensSoonText: { fontSize: 14, color: '#6b6b70', marginTop: 6, textAlign: 'center', lineHeight: 20 },
   mockBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
   cardsBlock: {  marginBottom: 0  },
   cardWrap: { marginBottom: 8 },

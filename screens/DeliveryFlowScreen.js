@@ -368,7 +368,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const distance = order.distanceText || '-';
   const orderId = order.orderNumber || order.id || order.code || t('order');
   // ID de l'assignment backend (pour updateDeliveryStatus / cancelDelivery)
-  const assignmentId = order._assignmentId || order.id || null;
+  // Course simulée : aucun appel au serveur, chaque étape passe aussitôt.
+  const assignmentId = order._isMock ? null : (order._assignmentId || order.id || null);
 
   // Fil boutique : absent (404) pour une course sans commande marchand.
   useEffect(() => {
@@ -1036,6 +1037,11 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             )}
             <Pressable style={ss.cancelConfirmBtn} onPress={async () => {
               setShowCancelPopup(false);
+              // Course simulée : annulation sans avertissement ni compteur.
+              if (order._isMock) {
+                navigation.navigate('OrdersMain', { cancelledOrder: { ...order, status: 'cancelled' } });
+                return;
+              }
               // Le BACKEND fait autorité sur la règle d'annulation (reste,
               // avertissement). On lit sa réponse ; repli local si offline.
               let remaining = null;
