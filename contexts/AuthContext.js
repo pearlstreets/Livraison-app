@@ -8,6 +8,7 @@ import { deliveryService } from '../services/deliveryService';
 import { earningsService } from '../services/earningsService';
 import { ticketService } from '../services/ticketService';
 import { enregistrerAppareil } from '../services/pushDirect';
+import { estDocumentsRequis, signalerDocumentsRequis } from '../services/documentsSeuil';
 
 import { formatDayMonth, formatTime, formatKm } from '../lib/i18nFormat';
 
@@ -437,6 +438,12 @@ export function AuthProvider({ children }) {
           if (next !== true || !statut || statut < 400 || statut >= 500 || statut === 401 || statut === 429) return;
           setIsOnlineState(false);
           const t = tRef.current;
+          // Documents demandés par le serveur (seuil de gains) : hors ligne,
+          // sans erreur générique, avec l'accès à l'écran des documents.
+          if (t && estDocumentsRequis(e)) {
+            signalerDocumentsRequis(e, t);
+            return;
+          }
           Alert.alert(t ? t('error') : '', e.serverMessage || (t ? t('genericError') : ''));
         });
       return next;
