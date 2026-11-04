@@ -45,6 +45,7 @@ import HelpScreen from './screens/HelpScreen';
 import HelpDetailScreen from './screens/HelpDetailScreen';
 import ContactSupportScreen from './screens/ContactSupportScreen';
 import DocumentDetailScreen from './screens/DocumentDetailScreen';
+import DocumentsSeuilScreen from './screens/DocumentsSeuilScreen';
 import DeliveryFlowScreen from './screens/DeliveryFlowScreen';
 import DeliveryHistoryScreen from './screens/DeliveryHistoryScreen';
 import DeliveryDetailScreen from './screens/DeliveryDetailScreen';
@@ -173,6 +174,7 @@ function HomeStackScreen() {
       <HomeStack.Screen name="Heatmap" component={HeatmapScreen} />
       <HomeStack.Screen name="RouteMap" component={MapScreen} />
       <HomeStack.Screen name="VerificationIdentite" component={VerificationIdentiteScreen} />
+      <HomeStack.Screen name="DocumentsSeuil" component={DocumentsSeuilScreen} />
     </HomeStack.Navigator>
   );
 }
@@ -206,6 +208,7 @@ function MenuStackScreen() {
       <MenuStack.Screen name="HelpDetail" component={HelpDetailScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="ContactSupport" component={ContactSupportScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="DocumentDetail" component={DocumentDetailScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="DocumentsSeuil" component={DocumentsSeuilScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="DeliveryHistory" component={DeliveryHistoryScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="DeliveryDetail" component={DeliveryDetailScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="TicketChat" component={TicketChatScreen} options={{ headerShown: false }} />
@@ -299,7 +302,7 @@ function Main() {
         detachInactiveScreens: true,
         tabBarIcon: ({ color, size }) => {
           if (route.name === 'Accueil') return <Ionicons name="home-outline" size={size} color={color} />;
-          if (route.name === 'MessagesTab') return <Ionicons name="mail-outline" size={size} color={color} />;
+          if (route.name === 'MessagesTab') return <Ionicons name="notifications-outline" size={size} color={color} />;
           if (route.name === 'Revenus') return <Ionicons name="wallet-outline" size={size} color={color} />;
           if (route.name === 'Profil') return <Ionicons name="person-outline" size={size} color={color} />;
           return null;

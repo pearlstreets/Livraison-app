@@ -19,7 +19,11 @@ function idTicket(valeur) {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+const DOCUMENTS_SEUIL = { screen: 'Profil', params: { screen: 'DocumentsSeuil' } };
+
 export function resolveRoute(route, data) {
+  // Documents demandés au seuil de gains : `type` seul suffit.
+  if (data && data.type === 'documents_seuil') return DOCUMENTS_SEUIL;
   if (!route || typeof route !== 'string') return ACCUEIL;
   const [screen, segment] = route.replace(/^\/+/, '').split('/');
   const ticketId = idTicket(segment) || idTicket(data && data.ticket_id);
@@ -47,6 +51,9 @@ export function resolveRoute(route, data) {
     case 'Documents':
       // Document qui expire : l'écran où on le remplace.
       return { screen: 'Profil', params: { screen: 'Documents' } };
+    case 'DocumentsSeuil':
+      // Documents demandés au seuil de gains (RIB, identité, domicile).
+      return DOCUMENTS_SEUIL;
     case 'DeliveryHistory':
       // Jalon de livraisons, remerciement après course.
       return { screen: 'Profil', params: { screen: 'DeliveryHistory' } };

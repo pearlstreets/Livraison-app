@@ -39,7 +39,9 @@ try {
 //   2 : écrans IBAN, profil, véhicule et documents qui attendent la réponse du
 //       serveur et affichent son message de refus (409, 403...) ; passage en
 //       ligne annulé, avec le message du serveur, s'il le refuse (4xx).
-const REVISION_JS = 2;
+//   3 : refus 403 « documents_requis » (passage en ligne, acceptation)
+//       reconnu : écran des documents demandés au seuil de gains.
+const REVISION_JS = 3;
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -189,13 +191,21 @@ function createSafeError(error) {
   // Message rédigé par le serveur pour le livreur (refus 4xx seulement, jamais
   // une erreur 5xx ni une page HTML) : affiché tel quel par l'écran appelant.
   safeError.serverMessage = messageServeur(status, error?.response?.data);
+  const corps = error?.response?.data;
   // Vérification d'identité (423 bloqué, 409 vérification expirée) : état
   // renvoyé par le serveur, lu par l'écran de vérification.
-  const corps = error?.response?.data;
   if (corps && typeof corps === 'object') {
     if (corps.identite && typeof corps.identite === 'object') safeError.identite = corps.identite;
     if (typeof corps.status === 'string') safeError.statutServeur = corps.status;
   }
+  // Code machine d'un refus 4xx (ex. 403 « documents_requis ») et son corps,
+  // lus par les écrans qui savent les traiter ; jamais affichés tels quels.
+  if (status >= 400 && status < 500 && corps && typeof corps === 'object' && !Array.isArray(corps)) {
+    if (typeof corps.code === 'string') safeError.code = corps.code;
+    safeError.serverData = corps;
+  }
+  // Code court d'un 502 du virement instantané (echec_virement), lu par l'écran Gains.
+  if (!safeError.code && status >= 500 && typeof corps?.code === 'string') safeError.code = corps.code;
   return safeError;
 }
 

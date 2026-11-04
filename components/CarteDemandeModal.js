@@ -1,19 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mapsAvailable } from '../lib/maps';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { deliveryService } from '../services/deliveryService';
 import {
-  CLES_NIVEAU, COULEURS, NIVEAUX_FORTS, lienGoogleMaps, lienWaze, lieuParDefaut, lieuxValides, zoneDuLieu,
+  CLES_NIVEAU, COULEURS, NIVEAUX_FORTS, delaiRafraichissementMs, lienApplePlans, lienGoogleMaps, lienWaze,
+  lieuParDefaut, lieuxValides, zoneDuLieu,
 } from '../lib/carteDemande';
 
 const BRAND = '#FF6A13';
+const VERT_BONUS = '#00A86B';
 const DELTA = 0.06;
-const RAFRAICHIR_MS = 10 * 60 * 1000;
 
 // Dernière position connue, sans jamais ouvrir la fenêtre d'autorisation.
 async function positionConnue() {
@@ -30,16 +32,22 @@ async function positionConnue() {
 
 // Carte de la demande en fenêtre plein écran, ouverte au lancement de l'app :
 // restaurants ouverts, zones de demande, position du livreur, panneau du bas
-// avec le lieu choisi et le bouton Naviguer. La croix la ferme.
+// avec le lieu choisi et le bouton Naviguer. La croix la ferme. En zone de
+// demande forte, pastille verte du bonus par course (figé à l'acceptation).
+// Liste relue au rythme demandé par le serveur (1 minute) : une boutique qui
+// ferme ou passe hors ligne disparaît vite ; niveaux recalculés toutes les
+// 10 minutes côté serveur.
 export default function CarteDemandeModal({ visible, onClose }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
+  const { fmtPrice } = useCurrency();
   const mapRef = useRef(null);
   const [lieux, setLieux] = useState([]);
   const [forteDemande, setForteDemande] = useState(0);
   const [choisiId, setChoisiId] = useState(null);
   const [centre, setCentre] = useState(null);
   const [charge, setCharge] = useState(false);
+  const [delaiMs, setDelaiMs] = useState(60 * 1000);
 
   const charger = useCallback(async () => {
     const pos = await positionConnue();
@@ -48,6 +56,7 @@ export default function CarteDemandeModal({ visible, onClose }) {
       const data = res?.data || {};
       const liste = lieuxValides(data.lieux);
       setLieux(liste);
+      setDelaiMs(delaiRafraichissementMs(data.rafraichir_dans_s));
       setForteDemande(Number(data.forte_demande) || liste.filter((l) => NIVEAUX_FORTS.includes(l.niveau)).length);
       setChoisiId((id) => (liste.some((l) => l.id === id) ? id : lieuParDefaut(liste)?.id ?? null));
       const c = pos || data.position || (liste[0] ? { lat: liste[0].lat, lng: liste[0].lng } : null);
@@ -62,9 +71,9 @@ export default function CarteDemandeModal({ visible, onClose }) {
   useEffect(() => {
     if (!visible) return undefined;
     charger();
-    const minuteur = setInterval(charger, RAFRAICHIR_MS);
+    const minuteur = setInterval(charger, delaiMs);
     return () => clearInterval(minuteur);
-  }, [visible, charger]);
+  }, [visible, charger, delaiMs]);
 
   const choisi = useMemo(() => lieux.find((l) => l.id === choisiId) || null, [lieux, choisiId]);
   const zones = useMemo(() => lieux.map(zoneDuLieu).filter(Boolean), [lieux]);
@@ -80,6 +89,7 @@ export default function CarteDemandeModal({ visible, onClose }) {
     if (!choisi) return;
     const ouvrir = (url) => Linking.openURL(url).catch(() => {});
     Alert.alert(t('openRoute'), choisi.nom || '', [
+      ...(Platform.OS === 'ios' ? [{ text: t('navAppleMaps'), onPress: () => ouvrir(lienApplePlans(choisi)) }] : []),
       { text: 'Google Maps', onPress: () => ouvrir(lienGoogleMaps(choisi)) },
       { text: 'Waze', onPress: () => ouvrir(lienWaze(choisi)) },
       { text: t('carteDemandCancel'), style: 'cancel' },
@@ -123,6 +133,11 @@ export default function CarteDemandeModal({ visible, onClose }) {
                     <Ionicons name="restaurant" size={16} color={l.id === choisiId ? '#fff' : '#1c1c1e'} />
                   </View>
                   <Text style={s.repereNom} numberOfLines={1}>{l.nom}</Text>
+                  {l.bonus > 0 && (
+                    <View style={s.repereBonus}>
+                      <Text style={s.repereBonusTxt}>+{fmtPrice(l.bonus)}</Text>
+                    </View>
+                  )}
                 </View>
               </Marker>
             ))}
@@ -144,9 +159,17 @@ export default function CarteDemandeModal({ visible, onClose }) {
         <View style={[s.panneau, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           {choisi ? (
             <>
-              <View style={[s.pastille, { backgroundColor: couleur.pastille }]}>
-                <Ionicons name="flame" size={14} color="#fff" />
-                <Text style={s.pastilleTxt}>{t(cles.titre)}</Text>
+              <View style={s.pastilles}>
+                <View style={[s.pastille, { backgroundColor: couleur.pastille }]}>
+                  <Ionicons name="flame" size={14} color="#fff" />
+                  <Text style={s.pastilleTxt}>{t(cles.titre)}</Text>
+                </View>
+                {choisi.bonus > 0 && (
+                  <View style={[s.pastille, { backgroundColor: VERT_BONUS }]}>
+                    <Ionicons name="trending-up" size={14} color="#fff" />
+                    <Text style={s.pastilleTxt}>{t('carteDemandBonus', { montant: fmtPrice(choisi.bonus) })}</Text>
+                  </View>
+                )}
               </View>
               <Text style={s.nom} numberOfLines={1}>{choisi.nom}</Text>
               {Number.isFinite(choisi.minutes) && (
@@ -154,6 +177,7 @@ export default function CarteDemandeModal({ visible, onClose }) {
               )}
               <Text style={s.proches}>{libelleProches}</Text>
               <Text style={s.phrase}>{t(cles.phrase)} {t('carteDemandUpdatedEvery10')}</Text>
+              {choisi.bonus > 0 && <Text style={s.phrase}>{t('carteDemandBonusText')}</Text>}
               <Pressable style={s.naviguer} onPress={naviguer} accessibilityRole="button">
                 <Ionicons name="navigate" size={18} color="#fff" />
                 <Text style={s.naviguerTxt}>{t('carteDemandNavigate')}</Text>
@@ -191,6 +215,11 @@ const s = StyleSheet.create({
     borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingTop: 18,
     shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: -2 }, elevation: 10,
   },
+  repereBonus: {
+    marginTop: 2, backgroundColor: VERT_BONUS, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6,
+  },
+  repereBonusTxt: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  pastilles: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pastille: {
     flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4,
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, Linking } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Linking, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import MapView, { Marker, Polyline } from 'react-native-maps';
@@ -9,6 +9,7 @@ import { dirIcon } from '../lib/rtl';
 import * as Location from 'expo-location';
 import { deliveryService } from '../services/deliveryService';
 import { enPoints, recoller, ecartAuTrace } from '../lib/itineraire';
+import { lienApplePlansVers } from '../lib/carteDemande';
 
 const BRAND = '#FF6A13';
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : null; };
@@ -20,8 +21,8 @@ const ECART_MAX_M = 60;
 // suit les rues (tracé Apple Plans lu sur le serveur, vers la boutique avant
 // récupération, vers le client ensuite) et ne montre que ce qui reste à
 // parcourir depuis la position du livreur, suivie en continu. Sans tracé reçu,
-// ou course finie : aucun trait. Boutons de navigation externe (Google Maps /
-// Waze) en secours.
+// ou course finie : aucun trait. Boutons de navigation externe (Google Maps,
+// Waze, et Apple Plans sur iOS) en secours.
 export default function MapScreen({ route, navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
@@ -138,7 +139,9 @@ export default function MapScreen({ route, navigation }) {
       : encodeURIComponent(order.dropoffAddress || order.pickupAddress || '');
     const url = app === 'waze'
       ? (hasDrop ? `https://waze.com/ul?ll=${dLat},${dLng}&navigate=yes` : `https://waze.com/ul?q=${dest}&navigate=yes`)
-      : `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+      : app === 'apple'
+        ? lienApplePlansVers(dest)
+        : `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
     Linking.openURL(url).catch(() => {});
   };
 
@@ -197,6 +200,11 @@ export default function MapScreen({ route, navigation }) {
           <Pressable style={[styles.btn, { backgroundColor: '#33ccff' }]} onPress={() => openExternal('waze')}>
             <Text style={styles.btnTxt}>Waze</Text>
           </Pressable>
+          {Platform.OS === 'ios' && (
+            <Pressable style={[styles.btn, { backgroundColor: '#007AFF' }]} onPress={() => openExternal('apple')}>
+              <Text style={styles.btnTxt}>{t('navAppleMaps')}</Text>
+            </Pressable>
+          )}
         </View>
       </View>
     </View>

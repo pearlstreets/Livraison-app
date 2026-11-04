@@ -13,6 +13,7 @@ import { deliveryService } from '../services/deliveryService';
 import { ticketService } from '../services/ticketService';
 import { etasConnues, surEtas } from '../services/positionLivreur';
 import { prendrePhoto, envoyerPreuve, renvoyerPreuvesEnAttente } from '../services/preuvePhoto';
+import { lienApplePlansVers } from '../lib/carteDemande';
 
 // Mapping étape QUITTÉE → statut(s) backend qui reflètent la NOUVELLE réalité.
 // Avant : le statut était décalé d'un cran (in_transit envoyé au moment où le
@@ -368,7 +369,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   ];
   const [showMapSheet, setShowMapSheet] = useState(false);
   const [mapSheetDest, setMapSheetDest] = useState('');
-  const [mapSheetUrls, setMapSheetUrls] = useState({ google: '', waze: '' });
+  const [mapSheetUrls, setMapSheetUrls] = useState({ google: '', waze: '', apple: '' });
   const sheetPan = useRef(new Animated.Value(0)).current;
   // Remise en l'absence du client (lieu sûr / voisin).
   const [absentOpen, setAbsentOpen] = useState(false);
@@ -376,6 +377,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const [absentBusy, setAbsentBusy] = useState(false);
   // Preuve de retrait : photo du ticket ou du reçu, exigée avant « Commande récupérée ».
   const [ticketPhoto, setTicketPhoto] = useState(null);
+  const [preuveManquante, setPreuveManquante] = useState(false);
   const [ticketEnvoi, setTicketEnvoi] = useState(null); // 'envoi' | 'envoyee' | 'en_attente' | 'refusee'
   const [depotBusy, setDepotBusy] = useState(false);
   const step = STEPS[stepIndex];
@@ -525,7 +527,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       : `https://waze.com/ul?q=${addr}&navigate=yes`;
 
     setMapSheetDest(dest);
-    setMapSheetUrls({ google: googleUrl, waze: wazeUrl });
+    const appleUrl = lienApplePlansVers(lat && lng ? `${lat},${lng}` : addr);
+
+    setMapSheetUrls({ google: googleUrl, waze: wazeUrl, apple: appleUrl });
     sheetPan.setValue(0);
     setShowMapSheet(true);
   }, [order.dropoffLat, order.dropoffLng, sheetPan]);
@@ -619,23 +623,17 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       });
   }, [assignmentId, absentBusy, absentNote, absentPolicy, nextStep, t]);
 
-  // Ouvre la caméra ; caméra refusée : renvoi vers les réglages.
+  // Ouvre la caméra (repli galerie dans prendrePhoto). Renvoie l'URI, null
+  // si annulé, 'indisponible' si aucune photo n'a pu être obtenue.
   const ouvrirCamera = useCallback(async () => {
     try {
       const res = await prendrePhoto();
-      if (res && res.refus) {
-        Alert.alert(t('cameraDeniedTitle'), t('cameraDeniedMsg'), [
-          { text: t('cancel'), style: 'cancel' },
-          { text: t('openSettings'), onPress: () => Linking.openSettings().catch(() => {}) },
-        ]);
-        return null;
-      }
+      if (res && res.indisponible) return 'indisponible';
       return typeof res === 'string' ? res : null;
     } catch {
-      Alert.alert(t('cameraDeniedTitle'), t('cameraDeniedMsg'));
-      return null;
+      return 'indisponible';
     }
-  }, [t]);
+  }, []);
 
   // Preuves gardées sur le téléphone lors d'une course précédente : renvoi.
   useEffect(() => {
@@ -647,6 +645,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const photographierTicket = useCallback(async () => {
     const uri = await ouvrirCamera();
     if (!uri) return;
+    // Aucune photo possible : le livreur n'est jamais bloqué.
+    if (uri === 'indisponible') { setPreuveManquante(true); return; }
     setTicketPhoto(uri);
     if (!assignmentId) { setTicketEnvoi(null); return; }
     setTicketEnvoi('envoi');
@@ -660,6 +660,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     if (depotBusy) return;
     const uri = await ouvrirCamera();
     if (!uri) return;
+    // Aucune photo possible : le chemin par code reste.
+    if (uri === 'indisponible') { Alert.alert(t('bagDoorFailedTitle'), t('bagDoorRefused')); return; }
     const fin = () => setStepIndex(STEPS.indexOf('done'));
     if (!assignmentId) { fin(); return; }
     setDepotBusy(true);
@@ -1125,8 +1127,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       {/* Fixed bottom slide button + cancel */}
       {(step === 'pickup' || step === 'enroute' || step === 'arrived') && (
         <View style={ss.bottomBar}>
-          {step === 'pickup' && !ticketPhoto && <Text style={ss.preuveLock}>{t('ticketPhotoRequired')}</Text>}
-          {step === 'pickup' && <SlideButton label={t('orderPickedUp')} disabled={!ticketPhoto} onComplete={() => { if (ticketPhoto) slideRateLimiter(nextStep); }} />}
+          {step === 'pickup' && !ticketPhoto && !preuveManquante && <Text style={ss.preuveLock}>{t('ticketPhotoRequired')}</Text>}
+          {step === 'pickup' && <SlideButton label={t('orderPickedUp')} disabled={!ticketPhoto && !preuveManquante} onComplete={() => { if (ticketPhoto || preuveManquante) slideRateLimiter(nextStep); }} />}
           {step === 'enroute' && <SlideButton label={t('iArrived')} onComplete={() => slideRateLimiter(nextStep)} color="#2196F3" />}
           {step === 'arrived' && <SlideButton label={t('orderGiven')} onComplete={() => slideRateLimiter(nextStep)} color="#f5a623" />}
           <Pressable style={ss.cancelBtn} onPress={() => setShowCancelPopup(true)}>
@@ -1204,6 +1206,18 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <Text style={ss.sheetAddr} numberOfLines={2}>{mapSheetDest}</Text>
 
               <View style={ss.sheetGroup}>
+                {Platform.OS === 'ios' && (
+                  <>
+                    <Pressable style={ss.sheetOption} onPress={() => { closeMapSheet(); setTimeout(() => Linking.openURL(mapSheetUrls.apple).catch(() => {}), 250); }}>
+                      <View style={[ss.sheetIconWrap, { backgroundColor: '#e8f0fe' }]}>
+                        <Ionicons name="compass" size={20} color="#007AFF" />
+                      </View>
+                      <Text style={ss.sheetOptionText}>{t('navAppleMaps')}</Text>
+                      <Ionicons name={dirIcon('chevron-forward')} size={18} color="#c7c7cc" />
+                    </Pressable>
+                    <View style={ss.sheetSep} />
+                  </>
+                )}
                 <Pressable style={ss.sheetOption} onPress={() => { closeMapSheet(); setTimeout(() => Linking.openURL(mapSheetUrls.google), 250); }}>
                   <View style={[ss.sheetIconWrap, { backgroundColor: '#e8f5e9' }]}>
                     <Ionicons name="map" size={20} color="#34a853" />

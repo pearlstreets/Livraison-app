@@ -34,6 +34,11 @@ const HistoryOrderItem = React.memo(({ order, navigation, t }) => {
             </Text>
             {!isCancelled && order.tip && <Text style={s.orderTip}>+ {order.tip} {t('tip')}</Text>}
           </View>
+          {!isCancelled && !!order.bonus && (
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+              <Text style={s.orderBonus}>+ {order.bonus} {t('bonusShort')}</Text>
+            </View>
+          )}
         </View>
       </View>
       <View style={s.orderDetails}>
@@ -66,7 +71,8 @@ export default function DeliveryHistoryScreen({ navigation }) {
 
   // Memoize stats to avoid recomputation
   const { totalEarnings, totalTips, totalOrders } = useMemo(() => ({
-    totalEarnings: deliveryHistory.filter(o => o.status !== 'cancelled').reduce((s, o) => s + parsePrice(o.priceText), 0),
+    totalEarnings: deliveryHistory.filter(o => o.status !== 'cancelled')
+      .reduce((s, o) => s + parsePrice(o.priceText) + (Number(o.bonusEur) || 0), 0),
     totalTips: deliveryHistory.reduce((s, o) => s + (o.tip ? parsePrice(o.tip) : 0), 0),
     totalOrders: deliveryHistory.length,
   }), [deliveryHistory, parsePrice]);
@@ -173,6 +179,7 @@ const s = StyleSheet.create({
   orderTime: { fontSize: 11, color: '#999', marginTop: 1 },
   orderPrice: { fontWeight: '900', fontSize: 15, color: BRAND },
   orderTip: { fontSize: 11, color: '#FF6A13', fontWeight: '700', marginTop: 1 },
+  orderBonus: { fontSize: 11, color: '#00A86B', fontWeight: '700', marginTop: 1 },
   orderTotal: { fontSize: 12, fontWeight: '900', color: '#111', marginTop: 1 },
 
   orderDetails: { marginLeft: 30 },
