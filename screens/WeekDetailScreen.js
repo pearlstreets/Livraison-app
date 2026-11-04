@@ -160,6 +160,6 @@ const s = StyleSheet.create({
   detailLabel: { fontSize: 15, color: '#333' },
   detailValue: { fontSize: 15, color: '#111' },
   detailRowDashed: { height: 1, borderStyle: 'dashed', borderWidth: 0.5, borderColor: '#ddd', marginHorizontal: 16 },
-  closeBtn: { backgroundColor: '#111', borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginTop: 8, alignItems: 'center' },
+  closeBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginTop: 8, alignItems: 'center' },
   closeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });

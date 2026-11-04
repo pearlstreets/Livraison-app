@@ -110,6 +110,6 @@ const s = StyleSheet.create({
   divider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 6 },
 
   bottomWrap: { paddingTop: 6, paddingHorizontal: 16 },
-  closeBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', borderRadius: 14, paddingVertical: 14 },
+  closeBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 14 },
   closeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });
