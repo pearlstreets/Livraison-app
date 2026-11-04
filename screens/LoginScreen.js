@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView, BackHandler, Linking } from 'react-native';
+import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView, BackHandler, Linking, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +18,7 @@ import { authService } from '../services/authService';
 import { contratStripe, CONFIDENTIALITE_LIVREUR, creerJetonCompte, dateIso, dateValide, formaterDate } from '../utils/stripeCompte';
 
 const BRAND = '#00C29B';
+const LOGO = require('../assets/icon.png');
 const MAX_LOGIN_FAILS = 3;
 const LOGIN_COOLDOWN_MS = 30000; // 30s cooldown after 3 fails
 
@@ -589,9 +590,11 @@ export default function LoginScreen() {
         {/* Logo — fixed top (inscription/choix). En mode login il est rendu
             DANS le contenu centré du ScrollView pour être centré avec le form. */}
         {((mode === 'choose') || (mode === 'signup' && step === 1)) && (
-          <View style={{alignItems:'center', paddingTop:16, paddingBottom:8}}>
-            <Ionicons name="bicycle" size={50} color={BRAND} style={{marginBottom:6}} />
-            <Text style={{fontSize:24, fontWeight:'900', color:'#111'}}>Pearl Delivery</Text>
+          <View style={{alignItems:'center', paddingTop:12, paddingBottom:4}}>
+            <View style={[s.logoTuile, s.logoTuilePetite]}>
+              <Image source={LOGO} style={s.logoImg} />
+            </View>
+            <Text style={{fontSize:22, fontWeight:'900', color:'#111', marginTop:10}}>Pearl Delivery</Text>
           </View>
         )}
 
@@ -611,24 +614,31 @@ export default function LoginScreen() {
           {mode === 'login' && (
             <>
               {/* Logo centré avec le formulaire (le ScrollView centre verticalement) */}
-              <View style={{alignItems:'center', marginBottom:36}}>
-                <Ionicons name="bicycle" size={54} color={BRAND} style={{marginBottom:8}} />
-                <Text style={{fontSize:26, fontWeight:'900', color:'#111'}}>Pearl Delivery</Text>
+              <View style={{alignItems:'center', marginBottom:32}}>
+                <View style={s.logoTuile}>
+                  <Image source={LOGO} style={s.logoImg} />
+                </View>
+                <Text style={{fontSize:28, fontWeight:'900', color:'#111', marginTop:16}}>Pearl Delivery</Text>
+                <Text style={{fontSize:15, color:'#6B7280', marginTop:4}}>{t('loginTitle')}</Text>
               </View>
               {errorBox}
               <Text style={s.label}>{t('emailLabel')}</Text>
-              <TextInput style={s.input} value={loginEmail} onChangeText={setLoginEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+              <View style={s.champ}>
+                <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
+                <TextInput style={s.champInput} value={loginEmail} onChangeText={setLoginEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+              </View>
               <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
-              <View style={s.pwdRow}>
-                <TextInput style={[s.input, {flex:1, marginBottom:0}]} value={loginPassword} onChangeText={setLoginPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
-                <Pressable onPress={() => setShowPwd(v => !v)} style={s.eyeBtn}>
-                  <Ionicons name={showPwd ? 'eye-off' : 'eye'} size={22} color="#888" />
+              <View style={s.champ}>
+                <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
+                <TextInput style={s.champInput} value={loginPassword} onChangeText={setLoginPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <Pressable onPress={() => setShowPwd(v => !v)} hitSlop={10} style={{padding:4}}>
+                  <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#9CA3AF" />
                 </Pressable>
               </View>
               <Pressable style={[s.btn, loginDisabled && { opacity: 0.5 }]} onPress={handleLogin} disabled={loginDisabled}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{t('loginButton') || 'Se connecter'}</Text>}
               </Pressable>
-              <TouchableOpacity onPress={() => { setMode('choose'); setIsPro(null); setStep(1); setError(''); }} style={{alignItems:'center', paddingVertical:16}}>
+              <TouchableOpacity onPress={() => { setMode('choose'); setIsPro(null); setStep(1); setError(''); }} style={{alignItems:'center', paddingVertical:20}}>
                 <Text style={{color:'#6B7280', fontSize:15}}>
                   {t('noAccount') || 'Pas de compte ?'} <Text style={{color:BRAND, fontWeight:'800'}}>{t('signUp') || "S'inscrire"}</Text>
                 </Text>
@@ -643,12 +653,9 @@ export default function LoginScreen() {
                 { pro: true, icon: 'storefront', label: t('proPro') || 'Livreur Pro', desc: t('proProDesc') || 'Vous avez un établissement ou un statut professionnel' },
                 { pro: false, icon: 'bicycle', label: t('driverParticulier') || 'Livreur Particulier', desc: t('driverParticulierDesc') || 'Vous souhaitez livrer en complément de revenu' },
               ].map((opt, i) => (
-                <TouchableOpacity key={i} onPress={() => { setIsPro(opt.pro); setMode('signup'); setStep(1); setError(''); }} style={{
-                  borderWidth:2, borderColor:BRAND, borderRadius:16, padding:20, marginBottom:12,
-                  backgroundColor:'#F0FDF4', flexDirection:'row', alignItems:'center'
-                }}>
-                  <View style={{width:50, height:50, borderRadius:25, backgroundColor:BRAND, alignItems:'center', justifyContent:'center', marginRight:16}}>
-                    <Ionicons name={opt.icon} size={26} color="#fff" />
+                <TouchableOpacity key={i} onPress={() => { setIsPro(opt.pro); setMode('signup'); setStep(1); setError(''); }} style={s.carteChoix}>
+                  <View style={{width:52, height:52, borderRadius:16, backgroundColor:'#E0F5EF', alignItems:'center', justifyContent:'center', marginRight:16}}>
+                    <Ionicons name={opt.icon} size={26} color={BRAND} />
                   </View>
                   <View style={{flex:1}}>
                     <Text style={{fontSize:17, fontWeight:'800', color:'#111'}}>{opt.label}</Text>
@@ -663,24 +670,29 @@ export default function LoginScreen() {
           {/* === SIGNUP STEP 1: Email + Password === */}
           {mode === 'signup' && step === 1 && (
             <>
-              <Text style={p.label}>{t('emailLabel')}</Text>
-              <TextInput style={p.input} value={email} onChangeText={setEmail} placeholder={t('emailPlaceholder')} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
-              <Text style={p.label}>{t('password') || 'Mot de passe'}</Text>
-              <View style={p.pwdRow}>
-                <TextInput style={[p.input, {flex:1}]} value={password} onChangeText={setPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
-                <Pressable onPress={() => setShowPwd(v => !v)} style={p.eyeBtn}>
-                  <Ionicons name={showPwd ? 'eye-off' : 'eye'} size={22} color="#888" />
+              <Text style={s.label}>{t('emailLabel')}</Text>
+              <View style={s.champ}>
+                <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
+                <TextInput style={s.champInput} value={email} onChangeText={setEmail} placeholder={t('emailPlaceholder')} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+              </View>
+              <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
+              <View style={s.champ}>
+                <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
+                <TextInput style={s.champInput} value={password} onChangeText={setPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <Pressable onPress={() => setShowPwd(v => !v)} hitSlop={10} style={{padding:4}}>
+                  <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#9CA3AF" />
                 </Pressable>
               </View>
-              <Text style={p.label}>{t('confirmPassword') || 'Confirmer le mot de passe'}</Text>
-              <View style={p.pwdRow}>
-                <TextInput style={[p.input, {flex:1}]} value={confirmPwd} onChangeText={setConfirmPwd} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showConfirmPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
-                <Pressable onPress={() => setShowConfirmPwd(v => !v)} style={p.eyeBtn}>
-                  <Ionicons name={showConfirmPwd ? 'eye-off' : 'eye'} size={22} color="#888" />
+              <Text style={s.label}>{t('confirmPassword') || 'Confirmer le mot de passe'}</Text>
+              <View style={s.champ}>
+                <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
+                <TextInput style={s.champInput} value={confirmPwd} onChangeText={setConfirmPwd} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showConfirmPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <Pressable onPress={() => setShowConfirmPwd(v => !v)} hitSlop={10} style={{padding:4}}>
+                  <Ionicons name={showConfirmPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#9CA3AF" />
                 </Pressable>
               </View>
-              <Pressable style={p.btn} onPress={handleSignup}>
-                <Text style={p.btnTxt}>{t('next') || 'Suivant'}</Text>
+              <Pressable style={s.btn} onPress={handleSignup}>
+                <Text style={s.btnTxt}>{t('next') || 'Suivant'}</Text>
               </Pressable>
               <Text style={p.hintSous}>
                 {t('privacyConsentBefore')}
@@ -871,13 +883,15 @@ export default function LoginScreen() {
 
         {/* Language button — fixed bottom */}
         <TouchableOpacity onPress={() => setLangPickerVisible(true)} style={{
-          flexDirection:'row', alignItems:'center', justifyContent:'center',
-          marginHorizontal:24, marginBottom:12 + (Platform.OS === 'android' ? insets.bottom : 0), paddingVertical:12, borderRadius:12, backgroundColor:'#fff'
+          flexDirection:'row', alignItems:'center', justifyContent:'center', alignSelf:'center',
+          marginBottom:12 + (Platform.OS === 'android' ? insets.bottom : 0), paddingVertical:9, paddingHorizontal:16,
+          borderRadius:999, borderWidth:1, borderColor:'#E5E7EB', backgroundColor:'#fff'
         }}>
-          <Ionicons name="globe-outline" size={18} color="#6B7280" style={{marginRight:8}} />
+          <Ionicons name="globe-outline" size={17} color="#6B7280" style={{marginRight:8}} />
           <Text style={{fontSize:14, fontWeight:'600', color:'#374151'}}>
             {LANGUAGES.find(l => l.code === lang)?.flag || '🌐'} {LANGUAGES.find(l => l.code === lang)?.native || 'Language'}
           </Text>
+          <Ionicons name="chevron-down" size={15} color="#9CA3AF" style={{marginLeft:6}} />
         </TouchableOpacity>
 
         {/* iOS hide suggestions */}
@@ -948,19 +962,32 @@ export default function LoginScreen() {
   );
 }
 
+const ombre = Platform.select({
+  ios: { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  default: { elevation: 3 },
+});
+
 const s = StyleSheet.create({
-  label: { fontWeight: '700', fontSize: 14, color: '#333', marginBottom: 6, marginTop: 16 },
-  input: {
-    backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14,
-    fontSize: 16, borderWidth: 1, borderColor: '#e0e0e0', marginBottom: 4,
+  // Logo de l'app (icone orange) en tuile arrondie.
+  logoTuile: { width: 88, height: 88, borderRadius: 24, overflow: 'hidden', backgroundColor: '#fff', ...ombre },
+  logoTuilePetite: { width: 60, height: 60, borderRadius: 17 },
+  logoImg: { width: '100%', height: '100%' },
+  label: { fontWeight: '600', fontSize: 13, color: '#374151', marginBottom: 7, marginTop: 16 },
+  // Case de saisie : fond blanc, bord gris fin, icone a gauche.
+  champ: {
+    flexDirection: 'row', alignItems: 'center', height: 54, backgroundColor: '#fff',
+    borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 14,
   },
-  pwdRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  eyeBtn: { position: 'absolute', right: 12, padding: 4 },
+  champInput: { flex: 1, height: '100%', fontSize: 16, color: '#111', marginLeft: 10, paddingVertical: 0 },
   btn: {
-    backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16,
-    alignItems: 'center', marginTop: 28,
+    backgroundColor: BRAND, borderRadius: 14, height: 54, justifyContent: 'center',
+    alignItems: 'center', marginTop: 28, ...ombre,
   },
   btnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  carteChoix: {
+    flexDirection: 'row', alignItems: 'center', padding: 18, marginBottom: 14,
+    borderRadius: 18, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff', ...ombre,
+  },
 });
 
 // Inscription (26/10/2026) : champs, boutons et sections au style de l'app
