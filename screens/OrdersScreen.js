@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
 import { useFocusEffect } from '@react-navigation/native';
 import OrderCard from '../components/OrderCard';
+import CarteDemandeVue from '../components/CarteDemandeVue';
 import DetailsSheet from '../components/DetailsSheet';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -425,6 +426,11 @@ export default function OrdersScreen({ navigation, route }) {
 
   const onOpen = useCallback((order)=>{ setDetailsOrder(order); setDetailsVisible(true); }, []);
 
+  // Accueil sans course à afficher : la carte de la demande (même vue que le
+  // bouton carte), demande du 05/11/2026. L'icône liste revient à la liste.
+  const [vueListe, setVueListe] = useState(false);
+  const carteVide = active.length === 0 && (!online || displayedAvailable.length === 0);
+
   if (!accountActive) {
     return (
       <View style={[styles.deactivatedContainer, { paddingTop: insets.top + 16 }]}>
@@ -432,6 +438,24 @@ export default function OrdersScreen({ navigation, route }) {
         <Text style={styles.deactivatedTitle}>{t('accountDeactivated')}</Text>
         <Text style={styles.deactivatedSub}>{t('accountDeactivatedMsg')}</Text>
       </View>
+    );
+  }
+
+  if (carteVide && !vueListe) {
+    return (
+      <CarteDemandeVue
+        navigation={navigation}
+        onList={() => setVueListe(true)}
+        onStatusPress={() => (online ? setOnline(false) : passerEnLigne())}
+      >
+        <BandeauDocumentsSeuil donnees={docsSeuil} onPress={() => navigation.navigate('DocumentsSeuil')} />
+        {!online && (
+          <Pressable style={[styles.goOnlineBtn, { marginHorizontal: 0, marginBottom: 0 }]} onPress={passerEnLigne}>
+            <Ionicons name="power" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.goOnlineBtnTxt}>{t('goOnline')}</Text>
+          </Pressable>
+        )}
+      </CarteDemandeVue>
     );
   }
 
@@ -447,7 +471,7 @@ export default function OrdersScreen({ navigation, route }) {
       <View style={[styles.onlineCard, !online && { borderWidth: 1, borderColor: '#E6E8EB' }]}>
         <Text style={[styles.onlineText, !online && { color: '#999' }]}>{online ? t('online') : t('offline')}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Pressable style={styles.mapBtn} onPress={() => navigation.navigate('Heatmap')}>
+          <Pressable style={styles.mapBtn} onPress={() => (carteVide ? setVueListe(false) : navigation.navigate('Heatmap'))}>
             <Ionicons name="map" size={18} color="#FF6A13" />
           </Pressable>
           <Switch
