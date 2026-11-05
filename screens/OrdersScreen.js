@@ -507,11 +507,14 @@ export default function OrdersScreen({ navigation, route }) {
     >
       {/* Bandeau En ligne / Hors ligne */}
       <View style={[styles.onlineCard, !online && { borderWidth: 1, borderColor: '#E6E8EB' }]}>
-        <Text style={[styles.onlineText, !online && { color: '#999' }]}>{online ? t('online') : t('offline')}</Text>
+        {/* Icône carte tout à gauche, puis l'état. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable style={styles.mapBtn} onPress={() => (carteVide ? setVueListe(false) : navigation.navigate('Heatmap'))}>
             <Ionicons name="map" size={18} color="#FF6A13" />
           </Pressable>
+          <Text style={[styles.onlineText, !online && { color: '#999' }]}>{online ? t('online') : t('offline')}</Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Switch
             value={online}
             onValueChange={(val) => {
