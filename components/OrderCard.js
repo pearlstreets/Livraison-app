@@ -17,7 +17,6 @@ const BTN_HEIGHT = 40;
 const BTN_RADIUS = 12;
 const GAP = 10;
 const BTN_FONTSIZE = 16;
-const COUNTDOWN_SECONDS = 30;
 
 /* ---------- Utils ---------- */
 const isObj = (v) => v !== null && typeof v === 'object';
@@ -158,10 +157,25 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
   // Heure à laquelle la commande sera prête en boutique (serveur).
   const readyTime = order?.readyAt ? formatTime(order.readyAt) : '';
 
+  // Un seul envoi d'acceptation, même sur un double appui rapide.
+  const acceptEnvoye = useRef(false);
   const handleAcceptOrItinerary = () => {
-    if (!accepted) { setAccepted(true); try { if (typeof onAccept === 'function') onAccept(order); } catch {} }
+    if (!accepted) {
+      if (acceptEnvoye.current) return;
+      acceptEnvoye.current = true;
+      setAccepted(true);
+      try { if (typeof onAccept === 'function') onAccept(order); } catch {}
+    }
     else { openItinerary(order); }
   };
+
+  // Compte à rebours et refus automatique : seulement pour une offre réservée
+  // à ce livreur avec une fin donnée par le serveur. Les autres courses
+  // restent dans la liste tant que le serveur les propose.
+  const finOffre = order?.offerExpiresAt ? Date.parse(order.offerExpiresAt) : NaN;
+  const [secondesOffre] = useState(() => (
+    Number.isFinite(finOffre) ? Math.max(0, Math.ceil((finOffre - Date.now()) / 1000)) : null
+  ));
 
   const handleExpire = () => {
     if (!accepted) {
@@ -174,8 +188,8 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
   return (
     <View style={[styles.card, !accepted && styles.cardPending]}>
       {/* Countdown for pending orders */}
-      {!accepted && (
-        <CountdownBar seconds={COUNTDOWN_SECONDS} onExpire={handleExpire} />
+      {!accepted && secondesOffre != null && (
+        <CountdownBar seconds={secondesOffre} onExpire={handleExpire} />
       )}
 
       {/* Header — ID pill (gauche) + prix dominant (droite) */}
