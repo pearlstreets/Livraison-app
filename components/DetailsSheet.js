@@ -1,9 +1,10 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { Modal, View, Text, StyleSheet, Pressable, Animated, Dimensions, ScrollView, Linking, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatKm, formatMinutes, formatTime } from '../lib/i18nFormat';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { ecranDeplie, largeurMoitie, dimensionsReelles } from '../utils/deuxEcrans';
 
 const { height: H } = Dimensions.get('window');
@@ -57,13 +58,17 @@ function openItinerary(order){
     if(lat!=null && lng!=null) url=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     else if(addr) url=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(String(addr))}`;
     else url='https://www.google.com/maps';
-    Linking.openURL(url);
+    // Promesse : une erreur d'ouverture ne doit pas remonter en exception non gérée.
+    Linking.openURL(url).catch(() => {});
   }catch{}
 }
 
 export default function DetailsSheet({ visible, order, onClose }) {
   const { t } = useLanguage();
   const { fmtPrice } = useCurrency();
+  const { colors, dark } = useTheme();
+  // Couleurs du thème : en mode clair, valeurs identiques à la feuille d'origine.
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const y = useRef(new Animated.Value(SHEET_HEIGHT)).current;
 
   useEffect(() => {
@@ -132,21 +137,21 @@ export default function DetailsSheet({ visible, order, onClose }) {
           {/* Adresse de récupération (boutique) */}
           {!!pickupAddress && (
             <View style={styles.row}>
-              <MaterialCommunityIcons name="storefront-outline" size={18} color="#333" style={styles.icon} />
+              <MaterialCommunityIcons name="storefront-outline" size={18} color={dark ? colors.textSoft : '#333'} style={styles.icon} />
               <Text style={styles.text}>{String(pickupAddress)}</Text>
             </View>
           )}
           {/* Adresse de livraison (client) */}
           {!!deliveryAddress && (
             <View style={styles.row}>
-              <Ionicons name="location-outline" size={18} color="#e74c3c" style={styles.icon} />
+              <Ionicons name="location-outline" size={18} color={colors.danger} style={styles.icon} />
               <Text style={styles.text}>{String(deliveryAddress)}</Text>
             </View>
           )}
           {/* Client */}
           {!!customer && (
             <View style={styles.row}>
-              <Ionicons name="person-outline" size={18} color="#333" style={styles.icon} />
+              <Ionicons name="person-outline" size={18} color={dark ? colors.textSoft : '#333'} style={styles.icon} />
               <Text style={styles.text}>{String(customer)}</Text>
             </View>
           )}
@@ -156,8 +161,8 @@ export default function DetailsSheet({ visible, order, onClose }) {
             <View style={styles.itemsBox}>
               {items.map((it, i) => (
                 <View key={i} style={styles.itemRow}>
-                  <Text style={styles.itemQty}>{it.qty || 1}x</Text>
-                  <Text style={styles.itemName} numberOfLines={1}>{String(it.name || '')}</Text>
+                  <Text style={styles.itemQty}>{it?.qty || 1}x</Text>
+                  <Text style={styles.itemName} numberOfLines={1}>{String(it?.name || '')}</Text>
                 </View>
               ))}
             </View>
@@ -186,41 +191,41 @@ export default function DetailsSheet({ visible, order, onClose }) {
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: { position:'absolute', left:0, right:0, top:0, bottom:0, backgroundColor:'rgba(0,0,0,0.25)' },
+const makeStyles = (c, dark) => StyleSheet.create({
+  backdrop: { position:'absolute', left:0, right:0, top:0, bottom:0, backgroundColor: dark ? c.overlay : 'rgba(0,0,0,0.25)' },
   sheet: {
     position:'absolute',
     left:0, right:0, bottom:0,
     height: SHEET_HEIGHT,
-    backgroundColor:'#fff',
+    backgroundColor: c.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     shadowColor:'#000', shadowOpacity:0.12, shadowRadius:12, elevation:8
   },
-  grabber: { alignSelf:'center', width:48, height:5, borderRadius:999, backgroundColor:'#E6E8EB', marginTop:8, marginBottom:8 },
+  grabber: { alignSelf:'center', width:48, height:5, borderRadius:999, backgroundColor: dark ? c.borderStrong : '#E6E8EB', marginTop:8, marginBottom:8 },
   content: { paddingHorizontal:16, paddingBottom:16 },
   header: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:8 },
-  code: { fontSize:18, fontWeight:'800', color:'#111' },
+  code: { fontSize:18, fontWeight:'800', color: c.text },
   category: { color: BRAND, fontWeight:'700' },
   row: { flexDirection:'row', alignItems:'center', marginBottom:6 },
   icon: { width:22, marginRight:4 },
-  text: { color:'#333', flexShrink:1 },
+  text: { color: dark ? c.textSoft : '#333', flexShrink:1 },
   shopRow: { flexDirection:'row', alignItems:'center', marginBottom:10 },
-  shopImg: { width:40, height:40, borderRadius:10, marginRight:10, backgroundColor:'#f0f0f0' },
+  shopImg: { width:40, height:40, borderRadius:10, marginRight:10, backgroundColor: dark ? c.border : '#f0f0f0' },
   shopIconWrap: { width:40, height:40, borderRadius:10, marginRight:10, backgroundColor: BRAND+'1A', alignItems:'center', justifyContent:'center' },
-  shopName: { fontSize:16, fontWeight:'800', color:'#111', flexShrink:1 },
-  itemsBox: { backgroundColor:'#F7F8FA', borderRadius:12, padding:10, marginTop:8 },
+  shopName: { fontSize:16, fontWeight:'800', color: c.text, flexShrink:1 },
+  itemsBox: { backgroundColor: dark ? c.bg : '#F7F8FA', borderRadius:12, padding:10, marginTop:8 },
   itemRow: { flexDirection:'row', alignItems:'center', paddingVertical:3 },
   itemQty: { fontWeight:'800', color:BRAND, width:32 },
-  itemName: { color:'#333', flexShrink:1 },
+  itemName: { color: dark ? c.textSoft : '#333', flexShrink:1 },
   chips: { flexDirection:'row', gap:8, marginTop:10, marginBottom:8, flexWrap:'wrap' },
-  pill: { backgroundColor:'#F2F3F5', borderRadius:999, paddingVertical:6, paddingHorizontal:12 },
-  pillTxt: { fontWeight:'700', color:'#111' },
+  pill: { backgroundColor: dark ? c.border : '#F2F3F5', borderRadius:999, paddingVertical:6, paddingHorizontal:12 },
+  pillTxt: { fontWeight:'700', color: c.text },
   actions: { flexDirection:'row', justifyContent:'space-between', marginTop:12, columnGap:10 },
   btn: { flex:1, height:BTN_H, borderRadius:BTN_R, alignItems:'center', justifyContent:'center' },
   primary: { backgroundColor: BRAND },
-  ghost: { backgroundColor:'#fff', borderWidth:1, borderColor:'#E6E8EB' },
+  ghost: { backgroundColor: c.card, borderWidth:1, borderColor: dark ? c.borderStrong : '#E6E8EB' },
   btnTxtLight: { color:'#fff', fontSize:16, fontWeight:'700' },
-  closeBtn: { backgroundColor:'#111', borderRadius:14, paddingVertical:16, marginHorizontal:16, marginBottom:20, alignItems:'center' },
+  closeBtn: { backgroundColor: dark ? c.borderStrong : '#111', borderRadius:14, paddingVertical:16, marginHorizontal:16, marginBottom:20, alignItems:'center' },
   closeBtnTxt: { color:'#fff', fontSize:16, fontWeight:'800' },
 });

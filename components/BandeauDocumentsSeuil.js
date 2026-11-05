@@ -5,11 +5,14 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { formatDayMonth, formatTime } from '../lib/i18nFormat';
 import { dirIcon } from '../lib/rtl';
 import { texteBlocage } from '../services/documentsSeuil';
+import { useTheme } from '../contexts/ThemeContext';
 
 // Bandeau de l'accueil : documents demandés par le serveur (rappel, en
 // vérification, bloqué). Rien d'affiché pour tout autre état.
 export default function BandeauDocumentsSeuil({ donnees, onPress, style }) {
   const { t } = useLanguage();
+  const { dark } = useTheme();
+  const PALETTE = dark ? COULEURS_SOMBRE : COULEURS;
   const etat = donnees?.etat;
   if (etat !== 'rappel' && etat !== 'en_verification' && etat !== 'bloque') return null;
 
@@ -21,7 +24,7 @@ export default function BandeauDocumentsSeuil({ donnees, onPress, style }) {
     titre = t('docsSeuilBandeauRappel');
     texte = t('docsSeuilBandeauRappelTexte');
     icone = 'document-text-outline';
-    couleurs = COULEURS.orange;
+    couleurs = PALETTE.orange;
   } else if (etat === 'en_verification') {
     titre = t('docsSeuilBandeauVerification');
     const jusqua = donnees.verification_jusquau;
@@ -29,12 +32,12 @@ export default function BandeauDocumentsSeuil({ donnees, onPress, style }) {
       ? t('docsSeuilBandeauVerificationJusqua', { date: formatDayMonth(jusqua), heure: formatTime(jusqua) })
       : t('docsSeuilBandeauVerificationTexte');
     icone = 'time-outline';
-    couleurs = COULEURS.orange;
+    couleurs = PALETTE.orange;
   } else {
     titre = t('docsSeuilBandeauBloque');
     texte = texteBlocage(t, donnees.motif_blocage);
     icone = 'lock-closed-outline';
-    couleurs = COULEURS.rouge;
+    couleurs = PALETTE.rouge;
   }
 
   return (
@@ -58,4 +61,10 @@ const s = StyleSheet.create({
 const COULEURS = {
   orange: { carte: { backgroundColor: '#FFF1E8', borderColor: '#FFD9C2' }, texte: { color: '#C2410C' } },
   rouge: { carte: { backgroundColor: '#FDECEC', borderColor: '#F5C2C2' }, texte: { color: '#B42318' } },
+};
+
+// Mode sombre : mêmes teintes, fonds foncés et textes éclaircis pour rester lisibles.
+const COULEURS_SOMBRE = {
+  orange: { carte: { backgroundColor: '#3a2416', borderColor: '#5a3520' }, texte: { color: '#FFB37D' } },
+  rouge: { carte: { backgroundColor: '#3a1a1a', borderColor: '#5c2626' }, texte: { color: '#FF8A80' } },
 };

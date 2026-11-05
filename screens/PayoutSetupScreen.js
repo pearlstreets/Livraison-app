@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Keyboard, Linking, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { deliveryService } from '../services/deliveryService';
 import useSecureScreen from '../hooks/useSecureScreen';
 import { contratStripe, creerJetonCompte, dateValide, formaterDate } from '../utils/stripeCompte';
+import { useTheme } from '../contexts/ThemeContext';
 
 const BRAND = '#FF6A13';
 
@@ -17,6 +18,8 @@ const BRAND = '#FF6A13';
 export default function PayoutSetupScreen({ navigation }) {
   const { t, lang } = useLanguage();
   const { refreshEarnings, refreshProfile } = useAuth();
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   useSecureScreen('PayoutSetup');
   const [etat, setEtat] = useState(null);
@@ -51,6 +54,9 @@ export default function PayoutSetupScreen({ navigation }) {
         await Linking.openURL(res.url);
       } else if (res && res.payout_method === 'sepa_manual') {
         Alert.alert(t('bankTransferPayouts'), t('noStripeConnectMsg'));
+      } else {
+        // Réponse sans lien ni mode connu : le livreur est prévenu au lieu d'un bouton sans effet.
+        Alert.alert(t('error'), t('stripeSetupError'));
       }
     } catch {
       Alert.alert(t('error'), t('stripeSetupError'));
@@ -103,7 +109,7 @@ export default function PayoutSetupScreen({ navigation }) {
   const champ = (label, cle, props = {}) => (
     <>
       <Text style={s.fieldLabel}>{label}</Text>
-      <TextInput style={s.input} placeholderTextColor="#bbb" value={f[cle]} onChangeText={maj(cle)} {...props} />
+      <TextInput style={s.input} placeholderTextColor={colors.dark ? colors.textFaint : '#bbb'} value={f[cle]} onChangeText={maj(cle)} {...props} />
     </>
   );
 
@@ -111,7 +117,7 @@ export default function PayoutSetupScreen({ navigation }) {
     <View style={s.container}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
         <Text style={s.headerTitle}>{t('payoutSetupTitle')}</Text>
         <View style={{ width: 24 }} />
@@ -154,7 +160,7 @@ export default function PayoutSetupScreen({ navigation }) {
             ) : null}
 
             <Pressable style={s.checkRow} onPress={() => setAccepte((v) => !v)}>
-              <Ionicons name={accepte ? 'checkbox' : 'square-outline'} size={22} color={accepte ? BRAND : '#999'} style={{ marginRight: 10 }} />
+              <Ionicons name={accepte ? 'checkbox' : 'square-outline'} size={22} color={accepte ? BRAND : colors.textFaint} style={{ marginRight: 10 }} />
               <Text style={s.checkTxt}>
                 {t('stripeTermsAccept')}{' '}
                 <Text style={s.link} onPress={() => Linking.openURL(contratStripe(lang)).catch(() => {})}>{t('stripeTermsLink')}</Text>
@@ -174,21 +180,25 @@ export default function PayoutSetupScreen({ navigation }) {
 }
 
 // Fond blanc et champs au style de l'app pro (26/10/2026).
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#111' },
+// Couleurs : en clair, valeurs d'origine à l'identique ; en sombre, celles du thème.
+const makeStyles = (c) => {
+  const p = (clair, sombre) => (c.dark ? sombre : clair);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: p('#fff', c.bg) },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, backgroundColor: p('#fff', c.card), borderBottomWidth: 1, borderBottomColor: p('#f0f0f0', c.border) },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: c.text },
   body: { padding: 20, paddingBottom: 20 },
-  info: { fontSize: 13, color: '#6B7280', marginBottom: 18, lineHeight: 19 },
-  okCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF1E8', borderRadius: 10, padding: 12, marginBottom: 14 },
+  info: { fontSize: 13, color: c.textMuted, marginBottom: 18, lineHeight: 19 },
+  okCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardAlt, borderRadius: 10, padding: 12, marginBottom: 14 },
   okTxt: { color: BRAND, fontWeight: '700', fontSize: 14, flex: 1 },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#111', marginBottom: 5 },
-  input: { height: 45, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', paddingHorizontal: 10, fontSize: 13, color: '#111', marginBottom: 14 },
-  hint: { fontSize: 12, color: '#6B7280', marginTop: -8, marginBottom: 14 },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: c.text, marginBottom: 5 },
+  input: { height: 45, backgroundColor: c.input, borderRadius: 10, borderWidth: 1, borderColor: p('rgba(0,0,0,0.15)', c.inputBorder), paddingHorizontal: 10, fontSize: 13, color: c.text, marginBottom: 14 },
+  hint: { fontSize: 12, color: c.textMuted, marginTop: -8, marginBottom: 14 },
   checkRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 4, marginBottom: 8 },
-  checkTxt: { flex: 1, fontSize: 13, color: '#333', lineHeight: 19 },
+  checkTxt: { flex: 1, fontSize: 13, color: p('#333', c.textSoft), lineHeight: 19 },
   link: { color: BRAND, fontWeight: '700', textDecorationLine: 'underline' },
-  btnRow: { paddingHorizontal: 20, paddingBottom: 20, paddingTop: 8, backgroundColor: '#fff' },
+  btnRow: { paddingHorizontal: 20, paddingBottom: 20, paddingTop: 8, backgroundColor: p('#fff', c.bg) },
   saveBtn: { height: 46, backgroundColor: BRAND, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   saveTxt: { color: '#fff', fontWeight: '700', fontSize: 16 },
-});
+  });
+};

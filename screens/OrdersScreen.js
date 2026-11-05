@@ -11,6 +11,8 @@ import OffreCoursePopup from '../components/OffreCoursePopup';
 import DetailsSheet from '../components/DetailsSheet';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
+import { useCurrency } from '../contexts/CurrencyContext';
 import { formatKm, formatMinutes } from '../lib/i18nFormat';
 import { deliveryService } from '../services/deliveryService';
 import { envoyerPosition, positionObligatoire } from '../services/positionLivreur';
@@ -225,6 +227,11 @@ export default function OrdersScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { accountActive, addToHistory, isOnline, setIsOnline, user } = useAuth();
   const { t } = useLanguage();
+  const { colors, dark } = useTheme();
+  const { fmtPrice } = useCurrency();
+  // Couleurs du thème : en mode clair, valeurs identiques à l'écran d'origine.
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  const gris = dark ? colors.textMuted : '#888';
   const scrollRef = useRef(null);
 
   useFocusEffect(useCallback(() => {
@@ -255,6 +262,7 @@ export default function OrdersScreen({ navigation, route }) {
       // Liste des disponibles : coordonnées client masquées tant que la course
       // n'est pas acceptée (zone + distance suffisent pour décider).
       setAvailable(data
+        .filter(Boolean)
         .map(a => adaptAssignment(a, { revealCustomer: false }))
         .filter(o => !exclues.has(orderKey(o))));
     } catch {
@@ -296,7 +304,8 @@ export default function OrdersScreen({ navigation, route }) {
       setRelecture(n => n + 1);
       return;
     }
-    const courses = liste.map(a => adaptAssignment(a));
+    // Réponse inattendue : jamais de .map sur autre chose qu'un tableau.
+    const courses = (Array.isArray(liste) ? liste : []).filter(Boolean).map(a => adaptAssignment(a));
     garderSeulement(courses.map(cleCourse));
     setActive(prev => [...courses, ...prev.filter(o => o._isMock)]);
   }, []);
@@ -438,14 +447,18 @@ export default function OrdersScreen({ navigation, route }) {
     }
   }, [displayedAvailable, online, carteVide, offre]);
   // Course retirée (prise par un autre, expirée) : la fenêtre se ferme.
+  // Comparaison par clé : la relève des 15 s recrée les objets, la fenêtre ne
+  // doit pas se fermer pour autant tant que la course est toujours proposée.
+  const cleOffre = offre ? orderKey(offre) : null;
   useEffect(() => {
-    if (offre && !displayedAvailable.includes(offre)) setOffre(null);
-  }, [displayedAvailable, offre]);
+    if (offre && !displayedAvailable.some(o => (cleOffre != null ? orderKey(o) === cleOffre : o === offre))) setOffre(null);
+  }, [displayedAvailable, offre, cleOffre]);
+  const estOffre = (o) => !!offre && (cleOffre != null ? orderKey(o) === cleOffre : o === offre);
 
   if (!accountActive) {
     return (
       <View style={[styles.deactivatedContainer, { paddingTop: insets.top + 16 }]}>
-        <Ionicons name="lock-closed" size={48} color="#e74c3c" />
+        <Ionicons name="lock-closed" size={48} color={colors.danger} />
         <Text style={styles.deactivatedTitle}>{t('accountDeactivated')}</Text>
         <Text style={styles.deactivatedSub}>{t('accountDeactivatedMsg')}</Text>
       </View>
@@ -475,7 +488,7 @@ export default function OrdersScreen({ navigation, route }) {
         {online && displayedAvailable.length > 0 && (
           <ScrollView style={{ maxHeight: Dimensions.get('window').height * 0.45 }} showsVerticalScrollIndicator={false}>
             {/* La course de la fenêtre « Nouvelle course » n'est pas répétée derrière elle. */}
-            {displayedAvailable.map((order, i) => order === offre ? null : (
+            {displayedAvailable.map((order, i) => estOffre(order) ? null : (
               <View key={keyOf(order, i)} style={styles.cardWrap}>
                 <OrderCard order={order} onAccept={onAccept} onDecline={onDecline} onOpen={onOpen} />
               </View>
@@ -497,12 +510,15 @@ export default function OrdersScreen({ navigation, route }) {
       showsVerticalScrollIndicator={false}
     >
       {/* Bandeau En ligne / Hors ligne */}
-      <View style={[styles.onlineCard, !online && { borderWidth: 1, borderColor: '#E6E8EB' }]}>
-        <Text style={[styles.onlineText, !online && { color: '#999' }]}>{online ? t('online') : t('offline')}</Text>
+      <View style={[styles.onlineCard, !online && { borderWidth: 1, borderColor: dark ? colors.borderStrong : '#E6E8EB' }]}>
+        {/* Icône carte tout à gauche, puis l'état. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Pressable style={styles.mapBtn} onPress={() => (carteVide ? setVueListe(false) : navigation.navigate('Heatmap'))}>
             <Ionicons name="map" size={18} color="#FF6A13" />
           </Pressable>
+          <Text style={[styles.onlineText, !online && { color: colors.textFaint }]}>{online ? t('online') : t('offline')}</Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Switch
             value={online}
             onValueChange={(val) => {
@@ -513,7 +529,7 @@ export default function OrdersScreen({ navigation, route }) {
               if (val) passerEnLigne();
               else setOnline(false);
             }}
-            trackColor={{ true: '#FF6A13', false: '#E6E8EB' }}
+            trackColor={{ true: '#FF6A13', false: dark ? colors.borderStrong : '#E6E8EB' }}
             thumbColor={online ? '#fff' : '#fff'}
           />
         </View>
@@ -524,7 +540,7 @@ export default function OrdersScreen({ navigation, route }) {
       {/* Hors ligne message — centered vertically */}
       {!online && active.length === 0 && (
         <View style={{ alignItems: 'center', justifyContent: 'center', flex: 1, minHeight: 240 }}>
-          <Ionicons name="moon-outline" size={48} color="#ccc" />
+          <Ionicons name="moon-outline" size={48} color={colors.chevron} />
           <Text style={styles.offlineTitle}>{t('youAreOffline')}</Text>
           <Text style={styles.offlineSub}>{t('offlineMsg')}</Text>
         </View>
@@ -560,15 +576,16 @@ export default function OrdersScreen({ navigation, route }) {
                     </View>
                     {/* Order info */}
                     <View style={styles.activeHeader}>
-                      <Text style={styles.activeCode}>{order.id || order.code}</Text>
-                      <Text style={styles.activePrice}>{order.priceText || order.price}</Text>
+                      {/* Numéro officiel de commande (comme la carte), puis gain en devise du livreur. */}
+                      <Text style={styles.activeCode}>{order.orderNumber || order.id || order.code}</Text>
+                      <Text style={styles.activePrice}>{order.priceEur != null ? fmtPrice(order.priceEur) : (order.priceText || order.price)}</Text>
                     </View>
                     <View style={styles.activeDetailRow}>
-                      <Ionicons name="storefront-outline" size={14} color="#888" />
+                      <Ionicons name="storefront-outline" size={14} color={gris} />
                       <Text style={styles.activeDetailText} numberOfLines={1}>{order.restaurant || order.merchantName}</Text>
                     </View>
                     <View style={styles.activeDetailRow}>
-                      <Ionicons name="location-outline" size={14} color="#888" />
+                      <Ionicons name="location-outline" size={14} color={gris} />
                       <Text style={styles.activeDetailText} numberOfLines={1}>{order.dropoffAddress || order.address}</Text>
                     </View>
                     <View style={styles.activeFooter}>
@@ -628,17 +645,17 @@ export default function OrdersScreen({ navigation, route }) {
       )}
       <DetailsSheet visible={detailsVisible} order={detailsOrder} onClose={() => setDetailsVisible(false)} />
     </ScrollView>
-    <StatusBarShield color="rgb(242, 242, 242)" />
+    <StatusBarShield color={dark ? colors.bg : 'rgb(242, 242, 242)'} />
     </>
   );
 }
 
 /* ---------- Styles ---------- */
-const styles = StyleSheet.create({
+const makeStyles = (c, dark) => StyleSheet.create({
   container: { paddingHorizontal: 16, paddingVertical: 12 },
 
   onlineCard: {
-    backgroundColor: '#fff',
+    backgroundColor: c.card,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -652,42 +669,42 @@ const styles = StyleSheet.create({
     elevation: 2
   },
   onlineText: { color: '#FF6A13', fontWeight: '700', fontSize: 16 },
-  mapBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center' },
+  mapBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.cardAlt, alignItems: 'center', justifyContent: 'center' },
 
-  sectionTitle: { fontSize: 28, fontWeight: '800', color: '#111', marginTop: 4, marginBottom: 8 },
+  sectionTitle: { fontSize: 28, fontWeight: '800', color: c.text, marginTop: 4, marginBottom: 8 },
   sectionTitleGap: {  marginTop: 8  },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   mockBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FF6A13', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
-  opensSoonCard: { backgroundColor: '#fff', borderRadius: 16, paddingVertical: 24, paddingHorizontal: 20, alignItems: 'center', marginBottom: 12 },
-  opensSoonTitle: { fontSize: 17, fontWeight: '700', color: '#1c1c1e', marginTop: 10, textAlign: 'center' },
-  opensSoonText: { fontSize: 14, color: '#6b6b70', marginTop: 6, textAlign: 'center', lineHeight: 20 },
+  opensSoonCard: { backgroundColor: c.card, borderRadius: 16, paddingVertical: 24, paddingHorizontal: 20, alignItems: 'center', marginBottom: 12 },
+  opensSoonTitle: { fontSize: 17, fontWeight: '700', color: dark ? c.text : '#1c1c1e', marginTop: 10, textAlign: 'center' },
+  opensSoonText: { fontSize: 14, color: dark ? c.textMuted : '#6b6b70', marginTop: 6, textAlign: 'center', lineHeight: 20 },
   mockBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
   cardsBlock: {  marginBottom: 0  },
   // Box « La livraison ouvre bientôt » centrée verticalement dans l'espace libre.
   cardsBlockCentre: { flex: 1, justifyContent: 'center' },
   cardWrap: { marginBottom: 8 },
-  emptyText: { color: '#8E8E93', paddingVertical: 8, paddingHorizontal: 4 },
+  emptyText: { color: dark ? c.textMuted : '#8E8E93', paddingVertical: 8, paddingHorizontal: 4 },
 
   // Offline
-  offlineTitle: { fontSize: 18, fontWeight: '800', color: '#999', marginTop: 12 },
-  offlineSub: { fontSize: 14, color: '#bbb', marginTop: 4, textAlign: 'center', paddingHorizontal: 32 },
+  offlineTitle: { fontSize: 18, fontWeight: '800', color: c.textFaint, marginTop: 12 },
+  offlineSub: { fontSize: 14, color: dark ? c.textFaint : '#bbb', marginTop: 4, textAlign: 'center', paddingHorizontal: 32 },
   goOnlineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#00C29B', borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginBottom: 16 },
   goOnlineBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
 
   // Deactivated
-  deactivatedContainer: { flex: 1, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  deactivatedTitle: { fontSize: 22, fontWeight: '900', color: '#e74c3c', marginTop: 16, marginBottom: 8 },
-  deactivatedSub: { fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20 },
+  deactivatedContainer: { flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+  deactivatedTitle: { fontSize: 22, fontWeight: '900', color: c.danger, marginTop: 16, marginBottom: 8 },
+  deactivatedSub: { fontSize: 14, color: dark ? c.textMuted : '#666', textAlign: 'center', lineHeight: 20 },
 
   // Active (en cours)
-  activeCard: { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderLeftWidth: 4, borderLeftColor: '#FF6A13' },
+  activeCard: { backgroundColor: c.card, borderRadius: 16, padding: 14, borderLeftWidth: 4, borderLeftColor: '#FF6A13' },
   activeStepBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#FF6A13', borderRadius: 12, paddingVertical: 4, paddingHorizontal: 10, gap: 5, marginBottom: 8 },
   activeStepText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   activeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  activeCode: { fontWeight: '800', fontSize: 15, color: '#111' },
+  activeCode: { fontWeight: '800', fontSize: 15, color: c.text },
   activePrice: { fontWeight: '900', fontSize: 16, color: '#FF6A13' },
   activeDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
-  activeDetailText: { fontSize: 13, color: '#666', flexShrink: 1 },
+  activeDetailText: { fontSize: 13, color: dark ? c.textMuted : '#666', flexShrink: 1 },
   activeFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 6, gap: 4 },
   activeContinue: { fontSize: 13, fontWeight: '700', color: '#FF6A13' },
 

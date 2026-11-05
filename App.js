@@ -1,4 +1,4 @@
-import React, { useEffect, useState, lazy, Suspense } from 'react';
+import React, { useEffect, useMemo, useState, lazy, Suspense } from 'react';
 import { Platform, View } from 'react-native';
 
 // Security: Disable React DevTools in production
@@ -29,6 +29,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
 import { useLocationTracking } from './hooks/useLocationTracking';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import LoginScreen from './screens/LoginScreen';
 import OrdersScreen from './screens/OrdersScreen';
 import EarningsScreen from './screens/EarningsScreen';
@@ -128,7 +129,10 @@ const moitiesProfil = DEPLIE ? { gauche: ['MenuMain', 'DeliveryHistory', 'Opport
 const BARRE = DEPLIE
   ? { backgroundColor: '#fff', position: 'absolute', left: 0, bottom: 0, width: largeurMoitie() }
   : { backgroundColor: '#fff' };
-const navTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: BRAND, card: '#fff', text: '#111' } };
+// Mode sombre : fonds et textes de la navigation (en-têtes, onglets).
+function navThemeDe(c) {
+  return { ...DefaultTheme, dark: c.dark, colors: { ...DefaultTheme.colors, primary: BRAND, background: c.bg, card: c.card, text: c.text, border: c.border } };
+}
 
 // Nouvelle course proposée (status « available », DeliveryApp/notifications) :
 // son joué même app ouverte, pour ne pas la manquer. Les autres push restent
@@ -228,6 +232,7 @@ function Main() {
   // mid-course).
   useLocationTracking(isOnline || activeDelivery);
   const totalProfileNotifs = getUnreadTicketCount() + getUnreadOpportunitiesCount();
+  const { colors } = useTheme();
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -257,17 +262,19 @@ function Main() {
   if (bootstrapping) return null;
   if (!user) return DEPLIE ? <AuMilieu><LoginScreen /></AuMilieu> : <LoginScreen />;
 
+  const barre = [BARRE, { backgroundColor: colors.card, borderTopColor: colors.border }];
+
   return (
     <>
     <CarteDemandeModal visible={carteDemande} onClose={() => setCarteDemande(false)} />
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerTitleAlign: 'center',
-        headerStyle: { backgroundColor: '#fff' },
-        headerTintColor: '#000',
+        headerStyle: { backgroundColor: colors.card },
+        headerTintColor: colors.text,
         tabBarActiveTintColor: BRAND,
         tabBarInactiveTintColor: '#8e8e93',
-        tabBarStyle: BARRE,
+        tabBarStyle: barre,
         // Deplie : etiquettes sous les icones, comme sur le telephone.
         ...(DEPLIE ? { tabBarLabelPosition: 'below-icon' } : null),
         detachInactiveScreens: true,
@@ -282,7 +289,7 @@ function Main() {
     >
       <Tab.Screen name="Accueil" component={HomeStackScreen} options={({ route }) => {
           const routeName = getFocusedRouteNameFromRoute(route) ?? 'OrdersMain';
-          return { headerShown: false, tabBarLabel: t('tabHome'), tabBarStyle: routeName === 'DeliveryFlow' ? { display: 'none' } : BARRE };
+          return { headerShown: false, tabBarLabel: t('tabHome'), tabBarStyle: routeName === 'DeliveryFlow' ? { display: 'none' } : barre };
         }} />
       <Tab.Screen name="MessagesTab" component={DEPLIE ? InboxStackScreen : InboxScreen} options={{ headerShown: false, tabBarLabel: t('tabMessages') }} />
       <Tab.Screen name="Revenus" component={EarningsStackScreen} options={{ headerShown: false, tabBarLabel: t('tabEarnings') }} />
@@ -307,6 +314,18 @@ function CurrencyGate({ children }) {
   return <CurrencyProvider country={country}>{children}</CurrencyProvider>;
 }
 
+// Navigation et barre d'état aux couleurs du mode clair ou sombre.
+function NavigationTheme() {
+  const { colors, dark } = useTheme();
+  const theme = useMemo(() => navThemeDe(colors), [colors]);
+  return (
+    <NavigationContainer theme={theme} ref={navigationRef} onReady={restaurerEcranApresRepli} onStateChange={noterEtatNavigation}>
+      <StatusBar style={dark ? 'light' : 'dark'} />
+      <Main />
+    </NavigationContainer>
+  );
+}
+
 export default function App() {
   // Pliable : rechargement au pliage et au depliage (utils/repliEcran.js).
   useEffect(() => surveillerRepliEcran(), []);
@@ -314,14 +333,13 @@ export default function App() {
     <SafeAreaProvider>
       <LanguageProvider>
         <AuthProvider>
+          <ThemeProvider>
           <CurrencyGate>
             <View style={{ flex: 1 }} onLayout={signalerTailleRacine}>
-              <NavigationContainer theme={navTheme} ref={navigationRef} onReady={restaurerEcranApresRepli} onStateChange={noterEtatNavigation}>
-                <StatusBar style="dark" />
-                <Main />
-              </NavigationContainer>
+              <NavigationTheme />
             </View>
           </CurrencyGate>
+          </ThemeProvider>
         </AuthProvider>
       </LanguageProvider>
     </SafeAreaProvider>

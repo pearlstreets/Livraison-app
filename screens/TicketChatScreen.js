@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { ticketService } from '../services/ticketService';
 import { formatTime as formatClock } from '../lib/i18nFormat';
 
@@ -37,7 +38,8 @@ function mapMessage(msg, t) {
   const type = msg.sender_type === 'user' ? 'user' : msg.sender_type === 'system' ? 'system' : 'admin';
   const cle = type === 'system' ? cleSysteme(msg.text) : null;
   return {
-    id: String(msg.id),
+    // Identifiant de secours : un message sans id donnait des clés en double.
+    id: msg?.id != null ? String(msg.id) : `msg-${msg?.created_at || ''}-${String(msg?.text || '').slice(0, 20)}`,
     type,
     text: cle ? t(cle) : (msg.text || ''),
     resolvedMark: Boolean(cle),
@@ -47,6 +49,8 @@ function mapMessage(msg, t) {
 
 export default function TicketChatScreen({ navigation, route }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const s = stylesPour(colors);
   const insets = useSafeAreaInsets();
   // Identifiant NUMÉRIQUE du ticket seulement (jamais l'id d'une commande,
   // du type « ORD-123 », que le serveur ne connaît pas).
@@ -72,7 +76,7 @@ export default function TicketChatScreen({ navigation, route }) {
       const res = await ticketService.getTicketDetail(ticketId);
       const ticket = res?.data?.ticket || res?.ticket || {};
       const rawMsgs = res?.data?.messages || res?.messages || [];
-      const mapped = Array.isArray(rawMsgs) ? rawMsgs.map((m) => mapMessage(m, t)) : [];
+      const mapped = Array.isArray(rawMsgs) ? rawMsgs.filter(Boolean).map((m) => mapMessage(m, t)) : [];
 
       // Derive resolved state from ticket status
       const status = ticket.status || '';
@@ -179,7 +183,7 @@ export default function TicketChatScreen({ navigation, route }) {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#f5f5f5' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Header */}
       <View style={[s.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => navigation.goBack()}>
@@ -215,7 +219,7 @@ export default function TicketChatScreen({ navigation, route }) {
       {/* Input or closed banner */}
       {isResolvedState || !ticketId ? (
         <View style={[s.closedBar, { paddingBottom: insets.bottom || 16 }]}>
-          <Ionicons name="lock-closed" size={16} color="#999" style={{ marginRight: 8 }} />
+          <Ionicons name="lock-closed" size={16} color={colors.textFaint} style={{ marginRight: 8 }} />
           <Text style={s.closedText}>{ticketId ? t('ticketClosed') : t('ticketMissing')}</Text>
         </View>
       ) : (
@@ -223,7 +227,7 @@ export default function TicketChatScreen({ navigation, route }) {
           <TextInput
             style={s.textInput}
             placeholder={t('writeYourMessage')}
-            placeholderTextColor="#aaa"
+            placeholderTextColor={colors.dark ? colors.textFaint : '#aaa'}
             value={input}
             onChangeText={setInput}
             onSubmitEditing={sendMessage}
@@ -239,7 +243,7 @@ export default function TicketChatScreen({ navigation, route }) {
   );
 }
 
-const s = StyleSheet.create({
+const makeStyles = (c) => StyleSheet.create({
   header: { backgroundColor: BRAND, paddingHorizontal: 16, paddingBottom: 14, flexDirection: 'row', alignItems: 'center' },
   headerTitle: { color: '#fff', fontWeight: '800', fontSize: 17 },
   headerSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 1 },
@@ -247,8 +251,8 @@ const s = StyleSheet.create({
 
   messagesList: { padding: 16, paddingBottom: 16, flexGrow: 1, justifyContent: 'flex-end' },
 
-  systemMsg: { alignSelf: 'center', backgroundColor: '#e0e0e0', borderRadius: 12, paddingVertical: 6, paddingHorizontal: 14, marginBottom: 12 },
-  systemText: { fontSize: 12, color: '#666', fontWeight: '600' },
+  systemMsg: { alignSelf: 'center', backgroundColor: c.dark ? c.borderStrong : '#e0e0e0', borderRadius: 12, paddingVertical: 6, paddingHorizontal: 14, marginBottom: 12 },
+  systemText: { fontSize: 12, color: c.dark ? c.textMuted : '#666', fontWeight: '600' },
 
   bubble: { flexDirection: 'row', marginBottom: 10, maxWidth: '85%' },
   bubbleUser: { alignSelf: 'flex-end', flexDirection: 'row-reverse' },
@@ -258,16 +262,24 @@ const s = StyleSheet.create({
 
   bubbleContent: { borderRadius: 16, padding: 12, maxWidth: '100%' },
   bubbleContentUser: { backgroundColor: BRAND, borderBottomRightRadius: 4 },
-  bubbleContentAdmin: { backgroundColor: '#fff', borderBottomLeftRadius: 4 },
+  bubbleContentAdmin: { backgroundColor: c.card, borderBottomLeftRadius: 4 },
 
   adminName: { fontSize: 11, fontWeight: '800', color: BRAND, marginBottom: 4 },
-  bubbleText: { fontSize: 15, color: '#111', lineHeight: 21 },
-  bubbleTime: { fontSize: 11, color: '#999', marginTop: 4, textAlign: 'right' },
+  bubbleText: { fontSize: 15, color: c.text, lineHeight: 21 },
+  bubbleTime: { fontSize: 11, color: c.textFaint, marginTop: 4, textAlign: 'right' },
 
-  inputBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f0f0f0' },
-  textInput: { flex: 1, backgroundColor: '#f5f5f5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, marginRight: 8 },
+  inputBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingTop: 10, backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.dark ? c.border : '#f0f0f0' },
+  // Case de saisie : inchangée en clair, fond de saisie et texte lisibles en sombre.
+  textInput: { flex: 1, backgroundColor: c.dark ? c.input : '#f5f5f5', ...(c.dark ? { color: c.text } : null), borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, marginRight: 8 },
   sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
 
-  closedBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingTop: 14, backgroundColor: '#f0f0f0', borderTopWidth: 1, borderTopColor: '#e0e0e0' },
-  closedText: { color: '#999', fontSize: 14, fontWeight: '700' },
+  closedBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingTop: 14, backgroundColor: c.dark ? c.border : '#f0f0f0', borderTopWidth: 1, borderTopColor: c.dark ? c.borderStrong : '#e0e0e0' },
+  closedText: { color: c.textFaint, fontSize: 14, fontWeight: '700' },
 });
+
+// Feuilles de style par thème (clair, sombre), créées une seule fois chacune.
+const stylesParTheme = new Map();
+function stylesPour(c) {
+  if (!stylesParTheme.has(c)) stylesParTheme.set(c, makeStyles(c));
+  return stylesParTheme.get(c);
+}

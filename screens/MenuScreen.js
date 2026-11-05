@@ -5,6 +5,7 @@ import StatusBarShield from '../components/StatusBarShield';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { useFocusEffect } from '@react-navigation/native';
@@ -17,14 +18,18 @@ const BRAND = '#FF6A13';
 // Valeur backend du véhicule → clé de traduction du libellé.
 const VEHICLE_LABEL_KEYS = { bicycle: 'bike', car: 'car', walk: 'walk' };
 
-const MenuItem = React.memo(({ icon, label, onPress, color = '#111', badge, detail }) => {
+const MenuItem = React.memo(({ icon, label, onPress, color, badge, detail }) => {
+  const { dark, colors } = useTheme();
+  const s = useMemo(() => makeStyles(dark, colors), [dark, colors]);
+  // Couleur par défaut : texte principal (noir en clair, clair en sombre).
+  color = color || colors.text;
   return (
     <Pressable style={s.menuItem} onPress={onPress}>
       <Ionicons name={icon} size={22} color={color} style={{ marginRight: 14 }} />
       <Text style={[s.menuLabel, { color }]}>{label}</Text>
-      {detail && <Text style={s.menuDetail}>{detail}</Text>}
-      {badge && <View style={s.badge}><Text style={s.badgeText}>{badge}</Text></View>}
-      <Ionicons name={dirIcon('chevron-forward')} size={18} color="#ccc" />
+      {!!detail && <Text style={s.menuDetail}>{detail}</Text>}
+      {!!badge && <View style={s.badge}><Text style={s.badgeText}>{badge}</Text></View>}
+      <Ionicons name={dirIcon('chevron-forward')} size={18} color={colors.chevron} />
     </Pressable>
   );
 });
@@ -32,6 +37,8 @@ const MenuItem = React.memo(({ icon, label, onPress, color = '#111', badge, deta
 export default function MenuScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, logout, deleteAccount, warnings, accountActive, rating, totalDeliveries, reactivateAccount, weeklyEarnings, isOnline, getUnreadTicketCount, getUnreadOpportunitiesCount, refreshTickets, refreshOpportunities } = useAuth();
+  const { mode, cycleMode, dark, colors } = useTheme();
+  const s = useMemo(() => makeStyles(dark, colors), [dark, colors]);
   const { t, lang, setLang, LANGUAGES } = useLanguage();
   const { fmtPrice } = useCurrency();
   const [langModal, setLangModal] = useState(false);
@@ -44,7 +51,11 @@ export default function MenuScreen({ navigation }) {
     refreshOpportunities?.();
   }, [refreshTickets, refreshOpportunities]));
 
-  const currentLang = LANGUAGES.find(l => l.code === lang);
+  // Langue inconnue de la liste : pas de plantage, la ligne reste affichée.
+  const currentLang = (LANGUAGES || []).find(l => l.code === lang);
+  const nbWarnings = Number(warnings) || 0;
+  const nbOpportunites = getUnreadOpportunitiesCount?.() || 0;
+  const nbTickets = getUnreadTicketCount?.() || 0;
 
   // Aujourd'hui, Cette semaine, Ce mois : une seule source, les gains NETS par
   // jour (adaptEarningsWeek : net de la semaine réparti sur ses jours), comme
@@ -161,7 +172,11 @@ export default function MenuScreen({ navigation }) {
           </View>
           <Text style={s.profileSub}>{[user?.firstName, user?.lastName].filter(Boolean).join(' ')}</Text>
         </View>
-        <View style={{ width: 22 }} />
+        {/* Mode d'affichage : Auto (nuit ou téléphone sombre), Clair, Sombre. */}
+        <Pressable style={s.themeBtn} onPress={cycleMode} hitSlop={8}>
+          <Ionicons name={mode === 'dark' ? 'moon' : mode === 'light' ? 'sunny' : 'contrast'} size={20} color="#fff" />
+          <Text style={s.themeTxt}>{mode === 'dark' ? (t('themeDark') || 'Sombre') : mode === 'light' ? (t('themeLight') || 'Clair') : (t('themeAuto') || 'Auto')}</Text>
+        </Pressable>
       </View>
 
       {/* Statut en ligne */}
@@ -172,17 +187,17 @@ export default function MenuScreen({ navigation }) {
 
       {/* Gains */}
       <View style={{flexDirection:'row', paddingHorizontal:16, marginTop:10, gap:8}}>
-        <Pressable style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}} onPress={() => navigation.navigate('DeliveryHistory')}>
-          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{fmtPrice(thisDayTotal)}</Text>
-          <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('today') || "Aujourd'hui"}</Text>
+        <Pressable style={s.gainCard} onPress={() => navigation.navigate('DeliveryHistory')}>
+          <Text style={s.gainValue}>{fmtPrice(thisDayTotal)}</Text>
+          <Text style={s.gainLabel}>{t('today') || "Aujourd'hui"}</Text>
         </Pressable>
-        <Pressable style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}} onPress={() => navigation.navigate('Wallet')}>
-          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{fmtPrice(thisWeekTotal)}</Text>
-          <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('thisWeek')}</Text>
+        <Pressable style={s.gainCard} onPress={() => navigation.navigate('Wallet')}>
+          <Text style={s.gainValue}>{fmtPrice(thisWeekTotal)}</Text>
+          <Text style={s.gainLabel}>{t('thisWeek')}</Text>
         </Pressable>
-        <Pressable style={{flex:1, backgroundColor:'#fff', borderRadius:12, padding:12, alignItems:'center', shadowColor:'#000', shadowOpacity:0.05, shadowRadius:4, elevation:2}} onPress={() => navigation.navigate('Wallet')}>
-          <Text style={{fontSize:16, fontWeight:'900', color:'#111'}}>{fmtPrice(thisMonthTotal)}</Text>
-          <Text style={{fontSize:11, fontWeight:'600', color:'#6B7280', marginTop:2}}>{t('thisMonth')}</Text>
+        <Pressable style={s.gainCard} onPress={() => navigation.navigate('Wallet')}>
+          <Text style={s.gainValue}>{fmtPrice(thisMonthTotal)}</Text>
+          <Text style={s.gainLabel}>{t('thisMonth')}</Text>
         </Pressable>
       </View>
 
@@ -223,20 +238,20 @@ export default function MenuScreen({ navigation }) {
           <View style={s.accountStatDivider} />
           <Pressable style={s.accountStat} onPress={() => navigation.navigate('DeliveryHistory')}>
             <Ionicons name="bicycle" size={18} color={BRAND} />
-            <Text style={s.accountStatValue}>{totalDeliveries}</Text>
+            <Text style={s.accountStatValue}>{totalDeliveries ?? 0}</Text>
             <Text style={s.accountStatLabel}>{t('courses')}</Text>
           </Pressable>
           <View style={s.accountStatDivider} />
           <Pressable style={s.accountStat} onPress={() => navigation.navigate('Warnings')}>
-            <Ionicons name="warning" size={18} color={warnings > 0 ? '#e74c3c' : '#ccc'} />
-            <Text style={[s.accountStatValue, warnings > 0 && { color: '#e74c3c' }]}>{warnings}/3</Text>
+            <Ionicons name="warning" size={18} color={nbWarnings > 0 ? '#e74c3c' : colors.chevron} />
+            <Text style={[s.accountStatValue, nbWarnings > 0 && { color: '#e74c3c' }]}>{nbWarnings}/3</Text>
             <Text style={s.accountStatLabel}>{t('warnings')}</Text>
           </Pressable>
         </View>
-        {warnings > 0 && warnings < 3 && (
+        {nbWarnings > 0 && nbWarnings < 3 && (
           <View style={s.warningHint}>
             <Ionicons name="information-circle" size={14} color="#f5a623" style={{ marginRight: 6 }} />
-            <Text style={s.warningHintText}>{t('attention')} : {3 - warnings} {t('warningRemaining')}</Text>
+            <Text style={s.warningHintText}>{t('attention')} : {3 - nbWarnings} {t('warningRemaining')}</Text>
           </View>
         )}
       </View>
@@ -244,7 +259,7 @@ export default function MenuScreen({ navigation }) {
       {/* Section principale */}
       <View style={s.section}>
         <MenuItem icon="time-outline" label={t('deliveryHistory')} onPress={() => navigation.navigate('DeliveryHistory')} />
-        <MenuItem icon="flash-outline" label={t('opportunities')} onPress={() => navigation.navigate('Opportunities')} badge={getUnreadOpportunitiesCount() > 0 ? String(getUnreadOpportunitiesCount()) : null} />
+        <MenuItem icon="flash-outline" label={t('opportunities')} onPress={() => navigation.navigate('Opportunities')} badge={nbOpportunites > 0 ? String(nbOpportunites) : null} />
         <MenuItem icon="wallet-outline" label={t('wallet')} onPress={() => navigation.navigate('Wallet')} />
         <MenuItem icon="person-outline" label={t('account')} onPress={() => navigation.navigate('EditProfile')} />
       </View>
@@ -252,7 +267,7 @@ export default function MenuScreen({ navigation }) {
       <View style={s.divider} />
 
       <View style={s.section}>
-        <MenuItem icon="chatbubbles-outline" label={t('ticketsTitle')} onPress={() => navigation.navigate('TicketsList')} badge={getUnreadTicketCount() > 0 ? String(getUnreadTicketCount()) : null} />
+        <MenuItem icon="chatbubbles-outline" label={t('ticketsTitle')} onPress={() => navigation.navigate('TicketsList')} badge={nbTickets > 0 ? String(nbTickets) : null} />
         <MenuItem icon="document-text-outline" label={t('documents')} onPress={() => navigation.navigate('Documents')} />
         <MenuItem icon="car-outline" label={t('vehicle')} onPress={() => navigation.navigate('Vehicle')} detail={t(VEHICLE_LABEL_KEYS[user?.vehicle] || 'bike')} />
         <MenuItem icon="star-outline" label={t('ratings')} onPress={() => navigation.navigate('Ratings')} />
@@ -269,10 +284,10 @@ export default function MenuScreen({ navigation }) {
 
       <View style={s.section}>
         <Pressable style={s.menuItem} onPress={() => { setPendingLang(lang); setLangModal(true); }}>
-          <Ionicons name="language-outline" size={22} color="#111" style={{ marginRight: 14 }} />
-          <Text style={[s.menuLabel, { color: '#111' }]}>{t('language')}</Text>
-          <Text style={s.langCurrent}>{currentLang.flag} {currentLang.native}</Text>
-          <Ionicons name={dirIcon('chevron-forward')} size={18} color="#ccc" />
+          <Ionicons name="language-outline" size={22} color={colors.text} style={{ marginRight: 14 }} />
+          <Text style={[s.menuLabel, { color: colors.text }]}>{t('language')}</Text>
+          <Text style={s.langCurrent}>{currentLang ? `${currentLang.flag} ${currentLang.native}` : lang}</Text>
+          <Ionicons name={dirIcon('chevron-forward')} size={18} color={colors.chevron} />
         </Pressable>
       </View>
 
@@ -289,7 +304,7 @@ export default function MenuScreen({ navigation }) {
         <View style={s.langModalContainer}>
           <View style={s.langModalHeader}>
             <Pressable onPress={() => setLangModal(false)}>
-              <Ionicons name="close" size={28} color="#111" />
+              <Ionicons name="close" size={28} color={colors.text} />
             </Pressable>
             <Text style={s.langModalTitle}>{t('chooseLang')}</Text>
             <View style={{ width: 28 }} />
@@ -323,8 +338,16 @@ export default function MenuScreen({ navigation }) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+// Styles selon le mode : en clair, valeurs d'origine à l'identique ; en sombre, palette du thème.
+const makeStyles = (dark, c) => {
+  const k = (clair, sombre) => (dark ? sombre : clair);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg) },
+  gainCard: { flex: 1, backgroundColor: k('#fff', c.card), borderRadius: 12, padding: 12, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  gainValue: { fontSize: 16, fontWeight: '900', color: k('#111', c.text) },
+  gainLabel: { fontSize: 11, fontWeight: '600', color: k('#6B7280', c.textMuted), marginTop: 2 },
+  themeBtn: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.18)', minWidth: 54 },
+  themeTxt: { color: '#fff', fontSize: 11, fontWeight: '700', marginTop: 2 },
   profileHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, backgroundColor: BRAND },
   avatarWrap: { marginRight: 14 },
   avatar: { width: 52, height: 52, borderRadius: 26 },
@@ -334,13 +357,13 @@ const s = StyleSheet.create({
   statusBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND, paddingHorizontal: 16, paddingBottom: 14 },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00C29B', marginRight: 8 },
   statusText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  section: { backgroundColor: '#fff' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+  section: { backgroundColor: k('#fff', c.card) },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: k('#f0f0f0', c.border) },
   menuLabel: { flex: 1, fontSize: 16, fontWeight: '600' },
-  menuDetail: { fontSize: 14, color: '#888', fontWeight: '600', marginRight: 8 },
+  menuDetail: { fontSize: 14, color: k('#888', c.textFaint), fontWeight: '600', marginRight: 8 },
   badge: { backgroundColor: BRAND, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginRight: 8 },
   badgeText: { color: '#fff', fontWeight: '800', fontSize: 12 },
-  divider: { height: 10, backgroundColor: '#f5f5f5' },
+  divider: { height: 10, backgroundColor: k('#f5f5f5', c.bg) },
 
   // Earnings bar
   earningsBar: { flexDirection: 'row', backgroundColor: BRAND, paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center' },
@@ -350,33 +373,34 @@ const s = StyleSheet.create({
   earningsDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.3)' },
 
   // Account status card
-  accountCard: { backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 14, padding: 14, marginTop: 10, marginBottom: 10 },
+  accountCard: { backgroundColor: k('#fff', c.card), marginHorizontal: 16, borderRadius: 14, padding: 14, marginTop: 10, marginBottom: 10 },
   accountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
   accountStat: { alignItems: 'center', gap: 4 },
-  accountStatValue: { fontSize: 18, fontWeight: '900', color: '#111' },
-  accountStatLabel: { fontSize: 11, color: '#888', fontWeight: '600' },
-  accountStatDivider: { width: 1, height: 36, backgroundColor: '#f0f0f0' },
-  warningHint: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff8e6', borderRadius: 8, padding: 8, marginTop: 10 },
-  warningHintText: { fontSize: 12, color: '#b37400', fontWeight: '600', flex: 1 },
+  accountStatValue: { fontSize: 18, fontWeight: '900', color: k('#111', c.text) },
+  accountStatLabel: { fontSize: 11, color: k('#888', c.textFaint), fontWeight: '600' },
+  accountStatDivider: { width: 1, height: 36, backgroundColor: k('#f0f0f0', c.border) },
+  warningHint: { flexDirection: 'row', alignItems: 'center', backgroundColor: k('#fff8e6', '#3a2e14'), borderRadius: 8, padding: 8, marginTop: 10 },
+  warningHintText: { fontSize: 12, color: k('#b37400', '#f5c46b'), fontWeight: '600', flex: 1 },
 
   // Deactivated
-  deactivatedBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fde8e8', marginHorizontal: 16, borderRadius: 14, padding: 14, marginTop: 10 },
+  deactivatedBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: k('#fde8e8', '#3a1d1d'), marginHorizontal: 16, borderRadius: 14, padding: 14, marginTop: 10 },
   deactivatedTitle: { fontSize: 14, fontWeight: '800', color: '#e74c3c' },
-  deactivatedSub: { fontSize: 12, color: '#666', marginTop: 2 },
+  deactivatedSub: { fontSize: 12, color: k('#666', c.textMuted), marginTop: 2 },
   revisionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e74c3c', borderRadius: 12, paddingVertical: 12, marginHorizontal: 16, marginTop: 8 },
   revisionBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
 
   // Langue
-  langCurrent: { fontSize: 14, color: '#888', fontWeight: '600', marginRight: 8 },
-  langModalContainer: { flex: 1, backgroundColor: '#fff' },
-  langModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  langModalTitle: { fontSize: 17, fontWeight: '800', color: '#111' },
-  langRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
-  langRowActive: { backgroundColor: '#FFF1E8' },
+  langCurrent: { fontSize: 14, color: k('#888', c.textFaint), fontWeight: '600', marginRight: 8 },
+  langModalContainer: { flex: 1, backgroundColor: k('#fff', c.card) },
+  langModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: k('#f0f0f0', c.border) },
+  langModalTitle: { fontSize: 17, fontWeight: '800', color: k('#111', c.text) },
+  langRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: k('#f5f5f5', c.border) },
+  langRowActive: { backgroundColor: k('#FFF1E8', c.cardAlt) },
   langFlag: { fontSize: 24, marginRight: 14 },
   langTextRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  langLabel: { fontSize: 16, fontWeight: '600', color: '#111' },
-  langEnglish: { fontSize: 14, fontWeight: '400', color: '#888' },
+  langLabel: { fontSize: 16, fontWeight: '600', color: k('#111', c.text) },
+  langEnglish: { fontSize: 14, fontWeight: '400', color: k('#888', c.textFaint) },
   langConfirmBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginBottom: 20, alignItems: 'center' },
   langConfirmTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
-});
+  });
+};

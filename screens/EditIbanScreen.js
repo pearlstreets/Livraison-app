@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
@@ -6,12 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import useSecureScreen from '../hooks/useSecureScreen';
+import { useTheme } from '../contexts/ThemeContext';
 
 const BRAND = '#FF6A13';
 
 export default function EditIbanScreen({ navigation }) {
   const { t } = useLanguage();
   const { currentIban, setCurrentIban, updateUser } = useAuth();
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   // IBAN, BIC et titulaire du compte.
   useSecureScreen('EditIban');
@@ -59,7 +62,7 @@ export default function EditIbanScreen({ navigation }) {
     <View style={s.container}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
         <Text style={s.headerTitle}>{t('paymentMethod')}</Text>
         <View style={{ width: 24 }} />
@@ -89,7 +92,7 @@ export default function EditIbanScreen({ navigation }) {
         <TextInput
           style={s.input}
           placeholder={t('accountHolderName')}
-          placeholderTextColor="#bbb"
+          placeholderTextColor={colors.dark ? colors.textFaint : '#bbb'}
           value={newTitulaire}
           onChangeText={setNewTitulaire}
           autoCapitalize="words"
@@ -99,7 +102,7 @@ export default function EditIbanScreen({ navigation }) {
         <TextInput
           style={s.input}
           placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX"
-          placeholderTextColor="#bbb"
+          placeholderTextColor={colors.dark ? colors.textFaint : '#bbb'}
           value={newIban}
           onChangeText={setNewIban}
           autoCapitalize="characters"
@@ -110,7 +113,7 @@ export default function EditIbanScreen({ navigation }) {
         <TextInput
           style={s.input}
           placeholder="BNPAFRPPXXX"
-          placeholderTextColor="#bbb"
+          placeholderTextColor={colors.dark ? colors.textFaint : '#bbb'}
           value={newBic}
           onChangeText={setNewBic}
           autoCapitalize="characters"
@@ -134,25 +137,29 @@ export default function EditIbanScreen({ navigation }) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
+// Couleurs : en clair, valeurs d'origine à l'identique ; en sombre, celles du thème.
+const makeStyles = (c) => {
+  const p = (clair, sombre) => (c.dark ? sombre : clair);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, backgroundColor: c.card, borderBottomWidth: 1, borderBottomColor: p('#f0f0f0', c.border) },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
   body: { padding: 16, paddingBottom: 20 },
-  currentCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 12 },
-  currentIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  currentLabel: { fontSize: 13, color: '#888', fontWeight: '600' },
-  currentValue: { fontSize: 16, fontWeight: '800', color: '#111', marginTop: 2, letterSpacing: 0.5 },
-  activeBadge: { backgroundColor: '#FFF1E8', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+  currentCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, borderRadius: 16, padding: 16, marginBottom: 12 },
+  currentIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.cardAlt, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  currentLabel: { fontSize: 13, color: p('#888', c.textMuted), fontWeight: '600' },
+  currentValue: { fontSize: 16, fontWeight: '800', color: c.text, marginTop: 2, letterSpacing: 0.5 },
+  activeBadge: { backgroundColor: c.cardAlt, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
   activeTxt: { color: BRAND, fontWeight: '800', fontSize: 12 },
-  info: { fontSize: 13, color: '#888', paddingHorizontal: 4, marginBottom: 16, lineHeight: 18 },
-  divider: { height: 1, backgroundColor: '#e0e0e0', marginBottom: 16 },
-  sectionTitle: { fontSize: 18, fontWeight: '900', color: '#111', marginBottom: 16 },
-  fieldLabel: { fontSize: 13, fontWeight: '700', color: '#555', marginBottom: 6 },
-  input: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e0e0e0', paddingHorizontal: 14, paddingVertical: 14, fontSize: 15, color: '#111', fontWeight: '600', marginBottom: 14, letterSpacing: 0.5 },
-  warning: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff8e6', borderRadius: 10, padding: 12, marginTop: 4 },
-  warningTxt: { fontSize: 12, color: '#b37400', fontWeight: '600', flex: 1, lineHeight: 16 },
-  btnRow: { paddingHorizontal: 16, paddingBottom: 20, backgroundColor: '#f5f5f5' },
+  info: { fontSize: 13, color: p('#888', c.textMuted), paddingHorizontal: 4, marginBottom: 16, lineHeight: 18 },
+  divider: { height: 1, backgroundColor: c.borderStrong, marginBottom: 16 },
+  sectionTitle: { fontSize: 18, fontWeight: '900', color: c.text, marginBottom: 16 },
+  fieldLabel: { fontSize: 13, fontWeight: '700', color: p('#555', c.textSoft), marginBottom: 6 },
+  input: { backgroundColor: c.input, borderRadius: 12, borderWidth: 1, borderColor: p('#e0e0e0', c.inputBorder), paddingHorizontal: 14, paddingVertical: 14, fontSize: 15, color: c.text, fontWeight: '600', marginBottom: 14, letterSpacing: 0.5 },
+  warning: { flexDirection: 'row', alignItems: 'center', backgroundColor: p('#fff8e6', '#3a2e12'), borderRadius: 10, padding: 12, marginTop: 4 },
+  warningTxt: { fontSize: 12, color: p('#b37400', '#f5c26b'), fontWeight: '600', flex: 1, lineHeight: 16 },
+  btnRow: { paddingHorizontal: 16, paddingBottom: 20, backgroundColor: c.bg },
   saveBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   saveTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
-});
+  });
+};

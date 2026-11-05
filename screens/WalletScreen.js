@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
@@ -11,6 +11,7 @@ import { useCurrency } from '../contexts/CurrencyContext';
 import { payoutDateLabel, payoutStatusLabel, payoutTypeLabel } from '../lib/payouts';
 import useSecureScreen from '../hooks/useSecureScreen';
 import InstantCashoutSheet, { instantBlockedMessage, nextPayoutText } from '../components/InstantCashoutSheet';
+import { useTheme } from '../contexts/ThemeContext';
 
 const BRAND = '#FF6A13';
 
@@ -19,15 +20,20 @@ export default function WalletScreen({ navigation }) {
   const { t } = useLanguage();
   const { currentEarningsCents, wallet, versements, currentIban, refreshEarnings } = useAuth();
   const { fmtPrice } = useCurrency();
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   // IBAN du compte de versement affiché en clair.
   useSecureScreen('Wallet');
-  const earn = { earningsCents: currentEarningsCents, earnings: fmtPrice(currentEarningsCents / 100) };
+  // Solde illisible : 0 (jamais NaN, et l'encaissement reste bloqué).
+  const soldeCents = Number.isFinite(Number(currentEarningsCents)) ? Number(currentEarningsCents) : 0;
+  const earn = { earningsCents: soldeCents, earnings: fmtPrice(soldeCents / 100) };
   // Libellé du compte bancaire dérivé du vrai IBAN (au lieu d'un ••••15 en dur).
   const bankTail = ((currentIban || '').match(/(\d{2,4})\s*$/) || [])[1] || '';
   const bankLabel = bankTail ? `••${bankTail}` : t('yourSavedAccount');
   const [encaissModal, setEncaissModal] = useState(false);
-  const showVersements = versements.slice(0, 3);
+  const listeVersements = Array.isArray(versements) ? versements : [];
+  const showVersements = listeVersements.slice(0, 3);
   const scrollRef = useRef(null);
 
   useFocusEffect(useCallback(() => {
@@ -54,11 +60,11 @@ export default function WalletScreen({ navigation }) {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 40 }}>
         <View style={[s.headerRow, { paddingTop: insets.top }]}>
           <Pressable onPress={() => navigation.goBack()}>
-            <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
+            <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
           </Pressable>
           <Text style={s.headerTitle}>{t('wallet')}</Text>
           <View style={{ width: 24 }} />
@@ -87,8 +93,8 @@ export default function WalletScreen({ navigation }) {
         <Text style={s.subSection}>{t('lastPayouts')}</Text>
         <View style={s.versementsCard}>
           {showVersements.map((v, i) => (
-            <Pressable key={i} style={[s.versementRow, i < showVersements.length - 1 && s.versementBorder]} onPress={() => navigation.navigate('VersementDetail', { versement: v })}>
-              <Ionicons name="calendar-outline" size={22} color="#666" style={{ marginRight: 12 }} />
+            <Pressable key={v.id ?? i} style={[s.versementRow, i < showVersements.length - 1 && s.versementBorder]} onPress={() => navigation.navigate('VersementDetail', { versement: v })}>
+              <Ionicons name="calendar-outline" size={22} color={colors.dark ? colors.textMuted : '#666'} style={{ marginRight: 12 }} />
               <View style={{ flex: 1 }}>
                 <Text style={s.versementLabel}>{payoutTypeLabel(v, t)}</Text>
                 <View style={s.versementDateRow}>
@@ -96,19 +102,19 @@ export default function WalletScreen({ navigation }) {
                   <Text style={s.versementDate}>{payoutDateLabel(v, t)} · {payoutStatusLabel(v.status, t)}</Text>
                 </View>
               </View>
-              <Ionicons name={dirIcon('chevron-forward')} size={16} color="#ccc" style={{ marginLeft: 8 }} />
+              <Ionicons name={dirIcon('chevron-forward')} size={16} color={colors.chevron} style={{ marginLeft: 8 }} />
             </Pressable>
           ))}
         </View>
-        {versements.length > 3 && (
+        {listeVersements.length > 3 && (
           <Pressable style={s.showAllBtn} onPress={() => navigation.navigate('VersementsList', { mode: 'activity' })}>
-            <Text style={s.showAllTxt}>{t('showAll')} ({versements.length})</Text>
+            <Text style={s.showAllTxt}>{t('showAll')} ({listeVersements.length})</Text>
           </Pressable>
         )}
 
         <View style={s.paymentMethodCard}>
           <View style={s.pmHeaderRow}>
-            <Ionicons name="business-outline" size={22} color="#666" style={{ marginRight: 12 }} />
+            <Ionicons name="business-outline" size={22} color={colors.dark ? colors.textMuted : '#666'} style={{ marginRight: 12 }} />
             <Text style={s.pmTitle}>{t('paymentMethod')}</Text>
           </View>
           <View style={s.pmIbanRow}>
@@ -135,9 +141,9 @@ export default function WalletScreen({ navigation }) {
         </Pressable>
 
         <Pressable style={s.helpRow} onPress={() => navigation.navigate('Help')}>
-          <Ionicons name="help-circle-outline" size={22} color="#666" style={{ marginRight: 12 }} />
+          <Ionicons name="help-circle-outline" size={22} color={colors.dark ? colors.textMuted : '#666'} style={{ marginRight: 12 }} />
           <Text style={s.helpText}>{t('help')}</Text>
-          <Ionicons name={dirIcon('chevron-forward')} size={18} color="#ccc" />
+          <Ionicons name={dirIcon('chevron-forward')} size={18} color={colors.chevron} />
         </Pressable>
       </ScrollView>
       <StatusBarShield />
@@ -150,9 +156,12 @@ export default function WalletScreen({ navigation }) {
   );
 }
 
-const s = StyleSheet.create({
+// Couleurs : en clair, valeurs d'origine à l'identique ; en sombre, celles du thème.
+const makeStyles = (c) => {
+  const p = (clair, sombre) => (c.dark ? sombre : clair);
+  return StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
   balanceCard: { backgroundColor: BRAND, borderRadius: 20, padding: 20, marginHorizontal: 16, marginBottom: 24 },
   balanceLabel: { color: '#fff', fontSize: 13, fontWeight: '600' },
   balanceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -162,49 +171,50 @@ const s = StyleSheet.create({
   encaissTxt: { fontWeight: '700', fontSize: 14, color: BRAND },
   instantInfo: { color: '#fff', fontSize: 12, marginTop: 8, fontWeight: '600' },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginBottom: 8 },
-  sectionTitle: { fontSize: 20, fontWeight: '900', color: '#111' },
+  sectionTitle: { fontSize: 20, fontWeight: '900', color: c.text },
   seeAll: { fontSize: 14, fontWeight: '600', color: BRAND },
-  subSection: { fontSize: 14, fontWeight: '600', color: '#666', paddingHorizontal: 16, marginBottom: 8 },
-  versementsCard: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, marginBottom: 20, overflow: 'hidden' },
+  subSection: { fontSize: 14, fontWeight: '600', color: p('#666', c.textMuted), paddingHorizontal: 16, marginBottom: 8 },
+  versementsCard: { backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, marginBottom: 20, overflow: 'hidden' },
   versementRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  versementBorder: { borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  versementLabel: { fontWeight: '700', fontSize: 15, color: '#111' },
+  versementBorder: { borderBottomWidth: 1, borderBottomColor: p('#f0f0f0', c.border) },
+  versementLabel: { fontWeight: '700', fontSize: 15, color: c.text },
   versementDateRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
-  versementDate: { color: '#888', fontSize: 13 },
-  versementAmount: { fontWeight: '800', fontSize: 16, color: '#111' },
-  paymentMethodCard: { backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 16, padding: 16, marginBottom: 12 },
+  versementDate: { color: p('#888', c.textMuted), fontSize: 13 },
+  versementAmount: { fontWeight: '800', fontSize: 16, color: c.text },
+  paymentMethodCard: { backgroundColor: c.card, marginHorizontal: 16, borderRadius: 16, padding: 16, marginBottom: 12 },
   pmHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  pmTitle: { fontWeight: '700', fontSize: 15, color: '#111' },
-  pmIbanRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f8f8', borderRadius: 12, padding: 12, marginBottom: 12 },
-  pmIbanIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  pmIbanLabel: { fontSize: 12, color: '#888', fontWeight: '600' },
-  pmIbanValue: { fontSize: 15, fontWeight: '800', color: '#111', marginTop: 2, letterSpacing: 0.5 },
+  pmTitle: { fontWeight: '700', fontSize: 15, color: c.text },
+  pmIbanRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: p('#f8f8f8', c.border), borderRadius: 12, padding: 12, marginBottom: 12 },
+  pmIbanIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.cardAlt, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  pmIbanLabel: { fontSize: 12, color: p('#888', c.textMuted), fontWeight: '600' },
+  pmIbanValue: { fontSize: 15, fontWeight: '800', color: c.text, marginTop: 2, letterSpacing: 0.5 },
   pmEditBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, paddingVertical: 12 },
   pmEditTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
   stripeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#6772e5', borderRadius: 12, marginHorizontal: 16, marginBottom: 12, paddingVertical: 14 },
   stripeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  helpRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 16, padding: 16 },
-  helpText: { fontWeight: '700', fontSize: 15, color: '#111', flex: 1 },
+  helpRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, marginHorizontal: 16, borderRadius: 16, padding: 16 },
+  helpText: { fontWeight: '700', fontSize: 15, color: c.text, flex: 1 },
 
   // Popup encaissement
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: p('rgba(0,0,0,0.5)', c.overlay), justifyContent: 'flex-end' },
 
   showAllBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, marginHorizontal: 16, marginBottom: 24, paddingVertical: 14, marginTop: -2 },
   showAllTxt: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
   // Historique virements
-  sectionTitle2: { fontSize: 18, fontWeight: '900', color: '#111', paddingHorizontal: 16, marginBottom: 10, marginTop: 8 },
+  sectionTitle2: { fontSize: 18, fontWeight: '900', color: c.text, paddingHorizontal: 16, marginBottom: 10, marginTop: 8 },
   virementsList: { paddingHorizontal: 16, marginBottom: 20 },
-  virementCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#f0f0f0' },
+  virementCard: { backgroundColor: c.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: p('#f0f0f0', c.border) },
   virementHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  virementIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  virementLabel: { fontWeight: '700', fontSize: 14, color: '#111' },
-  virementDateSmall: { fontSize: 12, color: '#999', marginTop: 1 },
-  virementAmountBig: { fontWeight: '900', fontSize: 16, color: '#111' },
+  virementIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: p('#f5f5f5', c.border), alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  virementLabel: { fontWeight: '700', fontSize: 14, color: c.text },
+  virementDateSmall: { fontSize: 12, color: c.textFaint, marginTop: 1 },
+  virementAmountBig: { fontWeight: '900', fontSize: 16, color: c.text },
   virementStatusBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   virementStatusTxt: { fontSize: 11, color: BRAND, fontWeight: '700' },
-  virementDetails: { backgroundColor: '#f9f9f9', borderRadius: 10, padding: 10 },
+  virementDetails: { backgroundColor: p('#f9f9f9', c.border), borderRadius: 10, padding: 10 },
   virementDetailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  virementDetailLabel: { fontSize: 13, color: '#888' },
-  virementDetailValue: { fontSize: 13, fontWeight: '700', color: '#333' },
-});
+  virementDetailLabel: { fontSize: 13, color: p('#888', c.textMuted) },
+  virementDetailValue: { fontSize: 13, fontWeight: '700', color: p('#333', c.textSoft) },
+  });
+};

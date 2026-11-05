@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { formatDayMonth } from '../lib/i18nFormat';
 import { ecranDeplie, largeurMoitie } from '../utils/deuxEcrans';
+import { useTheme } from '../contexts/ThemeContext';
 
 const BRAND = '#FF6A13';
 
@@ -51,6 +52,8 @@ export default function InstantCashoutSheet({ visible, onClose, accountLabel }) 
   const { t } = useLanguage();
   const { currentEarningsCents, wallet, cashOut } = useAuth();
   const { fmtPrice } = useCurrency();
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   const [step, setStep] = useState('confirm'); // confirm | processing | result
   const [result, setResult] = useState(null);
   // Montants figés à l'ouverture : le solde peut bouger pendant le virement.
@@ -60,7 +63,8 @@ export default function InstantCashoutSheet({ visible, onClose, accountLabel }) 
     if (visible) {
       setStep('confirm');
       setResult(null);
-      setSnapshot({ balance: currentEarningsCents / 100, fee: wallet?.instant?.feeEur ?? null });
+      // Solde illisible : 0 plutôt que NaN.
+      setSnapshot({ balance: Number.isFinite(Number(currentEarningsCents)) ? Number(currentEarningsCents) / 100 : 0, fee: wallet?.instant?.feeEur ?? null });
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -70,19 +74,26 @@ export default function InstantCashoutSheet({ visible, onClose, accountLabel }) 
 
   // Un seul virement par appui, même si le bouton est touché deux fois très vite.
   const envoiEnCours = useRef(false);
+  // Écran quitté pendant le virement : plus de mise à jour d'état.
+  const monte = useRef(true);
+  useEffect(() => () => { monte.current = false; }, []);
   async function confirm() {
     if (envoiEnCours.current) return;
     envoiEnCours.current = true;
     setStep('processing');
+    let r;
     try {
-      const r = await cashOut();
-      setResult(r);
+      r = await cashOut();
     } catch {
-      setResult({ ok: false, code: 'erreur' });
+      // Exception sans réponse lisible : le virement a pu partir, on invite à
+      // vérifier les versements au lieu d'affirmer « non envoyé ».
+      r = { ok: false, code: 'reseau' };
     } finally {
       envoiEnCours.current = false;
-      setStep('result');
     }
+    if (!monte.current) return;
+    setResult(r || { ok: false, code: 'reseau' });
+    setStep('result');
   }
 
   function close() {
@@ -193,21 +204,25 @@ export default function InstantCashoutSheet({ visible, onClose, accountLabel }) 
   );
 }
 
-const s = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  popup: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, alignItems: 'center' },
-  iconWrap: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  title: { fontSize: 22, fontWeight: '900', color: '#111', marginBottom: 8, textAlign: 'center' },
-  desc: { fontSize: 15, color: '#666', textAlign: 'center', lineHeight: 22, marginBottom: 20 },
-  rows: { width: '100%', backgroundColor: '#f8f8f8', borderRadius: 14, padding: 14, marginVertical: 12 },
+// Couleurs : en clair, valeurs d'origine à l'identique ; en sombre, celles du thème.
+const makeStyles = (c) => {
+  const p = (clair, sombre) => (c.dark ? sombre : clair);
+  return StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: p('rgba(0,0,0,0.5)', c.overlay), justifyContent: 'flex-end' },
+  popup: { backgroundColor: c.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, alignItems: 'center' },
+  iconWrap: { width: 72, height: 72, borderRadius: 36, backgroundColor: p('#f0f0f0', c.border), alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  title: { fontSize: 22, fontWeight: '900', color: c.text, marginBottom: 8, textAlign: 'center' },
+  desc: { fontSize: 15, color: p('#666', c.textMuted), textAlign: 'center', lineHeight: 22, marginBottom: 20 },
+  rows: { width: '100%', backgroundColor: p('#f8f8f8', c.border), borderRadius: 14, padding: 14, marginVertical: 12 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
-  rowTotal: { borderTopWidth: 1, borderTopColor: '#e8e8e8', marginTop: 4, paddingTop: 10 },
-  rowLabel: { fontSize: 14, color: '#666' },
-  rowValue: { fontSize: 15, fontWeight: '700', color: '#111' },
-  bold: { fontWeight: '800', color: '#111' },
+  rowTotal: { borderTopWidth: 1, borderTopColor: p('#e8e8e8', c.borderStrong), marginTop: 4, paddingTop: 10 },
+  rowLabel: { fontSize: 14, color: p('#666', c.textMuted) },
+  rowValue: { fontSize: 15, fontWeight: '700', color: c.text },
+  bold: { fontWeight: '800', color: c.text },
   total: { fontSize: 18, fontWeight: '900', color: BRAND },
   btnPrimary: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, alignItems: 'center', width: '100%', marginBottom: 10 },
   btnPrimaryTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
   btnCancel: { paddingVertical: 12, alignItems: 'center', width: '100%' },
-  btnCancelTxt: { color: '#666', fontWeight: '700', fontSize: 15 },
-});
+  btnCancelTxt: { color: p('#666', c.textMuted), fontWeight: '700', fontSize: 15 },
+  });
+};
