@@ -92,7 +92,7 @@ export default function ChangePasswordScreen({ navigation }) {
           <Pressable onPress={() => navigation.goBack()}>
             <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
           </Pressable>
-          <Text style={s.headerTitle}>{t('changePassword') || 'Modifier le mot de passe'}</Text>
+          <Text style={s.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('changePassword') || 'Modifier le mot de passe'}</Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -200,7 +200,7 @@ const makeStyles = (dark, c) => {
   container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg) },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, paddingTop: 16 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: k('#111', c.text) },
+  headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 18, fontWeight: '800', color: k('#111', c.text) },
 
   iconWrap: { alignItems: 'center', marginBottom: 28 },
   iconCircle: { width: 70, height: 70, borderRadius: 35, backgroundColor: k('#FFF1E8', c.cardAlt), alignItems: 'center', justifyContent: 'center' },
@@ -212,12 +212,12 @@ const makeStyles = (dark, c) => {
 
   strengthRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
   strengthBar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: k('#e0e0e0', c.borderStrong) },
-  strengthText: { fontSize: 12, fontWeight: '700', color: k('#888', c.textFaint), marginLeft: 8 },
+  strengthText: { fontSize: 12, fontWeight: '700', color: k('#888', c.textFaint), marginLeft: 8, flexShrink: 1 },
 
   matchRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
-  matchText: { fontSize: 13, fontWeight: '600' },
+  matchText: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
 
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, marginTop: 32 },
-  saveTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  saveTxt: { color: '#fff', fontWeight: '800', fontSize: 16, flexShrink: 1 },
   });
 };

@@ -63,7 +63,7 @@ export default function OpportunitiesScreen({ navigation }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('opportunitiesTitle')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{t('opportunitiesTitle')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -116,11 +116,11 @@ export default function OpportunitiesScreen({ navigation }) {
 const makeStyles = (c) => StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 18, fontWeight: '800', color: c.text },
   subtitle: { color: c.dark ? c.textMuted : '#888', fontSize: 14, paddingHorizontal: 16, marginBottom: 16 },
   card: { flexDirection: 'row', backgroundColor: c.card, marginHorizontal: 16, borderRadius: 16, padding: 16, marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
   iconCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  cardTitle: { fontWeight: '800', fontSize: 16, color: c.text, marginBottom: 4 },
+  cardTitle: { flexShrink: 1, fontWeight: '800', fontSize: 16, color: c.text, marginBottom: 4 },
   cardDesc: { color: c.dark ? c.textSoft : '#555', fontSize: 13, marginBottom: 6 },
   cardPeriod: { fontWeight: '700', fontSize: 13 },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#e74c3c', marginLeft: 6 },

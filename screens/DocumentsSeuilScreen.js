@@ -232,9 +232,9 @@ export default function DocumentsSeuilScreen({ navigation }) {
       <View key={cle} style={s.carte}>
         <View style={s.ligneHaut}>
           <Ionicons name={ICONES[cle] || 'document-outline'} size={22} color={BRAND} style={{ marginRight: 10 }} />
-          <Text style={s.nom}>{t(NOMS[cle] || 'docsSeuilTitre')}</Text>
+          <Text style={s.nom} numberOfLines={2}>{t(NOMS[cle] || 'docsSeuilTitre')}</Text>
           <View style={[s.pastille, { backgroundColor: pastille.fond }]}>
-            <Text style={[s.pastilleTexte, { color: pastille.texte }]}>{t(pastille.cle)}</Text>
+            <Text style={[s.pastilleTexte, { color: pastille.texte }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t(pastille.cle)}</Text>
           </View>
         </View>
 
@@ -265,22 +265,22 @@ export default function DocumentsSeuilScreen({ navigation }) {
           brouillon?.envoi ? (
             <View style={[s.bouton, s.boutonEnCours]}>
               <ActivityIndicator color="#fff" style={{ marginRight: 8 }} />
-              <Text style={s.boutonTexte}>{t('sending')}</Text>
+              <Text style={s.boutonTexte} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('sending')}</Text>
             </View>
           ) : brouillon?.erreur ? (
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Pressable style={[s.bouton, { flex: 1 }]} onPress={() => envoyer(cle)}>
                 <Ionicons name="refresh" size={18} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={s.boutonTexte}>{t('retry')}</Text>
+                <Text style={s.boutonTexte} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('retry')}</Text>
               </Pressable>
               <Pressable style={[s.boutonSecondaire, { flex: 1 }]} onPress={() => demarrer(doc)}>
-                <Text style={s.boutonSecondaireTexte}>{t('docsSeuilAutrePhoto')}</Text>
+                <Text style={s.boutonSecondaireTexte} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('docsSeuilAutrePhoto')}</Text>
               </Pressable>
             </View>
           ) : (
             <Pressable style={s.bouton} onPress={() => demarrer(doc)}>
               <Ionicons name="camera-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={s.boutonTexte}>{libelleBouton}</Text>
+              <Text style={s.boutonTexte} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{libelleBouton}</Text>
             </Pressable>
           )
         )}
@@ -308,7 +308,7 @@ export default function DocumentsSeuilScreen({ navigation }) {
           <Ionicons name="cloud-offline-outline" size={40} color={dark ? colors.textFaint : '#bbb'} />
           <Text style={s.videTexte}>{t('docsSeuilEchecChargement')}</Text>
           <Pressable style={[s.bouton, { alignSelf: 'stretch', marginHorizontal: 16 }]} onPress={() => { setChargement(true); charger(); }}>
-            <Text style={s.boutonTexte}>{t('retry')}</Text>
+            <Text style={s.boutonTexte} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('retry')}</Text>
           </Pressable>
         </View>
       ) : (
@@ -338,7 +338,7 @@ const makeStyles = (dark, c) => {
   carte: { backgroundColor: k('#fff', c.card), borderRadius: 16, marginHorizontal: 16, padding: 16, marginBottom: 12 },
   ligneHaut: { flexDirection: 'row', alignItems: 'center' },
   nom: { flex: 1, fontSize: 15, fontWeight: '700', color: k('#111', c.text) },
-  pastille: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginStart: 8 },
+  pastille: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginStart: 8, maxWidth: '50%' },
   pastilleTexte: { fontSize: 12, fontWeight: '700' },
   raison: { backgroundColor: k('#FDECEC', '#3a1d1d'), borderRadius: 10, padding: 10, marginTop: 12 },
   raisonTexte: { fontSize: 13, color: k('#B42318', '#ff8a80'), lineHeight: 18 },
@@ -346,10 +346,10 @@ const makeStyles = (dark, c) => {
   apercus: { flexDirection: 'row', gap: 10, marginTop: 12 },
   apercu: { width: 72, height: 72, borderRadius: 10, backgroundColor: k('#eee', c.borderStrong), borderWidth: 1, borderColor: k('#E6E8EB', c.border) },
   erreur: { fontSize: 13, color: k('#B42318', '#ff8a80'), marginTop: 10 },
-  bouton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, paddingVertical: 13, marginTop: 14 },
+  bouton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, paddingVertical: 13, paddingHorizontal: 10, marginTop: 14 },
   boutonEnCours: { opacity: 0.6 },
-  boutonTexte: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  boutonSecondaire: { alignItems: 'center', justifyContent: 'center', backgroundColor: k('#fff', c.card), borderRadius: 12, paddingVertical: 13, marginTop: 14, borderWidth: 1, borderColor: k('#E6E8EB', c.borderStrong) },
+  boutonTexte: { color: '#fff', fontWeight: '800', fontSize: 15, flexShrink: 1 },
+  boutonSecondaire: { alignItems: 'center', justifyContent: 'center', backgroundColor: k('#fff', c.card), borderRadius: 12, paddingVertical: 13, paddingHorizontal: 10, marginTop: 14, borderWidth: 1, borderColor: k('#E6E8EB', c.borderStrong) },
   boutonSecondaireTexte: { color: k('#111', c.text), fontWeight: '700', fontSize: 15 },
   vide: { alignItems: 'center', marginTop: 40, gap: 12 },
   videTexte: { fontSize: 14, color: k('#666', c.textMuted), textAlign: 'center', paddingHorizontal: 24 },

@@ -577,7 +577,7 @@ export default function OrdersScreen({ navigation, route }) {
                     {/* Order info */}
                     <View style={styles.activeHeader}>
                       {/* Numéro officiel de commande (comme la carte), puis gain en devise du livreur. */}
-                      <Text style={styles.activeCode}>{order.orderNumber || order.id || order.code}</Text>
+                      <Text style={styles.activeCode} numberOfLines={1}>{order.orderNumber || order.id || order.code}</Text>
                       <Text style={styles.activePrice}>{order.priceEur != null ? fmtPrice(order.priceEur) : (order.priceText || order.price)}</Text>
                     </View>
                     <View style={styles.activeDetailRow}>
@@ -604,12 +604,12 @@ export default function OrdersScreen({ navigation, route }) {
       {online && (
         <>
           <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, active.length > 0 && styles.sectionTitleGap]}>
+            <Text style={[styles.sectionTitle, active.length > 0 && styles.sectionTitleGap, { flexShrink: 1 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
               {t('available')}
             </Text>
             {canSimulate && (
               <TouchableOpacity
-                style={styles.mockBtn}
+                style={[styles.mockBtn, { marginLeft: 8 }]}
                 onPress={addMockOrder}
                 accessibilityLabel={t('simulate')}
               >
@@ -701,8 +701,8 @@ const makeStyles = (c, dark) => StyleSheet.create({
   activeStepBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#FF6A13', borderRadius: 12, paddingVertical: 4, paddingHorizontal: 10, gap: 5, marginBottom: 8 },
   activeStepText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   activeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  activeCode: { fontWeight: '800', fontSize: 15, color: c.text },
-  activePrice: { fontWeight: '900', fontSize: 16, color: '#FF6A13' },
+  activeCode: { flex: 1, fontWeight: '800', fontSize: 15, color: c.text },
+  activePrice: { flexShrink: 0, marginLeft: 8, fontWeight: '900', fontSize: 16, color: '#FF6A13' },
   activeDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
   activeDetailText: { fontSize: 13, color: dark ? c.textMuted : '#666', flexShrink: 1 },
   activeFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 6, gap: 4 },

@@ -24,10 +24,12 @@ export default function InlineFilters({ filters = [], selected, onChange }) {
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: selected === f.id ? '#FF6A13' : (dark ? colors.border : '#F2F3F5'),
-            marginLeft: i === 0 ? 0 : GAP
+            marginLeft: i === 0 ? 0 : GAP,
+            // Pastille qui rétrécit plutôt que de sortir de l'écran.
+            flexShrink: 1
           }}
         >
-          <Text style={{ fontSize: FZ, fontWeight: '700', color: selected === f.id ? '#fff' : colors.text }}>
+          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ fontSize: FZ, fontWeight: '700', color: selected === f.id ? '#fff' : colors.text }}>
             {labels[f.id] ?? f.label ?? f.id}
           </Text>
         </TouchableOpacity>

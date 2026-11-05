@@ -117,7 +117,7 @@ function SlideButton({ label, onComplete, color: couleur = BRAND, disabled = fal
   return (
     <View style={[ss.sliderTrack, { backgroundColor: color + '20' }]}>
       {/* Label centered, offset to the right of thumb resting position */}
-      <Animated.Text style={[ss.sliderLabel, { color, opacity: labelOpacity }]}>
+      <Animated.Text style={[ss.sliderLabel, { color, opacity: labelOpacity }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
         {label}  <Ionicons name={dirIcon('chevron-forward')} size={14} color={color} />
       </Animated.Text>
       {/* Thumb */}
@@ -774,7 +774,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
         ) : (
           <View style={{ width: 24 }} />
         )}
-        <Text style={ss.headerTitle}>{t(STEP_LABEL_KEYS[step])}</Text>
+        <Text style={ss.headerTitle} numberOfLines={1}>{t(STEP_LABEL_KEYS[step])}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -1343,7 +1343,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             <Pressable onPress={() => setShowCodeProblem(false)}>
               <Ionicons name="close" size={28} color={dark ? colors.text : '#111'} />
             </Pressable>
-            <Text style={ss.chatHeaderTitle}>{t('reportProblem')}</Text>
+            <Text style={ss.chatHeaderTitle} numberOfLines={1}>{t('reportProblem')}</Text>
             <View style={{ width: 28 }} />
           </View>
 
@@ -1421,7 +1421,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             <Pressable onPress={() => setShowChat(false)}>
               <Ionicons name="close" size={28} color={dark ? colors.text : '#111'} />
             </Pressable>
-            <Text style={ss.chatHeaderTitle}>{filChat === 'pro' ? t('chatShopTitle') : t('messageToCustomer')}</Text>
+            <Text style={ss.chatHeaderTitle} numberOfLines={1}>{filChat === 'pro' ? t('chatShopTitle') : t('messageToCustomer')}</Text>
             <View style={{ width: 28 }} />
           </View>
 
@@ -1560,7 +1560,7 @@ function makeSS(c, dark) {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: d(c.bg, '#f5f5f5') }, /* unused kept for reference */
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: d(c.text, '#111') },
+  headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 18, fontWeight: '800', color: d(c.text, '#111') },
   progressRow: { flexDirection: 'row', marginHorizontal: 16 },
   progressSegment: { flex: 1, height: 4, borderRadius: 2 },
   progressSegmentActive: { backgroundColor: BRAND },
@@ -1572,7 +1572,7 @@ function makeSS(c, dark) {
   callPopupTitle: { color: '#fff', fontSize: 20, fontWeight: '900', marginTop: 12 },
   callPopupSub: { color: 'rgba(255,255,255,0.8)', fontSize: 13, textAlign: 'center', marginTop: 6, marginBottom: 20 },
   callPopupBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 24, width: '100%' },
-  callPopupBtnTxt: { color: '#e74c3c', fontWeight: '800', fontSize: 16 },
+  callPopupBtnTxt: { color: '#e74c3c', fontWeight: '800', fontSize: 16, flexShrink: 1, textAlign: 'center' },
 
   // Cancel button & popup
   cancelBtn: { alignItems: 'center', paddingVertical: 10, marginTop: 4 },
@@ -1582,7 +1582,7 @@ function makeSS(c, dark) {
   cancelTitle: { fontSize: 20, fontWeight: '900', color: d(c.text, '#111'), marginTop: 12 },
   cancelSub: { fontSize: 13, color: d(c.textMuted, '#666'), textAlign: 'center', marginTop: 8, lineHeight: 19 },
   cancelWarningBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fde8e8', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, marginTop: 12 },
-  cancelWarningText: { fontSize: 13, fontWeight: '700', color: '#e74c3c' },
+  cancelWarningText: { fontSize: 13, fontWeight: '700', color: '#e74c3c', flexShrink: 1 },
   cancelConfirmBtn: { backgroundColor: '#e74c3c', borderRadius: 14, paddingVertical: 14, width: '100%', alignItems: 'center', marginTop: 16 },
   cancelConfirmBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
   cancelKeepBtn: { paddingVertical: 12, width: '100%', alignItems: 'center', marginTop: 4 },
@@ -1599,10 +1599,10 @@ function makeSS(c, dark) {
   infoValue: { fontSize: 15, fontWeight: '700', color: d(c.text, '#111') },
 
   mapBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, width: '100%', marginBottom: 10 },
-  mapBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  mapBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16, flexShrink: 1, textAlign: 'center' },
 
   callBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: d(c.card, '#fff'), borderRadius: 14, paddingVertical: 14, width: '100%', borderWidth: 1, borderColor: BRAND, marginBottom: 10 },
-  callBtnTxt: { color: BRAND, fontWeight: '700', fontSize: 15 },
+  callBtnTxt: { color: BRAND, fontWeight: '700', fontSize: 15, flexShrink: 1, textAlign: 'center' },
 
   tipsCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND + '10', borderRadius: 14, padding: 16, width: '100%', marginBottom: 16 },
   tipsText: { flex: 1, fontSize: 14, color: d(c.textSoft, '#333'), lineHeight: 20 },
@@ -1633,7 +1633,7 @@ function makeSS(c, dark) {
 
   // Slider
   sliderTrack: { width: SLIDER_W, height: THUMB_SIZE + 12, borderRadius: (THUMB_SIZE + 12) / 2, justifyContent: 'center', alignItems: 'center', alignSelf: 'center' },
-  sliderLabel: { fontSize: 15, fontWeight: '700', marginLeft: THUMB_SIZE },
+  sliderLabel: { fontSize: 15, fontWeight: '700', marginLeft: THUMB_SIZE, maxWidth: SLIDER_W - THUMB_SIZE - 24 },
   sliderThumb: { width: THUMB_SIZE, height: THUMB_SIZE, borderRadius: THUMB_SIZE / 2, alignItems: 'center', justifyContent: 'center', position: 'absolute', left: 6, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6, elevation: 4 },
 
   // Code
@@ -1648,8 +1648,8 @@ function makeSS(c, dark) {
   stepTitleCompact: { fontSize: 18, fontWeight: '900', color: d(c.text, '#111') },
   stepSubCompact: { fontSize: 13, color: d(c.textMuted, '#888'), marginTop: 2 },
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, width: '100%', marginBottom: 10 },
-  infoBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: d(c.card, '#fff'), borderRadius: 20, paddingVertical: 6, paddingHorizontal: 10, gap: 4 },
-  infoBadgeText: { fontSize: 12, fontWeight: '700', color: d(c.textSoft, '#333') },
+  infoBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: d(c.card, '#fff'), borderRadius: 20, paddingVertical: 6, paddingHorizontal: 10, gap: 4, maxWidth: '100%' },
+  infoBadgeText: { fontSize: 12, fontWeight: '700', color: d(c.textSoft, '#333'), flexShrink: 1 },
   mapBtnCompact: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, paddingVertical: 12, width: '100%', marginBottom: 10 },
 
   // Done
@@ -1658,10 +1658,10 @@ function makeSS(c, dark) {
   summaryCard: { backgroundColor: d(c.card, '#fff'), borderRadius: 16, padding: 16, width: '100%', marginBottom: 24 },
   summaryHeader: { fontSize: 16, fontWeight: '800', color: d(c.text, '#111'), marginBottom: 12 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: d(c.border, '#f0f0f0') },
-  summaryLabel: { fontSize: 14, color: d(c.textMuted, '#888') },
+  summaryLabel: { fontSize: 14, color: d(c.textMuted, '#888'), flexShrink: 1, marginRight: 12 },
   summaryValue: { fontSize: 14, fontWeight: '700', color: d(c.text, '#111'), maxWidth: '60%', textAlign: 'right' },
   enrouteAddrCopyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
-  enrouteAddrBold: { fontSize: 14, fontWeight: '800', color: d(c.text, '#111') },
+  enrouteAddrBold: { fontSize: 14, fontWeight: '800', color: d(c.text, '#111'), flexShrink: 1 },
 
   // Bottom sheet itinéraire — style Apple
   sheetOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end', zIndex: 100 },
@@ -1686,7 +1686,7 @@ function makeSS(c, dark) {
   enrouteDetailCard: { backgroundColor: d(c.card, '#fff'), borderRadius: 14, padding: 12, marginBottom: 12, width: '100%', borderWidth: 1, borderColor: d(c.border, '#f0f0f0') },
   enrouteDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: d(c.border, '#f8f8f8') },
   enrouteDetailLabel: { flex: 1, fontSize: 14, color: d(c.textMuted, '#666') },
-  enrouteDetailValue: { fontSize: 14, fontWeight: '800', color: d(c.text, '#111') },
+  enrouteDetailValue: { fontSize: 14, fontWeight: '800', color: d(c.text, '#111'), flexShrink: 1, maxWidth: '60%', textAlign: 'right' },
   earningsBanner: { backgroundColor: BRAND + '15', borderRadius: 14, paddingVertical: 14, alignItems: 'center', width: '100%' },
   earningsBannerLabel: { fontSize: 28, fontWeight: '900', color: BRAND },
   earningsBannerSub: { fontSize: 13, color: d(c.textMuted, '#666'), fontWeight: '600', marginTop: 2 },
@@ -1695,13 +1695,13 @@ function makeSS(c, dark) {
   codeTimerWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: d(c.card, '#fff'), borderRadius: 12, padding: 12, marginBottom: 12, width: '100%' },
   codeTimerText: { fontSize: 20, fontWeight: '900', color: d(c.text, '#111') },
   codeProblemBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff3e0', borderRadius: 14, paddingVertical: 14, width: '100%', marginBottom: 8, borderWidth: 1, borderColor: '#f5a623' },
-  codeProblemBtnTxt: { color: '#f5a623', fontWeight: '800', fontSize: 14 },
+  codeProblemBtnTxt: { color: '#f5a623', fontWeight: '800', fontSize: 14, flexShrink: 1, textAlign: 'center' },
   codeProblemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: d(c.card, '#fff'), borderRadius: 12, paddingVertical: 14, paddingHorizontal: 14, marginBottom: 8, gap: 12, borderWidth: 1.5, borderColor: 'transparent' },
   codeProblemRowActive: { borderColor: BRAND, backgroundColor: BRAND + '10' },
   codeProblemRowText: { flex: 1, fontSize: 15, color: d(c.textSoft, '#333'), fontWeight: '600' },
   codeProblemInput: { backgroundColor: d(c.input, '#fff'), borderRadius: 12, padding: 12, fontSize: 14, minHeight: 80, borderWidth: 1, borderColor: d(c.inputBorder, '#e0e0e0'), marginTop: 12, color: d(c.text, '#111') },
   codeTicketBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e74c3c', borderRadius: 14, paddingVertical: 14, width: '100%', marginTop: 4 },
-  codeTicketBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  codeTicketBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14, flexShrink: 1, textAlign: 'center' },
   arrivedAddrCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: d(c.card, '#fff'), borderRadius: 14, padding: 14, marginBottom: 12, width: '100%', borderWidth: 1, borderColor: d(c.border, '#f0f0f0') },
   arrivedAddrLabel: { fontSize: 11, color: d(c.textFaint, '#999'), fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   arrivedAddrText: { fontSize: 15, fontWeight: '800', color: d(c.text, '#111'), marginTop: 4 },
@@ -1709,7 +1709,7 @@ function makeSS(c, dark) {
 
   // Chat client
   chatHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: d(c.border, '#f0f0f0'), backgroundColor: d(c.card, '#fff') },
-  chatHeaderTitle: { fontSize: 17, fontWeight: '800', color: d(c.text, '#111') },
+  chatHeaderTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 17, fontWeight: '800', color: d(c.text, '#111') },
   chatInfoBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: d(c.card, '#fff'), paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: d(c.border, '#f0f0f0') },
   chatInfoLabel: { fontSize: 10, color: d(c.textFaint, '#999'), fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   chatInfoText: { fontSize: 13, color: d(c.text, '#111'), fontWeight: '700', flexShrink: 1 },
@@ -1732,8 +1732,8 @@ function makeSS(c, dark) {
   chatSendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   // Options de remise (fragile / alcool / consigne d'absence)
   handlingRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
-  handlingChip: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: d(c.card, '#fff'), borderWidth: 1, borderColor: d(c.border, '#f0f0f0') },
-  handlingChipText: { fontSize: 12, fontWeight: '700', color: d(c.text, '#111'), marginLeft: 5 },
+  handlingChip: { flexDirection: 'row', alignItems: 'center', maxWidth: '100%', borderRadius: 14, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: d(c.card, '#fff'), borderWidth: 1, borderColor: d(c.border, '#f0f0f0') },
+  handlingChipText: { fontSize: 12, fontWeight: '700', color: d(c.text, '#111'), marginLeft: 5, flexShrink: 1 },
   absentBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
   absentCard: { backgroundColor: d(c.card, '#fff'), borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32 },
   absentTitle: { fontSize: 18, fontWeight: '800', color: d(c.text, '#111'), marginBottom: 6 },
@@ -1744,9 +1744,9 @@ function makeSS(c, dark) {
   preuveCardOk: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND + '10', borderColor: BRAND + '30' },
   preuveHint: { fontSize: 13, color: d(c.textSoft, '#333'), lineHeight: 18, marginBottom: 10 },
   preuveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 12 },
-  preuveBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  preuveBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 15, flexShrink: 1, textAlign: 'center' },
   preuveThumb: { width: 56, height: 56, borderRadius: 10, backgroundColor: d(c.border, '#f0f0f0') },
-  preuveOkTitle: { fontSize: 14, fontWeight: '700', color: d(c.text, '#111') },
+  preuveOkTitle: { fontSize: 14, fontWeight: '700', color: d(c.text, '#111'), flexShrink: 1 },
   preuveEtat: { fontSize: 12, color: d(c.textMuted, '#666'), marginTop: 2 },
   preuveRetake: { fontSize: 13, fontWeight: '700', color: BRAND, marginTop: 4 },
   preuveLock: { fontSize: 13, color: d(c.textMuted, '#666'), textAlign: 'center', marginBottom: 8 },

@@ -36,7 +36,7 @@ export default function HelpScreen({ navigation }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('helpTitle')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{t('helpTitle')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -70,14 +70,14 @@ export default function HelpScreen({ navigation }) {
 const makeStyles = (c) => StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 18, fontWeight: '800', color: c.text },
   sectionTitle: { fontSize: 20, fontWeight: '900', color: c.text, paddingHorizontal: 16, marginBottom: 16 },
   topicRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.dark ? c.border : '#f0f0f0' },
   topicLabel: { fontWeight: '700', fontSize: 15, color: c.text },
   topicDesc: { color: c.dark ? c.textMuted : '#888', fontSize: 13, marginTop: 2 },
   divider: { height: 20 },
   contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, marginHorizontal: 16 },
-  contactTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  contactTxt: { flexShrink: 1, textAlign: 'center', color: '#fff', fontWeight: '800', fontSize: 16 },
   version: { textAlign: 'center', color: c.dark ? c.textFaint : '#ccc', fontSize: 12, marginTop: 20 },
 });
 

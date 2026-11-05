@@ -27,7 +27,7 @@ const MenuItem = React.memo(({ icon, label, onPress, color, badge, detail }) => 
     <Pressable style={s.menuItem} onPress={onPress}>
       <Ionicons name={icon} size={22} color={color} style={{ marginRight: 14 }} />
       <Text style={[s.menuLabel, { color }]}>{label}</Text>
-      {!!detail && <Text style={s.menuDetail}>{detail}</Text>}
+      {!!detail && <Text style={s.menuDetail} numberOfLines={1}>{detail}</Text>}
       {!!badge && <View style={s.badge}><Text style={s.badgeText}>{badge}</Text></View>}
       <Ionicons name={dirIcon('chevron-forward')} size={18} color={colors.chevron} />
     </Pressable>
@@ -165,39 +165,39 @@ export default function MenuScreen({ navigation }) {
         </Pressable>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={s.profileName}>{user?.pseudo?.toUpperCase()}</Text>
+            <Text style={s.profileName} numberOfLines={1}>{user?.pseudo?.toUpperCase()}</Text>
             {user?.isVerified && (
               <Ionicons name="checkmark-circle" size={18} color="#fff" style={{ marginLeft: 6 }} />
             )}
           </View>
-          <Text style={s.profileSub}>{[user?.firstName, user?.lastName].filter(Boolean).join(' ')}</Text>
+          <Text style={s.profileSub} numberOfLines={1}>{[user?.firstName, user?.lastName].filter(Boolean).join(' ')}</Text>
         </View>
         {/* Mode d'affichage : Auto (nuit ou téléphone sombre), Clair, Sombre. */}
         <Pressable style={s.themeBtn} onPress={cycleMode} hitSlop={8}>
           <Ionicons name={mode === 'dark' ? 'moon' : mode === 'light' ? 'sunny' : 'contrast'} size={20} color="#fff" />
-          <Text style={s.themeTxt}>{mode === 'dark' ? (t('themeDark') || 'Sombre') : mode === 'light' ? (t('themeLight') || 'Clair') : (t('themeAuto') || 'Auto')}</Text>
+          <Text style={s.themeTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{mode === 'dark' ? (t('themeDark') || 'Sombre') : mode === 'light' ? (t('themeLight') || 'Clair') : (t('themeAuto') || 'Auto')}</Text>
         </Pressable>
       </View>
 
       {/* Statut en ligne */}
       <View style={[s.statusBanner, !isOnline && { backgroundColor: '#D9A07F' }]}>
         <View style={[s.statusDot, !isOnline && { backgroundColor: '#e74c3c' }, !accountActive && { backgroundColor: '#111' }]} />
-        <Text style={s.statusText}>{!accountActive ? t('deactivatedTitle') : isOnline ? t('youAreOnline') : t('offline')}</Text>
+        <Text style={s.statusText} numberOfLines={2}>{!accountActive ? t('deactivatedTitle') : isOnline ? t('youAreOnline') : t('offline')}</Text>
       </View>
 
       {/* Gains */}
       <View style={{flexDirection:'row', paddingHorizontal:16, marginTop:10, gap:8}}>
         <Pressable style={s.gainCard} onPress={() => navigation.navigate('DeliveryHistory')}>
-          <Text style={s.gainValue}>{fmtPrice(thisDayTotal)}</Text>
-          <Text style={s.gainLabel}>{t('today') || "Aujourd'hui"}</Text>
+          <Text style={s.gainValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{fmtPrice(thisDayTotal)}</Text>
+          <Text style={s.gainLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('today') || "Aujourd'hui"}</Text>
         </Pressable>
         <Pressable style={s.gainCard} onPress={() => navigation.navigate('Wallet')}>
-          <Text style={s.gainValue}>{fmtPrice(thisWeekTotal)}</Text>
-          <Text style={s.gainLabel}>{t('thisWeek')}</Text>
+          <Text style={s.gainValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{fmtPrice(thisWeekTotal)}</Text>
+          <Text style={s.gainLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('thisWeek')}</Text>
         </Pressable>
         <Pressable style={s.gainCard} onPress={() => navigation.navigate('Wallet')}>
-          <Text style={s.gainValue}>{fmtPrice(thisMonthTotal)}</Text>
-          <Text style={s.gainLabel}>{t('thisMonth')}</Text>
+          <Text style={s.gainValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{fmtPrice(thisMonthTotal)}</Text>
+          <Text style={s.gainLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('thisMonth')}</Text>
         </Pressable>
       </View>
 
@@ -223,7 +223,7 @@ export default function MenuScreen({ navigation }) {
           );
         }}>
           <Ionicons name="document-text-outline" size={16} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={s.revisionBtnTxt}>{t('revisionRequest')}</Text>
+          <Text style={s.revisionBtnTxt} numberOfLines={2}>{t('revisionRequest')}</Text>
         </Pressable>
       )}
 
@@ -233,19 +233,19 @@ export default function MenuScreen({ navigation }) {
           <Pressable style={s.accountStat} onPress={() => navigation.navigate('Ratings')}>
             <Ionicons name="star" size={18} color="#f5a623" />
             <Text style={s.accountStatValue}>{Number(rating || 0).toFixed(1)}</Text>
-            <Text style={s.accountStatLabel}>{t('note')}</Text>
+            <Text style={s.accountStatLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('note')}</Text>
           </Pressable>
           <View style={s.accountStatDivider} />
           <Pressable style={s.accountStat} onPress={() => navigation.navigate('DeliveryHistory')}>
             <Ionicons name="bicycle" size={18} color={BRAND} />
             <Text style={s.accountStatValue}>{totalDeliveries ?? 0}</Text>
-            <Text style={s.accountStatLabel}>{t('courses')}</Text>
+            <Text style={s.accountStatLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('courses')}</Text>
           </Pressable>
           <View style={s.accountStatDivider} />
           <Pressable style={s.accountStat} onPress={() => navigation.navigate('Warnings')}>
             <Ionicons name="warning" size={18} color={nbWarnings > 0 ? '#e74c3c' : colors.chevron} />
             <Text style={[s.accountStatValue, nbWarnings > 0 && { color: '#e74c3c' }]}>{nbWarnings}/3</Text>
-            <Text style={s.accountStatLabel}>{t('warnings')}</Text>
+            <Text style={s.accountStatLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('warnings')}</Text>
           </Pressable>
         </View>
         {nbWarnings > 0 && nbWarnings < 3 && (
@@ -286,7 +286,7 @@ export default function MenuScreen({ navigation }) {
         <Pressable style={s.menuItem} onPress={() => { setPendingLang(lang); setLangModal(true); }}>
           <Ionicons name="language-outline" size={22} color={colors.text} style={{ marginRight: 14 }} />
           <Text style={[s.menuLabel, { color: colors.text }]}>{t('language')}</Text>
-          <Text style={s.langCurrent}>{currentLang ? `${currentLang.flag} ${currentLang.native}` : lang}</Text>
+          <Text style={s.langCurrent} numberOfLines={1}>{currentLang ? `${currentLang.flag} ${currentLang.native}` : lang}</Text>
           <Ionicons name={dirIcon('chevron-forward')} size={18} color={colors.chevron} />
         </Pressable>
       </View>
@@ -306,7 +306,7 @@ export default function MenuScreen({ navigation }) {
             <Pressable onPress={() => setLangModal(false)}>
               <Ionicons name="close" size={28} color={colors.text} />
             </Pressable>
-            <Text style={s.langModalTitle}>{t('chooseLang')}</Text>
+            <Text style={s.langModalTitle} numberOfLines={1}>{t('chooseLang')}</Text>
             <View style={{ width: 28 }} />
           </View>
           <FlatList
@@ -320,8 +320,8 @@ export default function MenuScreen({ navigation }) {
               >
                 <Text style={s.langFlag}>{item.flag}</Text>
                 <View style={s.langTextRow}>
-                  <Text style={[s.langLabel, item.code === pendingLang && { color: BRAND, fontWeight: '800' }]}>{item.native}</Text>
-                  <Text style={[s.langEnglish, item.code === pendingLang && { color: BRAND }]}>({item.label})</Text>
+                  <Text style={[s.langLabel, item.code === pendingLang && { color: BRAND, fontWeight: '800' }]} numberOfLines={1}>{item.native}</Text>
+                  <Text style={[s.langEnglish, item.code === pendingLang && { color: BRAND }]} numberOfLines={1}>({item.label})</Text>
                 </View>
                 {item.code === pendingLang && <Ionicons name="checkmark-circle" size={22} color={BRAND} />}
               </Pressable>
@@ -346,21 +346,21 @@ const makeStyles = (dark, c) => {
   gainCard: { flex: 1, backgroundColor: k('#fff', c.card), borderRadius: 12, padding: 12, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   gainValue: { fontSize: 16, fontWeight: '900', color: k('#111', c.text) },
   gainLabel: { fontSize: 11, fontWeight: '600', color: k('#6B7280', c.textMuted), marginTop: 2 },
-  themeBtn: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.18)', minWidth: 54 },
+  themeBtn: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.18)', minWidth: 54, maxWidth: 96, marginLeft: 10 },
   themeTxt: { color: '#fff', fontSize: 11, fontWeight: '700', marginTop: 2 },
   profileHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16, backgroundColor: BRAND },
   avatarWrap: { marginRight: 14 },
   avatar: { width: 52, height: 52, borderRadius: 26 },
   avatarPlaceholder: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-  profileName: { fontWeight: '900', fontSize: 18, color: '#fff', letterSpacing: 0.5 },
+  profileName: { fontWeight: '900', fontSize: 18, color: '#fff', letterSpacing: 0.5, flexShrink: 1 },
   profileSub: { color: 'rgba(255,255,255,0.8)', fontSize: 14, marginTop: 2 },
   statusBanner: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND, paddingHorizontal: 16, paddingBottom: 14 },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#00C29B', marginRight: 8 },
-  statusText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  statusText: { color: '#fff', fontWeight: '600', fontSize: 14, flexShrink: 1 },
   section: { backgroundColor: k('#fff', c.card) },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: k('#f0f0f0', c.border) },
-  menuLabel: { flex: 1, fontSize: 16, fontWeight: '600' },
-  menuDetail: { fontSize: 14, color: k('#888', c.textFaint), fontWeight: '600', marginRight: 8 },
+  menuLabel: { flex: 1, fontSize: 16, fontWeight: '600', marginRight: 4 },
+  menuDetail: { fontSize: 14, color: k('#888', c.textFaint), fontWeight: '600', marginRight: 8, marginLeft: 8, flexShrink: 1, maxWidth: '45%' },
   badge: { backgroundColor: BRAND, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginRight: 8 },
   badgeText: { color: '#fff', fontWeight: '800', fontSize: 12 },
   divider: { height: 10, backgroundColor: k('#f5f5f5', c.bg) },
@@ -375,7 +375,7 @@ const makeStyles = (dark, c) => {
   // Account status card
   accountCard: { backgroundColor: k('#fff', c.card), marginHorizontal: 16, borderRadius: 14, padding: 14, marginTop: 10, marginBottom: 10 },
   accountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
-  accountStat: { alignItems: 'center', gap: 4 },
+  accountStat: { alignItems: 'center', gap: 4, flexShrink: 1, paddingHorizontal: 4 },
   accountStatValue: { fontSize: 18, fontWeight: '900', color: k('#111', c.text) },
   accountStatLabel: { fontSize: 11, color: k('#888', c.textFaint), fontWeight: '600' },
   accountStatDivider: { width: 1, height: 36, backgroundColor: k('#f0f0f0', c.border) },
@@ -387,19 +387,19 @@ const makeStyles = (dark, c) => {
   deactivatedTitle: { fontSize: 14, fontWeight: '800', color: '#e74c3c' },
   deactivatedSub: { fontSize: 12, color: k('#666', c.textMuted), marginTop: 2 },
   revisionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e74c3c', borderRadius: 12, paddingVertical: 12, marginHorizontal: 16, marginTop: 8 },
-  revisionBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  revisionBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14, flexShrink: 1, textAlign: 'center' },
 
   // Langue
-  langCurrent: { fontSize: 14, color: k('#888', c.textFaint), fontWeight: '600', marginRight: 8 },
+  langCurrent: { fontSize: 14, color: k('#888', c.textFaint), fontWeight: '600', marginRight: 8, marginLeft: 8, flexShrink: 1, maxWidth: '45%' },
   langModalContainer: { flex: 1, backgroundColor: k('#fff', c.card) },
   langModalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: k('#f0f0f0', c.border) },
-  langModalTitle: { fontSize: 17, fontWeight: '800', color: k('#111', c.text) },
+  langModalTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 17, fontWeight: '800', color: k('#111', c.text) },
   langRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: k('#f5f5f5', c.border) },
   langRowActive: { backgroundColor: k('#FFF1E8', c.cardAlt) },
   langFlag: { fontSize: 24, marginRight: 14 },
-  langTextRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  langLabel: { fontSize: 16, fontWeight: '600', color: k('#111', c.text) },
-  langEnglish: { fontSize: 14, fontWeight: '400', color: k('#888', c.textFaint) },
+  langTextRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginRight: 8 },
+  langLabel: { fontSize: 16, fontWeight: '600', color: k('#111', c.text), flexShrink: 1 },
+  langEnglish: { fontSize: 14, fontWeight: '400', color: k('#888', c.textFaint), marginLeft: 8, flexShrink: 1 },
   langConfirmBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginBottom: 20, alignItems: 'center' },
   langConfirmTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
   });

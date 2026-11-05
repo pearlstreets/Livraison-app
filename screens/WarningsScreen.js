@@ -28,7 +28,7 @@ export default function WarningsScreen({ navigation }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('warnings')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{t('warnings')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -124,7 +124,7 @@ export default function WarningsScreen({ navigation }) {
 const makeStyles = (c) => StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
 
   gaugeCard: { backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, padding: 20, alignItems: 'center', marginBottom: 12 },
   gaugeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
@@ -159,7 +159,7 @@ const makeStyles = (c) => StyleSheet.create({
   warningReason: { fontSize: 14, color: c.dark ? c.textSoft : '#333', lineHeight: 19 },
 
   contestBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e74c3c', borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginTop: 10 },
-  contestTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  contestTxt: { color: '#fff', fontWeight: '800', fontSize: 15, flexShrink: 1 },
 
   closeBtn: { alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: c.dark ? c.borderStrong : '#ddd', borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginTop: 16 },
   closeBtnTxt: { color: c.dark ? c.textMuted : '#666', fontWeight: '800', fontSize: 15 },

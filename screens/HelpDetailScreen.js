@@ -53,7 +53,7 @@ export default function HelpDetailScreen({ navigation, route }) {
           <Pressable onPress={() => navigation.goBack()}>
             <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
           </Pressable>
-          <Text style={s.headerTitle}>{title}</Text>
+          <Text style={s.headerTitle} numberOfLines={1}>{title}</Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -79,13 +79,13 @@ export default function HelpDetailScreen({ navigation, route }) {
 const makeStyles = (c) => StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text, flex: 1, textAlign: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
   faqCard: { backgroundColor: c.card, marginHorizontal: 16, borderRadius: 14, padding: 16, marginBottom: 10 },
   question: { fontWeight: '800', fontSize: 15, color: c.text, marginBottom: 8 },
   answer: { fontSize: 14, color: c.dark ? c.textSoft : '#555', lineHeight: 21 },
   contactWrap: { backgroundColor: c.bg, paddingHorizontal: 16, paddingTop: 10 },
   contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16 },
-  contactTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  contactTxt: { flexShrink: 1, textAlign: 'center', color: '#fff', fontWeight: '800', fontSize: 16 },
 });
 
 // Feuilles de style par thème (clair, sombre), créées une seule fois chacune.

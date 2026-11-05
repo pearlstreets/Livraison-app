@@ -216,10 +216,11 @@ export default function GainsPopup({ visible, onClose, navigation }) {
   const solde = nombre(currentEarningsCents) / 100;
 
   const onglets = [
-    ['day', tr('today', "Aujourd'hui")],
-    ['week', tr('thisWeek', 'Cette semaine')],
-    ['month', tr('thisMonth', 'Ce mois')],
-    ['year', tr('thisYear', 'Cette année')],
+    // Libellés courts : 4 onglets sur une ligne sans que les textes se touchent.
+    ['day', tr('gainsTabDay', 'Jour')],
+    ['week', tr('gainsTabWeek', 'Semaine')],
+    ['month', tr('gainsTabMonth', 'Mois')],
+    ['year', tr('gainsTabYear', 'Année')],
   ];
 
   const ouvrirRevenus = () => {
@@ -237,7 +238,7 @@ export default function GainsPopup({ visible, onClose, navigation }) {
         <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]} onPress={onClose} accessibilityRole="button" accessibilityLabel={tr('close', 'Fermer')} />
         <View style={[s.feuille, { paddingBottom: insets.bottom + 12, maxHeight: '88%', marginTop: insets.top + 40 }]}>
           <View style={s.entete}>
-            <Text style={s.titre}>{tr('earnings', 'Revenus')}</Text>
+            <Text style={s.titre} numberOfLines={1}>{tr('earnings', 'Revenus')}</Text>
             <Pressable onPress={onClose} hitSlop={10} style={s.croix} accessibilityRole="button" accessibilityLabel={tr('close', 'Fermer')}>
               <Ionicons name="close" size={22} color={colors.text} />
             </Pressable>
@@ -246,13 +247,13 @@ export default function GainsPopup({ visible, onClose, navigation }) {
           <View style={s.onglets}>
             {onglets.map(([cle, label]) => (
               <Pressable key={cle} onPress={() => setPeriode(cle)} style={[s.onglet, periode === cle && s.ongletActif]}>
-                <Text style={[s.ongletTxt, periode === cle && s.ongletTxtActif]} numberOfLines={1}>{label}</Text>
+                <Text style={[s.ongletTxt, periode === cle && s.ongletTxtActif]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{label}</Text>
               </Pressable>
             ))}
           </View>
 
           <ScrollView contentContainerStyle={s.contenu} showsVerticalScrollIndicator={false}>
-            <Text style={s.total}>{fmtPrice(vue.total)}</Text>
+            <Text style={s.total} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{fmtPrice(vue.total)}</Text>
 
             <View style={s.carte}>
               <Ligne s={s} label={tr('gainsCoursesNet', 'Courses (net)')} valeur={fmtPrice(vue.net)} />
@@ -393,12 +394,13 @@ function makeStyles(c) {
     racine: { flex: 1, justifyContent: 'flex-end' },
     feuille: { backgroundColor: c.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 8 },
     entete: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 10 },
-    titre: { fontSize: 17, fontWeight: '800', color: c.text },
+    // Marge de la largeur de la croix : le titre ne passe jamais dessous.
+    titre: { marginHorizontal: 36, fontSize: 17, fontWeight: '800', color: c.text },
     croix: { position: 'absolute', right: 14, top: 8, padding: 4 },
-    onglets: { flexDirection: 'row', marginHorizontal: 16, backgroundColor: c.bg, borderRadius: 12, padding: 3 },
-    onglet: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center' },
+    onglets: { flexDirection: 'row', marginHorizontal: 16, backgroundColor: c.bg, borderRadius: 12, padding: 3, gap: 4 },
+    onglet: { flex: 1, paddingVertical: 8, paddingHorizontal: 6, borderRadius: 10, alignItems: 'center' },
     ongletActif: { backgroundColor: BRAND },
-    ongletTxt: { fontSize: 12, fontWeight: '700', color: c.textMuted },
+    ongletTxt: { fontSize: 13, fontWeight: '700', color: c.textMuted },
     ongletTxtActif: { color: '#fff' },
     contenu: { paddingHorizontal: 16, paddingBottom: 8 },
     total: { fontSize: 34, fontWeight: '900', color: c.text, textAlign: 'center', marginVertical: 14 },

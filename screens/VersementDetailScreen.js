@@ -30,7 +30,7 @@ export default function VersementDetailScreen({ navigation, route }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('payoutDetail') || 'Détail du versement'}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{t('payoutDetail') || 'Détail du versement'}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -41,7 +41,7 @@ export default function VersementDetailScreen({ navigation, route }) {
             <Ionicons name={isExceptionnel ? 'flash' : 'calendar-outline'} size={28} color={isExceptionnel ? '#f5a623' : BRAND} />
           </View>
           <Text style={s.typeLabel}>{payoutTypeLabel(v, t)}</Text>
-          <Text style={s.amount}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
+          <Text style={s.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
           <View style={s.statusRow}>
             <Ionicons name={v.detail?.status === 'failed' ? 'close-circle' : (v.detail?.status === 'paid' ? 'checkmark-circle' : 'time-outline')} size={16} color={BRAND} />
             <Text style={s.statusTxt}>{payoutStatusLabel(v.detail?.status, t)}</Text>
@@ -127,21 +127,22 @@ const makeStyles = (c) => {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
 
   topCard: { backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, padding: 20, alignItems: 'center', marginBottom: 12 },
   iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: c.cardAlt, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   typeLabel: { fontSize: 15, fontWeight: '700', color: p('#555', c.textSoft), marginBottom: 4 },
   amount: { fontSize: 32, fontWeight: '900', color: c.text, marginBottom: 6 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  statusTxt: { fontSize: 14, fontWeight: '700', color: BRAND },
+  statusTxt: { fontSize: 14, fontWeight: '700', color: BRAND, flexShrink: 1 },
   noteTxt: { fontSize: 13, color: p('#666', c.textMuted), textAlign: 'center', marginTop: 8, paddingHorizontal: 16, lineHeight: 18 },
 
   detailCard: { backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, padding: 16 },
   detailCardTitle: { fontSize: 16, fontWeight: '800', color: c.text, marginBottom: 12 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-  detailLabel: { fontSize: 14, color: p('#888', c.textMuted) },
-  detailValue: { fontSize: 14, fontWeight: '700', color: c.text },
+  detailLabel: { fontSize: 14, color: p('#888', c.textMuted), flexShrink: 1 },
+  // Valeur longue (IBAN, date) : passe à la ligne à droite au lieu de toucher le libellé.
+  detailValue: { fontSize: 14, fontWeight: '700', color: c.text, marginLeft: 12, flexShrink: 1, textAlign: 'right' },
   note: { fontSize: 12, color: p('#888', c.textMuted), lineHeight: 17, marginTop: 2, marginBottom: 4 },
   divider: { height: 1, backgroundColor: p('#f0f0f0', c.border), marginVertical: 6 },
 

@@ -58,14 +58,14 @@ export default function DeliveryDetailScreen({ navigation, route }) {
           <Pressable onPress={() => navigation.goBack()}>
             <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
           </Pressable>
-          <Text style={s.headerTitle}>{t('deliveryDetail')}</Text>
+          <Text style={s.headerTitle} numberOfLines={1}>{t('deliveryDetail')}</Text>
           <View style={{ width: 24 }} />
         </View>
 
         {/* Status */}
         <View style={s.statusCard}>
           <Ionicons name="checkmark-circle" size={28} color={BRAND} />
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={s.statusText}>{t('delivered')}</Text>
             <Text style={s.statusSub}>{t('dateAtTime', { date: formatDayMonth(order.completedAt || order.cancelledAt) || order.date, time: formatTime(order.completedAt || order.cancelledAt) || order.time })}</Text>
           </View>
@@ -164,7 +164,7 @@ export default function DeliveryDetailScreen({ navigation, route }) {
 const makeStyles = (c, dark) => StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
 
   statusCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, borderRadius: 14, marginHorizontal: 16, padding: 12, marginBottom: 8 },
   statusText: { fontSize: 17, fontWeight: '900', color: BRAND, marginLeft: 10 },
@@ -181,11 +181,11 @@ const makeStyles = (c, dark) => StyleSheet.create({
   detailCard: { backgroundColor: c.card, borderRadius: 14, marginHorizontal: 16, padding: 12, marginBottom: 8 },
   detailHeader: { fontSize: 15, fontWeight: '800', color: c.text, marginBottom: 6 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: dark ? c.border : '#f0f0f0' },
-  detailLabel: { fontSize: 13, color: dark ? c.textMuted : '#888' },
-  detailValue: { fontSize: 14, fontWeight: '700', color: c.text },
+  detailLabel: { fontSize: 13, color: dark ? c.textMuted : '#888', flexShrink: 1 },
+  detailValue: { fontSize: 14, fontWeight: '700', color: c.text, marginLeft: 12, flexShrink: 1, textAlign: 'right' },
 
   reportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: c.card, borderRadius: 14, paddingVertical: 12, marginHorizontal: 16, marginBottom: 8, borderWidth: 1, borderColor: c.danger },
-  reportBtnTxt: { color: c.danger, fontWeight: '700', fontSize: 14 },
+  reportBtnTxt: { color: c.danger, fontWeight: '700', fontSize: 14, flexShrink: 1 },
 
   reportedCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: dark ? '#3a2f14' : '#fff8e6', borderRadius: 14, padding: 12, marginHorizontal: 16, marginBottom: 6 },
   reportedTitle: { flex: 1, fontWeight: '800', fontSize: 14, color: c.text },
