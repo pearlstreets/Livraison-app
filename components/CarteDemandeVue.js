@@ -58,7 +58,7 @@ function zoneCircles(points) {
 // Carte de la demande, partagée par l'écran carte (bouton carte de l'accueil)
 // et par l'accueil lui-même quand aucune course n'est affichée (05/11/2026).
 // onHome : bouton maison en haut à gauche (absent si non fourni).
-// onList : icône liste de la barre du bas. onStatusPress : appui sur l'état.
+// onList : icône liste en haut à gauche (sans onHome). onStatusPress : appui sur l'état en haut à droite.
 // children : contenu posé au-dessus de la barre du bas, sous les boutons.
 export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPress, children }) {
   const insets = useSafeAreaInsets();
@@ -68,7 +68,6 @@ export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPr
   const mapRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const [heatmapPoints, setHeatmapPoints] = useState([]);
-  const [barH, setBarH] = useState(56);
 
   const fetchHeatmap = useCallback(async () => {
     try {
@@ -175,7 +174,7 @@ export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPr
       </View>
 
       {/* Right controls + contenu au-dessus de la barre du bas */}
-      <View style={[s.basCol, { bottom: barH + 30 }]} pointerEvents="box-none">
+      <View style={[s.basCol, { bottom: 24 }]} pointerEvents="box-none">
         <View style={s.rightControls}>
           <Pressable style={s.controlBtn} onPress={() => navigation.navigate('Revenus', { screen: 'EarningsMain' })}>
             <Ionicons name="bar-chart" size={22} color="#fff" />
@@ -187,23 +186,15 @@ export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPr
         {children ? <View style={s.basContenu}>{children}</View> : null}
       </View>
 
-      {/* Bottom bar */}
-      <View style={[s.bottomBar, { paddingBottom: 14 }]} onLayout={(e) => setBarH(e.nativeEvent.layout.height)}>
-        <Pressable style={s.bottomIconWrap} onPress={onList}>
-          <Ionicons name="list" size={22} color="#fff" />
-        </Pressable>
-        <Pressable style={s.statusWrap} onPress={onStatusPress} disabled={!onStatusPress}>
-          <View style={[s.statusDot, !isOnline && { backgroundColor: '#999' }]} />
-          <Text style={s.statusText}>{isOnline ? (t('youAreOnline') || 'Vous \u00eates en ligne') : (t('offline') || 'Hors ligne')}</Text>
-        </Pressable>
-        <Pressable style={s.bottomIconWrap} onPress={() => {}}>
-          <Ionicons name="options" size={22} color="#fff" />
-        </Pressable>
-      </View>
+      {/* État En ligne / Hors ligne en haut à droite (la barre noire du bas est retirée). */}
+      <Pressable style={[s.statusPill, { top: insets.top + 10 }]} onPress={onStatusPress} disabled={!onStatusPress} hitSlop={8}>
+        <View style={[s.statusDot, !isOnline && { backgroundColor: '#999' }]} />
+        <Text style={s.statusText}>{isOnline ? (t('online') || 'En ligne') : (t('offline') || 'Hors ligne')}</Text>
+      </Pressable>
 
       {/* Legend */}
       {mapsAvailable && (
-      <View style={[s.legend, { top: insets.top + 60 }]}>
+      <View style={[s.legend, { top: insets.top + 64 }]}>
         <View style={s.legendRow}>
           <View style={[s.legendDot, { backgroundColor: '#ff0000' }]} />
           <Text style={s.legendText}>{t('demandHigh')}</Text>
@@ -236,9 +227,7 @@ const s = StyleSheet.create({
   basContenu: { marginTop: 12, paddingHorizontal: 16, gap: 10 },
   controlBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(30,30,30,0.85)', alignItems: 'center', justifyContent: 'center' },
 
-  bottomBar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(20,20,20,0.95)', paddingTop: 14, paddingHorizontal: 16 },
-  bottomIconWrap: { width: 40, alignItems: 'center' },
-  statusWrap: { flexDirection: 'row', alignItems: 'center' },
+  statusPill: { position: 'absolute', right: 16, height: 44, borderRadius: 22, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(30,30,30,0.85)' },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginRight: 8 },
   statusText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
