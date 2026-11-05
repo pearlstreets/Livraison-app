@@ -39,13 +39,27 @@ export function corpsJeton(f, pays) {
 }
 
 // Jeton de compte Stripe : { id } ou { erreur } (message de Stripe s'il en donne un).
+// Délai de 15 s : réseau coupé ou trop lent = erreur réseau (isNetworkError).
 export async function creerJetonCompte(cle, f, pays) {
-  const rep = await fetch('https://api.stripe.com/v1/tokens', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${cle}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: corpsJeton(f, pays),
-  });
-  const jeton = await rep.json();
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const minuteur = ctrl ? setTimeout(() => ctrl.abort(), 15000) : null;
+  let rep;
+  let jeton;
+  try {
+    rep = await fetch('https://api.stripe.com/v1/tokens', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cle}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: corpsJeton(f, pays),
+      signal: ctrl?.signal,
+    });
+    jeton = await rep.json();
+  } catch {
+    const err = new Error('stripe_reseau');
+    err.isNetworkError = true;
+    throw err;
+  } finally {
+    if (minuteur) clearTimeout(minuteur);
+  }
   if (!rep.ok || !jeton?.id) return { erreur: jeton?.error?.message || '' };
   return { id: jeton.id };
 }

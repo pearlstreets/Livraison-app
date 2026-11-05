@@ -41,33 +41,18 @@ export default function OpportunityDetailScreen({ navigation, route }) {
           <Text style={s.descText}>{promo.desc}</Text>
         </View>
 
-        {/* Conditions */}
-        <View style={s.descCard}>
-          <Text style={s.descTitle}>{t('conditionsLabel')}</Text>
-          {promo.conditions ? (
-            promo.conditions.map((c, i) => (
+        {/* Conditions : seulement celles envoyées par le serveur, jamais de texte inventé. */}
+        {Array.isArray(promo.conditions) && promo.conditions.filter(Boolean).length > 0 ? (
+          <View style={s.descCard}>
+            <Text style={s.descTitle}>{t('conditionsLabel')}</Text>
+            {promo.conditions.filter(Boolean).map((c, i) => (
               <View key={i} style={s.condRow}>
                 <Ionicons name="checkmark-circle" size={16} color={BRAND} />
                 <Text style={s.condText}>{c}</Text>
               </View>
-            ))
-          ) : (
-            <>
-              <View style={s.condRow}>
-                <Ionicons name="checkmark-circle" size={16} color={BRAND} />
-                <Text style={s.condText}>{t('condZone')}</Text>
-              </View>
-              <View style={s.condRow}>
-                <Ionicons name="checkmark-circle" size={16} color={BRAND} />
-                <Text style={s.condText}>{t('condAccount')}</Text>
-              </View>
-              <View style={s.condRow}>
-                <Ionicons name="checkmark-circle" size={16} color={BRAND} />
-                <Text style={s.condText}>{t('condAuto')}</Text>
-              </View>
-            </>
-          )}
-        </View>
+            ))}
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );

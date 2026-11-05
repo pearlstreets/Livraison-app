@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../contexts/AuthContext';
 import { deliveryService } from '../services/deliveryService';
 import useSecureScreen from '../hooks/useSecureScreen';
 import { contratStripe, creerJetonCompte, dateValide, formaterDate } from '../utils/stripeCompte';
@@ -15,6 +16,7 @@ const BRAND = '#FF6A13';
 
 export default function PayoutSetupScreen({ navigation }) {
   const { t, lang } = useLanguage();
+  const { refreshEarnings, refreshProfile } = useAuth();
   const insets = useSafeAreaInsets();
   useSecureScreen('PayoutSetup');
   const [etat, setEtat] = useState(null);
@@ -64,6 +66,8 @@ export default function PayoutSetupScreen({ navigation }) {
     if (!complet || envoiEnCours.current) return;
     Keyboard.dismiss();
     if (!dateValide(f.dob)) { Alert.alert(t('error'), t('payoutSetupInvalidDob')); return; }
+    // Sans clé Stripe du serveur, impossible de créer le jeton : message clair.
+    if (!etat?.publishable_key) { Alert.alert(t('error'), t('stripeSetupError')); return; }
     envoiEnCours.current = true;
     setEnvoi(true);
     try {
@@ -78,6 +82,9 @@ export default function PayoutSetupScreen({ navigation }) {
         iban_holder_name: `${f.firstName.trim()} ${f.lastName.trim()}`,
       });
       setEtat((x) => ({ ...x, ...d }));
+      // Revenus et profil relus : le portefeuille montre tout de suite le nouvel état.
+      Promise.resolve(refreshEarnings?.()).catch(() => {});
+      Promise.resolve(refreshProfile?.()).catch(() => {});
       Alert.alert(t('saved'), d?.payouts_enabled ? t('payoutSetupDone') : t('payoutSetupPending'), [
         { text: t('ok'), onPress: () => navigation.goBack() },
       ]);

@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { isSameDay } from '../lib/i18nFormat';
 import { CONFIDENTIALITE_LIVREUR } from '../utils/stripeCompte';
 import { authService } from '../services/authService';
+import { ticketService } from '../services/ticketService';
 
 const BRAND = '#FF6A13';
 // Valeur backend du véhicule → clé de traduction du libellé.
@@ -45,8 +46,9 @@ export default function MenuScreen({ navigation }) {
 
   const currentLang = LANGUAGES.find(l => l.code === lang);
 
-  // Aujourd'hui, Cette semaine, Ce mois : une seule source, les montants par
-  // jour du serveur (daily_breakdown : courses + pourboires + bonus du jour).
+  // Aujourd'hui, Cette semaine, Ce mois : une seule source, les gains NETS par
+  // jour (adaptEarningsWeek : net de la semaine réparti sur ses jours), comme
+  // l'écran Gains et son total.
   const { thisDayTotal, thisWeekTotal, thisMonthTotal } = useMemo(() => {
     const now = new Date();
     let dayTotal = 0;
@@ -69,6 +71,32 @@ export default function MenuScreen({ navigation }) {
     });
     return { thisDayTotal: dayTotal, thisWeekTotal: weekTotal, thisMonthTotal: monthTotal };
   }, [weeklyEarnings]);
+
+  // Demande de révision : un VRAI ticket support, puis son fil. Le serveur
+  // refuse (403) les tickets d'un compte désactivé : on donne alors l'adresse
+  // du support au lieu d'un écran vide.
+  const [revisionEnvoi, setRevisionEnvoi] = useState(false);
+  const envoyerRevision = useCallback(async () => {
+    if (revisionEnvoi) return;
+    setRevisionEnvoi(true);
+    try {
+      const res = await ticketService.createTicket({ problem_type: 'autre', description: t('revisionRequest') });
+      const ticketId = res?.data?.id;
+      if (ticketId) navigation.navigate('TicketChat', { ticketId });
+      else Alert.alert(t('revisionRequest'), t('ticketSentSub'));
+    } catch (e) {
+      if (e?.isNetworkError) {
+        Alert.alert(t('error'), t('errorNetwork'));
+      } else {
+        Alert.alert(t('error'), t('supportUnreachable'), [
+          { text: t('cancel'), style: 'cancel' },
+          { text: t('writeToSupport'), onPress: () => Linking.openURL('mailto:support@pearlstreets.com').catch(() => {}) },
+        ]);
+      }
+    } finally {
+      setRevisionEnvoi(false);
+    }
+  }, [revisionEnvoi, t, navigation]);
 
   const confirmLogout = useCallback(() => {
     Alert.alert(t('logoutTitle'), t('logoutMsg'), [
@@ -175,7 +203,7 @@ export default function MenuScreen({ navigation }) {
             t('revisionMsg'),
             [
               { text: t('cancel'), style: 'cancel' },
-              { text: t('send'), onPress: () => navigation.navigate('TicketChat', { order: { id: 'REVISION' } }) },
+              { text: t('send'), onPress: envoyerRevision },
             ]
           );
         }}>
