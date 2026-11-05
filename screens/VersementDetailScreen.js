@@ -71,7 +71,7 @@ export default function VersementDetailScreen({ navigation, route }) {
           </View>
           <View style={s.detailRow}>
             <Text style={s.detailLabel}>{t('courses')}</Text>
-            <Text style={s.detailValue}>{v.detail?.courses || '-'}</Text>
+            <Text style={s.detailValue}>{v.detail?.courses ?? '-'}</Text>
           </View>
           {v.kind === 'instant' && v.detail?.feeEur > 0 && (
             <View style={s.detailRow}>

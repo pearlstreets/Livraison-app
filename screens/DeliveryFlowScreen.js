@@ -125,7 +125,7 @@ const WAIT_SECONDS = 7 * 60; // 7 minutes
 
 const CALL_DEADLINE = 4 * 60; // 4 minutes — must call before this
 
-function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showCallPopup, setShowCallPopup, onMessage, onMessagePro, onOpenMap, onCall, depotPorte, onDepotPorte, depotBusy }) {
+function ArrivedStep({ address, orderId, onCallDone, hasCalled, showCallPopup, setShowCallPopup, onMessage, onMessagePro, onOpenMap, onCall, depotPorte, onDepotPorte, depotBusy }) {
   const { t } = useLanguage();
   const [remaining, setRemaining] = useState(WAIT_SECONDS);
   const timerRef = useRef(null);
@@ -143,12 +143,12 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
 
   const elapsed = WAIT_SECONDS - remaining;
 
-  // At 4 min without call → show popup + warning
+  // 4 min sans appel : rappel à l'écran seulement (aucun avertissement local,
+  // les avertissements viennent du serveur).
   useEffect(() => {
     if (elapsed >= CALL_DEADLINE && !hasCalled && !warnedRef.current) {
       warnedRef.current = true;
       setShowCallPopup(true);
-      onWarning?.();
     }
   }, [elapsed, hasCalled]);
 
@@ -262,7 +262,7 @@ function ArrivedStep({ address, orderId, onCallDone, hasCalled, onWarning, showC
 export default function DeliveryFlowScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
-  const { user, addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, markOrderReported, refreshAll, setActiveDelivery } = useAuth();
+  const { user, cancelOrder, applyCancelResult, weeklyCancels, maxWeeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, markOrderReported, refreshAll, setActiveDelivery } = useAuth();
   const { fmtPrice } = useCurrency();
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [showCodeProblem, setShowCodeProblem] = useState(false);
@@ -394,6 +394,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   // ID de l'assignment backend (pour updateDeliveryStatus / cancelDelivery)
   // Course simulée : aucun appel au serveur, chaque étape passe aussitôt.
   const assignmentId = order._isMock ? null : (order._assignmentId || order.id || null);
+  // Plafond d'annulations réel du serveur ; 5 seulement en repli.
+  const plafondAnnulations = maxWeeklyCancels ?? MAX_WEEKLY_CANCELS;
 
   // Fil boutique : absent (404) pour une course sans commande marchand.
   useEffect(() => {
@@ -963,7 +965,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             orderId={orderId}
             hasCalled={hasCalled}
             onCallDone={() => setHasCalled(true)}
-            onWarning={() => addWarning('warnCallLate')}
+           
             showCallPopup={showCallPopup}
             setShowCallPopup={setShowCallPopup}
             onMessage={openChat}
@@ -1060,8 +1062,14 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
             {/* Gain de la course */}
             <View style={[ss.earningsBanner, { marginBottom: 12 }]}>
-              <Text style={ss.earningsBannerLabel}>+ {price}</Text>
-              <Text style={ss.earningsBannerSub}>{t('addedToBalance')}</Text>
+              {order._isMock ? (
+                <Text style={ss.earningsBannerSub}>{t('testRunNoGain')}</Text>
+              ) : (
+                <>
+                  <Text style={ss.earningsBannerLabel}>+ {price}</Text>
+                  <Text style={ss.earningsBannerSub}>{t('addedToBalance')}</Text>
+                </>
+              )}
             </View>
 
             <View style={[ss.summaryCard, { padding: 12, marginBottom: 12 }]}>
@@ -1078,10 +1086,12 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 <Text style={ss.summaryLabel}>{t('distance')}</Text>
                 <Text style={ss.summaryValue}>{distance}</Text>
               </View>
-              <View style={[ss.summaryRow, { borderBottomWidth: 0 }]}>
-                <Text style={[ss.summaryLabel, { fontWeight: '800' }]}>{t('gain')}</Text>
-                <Text style={[ss.summaryValue, { color: BRAND, fontWeight: '900', fontSize: 18 }]}>{price}</Text>
-              </View>
+              {!order._isMock && (
+                <View style={[ss.summaryRow, { borderBottomWidth: 0 }]}>
+                  <Text style={[ss.summaryLabel, { fontWeight: '800' }]}>{t('gain')}</Text>
+                  <Text style={[ss.summaryValue, { color: BRAND, fontWeight: '900', fontSize: 18 }]}>{price}</Text>
+                </View>
+              )}
             </View>
 
             <Pressable style={ss.doneBtn} onPress={() => {
@@ -1144,11 +1154,11 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             <Ionicons name="warning" size={36} color="#e74c3c" />
             <Text style={ss.cancelTitle}>{t('cancelDeliveryTitle')}</Text>
             <Text style={ss.cancelSub}>
-              {weeklyCancels < MAX_WEEKLY_CANCELS
-                ? t('cancelsLeftBeforeWarning', { n: MAX_WEEKLY_CANCELS - weeklyCancels })
+              {weeklyCancels < plafondAnnulations
+                ? t('cancelsLeftBeforeWarning', { n: plafondAnnulations - weeklyCancels })
                 : t('cancelsExceeded')}
             </Text>
-            {weeklyCancels >= MAX_WEEKLY_CANCELS && (
+            {weeklyCancels >= plafondAnnulations && (
               <View style={ss.cancelWarningBadge}>
                 <Ionicons name="alert-circle" size={16} color="#e74c3c" style={{ marginRight: 6 }} />
                 <Text style={ss.cancelWarningText}>{t('warningWillBeAdded')}</Text>
@@ -1162,15 +1172,22 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 return;
               }
               // Le BACKEND fait autorité sur la règle d'annulation (reste,
-              // avertissement). On lit sa réponse ; repli local si offline.
+              // avertissement). Repli local seulement si le réseau est coupé ;
+              // un refus du serveur affiche son message et la course continue.
               let remaining = null;
               let warned = false;
               if (assignmentId) {
                 try {
                   const resp = await deliveryService.cancelDelivery(assignmentId);
+                  applyCancelResult?.(resp);
                   if (typeof resp?.remaining === 'number') remaining = resp.remaining;
                   warned = !!resp?.warning_issued;
-                } catch (e) { /* offline → repli local */ }
+                } catch (e) {
+                  if (!e?.isNetworkError) {
+                    Alert.alert(t('error'), e?.serverMessage || t('genericError'));
+                    return;
+                  }
+                }
               }
               if (remaining === null) { const r = cancelOrder(); remaining = r.remaining; warned = r.warning; }
               try { await refreshAll?.(); } catch {}

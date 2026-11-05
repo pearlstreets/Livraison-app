@@ -30,7 +30,7 @@ const MenuItem = React.memo(({ icon, label, onPress, color = '#111', badge, deta
 
 export default function MenuScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user, logout, deleteAccount, warnings, accountActive, rating, totalDeliveries, reactivateAccount, weeklyEarnings, isOnline, deliveryHistory, getUnreadTicketCount, getUnreadOpportunitiesCount } = useAuth();
+  const { user, logout, deleteAccount, warnings, accountActive, rating, totalDeliveries, reactivateAccount, weeklyEarnings, isOnline, getUnreadTicketCount, getUnreadOpportunitiesCount, refreshTickets, refreshOpportunities } = useAuth();
   const { t, lang, setLang, LANGUAGES } = useLanguage();
   const { fmtPrice } = useCurrency();
   const [langModal, setLangModal] = useState(false);
@@ -38,25 +38,37 @@ export default function MenuScreen({ navigation }) {
   const scrollRef = useRef(null);
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, []));
+    // Badges Tickets et Opportunités relus sur le serveur à chaque retour au menu.
+    refreshTickets?.();
+    refreshOpportunities?.();
+  }, [refreshTickets, refreshOpportunities]));
 
   const currentLang = LANGUAGES.find(l => l.code === lang);
 
-  const parsePrice = useCallback((p) => { const n = parseFloat(String(p).replace(',', '.').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; }, []);
-
-  // Memoize earnings calculations to avoid recomputation on every render
+  // Aujourd'hui, Cette semaine, Ce mois : une seule source, les montants par
+  // jour du serveur (daily_breakdown : courses + pourboires + bonus du jour).
   const { thisDayTotal, thisWeekTotal, thisMonthTotal } = useMemo(() => {
     const now = new Date();
-    const currentWeek = weeklyEarnings.length > 0 ? weeklyEarnings[0] : null;
-    const weekTotal = currentWeek ? currentWeek.total : 0;
-    const dayTotal = (deliveryHistory || []).filter(o => o.status !== 'cancelled' && isSameDay(o.completedAt, now)).reduce((s, o) => s + parsePrice(o.priceText), 0);
-    const monthTotal = (deliveryHistory || []).filter(o => {
-      if (!o.completedAt && !o.cancelledAt) return false;
-      const d = new Date(o.completedAt || o.cancelledAt);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && o.status !== 'cancelled';
-    }).reduce((s, o) => s + parsePrice(o.priceText), 0);
+    let dayTotal = 0;
+    let weekTotal = 0;
+    let monthTotal = 0;
+    const vus = new Set();
+    (weeklyEarnings || []).forEach((w) => {
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(w.start || ''));
+      if (!m) return;
+      const jours = (w.bars || []).map((v, i) => ({ v: Number(v) || 0, d: new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + i) }));
+      const semaineEnCours = jours.some((j) => isSameDay(j.d, now));
+      jours.forEach((j) => {
+        const cle = j.d.toDateString();
+        if (vus.has(cle)) return;
+        vus.add(cle);
+        if (isSameDay(j.d, now)) dayTotal += j.v;
+        if (semaineEnCours) weekTotal += j.v;
+        if (j.d.getMonth() === now.getMonth() && j.d.getFullYear() === now.getFullYear()) monthTotal += j.v;
+      });
+    });
     return { thisDayTotal: dayTotal, thisWeekTotal: weekTotal, thisMonthTotal: monthTotal };
-  }, [weeklyEarnings, deliveryHistory, parsePrice]);
+  }, [weeklyEarnings]);
 
   const confirmLogout = useCallback(() => {
     Alert.alert(t('logoutTitle'), t('logoutMsg'), [
@@ -177,7 +189,7 @@ export default function MenuScreen({ navigation }) {
         <View style={s.accountRow}>
           <Pressable style={s.accountStat} onPress={() => navigation.navigate('Ratings')}>
             <Ionicons name="star" size={18} color="#f5a623" />
-            <Text style={s.accountStatValue}>{rating}</Text>
+            <Text style={s.accountStatValue}>{rating > 0 ? Number(rating).toFixed(1) : '-'}</Text>
             <Text style={s.accountStatLabel}>{t('note')}</Text>
           </Pressable>
           <View style={s.accountStatDivider} />
@@ -204,7 +216,7 @@ export default function MenuScreen({ navigation }) {
       {/* Section principale */}
       <View style={s.section}>
         <MenuItem icon="time-outline" label={t('deliveryHistory')} onPress={() => navigation.navigate('DeliveryHistory')} />
-        <MenuItem icon="flash-outline" label={t('opportunities')} onPress={() => navigation.navigate('Opportunities')} badge={getUnreadOpportunitiesCount(4) > 0 ? String(getUnreadOpportunitiesCount(4)) : null} />
+        <MenuItem icon="flash-outline" label={t('opportunities')} onPress={() => navigation.navigate('Opportunities')} badge={getUnreadOpportunitiesCount() > 0 ? String(getUnreadOpportunitiesCount()) : null} />
         <MenuItem icon="wallet-outline" label={t('wallet')} onPress={() => navigation.navigate('Wallet')} />
         <MenuItem icon="person-outline" label={t('account')} onPress={() => navigation.navigate('EditProfile')} />
       </View>

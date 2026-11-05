@@ -1,4 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, Text, StyleSheet, ScrollView, Pressable, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
@@ -7,6 +8,7 @@ import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { deliveryService } from '../services/deliveryService';
+import { CLE_NOTIFICATIONS_LUES } from '../contexts/AuthContext';
 
 const BRAND = '#FF6A13';
 const FILTERS = [
@@ -23,6 +25,22 @@ export default function InboxScreen() {
   const [filter, setFilter] = useState('Tout');
   const [selectedNotif, setSelectedNotif] = useState(null);
   const [readIds, setReadIds] = useState([]);
+  // Le serveur n'a pas d'état « lu » : les notifications ouvertes sont gardées
+  // sur le téléphone, pour ne pas revenir en non lues à chaque ouverture.
+  const lusChargesRef = useRef(false);
+  useEffect(() => {
+    AsyncStorage.getItem(CLE_NOTIFICATIONS_LUES)
+      .then((v) => {
+        const lus = v ? JSON.parse(v) : [];
+        if (Array.isArray(lus)) setReadIds((prev) => Array.from(new Set([...lus, ...prev])));
+      })
+      .catch(() => {})
+      .finally(() => { lusChargesRef.current = true; });
+  }, []);
+  useEffect(() => {
+    if (!lusChargesRef.current) return;
+    AsyncStorage.setItem(CLE_NOTIFICATIONS_LUES, JSON.stringify(readIds)).catch(() => {});
+  }, [readIds]);
   const [notifs, setNotifs] = useState([]);
 
   const fetchNotifs = useCallback(async () => {

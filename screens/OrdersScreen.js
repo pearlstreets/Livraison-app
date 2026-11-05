@@ -295,9 +295,9 @@ export default function OrdersScreen({ navigation, route }) {
     setMockOrders(prev => [makeMockOrder(), ...prev]);
   }, []);
 
-  // Avant l'ouverture de la livraison : tous les livreurs peuvent simuler une
-  // course pour découvrir l'app (aucun appel au serveur).
-  const canSimulate = SIMULATION_POUR_TOUS || __DEV__
+  // Bouton Simuler réservé au compte King (et aux builds de développement) :
+  // aucun autre livreur ne voit de course simulée.
+  const canSimulate = __DEV__
     || String(user?.email || '').trim().toLowerCase() === REVIEW_ACCOUNT_EMAIL;
 
   const displayedAvailable = useMemo(() => [...mockOrders, ...available], [mockOrders, available]);

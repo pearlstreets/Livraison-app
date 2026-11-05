@@ -17,7 +17,7 @@ const BRAND = '#FF6A13';
 
 export default function WalletScreen({ navigation }) {
   const { t } = useLanguage();
-  const { currentEarningsCents, wallet, versements, currentIban } = useAuth();
+  const { currentEarningsCents, wallet, versements, currentIban, refreshEarnings } = useAuth();
   const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
   // IBAN du compte de versement affiché en clair.
@@ -32,7 +32,9 @@ export default function WalletScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, []));
+    // Solde, frais et limites relus sur le serveur à chaque affichage.
+    refreshEarnings?.();
+  }, [refreshEarnings]));
 
   // Virement instantané : limites lues sur le serveur (3 par jour, minimum, banque).
   const blocked = instantBlockedMessage(wallet, earn.earningsCents, t, fmtPrice);
@@ -73,7 +75,7 @@ export default function WalletScreen({ navigation }) {
             <Ionicons name="flash" size={16} color={BRAND} />
             <Text style={s.encaissTxt}>{t('cashout')}</Text>
           </Pressable>
-          {wallet?.instant?.available && (
+          {wallet?.instant?.available && wallet.instant.feeEur != null && wallet.instant.remainingToday != null && (
             <Text style={s.instantInfo}>{t('instantInfo', { fee: fmtPrice(wallet.instant.feeEur), left: wallet.instant.remainingToday })}</Text>
           )}
         </View>
