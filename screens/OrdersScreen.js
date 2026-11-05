@@ -426,10 +426,11 @@ export default function OrdersScreen({ navigation, route }) {
 
   const onOpen = useCallback((order)=>{ setDetailsOrder(order); setDetailsVisible(true); }, []);
 
-  // Accueil sans course à afficher : la carte de la demande (même vue que le
-  // bouton carte), demande du 05/11/2026. L'icône liste revient à la liste.
+  // Accueil sans course en cours : la carte de la demande (même vue que le
+  // bouton carte), demande du 05/11/2026. Les courses proposées arrivent en
+  // cartes par-dessus. L'icône liste revient à la liste.
   const [vueListe, setVueListe] = useState(false);
-  const carteVide = active.length === 0 && (!online || displayedAvailable.length === 0);
+  const carteVide = active.length === 0;
 
   if (!accountActive) {
     return (
@@ -455,6 +456,22 @@ export default function OrdersScreen({ navigation, route }) {
             <Text style={styles.goOnlineBtnTxt}>{t('goOnline')}</Text>
           </Pressable>
         )}
+        {online && canSimulate && (
+          <TouchableOpacity style={[styles.mockBtn, { alignSelf: 'flex-start' }]} onPress={addMockOrder} accessibilityLabel={t('simulate')}>
+            <Ionicons name="flask-outline" size={16} color="#fff" />
+            <Text style={styles.mockBtnTxt}>{t('simulate')}</Text>
+          </TouchableOpacity>
+        )}
+        {online && displayedAvailable.length > 0 && (
+          <ScrollView style={{ maxHeight: Dimensions.get('window').height * 0.45 }} showsVerticalScrollIndicator={false}>
+            {displayedAvailable.map((order, i) => (
+              <View key={keyOf(order, i)} style={styles.cardWrap}>
+                <OrderCard order={order} onAccept={onAccept} onDecline={onDecline} onOpen={onOpen} />
+              </View>
+            ))}
+          </ScrollView>
+        )}
+        <DetailsSheet visible={detailsVisible} order={detailsOrder} onClose={() => setDetailsVisible(false)} />
       </CarteDemandeVue>
     );
   }
