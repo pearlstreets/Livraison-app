@@ -30,7 +30,7 @@ export default function VersementsListScreen({ navigation, route }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{mode === 'history' ? t('transferHistory') : t('payoutActivity')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{mode === 'history' ? t('transferHistory') : t('payoutActivity')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -63,7 +63,7 @@ export default function VersementsListScreen({ navigation, route }) {
                     <Text style={s.virementLabel}>{payoutTypeLabel(v, t)}</Text>
                     <Text style={s.virementDateSmall}>{payoutDateLabel(v, t)}</Text>
                   </View>
-                  <View style={{ alignItems: 'flex-end' }}>
+                  <View style={{ alignItems: 'flex-end', marginLeft: 10, maxWidth: '50%' }}>
                     <Text style={s.virementAmountBig}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
                     <View style={s.virementStatusBadge}>
                       <Ionicons name="checkmark-circle" size={12} color={BRAND} />
@@ -100,15 +100,15 @@ const makeStyles = (c) => {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 18, fontWeight: '800', color: c.text },
 
   listCard: { backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, overflow: 'hidden' },
   versementRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
   versementBorder: { borderBottomWidth: 1, borderBottomColor: p('#f0f0f0', c.border) },
   versementLabel: { fontWeight: '700', fontSize: 15, color: c.text },
   versementDateRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
-  versementDate: { color: p('#888', c.textMuted), fontSize: 13 },
-  versementAmount: { fontWeight: '800', fontSize: 16, color: c.text },
+  versementDate: { flexShrink: 1, textAlign: 'right', color: p('#888', c.textMuted), fontSize: 13 },
+  versementAmount: { marginRight: 10, fontWeight: '800', fontSize: 16, color: c.text },
 
   histList: { paddingHorizontal: 16 },
   virementCard: { backgroundColor: c.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: p('#f0f0f0', c.border) },
@@ -118,10 +118,10 @@ const makeStyles = (c) => {
   virementDateSmall: { fontSize: 12, color: c.textFaint, marginTop: 1 },
   virementAmountBig: { fontWeight: '900', fontSize: 16, color: c.text },
   virementStatusBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
-  virementStatusTxt: { fontSize: 11, color: BRAND, fontWeight: '700' },
+  virementStatusTxt: { flexShrink: 1, fontSize: 11, color: BRAND, fontWeight: '700' },
   virementDetails: { backgroundColor: p('#f9f9f9', c.border), borderRadius: 10, padding: 10 },
   virementDetailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  virementDetailLabel: { fontSize: 13, color: p('#888', c.textMuted) },
-  virementDetailValue: { fontSize: 13, fontWeight: '700', color: p('#333', c.textSoft) },
+  virementDetailLabel: { flexShrink: 1, fontSize: 13, color: p('#888', c.textMuted) },
+  virementDetailValue: { flexShrink: 1, marginLeft: 12, textAlign: 'right', fontSize: 13, fontWeight: '700', color: p('#333', c.textSoft) },
   });
 };

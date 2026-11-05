@@ -191,7 +191,7 @@ export default function CarteDemandeModal({ visible, onClose }) {
               {choisi.bonus > 0 && <Text style={[s.phrase, th.texteDiscret]}>{t('carteDemandBonusText')}</Text>}
               <Pressable style={s.naviguer} onPress={naviguer} accessibilityRole="button">
                 <Ionicons name="navigate" size={18} color="#fff" />
-                <Text style={s.naviguerTxt}>{t('carteDemandNavigate')}</Text>
+                <Text style={s.naviguerTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('carteDemandNavigate')}</Text>
               </Pressable>
             </>
           ) : (
@@ -233,17 +233,17 @@ const s = StyleSheet.create({
   pastilles: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pastille: {
     flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, maxWidth: '100%',
   },
-  pastilleTxt: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  pastilleTxt: { color: '#fff', fontSize: 13, fontWeight: '700', flexShrink: 1 },
   nom: { marginTop: 10, fontSize: 22, fontWeight: '800', color: '#1c1c1e' },
   minutes: { marginTop: 2, fontSize: 15, color: '#3a3a3c' },
   proches: { marginTop: 10, fontSize: 15, fontWeight: '600', color: '#1c1c1e' },
   phrase: { marginTop: 4, fontSize: 14, lineHeight: 20, color: '#6e6e73' },
   naviguer: {
-    marginTop: 16, height: 52, borderRadius: 12, backgroundColor: BRAND,
+    marginTop: 16, height: 52, borderRadius: 12, backgroundColor: BRAND, paddingHorizontal: 12,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  naviguerTxt: { color: '#fff', fontSize: 17, fontWeight: '700' },
+  naviguerTxt: { color: '#fff', fontSize: 17, fontWeight: '700', flexShrink: 1 },
   vide: { fontSize: 15, color: '#6e6e73', textAlign: 'center', paddingVertical: 16 },
 });

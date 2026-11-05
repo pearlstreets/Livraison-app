@@ -116,8 +116,8 @@ export default function DetailsSheet({ visible, order, onClose }) {
 
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.code}>{String(code || t('orderLabel'))}</Text>
-            {!!category && <Text style={styles.category}>{String(category)}</Text>}
+            <Text style={styles.code} numberOfLines={1}>{String(code || t('orderLabel'))}</Text>
+            {!!category && <Text style={styles.category} numberOfLines={1}>{String(category)}</Text>}
           </View>
 
           {/* Boutique : vraie image + nom réel */}
@@ -177,7 +177,7 @@ export default function DetailsSheet({ visible, order, onClose }) {
 
           <View style={styles.actions}>
             <Pressable onPress={() => openItinerary(order)} style={[styles.btn, styles.primary]}>
-              <Text style={styles.btnTxtLight}>{t('itinerary')}</Text>
+              <Text style={styles.btnTxtLight} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('itinerary')}</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -205,8 +205,8 @@ const makeStyles = (c, dark) => StyleSheet.create({
   grabber: { alignSelf:'center', width:48, height:5, borderRadius:999, backgroundColor: dark ? c.borderStrong : '#E6E8EB', marginTop:8, marginBottom:8 },
   content: { paddingHorizontal:16, paddingBottom:16 },
   header: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:8 },
-  code: { fontSize:18, fontWeight:'800', color: c.text },
-  category: { color: BRAND, fontWeight:'700' },
+  code: { fontSize:18, fontWeight:'800', color: c.text, flexShrink:1 },
+  category: { color: BRAND, fontWeight:'700', marginLeft:10, flexShrink:1 },
   row: { flexDirection:'row', alignItems:'center', marginBottom:6 },
   icon: { width:22, marginRight:4 },
   text: { color: dark ? c.textSoft : '#333', flexShrink:1 },
@@ -222,7 +222,7 @@ const makeStyles = (c, dark) => StyleSheet.create({
   pill: { backgroundColor: dark ? c.border : '#F2F3F5', borderRadius:999, paddingVertical:6, paddingHorizontal:12 },
   pillTxt: { fontWeight:'700', color: c.text },
   actions: { flexDirection:'row', justifyContent:'space-between', marginTop:12, columnGap:10 },
-  btn: { flex:1, height:BTN_H, borderRadius:BTN_R, alignItems:'center', justifyContent:'center' },
+  btn: { flex:1, height:BTN_H, borderRadius:BTN_R, alignItems:'center', justifyContent:'center', paddingHorizontal:10 },
   primary: { backgroundColor: BRAND },
   ghost: { backgroundColor: c.card, borderWidth:1, borderColor: dark ? c.borderStrong : '#E6E8EB' },
   btnTxtLight: { color:'#fff', fontSize:16, fontWeight:'700' },

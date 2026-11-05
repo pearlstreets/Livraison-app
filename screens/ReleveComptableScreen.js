@@ -122,7 +122,7 @@ export default function ReleveComptableScreen({ navigation }) {
         <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('releveComptable')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('releveComptable')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -177,7 +177,7 @@ export default function ReleveComptableScreen({ navigation }) {
             ) : (
               <>
                 <Ionicons name="share-outline" size={18} color="#fff" />
-                <Text style={s.exportTxt}>{t('releveExportCsv')}</Text>
+                <Text style={s.exportTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('releveExportCsv')}</Text>
               </>
             )}
           </Pressable>
@@ -193,7 +193,7 @@ const makeStyles = (c) => {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 18, fontWeight: '800', color: c.text },
 
   anneesRow: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
   anneeChip: { backgroundColor: c.card, borderRadius: 20, paddingVertical: 8, paddingHorizontal: 16, borderWidth: 1, borderColor: c.borderStrong },
@@ -205,7 +205,7 @@ const makeStyles = (c) => {
   detailCardTitle: { fontSize: 16, fontWeight: '800', color: c.text, marginBottom: 8 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
   detailLabel: { fontSize: 14, color: p('#888', c.textMuted), flex: 1, paddingRight: 8 },
-  detailValue: { fontSize: 14, fontWeight: '700', color: c.text },
+  detailValue: { fontSize: 14, fontWeight: '700', color: c.text, flexShrink: 0 },
   note: { fontSize: 12, color: p('#888', c.textMuted), lineHeight: 17, marginTop: 8 },
   divider: { height: 1, backgroundColor: p('#f0f0f0', c.border), marginVertical: 6 },
 
@@ -216,7 +216,7 @@ const makeStyles = (c) => {
 
   bottomWrap: { paddingTop: 6, paddingHorizontal: 16 },
   erreurExport: { fontSize: 13, color: p('#888', c.textMuted), textAlign: 'center', marginBottom: 6 },
-  exportBtn: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 14 },
-  exportTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  exportBtn: { flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 12 },
+  exportTxt: { color: '#fff', fontWeight: '800', fontSize: 16, flexShrink: 1 },
   });
 };

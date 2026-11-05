@@ -139,7 +139,7 @@ export default function EditProfileScreen({ navigation }) {
           <Pressable onPress={() => navigation.goBack()}>
             <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
           </Pressable>
-          <Text style={s.headerTitle}>{t('account')}</Text>
+          <Text style={s.headerTitle} numberOfLines={1}>{t('account')}</Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -188,7 +188,7 @@ const makeStyles = (dark, c) => {
   container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg) },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingTop: 16 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: k('#111', c.text) },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: k('#111', c.text), flex: 1, textAlign: 'center', marginHorizontal: 8 },
   photoWrap: { alignSelf: 'center', marginBottom: 4 },
   photo: { width: 100, height: 100, borderRadius: 50 },
   photoPlaceholder: { width: 100, height: 100, borderRadius: 50, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },

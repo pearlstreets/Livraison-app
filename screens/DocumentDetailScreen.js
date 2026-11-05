@@ -93,7 +93,7 @@ export default function DocumentDetailScreen({ navigation, route }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{doc.label}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{doc.label}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -147,16 +147,16 @@ const makeStyles = (dark, c) => {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg) },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: k('#111', c.text) },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: k('#111', c.text), flex: 1, textAlign: 'center', marginHorizontal: 8 },
   statusCard: { alignItems: 'center', backgroundColor: k('#fff', c.card), borderRadius: 20, marginHorizontal: 16, padding: 24, marginBottom: 12 },
   statusText: { fontSize: 18, fontWeight: '800', marginTop: 10 },
   detailCard: { backgroundColor: k('#fff', c.card), borderRadius: 16, marginHorizontal: 16, padding: 16, marginBottom: 12 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: k('#f0f0f0', c.border) },
-  detailLabel: { fontSize: 14, color: k('#888', c.textFaint) },
-  detailValue: { fontSize: 14, fontWeight: '700', color: k('#111', c.text) },
+  detailLabel: { fontSize: 14, color: k('#888', c.textFaint), flexShrink: 1 },
+  detailValue: { fontSize: 14, fontWeight: '700', color: k('#111', c.text), marginLeft: 12, flexShrink: 1, textAlign: 'right' },
   warningCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: k('#fef9e7', '#3a2e14'), borderRadius: 14, marginHorizontal: 16, padding: 16, marginBottom: 12 },
   warningText: { flex: 1, fontSize: 14, color: k('#856404', '#f5c46b'), lineHeight: 20 },
   updateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginTop: 8 },
-  updateTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  updateTxt: { color: '#fff', fontWeight: '800', fontSize: 16, flexShrink: 1 },
   });
 };

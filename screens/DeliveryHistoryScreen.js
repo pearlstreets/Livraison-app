@@ -29,7 +29,7 @@ const HistoryOrderItem = React.memo(({ order, navigation, t, fmtPrice }) => {
         </View>
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={s.orderId}>{order.id}</Text>
+            <Text style={s.orderId} numberOfLines={1}>{order.id}</Text>
             <Text style={[s.orderPrice, isCancelled && { color: colors.textFaint }]}>{isCancelled ? fmtPrice(0) : price}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -130,23 +130,23 @@ export default function DeliveryHistoryScreen({ navigation }) {
           <Pressable onPress={() => navigation.goBack()}>
             <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
           </Pressable>
-          <Text style={s.headerTitle}>{t('historyTitle')}</Text>
+          <Text style={s.headerTitle} numberOfLines={1}>{t('historyTitle')}</Text>
           <View style={{ width: 24 }} />
         </View>
 
         {/* Stats */}
         <View style={s.statsRow}>
           <View style={s.statCard}>
-            <Text style={s.statValue}>{totalOrders}</Text>
-            <Text style={s.statLabel}>{t('courses')}</Text>
+            <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{totalOrders}</Text>
+            <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('courses')}</Text>
           </View>
           <View style={s.statCard}>
-            <Text style={[s.statValue, { color: BRAND }]}>{fmtPrice(totalEarnings)}</Text>
-            <Text style={s.statLabel}>{t('gains')}</Text>
+            <Text style={[s.statValue, { color: BRAND }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{fmtPrice(totalEarnings)}</Text>
+            <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('gains')}</Text>
           </View>
           <View style={s.statCard}>
-            <Text style={[s.statValue, { color: '#FF6A13' }]}>{fmtPrice(totalTips)}</Text>
-            <Text style={s.statLabel}>{t('tips')}</Text>
+            <Text style={[s.statValue, { color: '#FF6A13' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{fmtPrice(totalTips)}</Text>
+            <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('tips')}</Text>
           </View>
         </View>
       </View>
@@ -172,7 +172,7 @@ export default function DeliveryHistoryScreen({ navigation }) {
 const makeStyles = (c) => StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
 
   statsRow: { flexDirection: 'row', marginHorizontal: 16, gap: 8, marginBottom: 16 },
   statCard: { flex: 1, backgroundColor: c.card, borderRadius: 14, padding: 14, alignItems: 'center' },
@@ -184,10 +184,10 @@ const makeStyles = (c) => StyleSheet.create({
   orderCard: { backgroundColor: c.card, marginHorizontal: 16, borderRadius: 12, padding: 10, marginBottom: 12, borderLeftWidth: 4, borderLeftColor: BRAND },
   orderHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   checkWrap: { marginRight: 10 },
-  orderId: { fontWeight: '800', fontSize: 14, color: c.text },
-  orderTime: { fontSize: 11, color: c.textFaint, marginTop: 1 },
-  orderPrice: { fontWeight: '900', fontSize: 15, color: BRAND },
-  orderTip: { fontSize: 11, color: '#FF6A13', fontWeight: '700', marginTop: 1 },
+  orderId: { fontWeight: '800', fontSize: 14, color: c.text, flexShrink: 1 },
+  orderTime: { fontSize: 11, color: c.textFaint, marginTop: 1, flexShrink: 1 },
+  orderPrice: { fontWeight: '900', fontSize: 15, color: BRAND, marginLeft: 8, flexShrink: 0 },
+  orderTip: { fontSize: 11, color: '#FF6A13', fontWeight: '700', marginTop: 1, marginLeft: 8, flexShrink: 0 },
   orderBonus: { fontSize: 11, color: '#00A86B', fontWeight: '700', marginTop: 1 },
   orderTotal: { fontSize: 12, fontWeight: '900', color: c.text, marginTop: 1 },
 

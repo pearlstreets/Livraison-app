@@ -82,7 +82,7 @@ export default function ProfileScreen({ navigation }) {
       {/* Solde */}
       <View style={s.card}>
         <Text style={s.title}>{t('balance')}</Text>
-        <Text style={s.amount}>{fmtPrice((earn.earningsCents || 0) / 100)}</Text>
+        <Text style={s.amount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{fmtPrice((earn.earningsCents || 0) / 100)}</Text>
         <Pressable style={[s.btn, s.fill]} onPress={withdraw}>
           <Text style={s.btnTxt}>{t('requestPayout')}</Text>
         </Pressable>
@@ -125,9 +125,9 @@ const makeStyles = (dark, c) => {
   name: { fontWeight: '600', fontSize: 14, color: k('#444', c.textSoft), marginTop: 1 },
   email: { color: k('#666', c.textMuted), fontSize: 14, marginTop: 2 },
   infoRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  infoTxt: { color: k('#444', c.textSoft), marginLeft: 8, fontSize: 14 },
+  infoTxt: { flexShrink: 1, color: k('#444', c.textSoft), marginLeft: 8, fontSize: 14 },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: k('#eee', c.border) },
-  editTxt: { color: BRAND, fontWeight: '700', fontSize: 15 },
+  editTxt: { flexShrink: 1, color: BRAND, fontWeight: '700', fontSize: 15 },
   logoutBtn: { backgroundColor: k('#fff', c.card), borderWidth: 1, borderColor: '#e74c3c', flexDirection: 'row', gap: 8, marginTop: 16 },
   logoutTxt: { color: '#e74c3c', fontWeight: '700', fontSize: 15 },
   });

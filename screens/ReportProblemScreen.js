@@ -78,14 +78,14 @@ export default function ReportProblemScreen({ navigation, route }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={22} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('reportTitle')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{t('reportTitle')}</Text>
         <View style={{ width: 22 }} />
       </View>
 
       {/* Order ref */}
       <View style={s.orderRef}>
         <Ionicons name="receipt-outline" size={14} color={colors.dark ? colors.textMuted : '#888'} style={{ marginRight: 6 }} />
-        <Text style={s.orderRefText}>{orderRef}</Text>
+        <Text style={s.orderRefText} numberOfLines={2}>{orderRef}</Text>
       </View>
 
       <Text style={s.sectionTitle}>{t('problemType')}</Text>
@@ -137,10 +137,10 @@ export default function ReportProblemScreen({ navigation, route }) {
 const makeStyles = (c) => StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg, paddingHorizontal: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 8 },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: c.text },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: c.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
 
   orderRef: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, borderRadius: 10, padding: 8, marginBottom: 8 },
-  orderRefText: { fontSize: 12, color: c.dark ? c.textMuted : '#666', fontWeight: '600' },
+  orderRefText: { fontSize: 12, color: c.dark ? c.textMuted : '#666', fontWeight: '600', flexShrink: 1 },
 
   sectionTitle: { fontSize: 13, fontWeight: '800', color: c.text, marginBottom: 6 },
 
@@ -152,7 +152,7 @@ const makeStyles = (c) => StyleSheet.create({
   commentInput: { backgroundColor: c.dark ? c.input : '#fff', ...(c.dark ? { color: c.text } : null), borderRadius: 12, padding: 12, fontSize: 13, minHeight: 70, borderWidth: 1, borderColor: c.dark ? c.inputBorder : '#e0e0e0', marginBottom: 10 },
 
   submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, paddingVertical: 14 },
-  submitBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  submitBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14, flexShrink: 1 },
 });
 
 // Feuilles de style par thème (clair, sombre), créées une seule fois chacune.

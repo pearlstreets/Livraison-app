@@ -40,7 +40,7 @@ export default function RatingsScreen({ navigation }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('ratingsTitle')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{t('ratingsTitle')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -98,7 +98,7 @@ export default function RatingsScreen({ navigation }) {
                   <Ionicons key={k} name={k <= (Number(rv?.rating) || 0) ? 'star' : 'star-outline'} size={14} color="#FF6A13" />
                 ))}
               </View>
-              <Text style={s.reviewDate}>{fmtReviewDate(rv?.created_at)}</Text>
+              <Text style={[s.reviewDate, { marginLeft: 8 }]}>{fmtReviewDate(rv?.created_at)}</Text>
             </View>
             {!!rv?.comment && <Text style={s.reviewComment}>{rv.comment}</Text>}
           </View>
@@ -118,7 +118,7 @@ export default function RatingsScreen({ navigation }) {
 const makeStyles = (c) => StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
   avgCard: { alignItems: 'center', backgroundColor: c.card, borderRadius: 20, marginHorizontal: 16, padding: 24, marginBottom: 12 },
   avgScore: { fontSize: 48, fontWeight: '900', color: c.text },
   starsRow: { flexDirection: 'row', gap: 4, marginVertical: 8 },
@@ -128,14 +128,14 @@ const makeStyles = (c) => StyleSheet.create({
   tipsIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.cardAlt, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   tipsTitle: { fontWeight: '800', fontSize: 15, color: c.text },
   tipsSub: { fontSize: 12, color: c.dark ? c.textMuted : '#888', marginTop: 2 },
-  tipsTotal: { fontWeight: '900', fontSize: 20, color: c.dark ? c.textFaint : '#aaa' },
+  tipsTotal: { fontWeight: '900', fontSize: 20, color: c.dark ? c.textFaint : '#aaa', marginLeft: 8, flexShrink: 0 },
 
   distCard: { backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, padding: 16, marginBottom: 20 },
   distRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   distStar: { width: 16, fontWeight: '700', fontSize: 14, color: c.text },
   distBarBg: { flex: 1, height: 8, backgroundColor: c.dark ? c.border : '#f0f0f0', borderRadius: 4, marginHorizontal: 8 },
   distBarFill: { height: 8, backgroundColor: BRAND, borderRadius: 4 },
-  distCount: { width: 20, textAlign: 'right', fontWeight: '600', fontSize: 13, color: c.dark ? c.textMuted : '#666' },
+  distCount: { minWidth: 20, textAlign: 'right', fontWeight: '600', fontSize: 13, color: c.dark ? c.textMuted : '#666' },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: c.text, paddingHorizontal: 16, marginBottom: 10 },
   emptyCard: { backgroundColor: c.card, marginHorizontal: 16, borderRadius: 14, padding: 32, alignItems: 'center', borderWidth: 1, borderColor: c.dark ? c.borderStrong : '#e8e8e8' },
   emptyText: { color: c.textFaint, fontSize: 14, textAlign: 'center' },
