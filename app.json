@@ -38,7 +38,7 @@
         }
       },
       "bundleIdentifier": "com.pearlstreets.delivery",
-      "buildNumber": "1016"
+      "buildNumber": "1017"
     },
     "android": {
       "package": "com.pearlstreets.delivery",
