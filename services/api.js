@@ -110,6 +110,14 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Rappel posé par AuthContext : la session vient d'être refusée par le
+// serveur (jeton expiré, mot de passe changé, compte désactivé ailleurs).
+// Sans lui, les jetons étaient vidés mais l'écran restait « connecté ».
+let surSessionPurgee = null;
+export function setOnSessionPurgee(rappel) {
+  surSessionPurgee = typeof rappel === 'function' ? rappel : null;
+}
+
 async function purgerSession() {
   // Session déjà perdue : l'appareil ne peut plus être retiré côté serveur
   // (route authentifiée), le retrait est gardé en attente et rejoué au
@@ -122,6 +130,9 @@ async function purgerSession() {
   await secureStorage.removeSecure('accessToken');
   await secureStorage.removeSecure('refreshToken');
   await AsyncStorage.removeItem('userData');
+  if (surSessionPurgee) {
+    try { surSessionPurgee(); } catch { /* l'écran se mettra à jour au prochain appel */ }
+  }
 }
 
 // Un seul rafraîchissement à la fois : le serveur fait tourner le jeton de
@@ -150,7 +161,12 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+    // Connexion, inscription, mot de passe oublié : un 401 y veut dire
+    // « identifiants refusés », pas « jeton expiré ». Sans cette exception,
+    // un mauvais mot de passe lançait un rafraîchissement, vidait la session
+    // et remontait « Session expired » sans statut.
+    const routeSansSession = /\/api\/v1\/delivery\/(login|register|forgot-password|reset-password|token\/refresh)\//.test(originalRequest?.url || '');
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !routeSansSession) {
       originalRequest._retry = true;
       let access = null;
       try {
