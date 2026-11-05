@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { Modal, Pressable, StyleSheet, Vibration } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import OrderCard from './OrderCard';
 
 // Fenêtre « Nouvelle course » façon Uber Eats (05/11/2026) : la carte de
@@ -12,6 +13,10 @@ const DUREE_FENETRE_MS = 30000;
 
 export default function OffreCoursePopup({ order, onAccept, onDecline, onOpen, onClose }) {
   const insets = useSafeAreaInsets();
+  // La fenêtre se pose 16 pt au-dessus de la barre d'onglets, jamais collée
+  // ni par-dessus (hauteur réelle de la barre, encoche comprise).
+  const barreOnglets = useContext(BottomTabBarHeightContext);
+  const basFenetre = (barreOnglets || insets.bottom) + 16;
 
   // Sans réponse, la fenêtre se referme seule (la course reste sur la carte)
   // et laisse la place à la demande suivante. Une offre chronométrée par le
@@ -35,7 +40,7 @@ export default function OffreCoursePopup({ order, onAccept, onDecline, onOpen, o
 
   return (
     <Modal visible={!!order} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={[s.fond, { paddingBottom: insets.bottom + 24 }]} onPress={onClose}>
+      <Pressable style={[s.fond, { paddingBottom: basFenetre }]} onPress={onClose}>
         <Pressable onPress={() => {}}>
           {order ? (
             <OrderCard
