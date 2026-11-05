@@ -18,7 +18,8 @@ export async function prendrePhoto() {
   try {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (perm.granted) {
-      const res = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.6 });
+      // Qualité 0.3 sans EXIF : photo du ticket compressée et envoyée bien plus vite.
+      const res = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.3, exif: false });
       if (res.canceled || !res.assets?.length) return null;
       return res.assets[0].uri;
     }

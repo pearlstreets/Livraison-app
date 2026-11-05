@@ -607,7 +607,7 @@ export default function OrdersScreen({ navigation, route }) {
               </TouchableOpacity>
             )}
           </View>
-          <View style={styles.cardsBlock}>
+          <View style={[styles.cardsBlock, SIMULATION_POUR_TOUS && available.length === 0 && styles.cardsBlockCentre]}>
             {SIMULATION_POUR_TOUS && available.length === 0 && (
               <View style={styles.opensSoonCard}>
                 <Ionicons name="time-outline" size={28} color="#FF6A13" />
@@ -669,6 +669,8 @@ const styles = StyleSheet.create({
   opensSoonText: { fontSize: 14, color: '#6b6b70', marginTop: 6, textAlign: 'center', lineHeight: 20 },
   mockBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
   cardsBlock: {  marginBottom: 0  },
+  // Box « La livraison ouvre bientôt » centrée verticalement dans l'espace libre.
+  cardsBlockCentre: { flex: 1, justifyContent: 'center' },
   cardWrap: { marginBottom: 8 },
   emptyText: { color: '#8E8E93', paddingVertical: 8, paddingHorizontal: 4 },
 
