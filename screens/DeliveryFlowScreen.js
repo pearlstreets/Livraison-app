@@ -14,18 +14,19 @@ import { ticketService } from '../services/ticketService';
 import { etasConnues, surEtas } from '../services/positionLivreur';
 import { prendrePhoto, envoyerPreuve, renvoyerPreuvesEnAttente } from '../services/preuvePhoto';
 import { lienApplePlansVers } from '../lib/carteDemande';
+import { cleCourse, enregistrerEtape, lireEtape } from '../services/etapesCourses';
 
-// Mapping étape QUITTÉE → statut(s) backend qui reflètent la NOUVELLE réalité.
-// Avant : le statut était décalé d'un cran (in_transit envoyé au moment où le
-// livreur déclarait arriver, arrived au moment de la remise). Désormais :
-// - quitter "pickup"  = récupéré ET départ en course → picked_up puis in_transit
-// - quitter "enroute" = le livreur déclare son arrivée → arrived
-// - quitter "arrived" = remise (rien ; l'étape code envoie 'delivered')
-const STEP_TO_STATUS = {
-  pickup:  ['picked_up', 'in_transit'],
-  enroute: ['arrived'],
-  // 'delivered' est envoyé séparément avec le code
-};
+// Statuts serveur d'une course en cours, dans l'ordre imposé par le serveur
+// (aucun saut possible). 'delivered' est envoyé à part, avec le code.
+const CHAINE_STATUTS = ['accepted', 'picked_up', 'in_transit', 'arrived'];
+// Statut serveur à atteindre en QUITTANT une étape :
+// - quitter "pickup"  = récupéré ET départ en course (picked_up puis in_transit)
+// - quitter "enroute" = le livreur déclare son arrivée (arrived)
+// - quitter "arrived" = rien ; l'étape code envoie 'delivered'
+const STATUT_CIBLE = { pickup: 'in_transit', enroute: 'arrived' };
+// Statut déjà atteint quand l'écran s'ouvre sur une étape donnée.
+const STATUT_DE_ETAPE = ['accepted', 'in_transit', 'arrived', 'arrived', 'arrived'];
+const CODE_SECONDS = 10 * 60;
 
 // Délai de l'étape en cours calculé par le serveur (vers la boutique avant la
 // récupération, vers le client après). Lu dans une course (champs plats
@@ -125,21 +126,24 @@ const WAIT_SECONDS = 7 * 60; // 7 minutes
 
 const CALL_DEADLINE = 4 * 60; // 4 minutes — must call before this
 
-function ArrivedStep({ address, orderId, onCallDone, hasCalled, showCallPopup, setShowCallPopup, onMessage, onMessagePro, onOpenMap, onCall, depotPorte, onDepotPorte, depotBusy }) {
+function ArrivedStep({ address, orderId, debut, onCallDone, hasCalled, showCallPopup, setShowCallPopup, onMessage, onMessagePro, onOpenMap, onCall, depotPorte, onDepotPorte, depotBusy }) {
   const { t } = useLanguage();
-  const [remaining, setRemaining] = useState(WAIT_SECONDS);
+  // Attente comptée depuis l'arrivée chez le client (`debut`, en ms) : le
+  // minuteur reprend où il en était après un retour à l'accueil.
+  const resteAttente = () => Math.max(0, WAIT_SECONDS - Math.floor((Date.now() - (debut || Date.now())) / 1000));
+  const [remaining, setRemaining] = useState(resteAttente);
   const timerRef = useRef(null);
   const warnedRef = useRef(false);
 
   useEffect(() => {
+    setRemaining(resteAttente());
     timerRef.current = setInterval(() => {
-      setRemaining(prev => {
-        if (prev <= 1) { clearInterval(timerRef.current); return 0; }
-        return prev - 1;
-      });
+      const r = resteAttente();
+      setRemaining(r);
+      if (r <= 0) clearInterval(timerRef.current);
     }, 1000);
     return () => clearInterval(timerRef.current);
-  }, []);
+  }, [debut]);
 
   const elapsed = WAIT_SECONDS - remaining;
 
@@ -283,6 +287,28 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const codeTimerRef = useRef(null);
   const order = route.params?.order || {};
   const initialStep = route.params?.initialStep || 0;
+  // ID de l'assignment backend (pour updateDeliveryStatus / cancelDelivery)
+  // Course simulée : aucun appel au serveur, chaque étape passe aussitôt.
+  const assignmentId = order._isMock ? null : (order._assignmentId || order.id || null);
+  // Avancement gardé sur le téléphone (étape, statut serveur, minuteurs).
+  const cle = cleCourse(order);
+  const [etapeGardee] = useState(() => lireEtape(cle));
+  // Dernier statut serveur connu : le plus avancé entre celui gardé, celui de
+  // la course et celui de l'étape d'ouverture.
+  const statutRef = useRef(null);
+  if (statutRef.current === null) {
+    const rang = (st) => CHAINE_STATUTS.indexOf(st);
+    statutRef.current = [etapeGardee?.statut, order.status, STATUT_DE_ETAPE[initialStep] || 'accepted']
+      .filter((st) => rang(st) >= 0)
+      .reduce((a, b) => (rang(b) > rang(a) ? b : a), 'accepted');
+  }
+  const avanceEnCours = useRef(false);
+  const envoiCode = useRef(false);
+  // Arrivée chez le client : heure du serveur, sinon celle notée sur le téléphone.
+  const [debutAttente, setDebutAttente] = useState(() => {
+    const serveur = order.arrivedAt ? Date.parse(order.arrivedAt) : NaN;
+    return Number.isFinite(serveur) ? serveur : (etapeGardee?.arriveeLe || null);
+  });
   const [stepIndex, setStepIndex] = useState(initialStep);
   const [code, setCode] = useState(['', '', '', '']);
   const codeRefs = [useRef(), useRef(), useRef(), useRef()];
@@ -391,9 +417,6 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     : (order.priceEur != null ? fmtPrice(order.priceEur) : (order.priceText || order.price || '-'));
   const distance = order.distanceText || '-';
   const orderId = order.orderNumber || order.id || order.code || t('order');
-  // ID de l'assignment backend (pour updateDeliveryStatus / cancelDelivery)
-  // Course simulée : aucun appel au serveur, chaque étape passe aussitôt.
-  const assignmentId = order._isMock ? null : (order._assignmentId || order.id || null);
   // Plafond d'annulations réel du serveur ; 5 seulement en repli.
   const plafondAnnulations = maxWeeklyCancels ?? MAX_WEEKLY_CANCELS;
 
@@ -472,48 +495,83 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     }
   }, [clientPhone, t]);
 
-  // Code step timer (10 min)
+  // Arrivée chez le client notée une seule fois (minuteur d'attente).
   useEffect(() => {
-    if (step === 'code') {
-      setCodeTimer(10 * 60);
-      codeTimerRef.current = setInterval(() => {
-        setCodeTimer(prev => {
-          if (prev <= 1) { clearInterval(codeTimerRef.current); return 0; }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(codeTimerRef.current);
-    } else {
-      if (codeTimerRef.current) clearInterval(codeTimerRef.current);
+    if (step === 'arrived' && !debutAttente) {
+      const maintenant = Date.now();
+      setDebutAttente(maintenant);
+      enregistrerEtape(cle, { arriveeLe: maintenant });
     }
-  }, [step]);
+  }, [step, debutAttente, cle]);
 
+  // Code step timer (10 min), compté depuis la première ouverture de l'étape.
+  useEffect(() => {
+    if (step !== 'code') {
+      if (codeTimerRef.current) clearInterval(codeTimerRef.current);
+      return undefined;
+    }
+    let debut = lireEtape(cle)?.codeLe;
+    if (!debut) {
+      debut = Date.now();
+      enregistrerEtape(cle, { codeLe: debut });
+    }
+    const reste = () => Math.max(0, CODE_SECONDS - Math.floor((Date.now() - debut) / 1000));
+    setCodeTimer(reste());
+    codeTimerRef.current = setInterval(() => {
+      const r = reste();
+      setCodeTimer(r);
+      if (r <= 0) clearInterval(codeTimerRef.current);
+    }, 1000);
+    return () => clearInterval(codeTimerRef.current);
+  }, [step, cle]);
+
+  // Passe à l'étape suivante une fois le serveur à jour. Les statuts sont
+  // envoyés un par un depuis le dernier statut connu. Statut refusé parce que
+  // le serveur en est ailleurs : on se recale sur lui. Autre échec : l'étape
+  // ne change pas et le livreur réessaie.
   const nextStep = useCallback(async () => {
-    if (stepIndex >= STEPS.length - 1) return;
-    const currentStep = STEPS[stepIndex];
-    const backendStatuses = STEP_TO_STATUS[currentStep] || [];
-    if (assignmentId) {
-      // Envoi séquentiel : les transitions backend sont gardées
-      // (accepted→picked_up→in_transit→arrived), donc picked_up doit précéder
-      // in_transit. Non bloquant : on avance dans le flow UI même en cas
-      // d'erreur réseau.
-      for (const backendStatus of backendStatuses) {
-        try {
-          const res = await deliveryService.updateDeliveryStatus(assignmentId, backendStatus);
-          // La réponse porte l'ETA de la nouvelle étape (ex. vers le client
-          // une fois la commande récupérée).
-          const suivante = etapeEtaReponse(res);
-          if (suivante) setEtapeEta(suivante);
-        } catch {
-          // ignore — best effort
+    if (stepIndex >= STEPS.length - 1 || avanceEnCours.current) return;
+    const cible = STATUT_CIBLE[STEPS[stepIndex]];
+    if (assignmentId && cible) {
+      avanceEnCours.current = true;
+      try {
+        let essais = 0;
+        while (CHAINE_STATUTS.indexOf(statutRef.current) < CHAINE_STATUTS.indexOf(cible) && essais < 8) {
+          essais += 1;
+          const suivant = CHAINE_STATUTS[CHAINE_STATUTS.indexOf(statutRef.current) + 1];
+          try {
+            const res = await deliveryService.updateDeliveryStatus(assignmentId, suivant);
+            // La réponse porte l'ETA de la nouvelle étape (ex. vers le client
+            // une fois la commande récupérée).
+            const suivante = etapeEtaReponse(res);
+            if (suivante) setEtapeEta(suivante);
+            statutRef.current = suivant;
+            enregistrerEtape(cle, { statut: suivant });
+          } catch (e) {
+            const dejaLa = /from '(\w+)'/.exec(String(e?.serverMessage || ''));
+            if (dejaLa && CHAINE_STATUTS.includes(dejaLa[1]) && dejaLa[1] !== statutRef.current) {
+              statutRef.current = dejaLa[1];
+              enregistrerEtape(cle, { statut: dejaLa[1] });
+              continue;
+            }
+            Alert.alert(t('error'), e?.isNetworkError ? t('errorNetwork') : t('statusUpdateError'));
+            return;
+          }
         }
+        if (CHAINE_STATUTS.indexOf(statutRef.current) < CHAINE_STATUTS.indexOf(cible)) {
+          Alert.alert(t('error'), t('statusUpdateError'));
+          return;
+        }
+      } finally {
+        avanceEnCours.current = false;
       }
     }
     setStepIndex(stepIndex + 1);
-  }, [stepIndex, assignmentId]);
+  }, [stepIndex, assignmentId, cle, t]);
 
-  // Sync step to OrdersScreen params whenever stepIndex changes (without navigating away)
+  // Étape atteinte gardée sur le téléphone (reprise depuis l'accueil).
   useEffect(() => {
+    enregistrerEtape(cle, { step: stepIndex });
     navigation.setParams({ currentStep: stepIndex, currentStepLabel: t(STEP_LABEL_KEYS[STEPS[stepIndex]]) });
   }, [stepIndex]);
 
@@ -538,8 +596,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
   // Carte d'itinéraire IN-APP (marqueurs boutique + client, tracé, nav externe).
   const openRouteMap = useCallback(() => {
-    navigation.navigate('RouteMap', { order });
-  }, [navigation, order]);
+    // Avant le retrait, la navigation externe vise la boutique.
+    navigation.navigate('RouteMap', { order, recupere: stepIndex >= 1 });
+  }, [navigation, order, stepIndex]);
 
   const closeMapSheet = useCallback(() => {
     Animated.timing(sheetPan, { toValue: 400, duration: 200, useNativeDriver: true }).start(() => {
@@ -570,32 +629,33 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     if (digit && index < 3) {
       codeRefs[index + 1].current?.focus();
     }
-    if (index === 3 && digit) {
+    // Envoi seulement quand les 4 chiffres sont saisis, une fois à la fois.
+    if (newCode.every(Boolean) && !envoiCode.current) {
       const entered = newCode.join('');
-      if (REAL_CODE) {
-        // PRO : le code est fourni dans le payload → validation locale (inchangé).
-        if (entered === REAL_CODE) {
-          if (assignmentId) {
-            deliveryService.updateDeliveryStatus(assignmentId, 'delivered', entered).catch(() => {});
-          }
-          setTimeout(nextStep, 300);
-        } else {
-          Alert.alert(t('wrongCode'), t('wrongCodeMsg'));
-          setCode(['', '', '', '']);
-          codeRefs[0].current?.focus();
-        }
-      } else {
-        // COURSES : le livreur ne connaît pas le code → le BACKEND fait autorité
-        // (400 = code faux, on ne clôture pas et on ne crédite personne).
-        if (!assignmentId) { setTimeout(nextStep, 300); return; }
-        deliveryService.updateDeliveryStatus(assignmentId, 'delivered', entered)
-          .then(() => { setTimeout(nextStep, 300); })
-          .catch(() => {
-            Alert.alert(t('wrongCode'), t('wrongCodeMsg'));
-            setCode(['', '', '', '']);
-            codeRefs[0].current?.focus();
-          });
+      const recommencer = () => {
+        setCode(['', '', '', '']);
+        codeRefs[0].current?.focus();
+      };
+      // Code connu de l'app (course d'essai) : vérifié sur place d'abord.
+      if (REAL_CODE && entered !== REAL_CODE) {
+        Alert.alert(t('wrongCode'), t('wrongCodeMsg'));
+        recommencer();
+        return;
       }
+      if (!assignmentId) { setTimeout(nextStep, 300); return; }
+      // Le serveur fait autorité : la course n'est terminée que s'il accepte.
+      envoiCode.current = true;
+      deliveryService.updateDeliveryStatus(assignmentId, 'delivered', entered)
+        .then(() => { setTimeout(nextStep, 300); })
+        .catch((e) => {
+          const msg = String(e?.serverMessage || '');
+          if (e?.isNetworkError) Alert.alert(t('error'), t('errorNetwork'));
+          else if (e?.status === 429) Alert.alert(t('error'), t('codeTooManyAttempts'));
+          else if (e?.status === 400 && /invalid delivery code|4 digits/i.test(msg)) Alert.alert(t('wrongCode'), t('wrongCodeMsg'));
+          else Alert.alert(t('error'), t('statusUpdateError'));
+          recommencer();
+        })
+        .finally(() => { envoiCode.current = false; });
     }
   }, [code, nextStep, t, assignmentId, REAL_CODE]);
 
@@ -685,6 +745,11 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     }
   }, [depotBusy, ouvrirCamera, assignmentId, t]);
 
+  // Fin de course : retour à l'accueil, la course passe dans l'historique.
+  const terminer = useCallback(() => {
+    navigation.navigate('OrdersMain', { completedOrder: { ...order, status: 'completed', completedAt: new Date().toISOString() } });
+  }, [navigation, order]);
+
   // Progress indicator (memoized)
   const progress = useMemo(() => stepIndex / (STEPS.length - 1), [stepIndex]);
 
@@ -693,7 +758,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       {/* Header */}
       <View style={ss.header}>
         {step === 'done' ? (
-          <Pressable onPress={() => navigation.goBack()}>
+          <Pressable onPress={terminer}>
             <Ionicons name="close" size={24} color="#111" />
           </Pressable>
         ) : (
@@ -839,7 +904,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                   </View>
                   {!!ticketEnvoi && (
                     <Text style={ss.preuveEtat}>
-                      {ticketEnvoi === 'envoyee' ? t('proofSent') : ticketEnvoi === 'envoi' ? t('proofSending') : t('proofQueued')}
+                      {ticketEnvoi === 'envoyee' ? t('proofSent') : ticketEnvoi === 'envoi' ? t('proofSending') : ticketEnvoi === 'refusee' ? t('proofRefused') : t('proofQueued')}
                     </Text>
                   )}
                   <Pressable onPress={photographierTicket} hitSlop={8}>
@@ -918,14 +983,14 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 <Text style={ss.enrouteDetailLabel}>{t('order')}</Text>
                 <Text style={ss.enrouteDetailValue}>{orderId}</Text>
               </View>
-              {order.itemsCount && (
+              {order.itemsCount > 0 && (
                 <View style={ss.enrouteDetailRow}>
                   <Ionicons name="cube-outline" size={14} color="#888" />
                   <Text style={ss.enrouteDetailLabel}>{t('itemsLabel')}</Text>
                   <Text style={ss.enrouteDetailValue}>{order.itemsCount}</Text>
                 </View>
               )}
-              {order.category && (
+              {!!order.category && (
                 <View style={ss.enrouteDetailRow}>
                   <Ionicons name="pricetag-outline" size={14} color="#888" />
                   <Text style={ss.enrouteDetailLabel}>{t('categoryLabel')}</Text>
@@ -963,6 +1028,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           <ArrivedStep
             address={address}
             orderId={orderId}
+            debut={debutAttente}
             hasCalled={hasCalled}
             onCallDone={() => setHasCalled(true)}
            
@@ -1094,9 +1160,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               )}
             </View>
 
-            <Pressable style={ss.doneBtn} onPress={() => {
-              navigation.navigate('OrdersMain', { completedOrder: { ...order, status: 'completed', completedAt: new Date().toISOString() } });
-            }}>
+            <Pressable style={ss.doneBtn} onPress={terminer}>
               <Text style={ss.doneBtnTxt}>{t('backToHome')}</Text>
             </Pressable>
           </View>

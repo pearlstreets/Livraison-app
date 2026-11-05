@@ -188,6 +188,10 @@ export function AuthProvider({ children }) {
   // n'est pas connu : l'écran se replie alors sur MAX_WEEKLY_CANCELS).
   const [maxWeeklyCancels, setMaxWeeklyCancels] = useState(null);
   const [isOnline, setIsOnlineState] = useState(false);
+  // État en ligne courant, lu par setIsOnline (l'appel au serveur part hors de
+  // la mise à jour d'état, qui peut être rejouée par React).
+  const isOnlineRef = useRef(false);
+  useEffect(() => { isOnlineRef.current = isOnline; }, [isOnline]);
   // Vrai pendant qu'une livraison est en cours (écran DeliveryFlow monté).
   // Force le tracking GPS même si le livreur s'est mis hors-ligne, sinon le
   // client perd la position du livreur en pleine course.
@@ -589,48 +593,47 @@ export function AuthProvider({ children }) {
   }, [applyProfile]);
 
   const setIsOnline = useCallback((value) => {
-    setIsOnlineState((prev) => {
-      const next = typeof value === 'function' ? value(prev) : value;
-      // Passage en ligne par toggle-online : le serveur peut demander d'abord
-      // un selfie vidéo (verification_requise) ou refuser un compte bloqué (423).
-      const appel = next === true
-        ? deliveryService.toggleOnline(true)
-        : authService.updateProfile({ is_online: next });
-      appel
-        .then((res) => {
-          if (next !== true) return;
-          if (res?.status === 'verification_requise') {
-            setIsOnlineState(false);
-            ouvrirVerification(res.identite || { bloque: false, blocage: null, verification: res.verification || null });
-            return;
-          }
-          // Passage en ligne refusé par le serveur (réponse is_online false) :
-          // l'app ne reste pas « en ligne » sans recevoir de courses.
-          if (res?.is_online === false || res?.data?.is_online === false) setIsOnlineState(false);
-        })
-        .catch((e) => {
-          if (next === true && e?.status === 423) {
-            setIsOnlineState(false);
-            ouvrirVerification(e.identite || null);
-            return;
-          }
-          // Seul un refus explicite du serveur (4xx hors session expirée) remet
-          // hors ligne, avec son message. Réseau coupé : on reste en ligne, la
-          // position continue de partir. Le passage hors ligne n'est jamais annulé.
-          const statut = e?.status;
-          if (next !== true || !statut || statut < 400 || statut >= 500 || statut === 401 || statut === 429) return;
+    const next = typeof value === 'function' ? value(isOnlineRef.current) : value;
+    isOnlineRef.current = next;
+    setIsOnlineState(next);
+    // Passage en ligne par toggle-online : le serveur peut demander d'abord
+    // un selfie vidéo (verification_requise) ou refuser un compte bloqué (423).
+    const appel = next === true
+      ? deliveryService.toggleOnline(true)
+      : authService.updateProfile({ is_online: next });
+    appel
+      .then((res) => {
+        if (next !== true) return;
+        if (res?.status === 'verification_requise') {
           setIsOnlineState(false);
-          const t = tRef.current;
-          // Documents demandés par le serveur (seuil de gains) : hors ligne,
-          // sans erreur générique, avec l'accès à l'écran des documents.
-          if (t && estDocumentsRequis(e)) {
-            signalerDocumentsRequis(e, t);
-            return;
-          }
-          Alert.alert(t ? t('error') : '', e.serverMessage || (t ? t('genericError') : ''));
-        });
-      return next;
-    });
+          ouvrirVerification(res.identite || { bloque: false, blocage: null, verification: res.verification || null });
+          return;
+        }
+        // Passage en ligne refusé par le serveur (réponse is_online false) :
+        // l'app ne reste pas « en ligne » sans recevoir de courses.
+        if (res?.is_online === false || res?.data?.is_online === false) setIsOnlineState(false);
+      })
+      .catch((e) => {
+        if (next === true && e?.status === 423) {
+          setIsOnlineState(false);
+          ouvrirVerification(e.identite || null);
+          return;
+        }
+        // Seul un refus explicite du serveur (4xx hors session expirée) remet
+        // hors ligne, avec son message. Réseau coupé : on reste en ligne, la
+        // position continue de partir. Le passage hors ligne n'est jamais annulé.
+        const statut = e?.status;
+        if (next !== true || !statut || statut < 400 || statut >= 500 || statut === 401 || statut === 429) return;
+        setIsOnlineState(false);
+        const t = tRef.current;
+        // Documents demandés par le serveur (seuil de gains) : hors ligne,
+        // sans erreur générique, avec l'accès à l'écran des documents.
+        if (t && estDocumentsRequis(e)) {
+          signalerDocumentsRequis(e, t);
+          return;
+        }
+        Alert.alert(t ? t('error') : '', e.serverMessage || (t ? t('genericError') : ''));
+      });
   }, []);
 
   // Virement instantané : renvoie le vrai résultat du serveur, jamais d'exception.
