@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, PanResponder, Dimensions, Linking, Alert, TextInput, ScrollView, Modal, FlatList, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, PanResponder, Dimensions, Linking, Alert, TextInput, ScrollView, Modal, FlatList, KeyboardAvoidingView, Platform, Image, ActivityIndicator } from 'react-native';
+import { Image as ImageReduite } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,7 +14,7 @@ import { sanitizeInput, createRateLimiter } from '../utils/validation';
 import { deliveryService } from '../services/deliveryService';
 import { ticketService } from '../services/ticketService';
 import { etasConnues, surEtas } from '../services/positionLivreur';
-import { prendrePhoto, envoyerPreuve, renvoyerPreuvesEnAttente } from '../services/preuvePhoto';
+import { prendrePhoto, preparerCamera, envoyerPreuve, renvoyerPreuvesEnAttente } from '../services/preuvePhoto';
 import { lienApplePlansVers } from '../lib/carteDemande';
 import { cleCourse, enregistrerEtape, lireEtape } from '../services/etapesCourses';
 
@@ -697,15 +698,31 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
   // Ouvre la caméra (repli galerie dans prendrePhoto). Renvoie l'URI, null
   // si annulé, 'indisponible' si aucune photo n'a pu être obtenue.
+  // Un seul appui compte : le bouton montre aussitôt que la caméra s'ouvre,
+  // un 2e appui pendant l'ouverture est ignoré.
+  const [cameraOuverture, setCameraOuverture] = useState(false);
+  const cameraOccupee = useRef(false);
   const ouvrirCamera = useCallback(async () => {
+    if (cameraOccupee.current) return null;
+    cameraOccupee.current = true;
+    setCameraOuverture(true);
     try {
       const res = await prendrePhoto();
       if (res && res.indisponible) return 'indisponible';
       return typeof res === 'string' ? res : null;
     } catch {
       return 'indisponible';
+    } finally {
+      cameraOccupee.current = false;
+      setCameraOuverture(false);
     }
   }, []);
+
+  // Accès caméra préparé dès l'étape de retrait (et l'arrivée chez le client),
+  // pour que la caméra s'ouvre sans attente au moment de la photo.
+  useEffect(() => {
+    if (step === 'pickup' || step === 'arrived') preparerCamera().catch(() => {});
+  }, [step]);
 
   // Preuves gardées sur le téléphone lors d'une course précédente : renvoi.
   useEffect(() => {
@@ -906,7 +923,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             {/* Preuve de retrait : photo du ticket ou du reçu (QR compris). */}
             {ticketPhoto ? (
               <View style={[ss.preuveCard, ss.preuveCardOk]}>
-                <Image source={{ uri: ticketPhoto }} style={ss.preuveThumb} />
+                {/* Miniature réduite à sa taille d'affichage : l'écran ne fige pas sur une photo de 12 à 48 Mpx. */}
+                <ImageReduite source={{ uri: ticketPhoto }} style={ss.preuveThumb} contentFit="cover" />
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Ionicons name="checkmark-circle" size={16} color={BRAND} style={{ marginRight: 6 }} />
@@ -925,8 +943,10 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             ) : (
               <View style={ss.preuveCard}>
                 <Text style={ss.preuveHint}>{t('ticketPhotoHint')}</Text>
-                <Pressable style={ss.preuveBtn} onPress={photographierTicket}>
-                  <Ionicons name="camera" size={18} color="#fff" style={{ marginRight: 8 }} />
+                <Pressable style={ss.preuveBtn} onPress={photographierTicket} disabled={cameraOuverture}>
+                  {cameraOuverture
+                    ? <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+                    : <Ionicons name="camera" size={18} color="#fff" style={{ marginRight: 8 }} />}
                   <Text style={ss.preuveBtnTxt}>{t('ticketPhotoBtn')}</Text>
                 </Pressable>
               </View>
