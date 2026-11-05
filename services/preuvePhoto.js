@@ -14,9 +14,23 @@ const DELAIS_ESSAIS_MS = [0, 2000, 5000];
 // permission CAMERA, refus sur iOS) : sélecteur de photos du système, sans
 // permission. Renvoie l'URI de la photo, null si la caméra a été annulée,
 // { indisponible: true } si aucune photo n'a pu être obtenue.
+// Accès caméra demandé À L'AVANCE (dès l'étape de retrait) : l'appui sur
+// « Photographier le ticket » ouvre la caméra sans attendre cette demande.
+// Accès refusé : rien n'est gardé, la demande est refaite au prochain essai.
+let accesCamera = null;
+export function preparerCamera() {
+  if (!accesCamera) {
+    accesCamera = ImagePicker.getCameraPermissionsAsync()
+      .then((p) => (p.granted || !p.canAskAgain ? p : ImagePicker.requestCameraPermissionsAsync()))
+      .then((p) => { if (!p.granted) accesCamera = null; return p; })
+      .catch(() => { accesCamera = null; return { granted: false }; });
+  }
+  return accesCamera;
+}
+
 export async function prendrePhoto() {
   try {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    const perm = await preparerCamera();
     if (perm.granted) {
       // Qualité 0.3 sans EXIF : photo du ticket compressée et envoyée bien plus vite.
       const res = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.3, exif: false });
@@ -27,7 +41,7 @@ export async function prendrePhoto() {
     // caméra indisponible : repli sur la galerie
   }
   try {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.6 });
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.3, exif: false });
     if (!res.canceled && res.assets?.length) return res.assets[0].uri;
   } catch {
     // galerie indisponible aussi
