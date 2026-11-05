@@ -6,6 +6,7 @@ import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { deliveryService } from '../services/deliveryService';
 
@@ -13,6 +14,8 @@ const BRAND = '#FF6A13';
 
 export default function OpportunitiesScreen({ navigation }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const s = stylesPour(colors);
   const insets = useSafeAreaInsets();
   const { readOpportunities, markOpportunityRead, setOpportunityIds } = useAuth();
   const [promos, setPromos] = useState([]);
@@ -27,7 +30,9 @@ export default function OpportunitiesScreen({ navigation }) {
       try {
         if (alive) setLoadError(false);
         const r = await deliveryService.getOpportunities();
-        const list = (r && (r.data || r.results)) || [];
+        const brut = r && (r.data || r.results);
+        // Réponse inattendue (objet, null) : liste vide plutôt qu'un plantage sur .map.
+        const list = (Array.isArray(brut) ? brut : []).filter((o) => o && o.id != null);
         // Le badge du menu suit exactement cette liste.
         if (alive) setOpportunityIds(list.map((o) => String(o.id)));
         if (alive) setPromos(list.map((o) => ({
@@ -36,7 +41,8 @@ export default function OpportunitiesScreen({ navigation }) {
           desc: o.description || '',
           period: o.period_label || '',
           icon: o.icon || 'flash',
-          color: o.color || BRAND,
+          // Couleur hexadécimale seulement (suffixe d'opacité « 20 » ajouté à l'affichage).
+          color: typeof o.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(o.color) ? o.color : BRAND,
         })));
       } catch {
         if (alive) setLoadError(true);
@@ -55,7 +61,7 @@ export default function OpportunitiesScreen({ navigation }) {
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
         <Text style={s.headerTitle}>{t('opportunitiesTitle')}</Text>
         <View style={{ width: 24 }} />
@@ -68,8 +74,8 @@ export default function OpportunitiesScreen({ navigation }) {
       )}
       {!loading && loadError && promos.length === 0 && (
         <View style={{ alignItems: 'center', marginTop: 40, paddingHorizontal: 32 }}>
-          <Ionicons name="cloud-offline-outline" size={36} color="#ccc" style={{ marginBottom: 10 }} />
-          <Text style={{ color: '#999', textAlign: 'center' }}>{t('opportunitiesLoadError')}</Text>
+          <Ionicons name="cloud-offline-outline" size={36} color={colors.chevron} style={{ marginBottom: 10 }} />
+          <Text style={{ color: colors.textFaint, textAlign: 'center' }}>{t('opportunitiesLoadError')}</Text>
           <Pressable onPress={() => { setLoading(true); setEssai((n) => n + 1); }} style={{ marginTop: 14, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, backgroundColor: BRAND }}>
             <Text style={{ color: '#fff', fontWeight: '700' }}>{t('retry')}</Text>
           </Pressable>
@@ -77,8 +83,8 @@ export default function OpportunitiesScreen({ navigation }) {
       )}
       {!loading && !loadError && promos.length === 0 && (
         <View style={{ alignItems: 'center', marginTop: 40, paddingHorizontal: 32 }}>
-          <Ionicons name="sparkles-outline" size={36} color="#ccc" style={{ marginBottom: 10 }} />
-          <Text style={{ color: '#999', textAlign: 'center' }}>{t('noOpportunities') || 'Aucune opportunité pour le moment'}</Text>
+          <Ionicons name="sparkles-outline" size={36} color={colors.chevron} style={{ marginBottom: 10 }} />
+          <Text style={{ color: colors.textFaint, textAlign: 'center' }}>{t('noOpportunities') || 'Aucune opportunité pour le moment'}</Text>
         </View>
       )}
 
@@ -97,7 +103,7 @@ export default function OpportunitiesScreen({ navigation }) {
               <Text style={s.cardDesc}>{promo.desc}</Text>
               <Text style={[s.cardPeriod, { color: promo.color }]}>{promo.period}</Text>
             </View>
-            <Ionicons name={dirIcon('chevron-forward')} size={18} color="#ccc" />
+            <Ionicons name={dirIcon('chevron-forward')} size={18} color={colors.chevron} />
           </Pressable>
         );
       })}
@@ -107,15 +113,22 @@ export default function OpportunitiesScreen({ navigation }) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+const makeStyles = (c) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
-  subtitle: { color: '#888', fontSize: 14, paddingHorizontal: 16, marginBottom: 16 },
-  card: { flexDirection: 'row', backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 16, padding: 16, marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  subtitle: { color: c.dark ? c.textMuted : '#888', fontSize: 14, paddingHorizontal: 16, marginBottom: 16 },
+  card: { flexDirection: 'row', backgroundColor: c.card, marginHorizontal: 16, borderRadius: 16, padding: 16, marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 4, elevation: 1 },
   iconCircle: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  cardTitle: { fontWeight: '800', fontSize: 16, color: '#111', marginBottom: 4 },
-  cardDesc: { color: '#555', fontSize: 13, marginBottom: 6 },
+  cardTitle: { fontWeight: '800', fontSize: 16, color: c.text, marginBottom: 4 },
+  cardDesc: { color: c.dark ? c.textSoft : '#555', fontSize: 13, marginBottom: 6 },
   cardPeriod: { fontWeight: '700', fontSize: 13 },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#e74c3c', marginLeft: 6 },
 });
+
+// Feuilles de style par thème (clair, sombre), créées une seule fois chacune.
+const stylesParTheme = new Map();
+function stylesPour(c) {
+  if (!stylesParTheme.has(c)) stylesParTheme.set(c, makeStyles(c));
+  return stylesParTheme.get(c);
+}

@@ -6,6 +6,7 @@ import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useFocusEffect } from '@react-navigation/native';
 import { deliveryService } from '../services/deliveryService';
 import { CLE_NOTIFICATIONS_LUES } from '../contexts/AuthContext';
@@ -20,6 +21,8 @@ const FILTERS = [
 
 export default function InboxScreen() {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const s = stylesPour(colors);
   const insets = useSafeAreaInsets();
   const scrollRef = useRef(null);
   const [filter, setFilter] = useState('Tout');
@@ -58,12 +61,17 @@ export default function InboxScreen() {
     fetchNotifs();
   }, [fetchNotifs]));
 
+  // Couleur et icône de secours : une notification sans couleur donnait « undefined20 » (couleur invalide).
+  const couleurDe = (n) => (typeof n?.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(n.color) ? n.color : BRAND);
+  const iconeDe = (n) => n?.icon || 'notifications-outline';
+
   const filtered = filter === 'Tout' ? notifs : notifs.filter(n => n.type === FILTERS.find(f => f.key === filter)?.key);
 
   const sections = {};
   filtered.forEach(n => {
-    if (!sections[n.section]) sections[n.section] = [];
-    sections[n.section].push(n);
+    const cle = n.section || '';
+    if (!sections[cle]) sections[cle] = [];
+    sections[cle].push(n);
   });
 
   function openNotif(notif) {
@@ -72,7 +80,7 @@ export default function InboxScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 40 }}>
         <Text style={[s.header, { paddingTop: insets.top + 16 }]}>{t('inbox')}</Text>
 
@@ -91,10 +99,10 @@ export default function InboxScreen() {
         {Object.entries(sections).map(([section, items]) => (
           <View key={section}>
             <Text style={s.sectionTitle}>{section === "Aujourd'hui" ? t('today') : section === 'Plus anciens' ? t('older') : section}</Text>
-            {items.map(item => (
-              <Pressable key={item.id} style={[s.notifRow, !readIds.includes(item.id) && s.notifUnread]} onPress={() => openNotif(item)}>
-                <View style={[s.notifIcon, { backgroundColor: item.color + '20' }]}>
-                  <Ionicons name={item.icon} size={20} color={item.color} />
+            {items.map((item, idx) => (
+              <Pressable key={item.id != null ? String(item.id) : `notif-${idx}`} style={[s.notifRow, !readIds.includes(item.id) && s.notifUnread]} onPress={() => openNotif(item)}>
+                <View style={[s.notifIcon, { backgroundColor: couleurDe(item) + '20' }]}>
+                  <Ionicons name={iconeDe(item)} size={20} color={couleurDe(item)} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[s.notifTitle, !readIds.includes(item.id) && { fontWeight: '900' }]} numberOfLines={2}>{item.title}</Text>
@@ -102,7 +110,7 @@ export default function InboxScreen() {
                   <Text style={s.notifTime}>{item.time}</Text>
                 </View>
                 {!readIds.includes(item.id) && <View style={s.unreadDot} />}
-                <Ionicons name={dirIcon('chevron-forward')} size={16} color="#ccc" />
+                <Ionicons name={dirIcon('chevron-forward')} size={16} color={colors.chevron} />
               </Pressable>
             ))}
           </View>
@@ -115,7 +123,7 @@ export default function InboxScreen() {
         <View style={s.modalContainer}>
           <View style={s.modalHeader}>
             <Pressable onPress={() => setSelectedNotif(null)}>
-              <Ionicons name="close" size={28} color="#111" />
+              <Ionicons name="close" size={28} color={colors.text} />
             </Pressable>
             <Text style={s.modalHeaderTitle}>{t('message')}</Text>
             <View style={{ width: 28 }} />
@@ -124,13 +132,13 @@ export default function InboxScreen() {
           <ScrollView contentContainerStyle={s.modalContent}>
             {selectedNotif && (
               <>
-                <View style={[s.modalIcon, { backgroundColor: selectedNotif.color + '20' }]}>
-                  <Ionicons name={selectedNotif.icon} size={32} color={selectedNotif.color} />
+                <View style={[s.modalIcon, { backgroundColor: couleurDe(selectedNotif) + '20' }]}>
+                  <Ionicons name={iconeDe(selectedNotif)} size={32} color={couleurDe(selectedNotif)} />
                 </View>
                 <Text style={s.modalTitle}>{selectedNotif.title}</Text>
                 <Text style={s.modalTime}>{selectedNotif.time}</Text>
                 <View style={s.modalDivider} />
-                <Text style={s.modalBody}>{selectedNotif.detail}</Text>
+                <Text style={s.modalBody}>{selectedNotif.detail || selectedNotif.subtitle || ''}</Text>
               </>
             )}
           </ScrollView>
@@ -145,33 +153,40 @@ export default function InboxScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  header: { fontSize: 28, fontWeight: '900', color: '#111', paddingHorizontal: 16, paddingTop: 16, marginBottom: 12 },
+const makeStyles = (c) => StyleSheet.create({
+  header: { fontSize: 28, fontWeight: '900', color: c.text, paddingHorizontal: 16, paddingTop: 16, marginBottom: 12 },
   filtersRow: { paddingHorizontal: 16, marginBottom: 16, flexGrow: 0 },
-  filterChip: { backgroundColor: '#e8e8e8', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
+  filterChip: { backgroundColor: c.dark ? c.borderStrong : '#e8e8e8', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8 },
   filterChipActive: { backgroundColor: BRAND },
-  filterText: { fontWeight: '700', fontSize: 14, color: '#333' },
+  filterText: { fontWeight: '700', fontSize: 14, color: c.dark ? c.textSoft : '#333' },
   filterTextActive: { color: '#fff' },
-  empty: { color: '#888', paddingHorizontal: 16, paddingVertical: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#111', paddingHorizontal: 16, marginBottom: 8, marginTop: 4 },
-  notifRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  notifUnread: { backgroundColor: '#f0faf7' },
+  empty: { color: c.dark ? c.textMuted : '#888', paddingHorizontal: 16, paddingVertical: 20 },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: c.text, paddingHorizontal: 16, marginBottom: 8, marginTop: 4 },
+  notifRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: c.card, borderBottomWidth: 1, borderBottomColor: c.dark ? c.border : '#f0f0f0' },
+  notifUnread: { backgroundColor: c.dark ? c.cardAlt : '#f0faf7' },
   notifIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  notifTitle: { fontWeight: '700', fontSize: 15, color: '#111', marginBottom: 2 },
-  notifSub: { color: '#666', fontSize: 13 },
-  notifTime: { color: '#999', fontSize: 12, marginTop: 4 },
+  notifTitle: { fontWeight: '700', fontSize: 15, color: c.text, marginBottom: 2 },
+  notifSub: { color: c.dark ? c.textMuted : '#666', fontSize: 13 },
+  notifTime: { color: c.textFaint, fontSize: 12, marginTop: 4 },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginRight: 8 },
 
-  modalContainer: { flex: 1, backgroundColor: '#fff' },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  modalHeaderTitle: { fontSize: 17, fontWeight: '800', color: '#111' },
+  modalContainer: { flex: 1, backgroundColor: c.card },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: c.dark ? c.border : '#f0f0f0' },
+  modalHeaderTitle: { fontSize: 17, fontWeight: '800', color: c.text },
   modalContent: { padding: 24, alignItems: 'center' },
   modalIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 22, fontWeight: '900', color: '#111', textAlign: 'center', marginBottom: 8 },
-  modalTime: { color: '#999', fontSize: 14, marginBottom: 16 },
-  modalDivider: { height: 1, backgroundColor: '#f0f0f0', alignSelf: 'stretch', marginBottom: 16 },
-  modalBody: { fontSize: 16, color: '#333', lineHeight: 24, alignSelf: 'stretch' },
-  modalFooter: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40, borderTopWidth: 1, borderTopColor: '#f0f0f0' },
+  modalTitle: { fontSize: 22, fontWeight: '900', color: c.text, textAlign: 'center', marginBottom: 8 },
+  modalTime: { color: c.textFaint, fontSize: 14, marginBottom: 16 },
+  modalDivider: { height: 1, backgroundColor: c.dark ? c.border : '#f0f0f0', alignSelf: 'stretch', marginBottom: 16 },
+  modalBody: { fontSize: 16, color: c.dark ? c.textSoft : '#333', lineHeight: 24, alignSelf: 'stretch' },
+  modalFooter: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40, borderTopWidth: 1, borderTopColor: c.dark ? c.border : '#f0f0f0' },
   closeBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
   closeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });
+
+// Feuilles de style par thème (clair, sombre), créées une seule fois chacune.
+const stylesParTheme = new Map();
+function stylesPour(c) {
+  if (!stylesParTheme.has(c)) stylesParTheme.set(c, makeStyles(c));
+  return stylesParTheme.get(c);
+}

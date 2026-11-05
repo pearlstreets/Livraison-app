@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { dirIcon } from '../lib/rtl';
 
 const BRAND = '#FF6A13';
@@ -22,6 +23,8 @@ const FAQ = {
 
 export default function HelpDetailScreen({ navigation, route }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const s = stylesPour(colors);
   const insets = useSafeAreaInsets();
   const topicKey = route.params?.topicKey;
   const title = topicKey ? t(topicKey) : '';
@@ -48,7 +51,7 @@ export default function HelpDetailScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
         <View style={[s.headerRow, { paddingTop: insets.top }]}>
           <Pressable onPress={() => navigation.goBack()}>
-            <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
+            <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
           </Pressable>
           <Text style={s.headerTitle}>{title}</Text>
           <View style={{ width: 24 }} />
@@ -73,14 +76,21 @@ export default function HelpDetailScreen({ navigation, route }) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+const makeStyles = (c) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111', flex: 1, textAlign: 'center' },
-  faqCard: { backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 14, padding: 16, marginBottom: 10 },
-  question: { fontWeight: '800', fontSize: 15, color: '#111', marginBottom: 8 },
-  answer: { fontSize: 14, color: '#555', lineHeight: 21 },
-  contactWrap: { backgroundColor: '#f5f5f5', paddingHorizontal: 16, paddingTop: 10 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text, flex: 1, textAlign: 'center' },
+  faqCard: { backgroundColor: c.card, marginHorizontal: 16, borderRadius: 14, padding: 16, marginBottom: 10 },
+  question: { fontWeight: '800', fontSize: 15, color: c.text, marginBottom: 8 },
+  answer: { fontSize: 14, color: c.dark ? c.textSoft : '#555', lineHeight: 21 },
+  contactWrap: { backgroundColor: c.bg, paddingHorizontal: 16, paddingTop: 10 },
   contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16 },
   contactTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
 });
+
+// Feuilles de style par thème (clair, sombre), créées une seule fois chacune.
+const stylesParTheme = new Map();
+function stylesPour(c) {
+  if (!stylesParTheme.has(c)) stylesParTheme.set(c, makeStyles(c));
+  return stylesParTheme.get(c);
+}

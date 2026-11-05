@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
@@ -8,6 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { payoutDateLabel, payoutStatusLabel, payoutTypeLabel } from '../lib/payouts';
 import useSecureScreen from '../hooks/useSecureScreen';
+import { useTheme } from '../contexts/ThemeContext';
 
 const BRAND = '#FF6A13';
 
@@ -15,16 +16,19 @@ export default function VersementsListScreen({ navigation, route }) {
   const { t } = useLanguage();
   const { versements, currentIban } = useAuth();
   const { fmtPrice } = useCurrency();
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   // IBAN affiché dans le détail de chaque versement.
   useSecureScreen('VersementsList');
-  const mode = route.params?.mode || 'activity'; // 'activity' or 'history'
+  const mode = route?.params?.mode || 'activity'; // 'activity' or 'history'
+  const liste = Array.isArray(versements) ? versements : [];
 
   return (
     <View style={s.container}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
         <Text style={s.headerTitle}>{mode === 'history' ? t('transferHistory') : t('payoutActivity')}</Text>
         <View style={{ width: 24 }} />
@@ -33,9 +37,9 @@ export default function VersementsListScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {mode === 'activity' ? (
           <View style={s.listCard}>
-            {versements.map((v, i) => (
-              <Pressable key={i} style={[s.versementRow, i < versements.length - 1 && s.versementBorder]} onPress={() => navigation.navigate('VersementDetail', { versement: v })}>
-                <Ionicons name="calendar-outline" size={22} color="#666" style={{ marginRight: 12 }} />
+            {liste.map((v, i) => (
+              <Pressable key={v.id ?? i} style={[s.versementRow, i < liste.length - 1 && s.versementBorder]} onPress={() => navigation.navigate('VersementDetail', { versement: v })}>
+                <Ionicons name="calendar-outline" size={22} color={colors.dark ? colors.textMuted : '#666'} style={{ marginRight: 12 }} />
                 <View style={{ flex: 1 }}>
                   <Text style={s.versementLabel}>{payoutTypeLabel(v, t)}</Text>
                   <View style={s.versementDateRow}>
@@ -43,14 +47,14 @@ export default function VersementsListScreen({ navigation, route }) {
                     <Text style={s.versementDate}>{payoutDateLabel(v, t)} · {payoutStatusLabel(v.status, t)}</Text>
                   </View>
                 </View>
-                <Ionicons name={dirIcon('chevron-forward')} size={16} color="#ccc" style={{ marginLeft: 8 }} />
+                <Ionicons name={dirIcon('chevron-forward')} size={16} color={colors.chevron} style={{ marginLeft: 8 }} />
               </Pressable>
             ))}
           </View>
         ) : (
           <View style={s.histList}>
-            {versements.map((v, i) => (
-              <Pressable key={i} style={[s.virementCard, i < versements.length - 1 && { marginBottom: 10 }]} onPress={() => navigation.navigate('VersementDetail', { versement: v })}>
+            {liste.map((v, i) => (
+              <Pressable key={v.id ?? i} style={[s.virementCard, i < liste.length - 1 && { marginBottom: 10 }]} onPress={() => navigation.navigate('VersementDetail', { versement: v })}>
                 <View style={s.virementHeader}>
                   <View style={s.virementIconWrap}>
                     <Ionicons name={v.label === 'Versement exceptionnel' ? 'flash' : 'calendar-outline'} size={18} color={v.label === 'Versement exceptionnel' ? '#f5a623' : BRAND} />
@@ -90,30 +94,34 @@ export default function VersementsListScreen({ navigation, route }) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+// Couleurs : en clair, valeurs d'origine à l'identique ; en sombre, celles du thème.
+const makeStyles = (c) => {
+  const p = (clair, sombre) => (c.dark ? sombre : clair);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
 
-  listCard: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, overflow: 'hidden' },
+  listCard: { backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, overflow: 'hidden' },
   versementRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-  versementBorder: { borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  versementLabel: { fontWeight: '700', fontSize: 15, color: '#111' },
+  versementBorder: { borderBottomWidth: 1, borderBottomColor: p('#f0f0f0', c.border) },
+  versementLabel: { fontWeight: '700', fontSize: 15, color: c.text },
   versementDateRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
-  versementDate: { color: '#888', fontSize: 13 },
-  versementAmount: { fontWeight: '800', fontSize: 16, color: '#111' },
+  versementDate: { color: p('#888', c.textMuted), fontSize: 13 },
+  versementAmount: { fontWeight: '800', fontSize: 16, color: c.text },
 
   histList: { paddingHorizontal: 16 },
-  virementCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#f0f0f0' },
+  virementCard: { backgroundColor: c.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: p('#f0f0f0', c.border) },
   virementHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  virementIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f5f5f5', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  virementLabel: { fontWeight: '700', fontSize: 14, color: '#111' },
-  virementDateSmall: { fontSize: 12, color: '#999', marginTop: 1 },
-  virementAmountBig: { fontWeight: '900', fontSize: 16, color: '#111' },
+  virementIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: p('#f5f5f5', c.border), alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  virementLabel: { fontWeight: '700', fontSize: 14, color: c.text },
+  virementDateSmall: { fontSize: 12, color: c.textFaint, marginTop: 1 },
+  virementAmountBig: { fontWeight: '900', fontSize: 16, color: c.text },
   virementStatusBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   virementStatusTxt: { fontSize: 11, color: BRAND, fontWeight: '700' },
-  virementDetails: { backgroundColor: '#f9f9f9', borderRadius: 10, padding: 10 },
+  virementDetails: { backgroundColor: p('#f9f9f9', c.border), borderRadius: 10, padding: 10 },
   virementDetailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  virementDetailLabel: { fontSize: 13, color: '#888' },
-  virementDetailValue: { fontSize: 13, fontWeight: '700', color: '#333' },
-});
+  virementDetailLabel: { fontSize: 13, color: p('#888', c.textMuted) },
+  virementDetailValue: { fontSize: 13, fontWeight: '700', color: p('#333', c.textSoft) },
+  });
+};

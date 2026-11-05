@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import translations from '../contexts/translations';
+import { useTheme } from '../contexts/ThemeContext';
 import { formatAmount, formatTime, formatMinutes } from '../lib/i18nFormat';
 import { dirIcon, isRTL } from '../lib/rtl';
 import { sanitizeInput, createRateLimiter } from '../utils/validation';
@@ -66,6 +67,7 @@ const STEP_LABEL_KEYS = {
 };
 
 function SlideButton({ label, onComplete, color: couleur = BRAND, disabled = false }) {
+  const { ss } = useSS();
   const color = disabled ? '#bdbdbd' : couleur;
   const pan = useRef(new Animated.Value(0)).current;
   // Glissière verrouillée (preuve de retrait manquante) : geste ignoré.
@@ -132,6 +134,7 @@ const CALL_DEADLINE = 4 * 60; // 4 minutes — must call before this
 
 function ArrivedStep({ address, orderId, debut, onCallDone, hasCalled, showCallPopup, setShowCallPopup, onMessage, onMessagePro, onOpenMap, onCall, depotPorte, onDepotPorte, depotBusy }) {
   const { t } = useLanguage();
+  const { ss } = useSS();
   // Attente comptée depuis l'arrivée chez le client (`debut`, en ms) : le
   // minuteur reprend où il en était après un retour à l'accueil.
   const resteAttente = () => Math.max(0, WAIT_SECONDS - Math.floor((Date.now() - (debut || Date.now())) / 1000));
@@ -272,6 +275,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const { t } = useLanguage();
   const { user, cancelOrder, applyCancelResult, weeklyCancels, maxWeeklyCancels, MAX_WEEKLY_CANCELS, currentEarningsCents, markOrderReported, refreshAll, setActiveDelivery } = useAuth();
   const { fmtPrice } = useCurrency();
+  const { ss, colors, dark } = useSS();
+  // Gris d'icône : identique en clair, lisible en sombre.
+  const gris = (v) => (dark ? colors.textMuted : v);
   const [showCancelPopup, setShowCancelPopup] = useState(false);
   const [showCodeProblem, setShowCodeProblem] = useState(false);
   const [selectedCodeProblem, setSelectedCodeProblem] = useState(null);
@@ -758,12 +764,12 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const progress = useMemo(() => stepIndex / (STEPS.length - 1), [stepIndex]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f5f5f5' }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: dark ? colors.bg : '#f5f5f5' }} edges={['top']}>
       {/* Header */}
       <View style={ss.header}>
         {step === 'done' ? (
           <Pressable onPress={terminer}>
-            <Ionicons name="close" size={24} color="#111" />
+            <Ionicons name="close" size={24} color={dark ? colors.text : '#111'} />
           </Pressable>
         ) : (
           <View style={{ width: 24 }} />
@@ -817,7 +823,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           <View style={ss.stepContentCompact}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
               {order.shopImage ? (
-                <Image source={{ uri: order.shopImage }} style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: '#f0f0f0' }} />
+                <Image source={{ uri: order.shopImage }} style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: dark ? colors.border : '#f0f0f0' }} />
               ) : (
                 <View style={ss.smallIconWrap}>
                   <MaterialCommunityIcons name="storefront-outline" size={24} color={BRAND} />
@@ -841,16 +847,16 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               </View>
 
               {/* Articles à récupérer */}
-              {order.items && order.items.length > 0 && (
+              {Array.isArray(order.items) && order.items.length > 0 && (
                 <View style={ss.itemsBlock}>
                   <View style={ss.itemsHeader}>
                     <Ionicons name="bag-outline" size={14} color={BRAND} />
-                    <Text style={ss.itemsTitle}>{(() => { const n = order.items.reduce((s, it) => s + (it.qty || 1), 0); return `${n} ${t(n > 1 ? 'articles' : 'article')}`; })()}</Text>
+                    <Text style={ss.itemsTitle}>{(() => { const n = order.items.reduce((s, it) => s + (Number(it?.qty) || 1), 0); return `${n} ${t(n > 1 ? 'articles' : 'article')}`; })()}</Text>
                   </View>
                   {order.items.map((item, idx) => (
                     <View key={idx} style={ss.itemRow}>
-                      <Text style={ss.itemQty}>{item.qty || 1}x</Text>
-                      <Text style={ss.itemName}>{item.name}</Text>
+                      <Text style={ss.itemQty}>{item?.qty || 1}x</Text>
+                      <Text style={ss.itemName}>{item?.name || ''}</Text>
                     </View>
                   ))}
                 </View>
@@ -869,20 +875,20 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             {/* Info badges inline */}
             <View style={ss.badgesRow}>
               <View style={ss.infoBadge}>
-                <Ionicons name="receipt-outline" size={14} color="#666" />
+                <Ionicons name="receipt-outline" size={14} color={gris('#666')} />
                 <Text style={ss.infoBadgeText}>{orderId}</Text>
               </View>
               <View style={ss.infoBadge}>
-                <Ionicons name="navigate-outline" size={14} color="#666" />
+                <Ionicons name="navigate-outline" size={14} color={gris('#666')} />
                 <Text style={ss.infoBadgeText}>{distance}</Text>
               </View>
               <View style={ss.infoBadge}>
-                <Ionicons name="time-outline" size={14} color="#666" />
+                <Ionicons name="time-outline" size={14} color={gris('#666')} />
                 <Text style={ss.infoBadgeText}>{eta}</Text>
               </View>
               {!!readyTime && (
                 <View style={ss.infoBadge}>
-                  <Ionicons name="alarm-outline" size={14} color="#666" />
+                  <Ionicons name="alarm-outline" size={14} color={gris('#666')} />
                   <Text style={ss.infoBadgeText}>{t('readyAtTime', { time: readyTime })}</Text>
                 </View>
               )}
@@ -961,17 +967,17 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                   <Text style={ss.enrouteLabel}>{t('delivery')}</Text>
                   <Text style={ss.enrouteAddr}>{address}</Text>
                 </View>
-                <Ionicons name="ellipse-outline" size={18} color="#ccc" />
+                <Ionicons name="ellipse-outline" size={18} color={dark ? colors.chevron : '#ccc'} />
               </View>
             </View>
 
             <View style={ss.badgesRow}>
               <View style={ss.infoBadge}>
-                <Ionicons name="time-outline" size={16} color="#666" />
+                <Ionicons name="time-outline" size={16} color={gris('#666')} />
                 <Text style={ss.infoBadgeText}>{eta}</Text>
               </View>
               <View style={ss.infoBadge}>
-                <Ionicons name="navigate-outline" size={16} color="#666" />
+                <Ionicons name="navigate-outline" size={16} color={gris('#666')} />
                 <Text style={ss.infoBadgeText}>{distance}</Text>
               </View>
               <View style={[ss.infoBadge, { backgroundColor: BRAND + '15' }]}>
@@ -983,20 +989,20 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             {/* Order details */}
             <View style={ss.enrouteDetailCard}>
               <View style={ss.enrouteDetailRow}>
-                <Ionicons name="receipt-outline" size={14} color="#888" />
+                <Ionicons name="receipt-outline" size={14} color={gris('#888')} />
                 <Text style={ss.enrouteDetailLabel}>{t('order')}</Text>
                 <Text style={ss.enrouteDetailValue}>{orderId}</Text>
               </View>
               {order.itemsCount > 0 && (
                 <View style={ss.enrouteDetailRow}>
-                  <Ionicons name="cube-outline" size={14} color="#888" />
+                  <Ionicons name="cube-outline" size={14} color={gris('#888')} />
                   <Text style={ss.enrouteDetailLabel}>{t('itemsLabel')}</Text>
                   <Text style={ss.enrouteDetailValue}>{order.itemsCount}</Text>
                 </View>
               )}
               {!!order.category && (
                 <View style={ss.enrouteDetailRow}>
-                  <Ionicons name="pricetag-outline" size={14} color="#888" />
+                  <Ionicons name="pricetag-outline" size={14} color={gris('#888')} />
                   <Text style={ss.enrouteDetailLabel}>{t('categoryLabel')}</Text>
                   <Text style={ss.enrouteDetailValue}>{order.category}</Text>
                 </View>
@@ -1083,7 +1089,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
             {/* Décompte 10 min */}
             <View style={ss.codeTimerWrap}>
-              <Ionicons name="time-outline" size={16} color={codeTimer > 60 ? '#888' : '#e74c3c'} style={{ marginRight: 6 }} />
+              <Ionicons name="time-outline" size={16} color={codeTimer > 60 ? gris('#888') : '#e74c3c'} style={{ marginRight: 6 }} />
               <Text style={[ss.codeTimerText, codeTimer <= 60 && { color: '#e74c3c' }]}>
                 {Math.floor(codeTimer / 60)}:{String(codeTimer % 60).padStart(2, '0')}
               </Text>
@@ -1298,27 +1304,27 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                         <Ionicons name="compass" size={20} color="#007AFF" />
                       </View>
                       <Text style={ss.sheetOptionText}>{t('navAppleMaps')}</Text>
-                      <Ionicons name={dirIcon('chevron-forward')} size={18} color="#c7c7cc" />
+                      <Ionicons name={dirIcon('chevron-forward')} size={18} color={dark ? colors.chevron : '#c7c7cc'} />
                     </Pressable>
                     <View style={ss.sheetSep} />
                   </>
                 )}
-                <Pressable style={ss.sheetOption} onPress={() => { closeMapSheet(); setTimeout(() => Linking.openURL(mapSheetUrls.google), 250); }}>
+                <Pressable style={ss.sheetOption} onPress={() => { closeMapSheet(); setTimeout(() => Linking.openURL(mapSheetUrls.google).catch(() => {}), 250); }}>
                   <View style={[ss.sheetIconWrap, { backgroundColor: '#e8f5e9' }]}>
                     <Ionicons name="map" size={20} color="#34a853" />
                   </View>
                   <Text style={ss.sheetOptionText}>Google Maps</Text>
-                  <Ionicons name={dirIcon('chevron-forward')} size={18} color="#c7c7cc" />
+                  <Ionicons name={dirIcon('chevron-forward')} size={18} color={dark ? colors.chevron : '#c7c7cc'} />
                 </Pressable>
 
                 <View style={ss.sheetSep} />
 
-                <Pressable style={ss.sheetOption} onPress={() => { closeMapSheet(); setTimeout(() => Linking.openURL(mapSheetUrls.waze), 250); }}>
+                <Pressable style={ss.sheetOption} onPress={() => { closeMapSheet(); setTimeout(() => Linking.openURL(mapSheetUrls.waze).catch(() => {}), 250); }}>
                   <View style={[ss.sheetIconWrap, { backgroundColor: '#e3f2fd' }]}>
                     <Ionicons name="navigate" size={20} color="#2196F3" />
                   </View>
                   <Text style={ss.sheetOptionText}>Waze</Text>
-                  <Ionicons name={dirIcon('chevron-forward')} size={18} color="#c7c7cc" />
+                  <Ionicons name={dirIcon('chevron-forward')} size={18} color={dark ? colors.chevron : '#c7c7cc'} />
                 </Pressable>
               </View>
 
@@ -1332,17 +1338,17 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
       {/* Problème code modal */}
       <Modal visible={showCodeProblem} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCodeProblem(false)}>
-        <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+        <View style={{ flex: 1, backgroundColor: dark ? colors.bg : '#f5f5f5' }}>
           <View style={ss.chatHeader}>
             <Pressable onPress={() => setShowCodeProblem(false)}>
-              <Ionicons name="close" size={28} color="#111" />
+              <Ionicons name="close" size={28} color={dark ? colors.text : '#111'} />
             </Pressable>
             <Text style={ss.chatHeaderTitle}>{t('reportProblem')}</Text>
             <View style={{ width: 28 }} />
           </View>
 
           <View style={{ padding: 16 }}>
-            <Text style={{ fontSize: 14, color: '#888', fontWeight: '600', marginBottom: 12 }}>{t('order')} {orderId}</Text>
+            <Text style={{ fontSize: 14, color: gris('#888'), fontWeight: '600', marginBottom: 12 }}>{t('order')} {orderId}</Text>
 
             {CODE_PROBLEMS.map(p => (
               <Pressable
@@ -1350,7 +1356,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 style={[ss.codeProblemRow, selectedCodeProblem === p.id && ss.codeProblemRowActive]}
                 onPress={() => setSelectedCodeProblem(p.id)}
               >
-                <Ionicons name={p.icon} size={18} color={selectedCodeProblem === p.id ? BRAND : '#666'} />
+                <Ionicons name={p.icon} size={18} color={selectedCodeProblem === p.id ? BRAND : gris('#666')} />
                 <Text style={[ss.codeProblemRowText, selectedCodeProblem === p.id && { color: BRAND, fontWeight: '800' }]}>{t(p.labelKey)}</Text>
                 {selectedCodeProblem === p.id && <Ionicons name="checkmark-circle" size={20} color={BRAND} />}
               </Pressable>
@@ -1360,7 +1366,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               <TextInput
                 style={ss.codeProblemInput}
                 placeholder={t('descriptionOptional')}
-                placeholderTextColor="#aaa"
+                placeholderTextColor={dark ? colors.textFaint : '#aaa'}
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
@@ -1410,10 +1416,10 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
       {/* Chat client modal */}
       <Modal visible={showChat} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowChat(false)}>
-        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#f5f5f5' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: dark ? colors.bg : '#f5f5f5' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={ss.chatHeader}>
             <Pressable onPress={() => setShowChat(false)}>
-              <Ionicons name="close" size={28} color="#111" />
+              <Ionicons name="close" size={28} color={dark ? colors.text : '#111'} />
             </Pressable>
             <Text style={ss.chatHeaderTitle}>{filChat === 'pro' ? t('chatShopTitle') : t('messageToCustomer')}</Text>
             <View style={{ width: 28 }} />
@@ -1428,7 +1434,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 <Text style={ss.chatInfoText} numberOfLines={1}>{restaurant}</Text>
               </View>
             </View>
-            <View style={{ width: 1, height: 30, backgroundColor: '#e0e0e0', marginHorizontal: 10 }} />
+            <View style={{ width: 1, height: 30, backgroundColor: dark ? colors.borderStrong : '#e0e0e0', marginHorizontal: 10 }} />
             <View style={{ flex: 1 }}>
               <Text style={ss.chatInfoLabel}>{t('delivery')}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
@@ -1470,19 +1476,20 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                   await sendChatMessage(msg);
                 }} disabled={isSent}>
                   <Text style={[ss.quickChipSmallText, isSent && ss.quickChipSentText]}>{msg}</Text>
-                  {isSent && <Ionicons name="checkmark" size={14} color="#999" style={{ marginLeft: 4 }} />}
+                  {isSent && <Ionicons name="checkmark" size={14} color={dark ? colors.textFaint : '#999'} style={{ marginLeft: 4 }} />}
                 </Pressable>
               );
             })}
           </ScrollView>
           )}
           {!!chatError && (
-            <Text style={{ color: '#e74c3c', fontSize: 13, fontWeight: '600', backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 8 }}>{chatError}</Text>
+            <Text style={{ color: '#e74c3c', fontSize: 13, fontWeight: '600', backgroundColor: dark ? colors.card : '#fff', paddingHorizontal: 16, paddingTop: 8 }}>{chatError}</Text>
           )}
           <View style={[ss.chatInputRow, { paddingBottom: insets.bottom || 16 }]}>
             <TextInput
               style={ss.chatInputField}
               placeholder={t('writeMessage')}
+              placeholderTextColor={colors.textFaint}
               value={chatInput}
               onChangeText={setChatInput}
             />
@@ -1515,7 +1522,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               placeholder={absentPolicy === 'neighbor'
                 ? t('absentNeighborPlaceholder')
                 : t('absentSafePlacePlaceholder')}
-              placeholderTextColor="#999"
+              placeholderTextColor={dark ? colors.textFaint : '#999'}
               maxLength={255}
               multiline
             />
@@ -1537,15 +1544,28 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   );
 }
 
-const ss = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' }, /* unused kept for reference */
+// Styles selon le thème : en clair, valeurs d'origine strictement identiques ;
+// en sombre, fonds, textes et bordures suivent `colors`. Un jeu de styles par
+// palette, mis en cache (aucune recréation à chaque rendu).
+const cacheSS = new WeakMap();
+function useSS() {
+  const { colors, dark } = useTheme();
+  let st = cacheSS.get(colors);
+  if (!st) { st = makeSS(colors, dark); cacheSS.set(colors, st); }
+  return { ss: st, colors, dark };
+}
+
+function makeSS(c, dark) {
+  const d = (sombre, clair) => (dark ? sombre : clair);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: d(c.bg, '#f5f5f5') }, /* unused kept for reference */
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: d(c.text, '#111') },
   progressRow: { flexDirection: 'row', marginHorizontal: 16 },
   progressSegment: { flex: 1, height: 4, borderRadius: 2 },
   progressSegmentActive: { backgroundColor: BRAND },
-  progressSegmentInactive: { backgroundColor: '#e0e0e0' },
-  bottomBar: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 30, backgroundColor: '#f5f5f5', flexShrink: 0 },
+  progressSegmentInactive: { backgroundColor: d(c.borderStrong, '#e0e0e0') },
+  bottomBar: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 30, backgroundColor: d(c.bg, '#f5f5f5'), flexShrink: 0 },
   // Call popup
   callPopup: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   callPopupCard: { backgroundColor: '#e74c3c', borderRadius: 20, padding: 28, alignItems: 'center', marginHorizontal: 32, width: W - 64 },
@@ -1558,9 +1578,9 @@ const ss = StyleSheet.create({
   cancelBtn: { alignItems: 'center', paddingVertical: 10, marginTop: 4 },
   cancelBtnTxt: { color: '#e74c3c', fontSize: 13, fontWeight: '700' },
   cancelOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', zIndex: 200 },
-  cancelCard: { backgroundColor: '#fff', borderRadius: 20, padding: 28, alignItems: 'center', marginHorizontal: 24, width: W - 48 },
-  cancelTitle: { fontSize: 20, fontWeight: '900', color: '#111', marginTop: 12 },
-  cancelSub: { fontSize: 13, color: '#666', textAlign: 'center', marginTop: 8, lineHeight: 19 },
+  cancelCard: { backgroundColor: d(c.card, '#fff'), borderRadius: 20, padding: 28, alignItems: 'center', marginHorizontal: 24, width: W - 48 },
+  cancelTitle: { fontSize: 20, fontWeight: '900', color: d(c.text, '#111'), marginTop: 12 },
+  cancelSub: { fontSize: 13, color: d(c.textMuted, '#666'), textAlign: 'center', marginTop: 8, lineHeight: 19 },
   cancelWarningBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fde8e8', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, marginTop: 12 },
   cancelWarningText: { fontSize: 13, fontWeight: '700', color: '#e74c3c' },
   cancelConfirmBtn: { backgroundColor: '#e74c3c', borderRadius: 14, paddingVertical: 14, width: '100%', alignItems: 'center', marginTop: 16 },
@@ -1570,46 +1590,46 @@ const ss = StyleSheet.create({
 
   stepContent: { padding: 24, alignItems: 'center' },
   bigIconWrap: { width: 80, height: 80, borderRadius: 40, backgroundColor: BRAND + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
-  stepTitle: { fontSize: 24, fontWeight: '900', color: '#111', textAlign: 'center', marginBottom: 6 },
-  stepSub: { fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 20 },
+  stepTitle: { fontSize: 24, fontWeight: '900', color: d(c.text, '#111'), textAlign: 'center', marginBottom: 6 },
+  stepSub: { fontSize: 15, color: d(c.textMuted, '#666'), textAlign: 'center', marginBottom: 20 },
 
-  infoCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, width: '100%', marginBottom: 16 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  infoLabel: { flex: 1, fontSize: 14, color: '#888', marginLeft: 10 },
-  infoValue: { fontSize: 15, fontWeight: '700', color: '#111' },
+  infoCard: { backgroundColor: d(c.card, '#fff'), borderRadius: 16, padding: 16, width: '100%', marginBottom: 16 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: d(c.border, '#f0f0f0') },
+  infoLabel: { flex: 1, fontSize: 14, color: d(c.textMuted, '#888'), marginLeft: 10 },
+  infoValue: { fontSize: 15, fontWeight: '700', color: d(c.text, '#111') },
 
   mapBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, width: '100%', marginBottom: 10 },
   mapBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
 
-  callBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 14, paddingVertical: 14, width: '100%', borderWidth: 1, borderColor: BRAND, marginBottom: 10 },
+  callBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: d(c.card, '#fff'), borderRadius: 14, paddingVertical: 14, width: '100%', borderWidth: 1, borderColor: BRAND, marginBottom: 10 },
   callBtnTxt: { color: BRAND, fontWeight: '700', fontSize: 15 },
 
   tipsCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND + '10', borderRadius: 14, padding: 16, width: '100%', marginBottom: 16 },
-  tipsText: { flex: 1, fontSize: 14, color: '#333', lineHeight: 20 },
+  tipsText: { flex: 1, fontSize: 14, color: d(c.textSoft, '#333'), lineHeight: 20 },
 
   // Countdown (arrived)
-  countdownCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '100%', marginBottom: 16, alignItems: 'center' },
+  countdownCard: { backgroundColor: d(c.card, '#fff'), borderRadius: 16, padding: 20, width: '100%', marginBottom: 16, alignItems: 'center' },
   countdownCircle: { alignItems: 'center', marginBottom: 12 },
   countdownTime: { fontSize: 42, fontWeight: '900', letterSpacing: 2 },
-  countdownLabel: { fontSize: 13, color: '#888', fontWeight: '600', marginTop: 2 },
-  countdownBarBg: { width: '100%', height: 6, backgroundColor: '#f0f0f0', borderRadius: 3, overflow: 'hidden' },
+  countdownLabel: { fontSize: 13, color: d(c.textMuted, '#888'), fontWeight: '600', marginTop: 2 },
+  countdownBarBg: { width: '100%', height: 6, backgroundColor: d(c.border, '#f0f0f0'), borderRadius: 3, overflow: 'hidden' },
   countdownBarFill: { height: 6, borderRadius: 3 },
   countdownHint: { fontSize: 13, fontWeight: '700', marginTop: 8 },
 
   // Route card (pickup)
-  routeCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, width: '100%', marginBottom: 16 },
+  routeCard: { backgroundColor: d(c.card, '#fff'), borderRadius: 16, padding: 16, width: '100%', marginBottom: 16 },
   routeRow: { flexDirection: 'row', alignItems: 'center' },
   routeDotGreen: { width: 12, height: 12, borderRadius: 6, backgroundColor: BRAND, marginRight: 12 },
   routeDotRed: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#e74c3c', marginRight: 12 },
-  routeLineVert: { width: 2, height: 20, backgroundColor: '#e0e0e0', marginLeft: 5, marginVertical: 4 },
-  itemsBlock: { marginLeft: 16, marginVertical: 8, backgroundColor: '#f8f9fa', borderRadius: 10, padding: 10 },
+  routeLineVert: { width: 2, height: 20, backgroundColor: d(c.borderStrong, '#e0e0e0'), marginLeft: 5, marginVertical: 4 },
+  itemsBlock: { marginLeft: 16, marginVertical: 8, backgroundColor: d(c.bg, '#f8f9fa'), borderRadius: 10, padding: 10 },
   itemsHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   itemsTitle: { fontSize: 13, fontWeight: '800', color: BRAND },
   itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 3 },
-  itemQty: { fontSize: 13, fontWeight: '800', color: '#111', width: 28 },
-  itemName: { fontSize: 13, color: '#444', flex: 1 },
-  routeLabel: { fontSize: 12, color: '#888', fontWeight: '600' },
-  routeAddr: { fontSize: 15, fontWeight: '700', color: '#111', marginTop: 2 },
+  itemQty: { fontSize: 13, fontWeight: '800', color: d(c.text, '#111'), width: 28 },
+  itemName: { fontSize: 13, color: d(c.textSoft, '#444'), flex: 1 },
+  routeLabel: { fontSize: 12, color: d(c.textMuted, '#888'), fontWeight: '600' },
+  routeAddr: { fontSize: 15, fontWeight: '700', color: d(c.text, '#111'), marginTop: 2 },
 
   // Slider
   sliderTrack: { width: SLIDER_W, height: THUMB_SIZE + 12, borderRadius: (THUMB_SIZE + 12) / 2, justifyContent: 'center', alignItems: 'center', alignSelf: 'center' },
@@ -1618,120 +1638,121 @@ const ss = StyleSheet.create({
 
   // Code
   codeRow: { flexDirection: 'row', gap: 16, marginVertical: 24 },
-  codeInput: { width: 56, height: 64, borderRadius: 14, borderWidth: 2, borderColor: '#e0e0e0', textAlign: 'center', fontSize: 28, fontWeight: '900', backgroundColor: '#fff' },
+  codeInput: { width: 56, height: 64, borderRadius: 14, borderWidth: 2, borderColor: d(c.inputBorder, '#e0e0e0'), textAlign: 'center', fontSize: 28, fontWeight: '900', backgroundColor: d(c.input, '#fff') },
   codeInputFilled: { borderColor: BRAND },
-  codeHint: { fontSize: 13, color: '#999', marginBottom: 20 },
+  codeHint: { fontSize: 13, color: d(c.textFaint, '#999'), marginBottom: 20 },
 
   // Compact layout
   stepContentCompact: { padding: 16, alignItems: 'center' },
   smallIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: BRAND + '15', alignItems: 'center', justifyContent: 'center' },
-  stepTitleCompact: { fontSize: 18, fontWeight: '900', color: '#111' },
-  stepSubCompact: { fontSize: 13, color: '#888', marginTop: 2 },
+  stepTitleCompact: { fontSize: 18, fontWeight: '900', color: d(c.text, '#111') },
+  stepSubCompact: { fontSize: 13, color: d(c.textMuted, '#888'), marginTop: 2 },
   badgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, width: '100%', marginBottom: 10 },
-  infoBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 20, paddingVertical: 6, paddingHorizontal: 10, gap: 4 },
-  infoBadgeText: { fontSize: 12, fontWeight: '700', color: '#333' },
+  infoBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: d(c.card, '#fff'), borderRadius: 20, paddingVertical: 6, paddingHorizontal: 10, gap: 4 },
+  infoBadgeText: { fontSize: 12, fontWeight: '700', color: d(c.textSoft, '#333') },
   mapBtnCompact: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, paddingVertical: 12, width: '100%', marginBottom: 10 },
 
   // Done
   doneTitle: { fontSize: 28, fontWeight: '900', color: BRAND, textAlign: 'center', marginBottom: 8 },
-  doneSub: { fontSize: 15, color: '#666', textAlign: 'center', marginBottom: 24 },
-  summaryCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, width: '100%', marginBottom: 24 },
-  summaryHeader: { fontSize: 16, fontWeight: '800', color: '#111', marginBottom: 12 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  summaryLabel: { fontSize: 14, color: '#888' },
-  summaryValue: { fontSize: 14, fontWeight: '700', color: '#111', maxWidth: '60%', textAlign: 'right' },
+  doneSub: { fontSize: 15, color: d(c.textMuted, '#666'), textAlign: 'center', marginBottom: 24 },
+  summaryCard: { backgroundColor: d(c.card, '#fff'), borderRadius: 16, padding: 16, width: '100%', marginBottom: 24 },
+  summaryHeader: { fontSize: 16, fontWeight: '800', color: d(c.text, '#111'), marginBottom: 12 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: d(c.border, '#f0f0f0') },
+  summaryLabel: { fontSize: 14, color: d(c.textMuted, '#888') },
+  summaryValue: { fontSize: 14, fontWeight: '700', color: d(c.text, '#111'), maxWidth: '60%', textAlign: 'right' },
   enrouteAddrCopyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
-  enrouteAddrBold: { fontSize: 14, fontWeight: '800', color: '#111' },
+  enrouteAddrBold: { fontSize: 14, fontWeight: '800', color: d(c.text, '#111') },
 
   // Bottom sheet itinéraire — style Apple
   sheetOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end', zIndex: 100 },
-  sheetContainer: { backgroundColor: '#f2f2f7', borderTopLeftRadius: 14, borderTopRightRadius: 14, paddingHorizontal: 10, paddingBottom: 40, paddingTop: 8 },
-  sheetHandle: { width: 36, height: 5, borderRadius: 3, backgroundColor: '#c7c7cc', alignSelf: 'center', marginBottom: 14 },
-  sheetTitle: { fontSize: 13, fontWeight: '600', color: '#8e8e93', textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2, paddingHorizontal: 10 },
-  sheetAddr: { fontSize: 13, color: '#8e8e93', textAlign: 'center', marginBottom: 14, paddingHorizontal: 10 },
-  sheetGroup: { backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', marginBottom: 8 },
+  sheetContainer: { backgroundColor: d(c.bg, '#f2f2f7'), borderTopLeftRadius: 14, borderTopRightRadius: 14, paddingHorizontal: 10, paddingBottom: 40, paddingTop: 8 },
+  sheetHandle: { width: 36, height: 5, borderRadius: 3, backgroundColor: d(c.chevron, '#c7c7cc'), alignSelf: 'center', marginBottom: 14 },
+  sheetTitle: { fontSize: 13, fontWeight: '600', color: d(c.textMuted, '#8e8e93'), textAlign: 'center', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2, paddingHorizontal: 10 },
+  sheetAddr: { fontSize: 13, color: d(c.textMuted, '#8e8e93'), textAlign: 'center', marginBottom: 14, paddingHorizontal: 10 },
+  sheetGroup: { backgroundColor: d(c.card, '#fff'), borderRadius: 14, overflow: 'hidden', marginBottom: 8 },
   sheetOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16 },
-  sheetSep: { height: 0.5, backgroundColor: '#c7c7cc', marginLeft: 66 },
+  sheetSep: { height: 0.5, backgroundColor: d(c.borderStrong, '#c7c7cc'), marginLeft: 66 },
   sheetIconWrap: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  sheetOptionText: { flex: 1, fontSize: 17, fontWeight: '400', color: '#000', letterSpacing: -0.4 },
-  sheetCancelBtn: { backgroundColor: '#fff', borderRadius: 14, alignItems: 'center', paddingVertical: 16, marginTop: 8 },
+  sheetOptionText: { flex: 1, fontSize: 17, fontWeight: '400', color: d(c.text, '#000'), letterSpacing: -0.4 },
+  sheetCancelBtn: { backgroundColor: d(c.card, '#fff'), borderRadius: 14, alignItems: 'center', paddingVertical: 16, marginTop: 8 },
   sheetCancelTxt: { fontSize: 17, fontWeight: '600', color: '#007aff' },
-  enrouteCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 12, width: '100%', borderWidth: 1, borderColor: '#f0f0f0' },
+  enrouteCard: { backgroundColor: d(c.card, '#fff'), borderRadius: 14, padding: 14, marginBottom: 12, width: '100%', borderWidth: 1, borderColor: d(c.border, '#f0f0f0') },
   enrouteRow: { flexDirection: 'row', alignItems: 'center' },
   enrouteDotGreen: { width: 12, height: 12, borderRadius: 6, backgroundColor: BRAND, marginRight: 12 },
   enrouteDotBlue: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#2196F3', marginRight: 12 },
-  enrouteLine: { width: 2, height: 16, backgroundColor: '#e0e0e0', marginLeft: 5, marginVertical: 3 },
-  enrouteLabel: { fontSize: 11, color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  enrouteAddr: { fontSize: 14, fontWeight: '700', color: '#111', marginTop: 2 },
-  enrouteDetailCard: { backgroundColor: '#fff', borderRadius: 14, padding: 12, marginBottom: 12, width: '100%', borderWidth: 1, borderColor: '#f0f0f0' },
-  enrouteDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#f8f8f8' },
-  enrouteDetailLabel: { flex: 1, fontSize: 14, color: '#666' },
-  enrouteDetailValue: { fontSize: 14, fontWeight: '800', color: '#111' },
+  enrouteLine: { width: 2, height: 16, backgroundColor: d(c.borderStrong, '#e0e0e0'), marginLeft: 5, marginVertical: 3 },
+  enrouteLabel: { fontSize: 11, color: d(c.textFaint, '#999'), fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  enrouteAddr: { fontSize: 14, fontWeight: '700', color: d(c.text, '#111'), marginTop: 2 },
+  enrouteDetailCard: { backgroundColor: d(c.card, '#fff'), borderRadius: 14, padding: 12, marginBottom: 12, width: '100%', borderWidth: 1, borderColor: d(c.border, '#f0f0f0') },
+  enrouteDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: d(c.border, '#f8f8f8') },
+  enrouteDetailLabel: { flex: 1, fontSize: 14, color: d(c.textMuted, '#666') },
+  enrouteDetailValue: { fontSize: 14, fontWeight: '800', color: d(c.text, '#111') },
   earningsBanner: { backgroundColor: BRAND + '15', borderRadius: 14, paddingVertical: 14, alignItems: 'center', width: '100%' },
   earningsBannerLabel: { fontSize: 28, fontWeight: '900', color: BRAND },
-  earningsBannerSub: { fontSize: 13, color: '#666', fontWeight: '600', marginTop: 2 },
+  earningsBannerSub: { fontSize: 13, color: d(c.textMuted, '#666'), fontWeight: '600', marginTop: 2 },
   doneBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, width: '100%', alignItems: 'center' },
   doneBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  codeTimerWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 12, width: '100%' },
-  codeTimerText: { fontSize: 20, fontWeight: '900', color: '#111' },
+  codeTimerWrap: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: d(c.card, '#fff'), borderRadius: 12, padding: 12, marginBottom: 12, width: '100%' },
+  codeTimerText: { fontSize: 20, fontWeight: '900', color: d(c.text, '#111') },
   codeProblemBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff3e0', borderRadius: 14, paddingVertical: 14, width: '100%', marginBottom: 8, borderWidth: 1, borderColor: '#f5a623' },
   codeProblemBtnTxt: { color: '#f5a623', fontWeight: '800', fontSize: 14 },
-  codeProblemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 14, marginBottom: 8, gap: 12, borderWidth: 1.5, borderColor: 'transparent' },
+  codeProblemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: d(c.card, '#fff'), borderRadius: 12, paddingVertical: 14, paddingHorizontal: 14, marginBottom: 8, gap: 12, borderWidth: 1.5, borderColor: 'transparent' },
   codeProblemRowActive: { borderColor: BRAND, backgroundColor: BRAND + '10' },
-  codeProblemRowText: { flex: 1, fontSize: 15, color: '#333', fontWeight: '600' },
-  codeProblemInput: { backgroundColor: '#fff', borderRadius: 12, padding: 12, fontSize: 14, minHeight: 80, borderWidth: 1, borderColor: '#e0e0e0', marginTop: 12, color: '#111' },
+  codeProblemRowText: { flex: 1, fontSize: 15, color: d(c.textSoft, '#333'), fontWeight: '600' },
+  codeProblemInput: { backgroundColor: d(c.input, '#fff'), borderRadius: 12, padding: 12, fontSize: 14, minHeight: 80, borderWidth: 1, borderColor: d(c.inputBorder, '#e0e0e0'), marginTop: 12, color: d(c.text, '#111') },
   codeTicketBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e74c3c', borderRadius: 14, paddingVertical: 14, width: '100%', marginTop: 4 },
   codeTicketBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  arrivedAddrCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 12, width: '100%', borderWidth: 1, borderColor: '#f0f0f0' },
-  arrivedAddrLabel: { fontSize: 11, color: '#999', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  arrivedAddrText: { fontSize: 15, fontWeight: '800', color: '#111', marginTop: 4 },
+  arrivedAddrCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: d(c.card, '#fff'), borderRadius: 14, padding: 14, marginBottom: 12, width: '100%', borderWidth: 1, borderColor: d(c.border, '#f0f0f0') },
+  arrivedAddrLabel: { fontSize: 11, color: d(c.textFaint, '#999'), fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  arrivedAddrText: { fontSize: 15, fontWeight: '800', color: d(c.text, '#111'), marginTop: 4 },
   arrivedMapBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center', marginLeft: 12 },
 
   // Chat client
-  chatHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', backgroundColor: '#fff' },
-  chatHeaderTitle: { fontSize: 17, fontWeight: '800', color: '#111' },
-  chatInfoBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  chatInfoLabel: { fontSize: 10, color: '#999', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  chatInfoText: { fontSize: 13, color: '#111', fontWeight: '700', flexShrink: 1 },
+  chatHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: d(c.border, '#f0f0f0'), backgroundColor: d(c.card, '#fff') },
+  chatHeaderTitle: { fontSize: 17, fontWeight: '800', color: d(c.text, '#111') },
+  chatInfoBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: d(c.card, '#fff'), paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: d(c.border, '#f0f0f0') },
+  chatInfoLabel: { fontSize: 10, color: d(c.textFaint, '#999'), fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  chatInfoText: { fontSize: 13, color: d(c.text, '#111'), fontWeight: '700', flexShrink: 1 },
   quickWrap: { padding: 16 },
-  quickTitle: { fontSize: 15, fontWeight: '800', color: '#111', marginBottom: 12 },
-  quickChip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 8, borderWidth: 1, borderColor: '#f0f0f0' },
-  quickChipText: { fontSize: 15, fontWeight: '600', color: '#111' },
-  quickChipsRow: { backgroundColor: '#fff', paddingTop: 8, paddingBottom: 8, flexGrow: 0 },
+  quickTitle: { fontSize: 15, fontWeight: '800', color: d(c.text, '#111'), marginBottom: 12 },
+  quickChip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: d(c.card, '#fff'), borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 8, borderWidth: 1, borderColor: d(c.border, '#f0f0f0') },
+  quickChipText: { fontSize: 15, fontWeight: '600', color: d(c.text, '#111') },
+  quickChipsRow: { backgroundColor: d(c.card, '#fff'), paddingTop: 8, paddingBottom: 8, flexGrow: 0 },
   quickChipSmall: { backgroundColor: BRAND + '15', borderRadius: 20, paddingVertical: 10, paddingHorizontal: 14 },
   quickChipSmallText: { fontSize: 13, fontWeight: '700', color: BRAND },
-  quickChipSent: { backgroundColor: '#f0f0f0', opacity: 0.7, flexDirection: 'row', alignItems: 'center' },
-  quickChipSentText: { color: '#999' },
+  quickChipSent: { backgroundColor: d(c.border, '#f0f0f0'), opacity: 0.7, flexDirection: 'row', alignItems: 'center' },
+  quickChipSentText: { color: d(c.textFaint, '#999') },
   chatBubble: { maxWidth: '80%', borderRadius: 16, padding: 12, marginBottom: 10 },
   chatBubbleMe: { backgroundColor: BRAND, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  chatBubbleClient: { backgroundColor: '#fff', alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
-  chatBubbleText: { fontSize: 15, color: '#111', lineHeight: 20 },
-  chatBubbleTime: { fontSize: 11, color: '#999', marginTop: 4, alignSelf: 'flex-end' },
-  chatInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff' },
-  chatInputField: { flex: 1, backgroundColor: '#f5f5f5', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, marginRight: 10 },
+  chatBubbleClient: { backgroundColor: d(c.card, '#fff'), alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
+  chatBubbleText: { fontSize: 15, color: d(c.text, '#111'), lineHeight: 20 },
+  chatBubbleTime: { fontSize: 11, color: d(c.textFaint, '#999'), marginTop: 4, alignSelf: 'flex-end' },
+  chatInputRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: d(c.card, '#fff') },
+  chatInputField: { flex: 1, backgroundColor: d(c.input, '#f5f5f5'), borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, marginRight: 10, ...(dark ? { color: c.text } : {}) },
   chatSendBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
   // Options de remise (fragile / alcool / consigne d'absence)
   handlingRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
-  handlingChip: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: '#fff', borderWidth: 1, borderColor: '#f0f0f0' },
-  handlingChipText: { fontSize: 12, fontWeight: '700', color: '#111', marginLeft: 5 },
+  handlingChip: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: d(c.card, '#fff'), borderWidth: 1, borderColor: d(c.border, '#f0f0f0') },
+  handlingChipText: { fontSize: 12, fontWeight: '700', color: d(c.text, '#111'), marginLeft: 5 },
   absentBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  absentCard: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32 },
-  absentTitle: { fontSize: 18, fontWeight: '800', color: '#111', marginBottom: 6 },
-  absentHint: { fontSize: 13, color: '#666', lineHeight: 18, marginBottom: 14 },
-  absentInput: { backgroundColor: '#f5f5f5', borderRadius: 12, padding: 14, fontSize: 15, color: '#111', minHeight: 80, textAlignVertical: 'top', marginBottom: 14 },
+  absentCard: { backgroundColor: d(c.card, '#fff'), borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32 },
+  absentTitle: { fontSize: 18, fontWeight: '800', color: d(c.text, '#111'), marginBottom: 6 },
+  absentHint: { fontSize: 13, color: d(c.textMuted, '#666'), lineHeight: 18, marginBottom: 14 },
+  absentInput: { backgroundColor: d(c.input, '#f5f5f5'), borderRadius: 12, padding: 14, fontSize: 15, color: d(c.text, '#111'), minHeight: 80, textAlignVertical: 'top', marginBottom: 14 },
   // Preuve photo (ticket au retrait, sac devant la porte)
-  preuveCard: { backgroundColor: '#fff', borderRadius: 14, padding: 12, marginTop: 10, borderWidth: 1, borderColor: BRAND + '40' },
+  preuveCard: { backgroundColor: d(c.card, '#fff'), borderRadius: 14, padding: 12, marginTop: 10, borderWidth: 1, borderColor: BRAND + '40' },
   preuveCardOk: { flexDirection: 'row', alignItems: 'center', backgroundColor: BRAND + '10', borderColor: BRAND + '30' },
-  preuveHint: { fontSize: 13, color: '#333', lineHeight: 18, marginBottom: 10 },
+  preuveHint: { fontSize: 13, color: d(c.textSoft, '#333'), lineHeight: 18, marginBottom: 10 },
   preuveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 12 },
   preuveBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  preuveThumb: { width: 56, height: 56, borderRadius: 10, backgroundColor: '#f0f0f0' },
-  preuveOkTitle: { fontSize: 14, fontWeight: '700', color: '#111' },
-  preuveEtat: { fontSize: 12, color: '#666', marginTop: 2 },
+  preuveThumb: { width: 56, height: 56, borderRadius: 10, backgroundColor: d(c.border, '#f0f0f0') },
+  preuveOkTitle: { fontSize: 14, fontWeight: '700', color: d(c.text, '#111') },
+  preuveEtat: { fontSize: 12, color: d(c.textMuted, '#666'), marginTop: 2 },
   preuveRetake: { fontSize: 13, fontWeight: '700', color: BRAND, marginTop: 4 },
-  preuveLock: { fontSize: 13, color: '#666', textAlign: 'center', marginBottom: 8 },
+  preuveLock: { fontSize: 13, color: d(c.textMuted, '#666'), textAlign: 'center', marginBottom: 8 },
   absentBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 15, alignItems: 'center' },
   absentBtnTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
   absentCancel: { paddingVertical: 14, alignItems: 'center' },
-  absentCancelTxt: { color: '#666', fontSize: 15, fontWeight: '600' },
+  absentCancelTxt: { color: d(c.textMuted, '#666'), fontSize: 15, fontWeight: '600' },
 });
+}

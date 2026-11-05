@@ -5,6 +5,7 @@ import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDayMonth, formatTime } from '../lib/i18nFormat';
 
@@ -12,7 +13,12 @@ const BRAND = '#FF6A13';
 
 export default function WarningsScreen({ navigation }) {
   const { t } = useLanguage();
-  const { warnings, warningsList, accountActive } = useAuth();
+  const { colors } = useTheme();
+  const s = stylesPour(colors);
+  const { warnings: nbBrut, warningsList: listeBrute } = useAuth();
+  // Valeurs sûres : nombre entier et liste, même si le contexte n'est pas encore prêt.
+  const warnings = Number(nbBrut) || 0;
+  const warningsList = Array.isArray(listeBrute) ? listeBrute : [];
   const insets = useSafeAreaInsets();
 
   return (
@@ -20,7 +26,7 @@ export default function WarningsScreen({ navigation }) {
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
         <Text style={s.headerTitle}>{t('warnings')}</Text>
         <View style={{ width: 24 }} />
@@ -62,7 +68,7 @@ export default function WarningsScreen({ navigation }) {
         </View>
       ) : (
         warningsList.map((w, i) => (
-          <View key={w.id} style={s.warningCard}>
+          <View key={w?.id != null ? String(w.id) : `avert-${i}`} style={s.warningCard}>
             <View style={s.warningHeader}>
               <View style={s.warningIconWrap}>
                 <Ionicons name="warning" size={18} color="#e74c3c" />
@@ -115,46 +121,53 @@ export default function WarningsScreen({ navigation }) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+const makeStyles = (c) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
 
-  gaugeCard: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, padding: 20, alignItems: 'center', marginBottom: 12 },
+  gaugeCard: { backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, padding: 20, alignItems: 'center', marginBottom: 12 },
   gaugeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   gaugeBlock: { width: 80, height: 10, borderRadius: 5 },
   gaugeBlockActive: { backgroundColor: '#e74c3c' },
-  gaugeBlockInactive: { backgroundColor: '#e8e8e8' },
-  gaugeText: { fontSize: 20, fontWeight: '900', color: '#111', marginBottom: 4 },
+  gaugeBlockInactive: { backgroundColor: c.dark ? c.borderStrong : '#e8e8e8' },
+  gaugeText: { fontSize: 20, fontWeight: '900', color: c.text, marginBottom: 4 },
   gaugeGood: { fontSize: 14, color: BRAND, fontWeight: '600' },
   gaugeWarn: { fontSize: 14, color: '#f5a623', fontWeight: '600' },
   gaugeAlert: { fontSize: 14, color: '#e74c3c', fontWeight: '600', textAlign: 'center' },
 
-  infoCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FFF1E8', borderRadius: 14, marginHorizontal: 16, padding: 14, marginBottom: 20 },
-  infoText: { flex: 1, fontSize: 13, color: '#333', lineHeight: 19 },
+  infoCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: c.cardAlt, borderRadius: 14, marginHorizontal: 16, padding: 14, marginBottom: 20 },
+  infoText: { flex: 1, fontSize: 13, color: c.dark ? c.textSoft : '#333', lineHeight: 19 },
 
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#111', paddingHorizontal: 16, marginBottom: 10 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: c.text, paddingHorizontal: 16, marginBottom: 10 },
 
-  causesCard: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, marginBottom: 20, overflow: 'hidden' },
+  causesCard: { backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, marginBottom: 20, overflow: 'hidden' },
   causeRow: { flexDirection: 'row', alignItems: 'center', padding: 14 },
-  causeBorder: { borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  causeText: { flex: 1, fontSize: 14, color: '#333', lineHeight: 19 },
+  causeBorder: { borderBottomWidth: 1, borderBottomColor: c.dark ? c.border : '#f0f0f0' },
+  causeText: { flex: 1, fontSize: 14, color: c.dark ? c.textSoft : '#333', lineHeight: 19 },
 
-  emptyCard: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, padding: 24, alignItems: 'center', marginBottom: 16 },
-  emptyText: { fontSize: 14, color: '#888', fontWeight: '600', marginTop: 8 },
+  emptyCard: { backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, padding: 24, alignItems: 'center', marginBottom: 16 },
+  emptyText: { fontSize: 14, color: c.dark ? c.textMuted : '#888', fontWeight: '600', marginTop: 8 },
 
-  warningCard: { backgroundColor: '#fff', borderRadius: 14, marginHorizontal: 16, padding: 14, marginBottom: 10, borderLeftWidth: 4, borderLeftColor: '#e74c3c' },
+  warningCard: { backgroundColor: c.card, borderRadius: 14, marginHorizontal: 16, padding: 14, marginBottom: 10, borderLeftWidth: 4, borderLeftColor: '#e74c3c' },
   warningHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  warningIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#fde8e8', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-  warningNum: { fontSize: 15, fontWeight: '800', color: '#111' },
-  warningDate: { fontSize: 12, color: '#999', marginTop: 1 },
-  warningReasonWrap: { backgroundColor: '#fef5f5', borderRadius: 10, padding: 10 },
-  warningReasonLabel: { fontSize: 12, color: '#999', fontWeight: '700', marginBottom: 2 },
-  warningReason: { fontSize: 14, color: '#333', lineHeight: 19 },
+  warningIconWrap: { width: 32, height: 32, borderRadius: 16, backgroundColor: c.dark ? 'rgba(231,76,60,0.2)' : '#fde8e8', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  warningNum: { fontSize: 15, fontWeight: '800', color: c.text },
+  warningDate: { fontSize: 12, color: c.textFaint, marginTop: 1 },
+  warningReasonWrap: { backgroundColor: c.dark ? 'rgba(231,76,60,0.12)' : '#fef5f5', borderRadius: 10, padding: 10 },
+  warningReasonLabel: { fontSize: 12, color: c.textFaint, fontWeight: '700', marginBottom: 2 },
+  warningReason: { fontSize: 14, color: c.dark ? c.textSoft : '#333', lineHeight: 19 },
 
   contestBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e74c3c', borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginTop: 10 },
   contestTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
 
-  closeBtn: { alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#ddd', borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginTop: 16 },
-  closeBtnTxt: { color: '#666', fontWeight: '800', fontSize: 15 },
+  closeBtn: { alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: c.dark ? c.borderStrong : '#ddd', borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginTop: 16 },
+  closeBtnTxt: { color: c.dark ? c.textMuted : '#666', fontWeight: '800', fontSize: 15 },
 });
+
+// Feuilles de style par thème (clair, sombre), créées une seule fois chacune.
+const stylesParTheme = new Map();
+function stylesPour(c) {
+  if (!stylesParTheme.has(c)) stylesParTheme.set(c, makeStyles(c));
+  return stylesParTheme.get(c);
+}
