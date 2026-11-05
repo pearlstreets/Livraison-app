@@ -133,12 +133,20 @@ export default function MapScreen({ route, navigation }) {
     }
   }, []);
 
+  // Commande pas encore récupérée : la navigation externe mène à la boutique.
+  const versBoutique = route?.params?.recupere === false;
   const openExternal = (app) => {
-    const dest = hasDrop
-      ? `${dLat},${dLng}`
-      : encodeURIComponent(order.dropoffAddress || order.pickupAddress || '');
+    const point = versBoutique
+      ? (hasPickup ? { lat: pLat, lng: pLng } : null)
+      : (hasDrop ? { lat: dLat, lng: dLng } : null);
+    const adresse = versBoutique
+      ? (order.pickupAddress || order.dropoffAddress || '')
+      : (order.dropoffAddress || order.pickupAddress || '');
+    const dest = point
+      ? `${point.lat},${point.lng}`
+      : encodeURIComponent(adresse);
     const url = app === 'waze'
-      ? (hasDrop ? `https://waze.com/ul?ll=${dLat},${dLng}&navigate=yes` : `https://waze.com/ul?q=${dest}&navigate=yes`)
+      ? (point ? `https://waze.com/ul?ll=${point.lat},${point.lng}&navigate=yes` : `https://waze.com/ul?q=${dest}&navigate=yes`)
       : app === 'apple'
         ? lienApplePlansVers(dest)
         : `https://www.google.com/maps/dir/?api=1&destination=${dest}`;

@@ -7,18 +7,26 @@ import StatusBarShield from '../components/StatusBarShield';
 import { useFocusEffect } from '@react-navigation/native';
 import OrderCard from '../components/OrderCard';
 import DetailsSheet from '../components/DetailsSheet';
-import { useCurrency } from '../contexts/CurrencyContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { formatKm, formatMinutes } from '../lib/i18nFormat';
-import filtersUI from '../constants/filters-ui.json';
 import { deliveryService } from '../services/deliveryService';
 import { envoyerPosition, positionObligatoire } from '../services/positionLivreur';
 import BandeauDocumentsSeuil from '../components/BandeauDocumentsSeuil';
 import { chargerDocumentsSeuil, donneesConnues, ecouter, estDocumentsRequis, signalerDocumentsRequis } from '../services/documentsSeuil';
+import { chargerEtapes, cleCourse, enregistrerEtape, garderSeulement, lireEtape, oublierEtape } from '../services/etapesCourses';
 
 // Libellé de l'étape en cours d'une course acceptée (index DeliveryFlow).
 const ACTIVE_STEP_KEYS = ['pickup', 'enRoute', 'arrived', 'deliveryCode', 'deliveryDone'];
+
+// Étape de l'écran de livraison qui correspond au statut serveur d'une course.
+const ETAPE_DU_STATUT = { accepted: 0, picked_up: 1, in_transit: 1, arrived: 2 };
+// Étape atteinte : celle gardée sur le téléphone, sinon celle du statut serveur.
+function etapeCourse(order) {
+  const garde = lireEtape(cleCourse(order));
+  const duStatut = ETAPE_DU_STATUT[order?.status] ?? 0;
+  return garde && typeof garde.step === 'number' ? Math.max(garde.step, duStatut) : duStatut;
+}
 
 /* === Zone d'approche (avant acceptation) ===
    Avant acceptation, le livreur n'a besoin que de la zone : quartier, ville et
@@ -103,6 +111,11 @@ function adaptAssignment(a, { revealCustomer = true } = {}) {
     pickupLng: a.pickup_lng,
     // méta
     status: a.status || '',
+    // Arrivée chez le client (serveur), base du minuteur d'attente.
+    arrivedAt: a.arrived_at || null,
+    // Offre réservée à ce livreur pour un temps limité (fin donnée par le
+    // serveur) : seule une telle offre a un compte à rebours et un refus auto.
+    offerExpiresAt: a.offer_expires_at || null,
     delivery_code: a.delivery_code || '',
     // Options de remise posées par le commerçant (fragile / alcool / consigne
     // si le client est absent). Visibles dès le pool pour décider d'accepter.
@@ -120,32 +133,6 @@ function adaptAssignment(a, { revealCustomer = true } = {}) {
     created_at: a.created_at || '',
   };
 }
-
-/* === Filtres inline (unique) === */
-const OrdersInlineFilters = React.memo(({ selected, onChange, filters = [] }) => {
-  const UI = (filtersUI && filtersUI.inline) || {};
-  const H = UI.height ?? 28, R = UI.radius ?? 14, GAP = UI.gap ?? 6, PH = UI.paddingH ?? 10, FZ = UI.fontSize ?? 13;
-  const labels = UI.labels || {};
-  return (
-    <View style={{ flexDirection:'row', gap:GAP }}>
-      {filters.map(f => (
-        <TouchableOpacity
-          key={f.id}
-          onPress={() => onChange && onChange(f.id)}
-          style={{
-            height:H, paddingHorizontal:PH, borderRadius:R,
-            alignItems:'center', justifyContent:'center',
-            backgroundColor: selected===f.id ? '#FF6A13' : '#F2F3F5'
-          }}
-        >
-          <Text style={{ fontSize:FZ, fontWeight:'700', color: selected===f.id ? '#fff' : '#111' }}>
-            { labels[f.id] ?? f.label ?? f.id }
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-});
 
 /* ---------- Helpers clé ---------- */
 const rint = (min, max) => Math.floor(Math.random()*(max-min+1))+min;
@@ -236,12 +223,7 @@ export default function OrdersScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { accountActive, addToHistory, isOnline, setIsOnline, user } = useAuth();
   const { t } = useLanguage();
-  // Symbole de la devise du livreur : le filtre « bien payé » affichait « € »
-  // en dur, incohérent avec les montants des courses désormais convertis.
-  const { symbol: currencySymbol } = useCurrency();
   const scrollRef = useRef(null);
-  const [selectedFilter, setSelectedFilter] = useState('smart');
-  const filters = [{id:'smart',label:'Smart'},{id:'highpay',label:currencySymbol},{id:'nearest',label:'Proche'}];
 
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -258,13 +240,21 @@ export default function OrdersScreen({ navigation, route }) {
   // --- Poll commandes disponibles toutes les 15s quand En ligne ---
   const pollRef = useRef(null);
 
+  // Courses dont l'acceptation est partie et courses en cours : jamais
+  // remontrées dans les disponibles par un rafraîchissement.
+  const acceptEnCours = useRef(new Set());
+  const activeRef = useRef([]);
+
   const fetchAvailableOrders = useCallback(async () => {
     try {
       const res = await deliveryService.getAvailableOrders();
       const data = Array.isArray(res?.data) ? res.data : [];
+      const exclues = new Set([...acceptEnCours.current, ...activeRef.current.map(o => orderKey(o))]);
       // Liste des disponibles : coordonnées client masquées tant que la course
       // n'est pas acceptée (zone + distance suffisent pour décider).
-      setAvailable(data.map(a => adaptAssignment(a, { revealCustomer: false })));
+      setAvailable(data
+        .map(a => adaptAssignment(a, { revealCustomer: false }))
+        .filter(o => !exclues.has(orderKey(o))));
     } catch {
       // Silencieux : on garde la liste actuelle plutôt que de crasher
     }
@@ -288,7 +278,30 @@ export default function OrdersScreen({ navigation, route }) {
   const [active, setActive] = useState([]);           // En cours
   const [available, setAvailable] = useState([]);     // Disponibles (backend)
   const [mockOrders, setMockOrders] = useState([]);   // Disponibles simulées (dev)
-  const [activeSteps, setActiveSteps] = useState({}); // { orderId: { stepIndex, stepLabel } }
+  activeRef.current = active;
+  // Relu au retour sur l'accueil : l'étape atteinte vit dans etapesCourses.
+  const [, setRelecture] = useState(0);
+
+  // Courses déjà acceptées, relues sur le serveur au lancement et à chaque
+  // passage en ligne : une course en cours ne disparaît jamais de l'écran
+  // (app fermée, téléphone redémarré). Réseau coupé : on garde l'affichage.
+  const restaurerCourses = useCallback(async () => {
+    await chargerEtapes();
+    let liste;
+    try {
+      liste = await deliveryService.getActiveDeliveries();
+    } catch {
+      setRelecture(n => n + 1);
+      return;
+    }
+    const courses = liste.map(a => adaptAssignment(a));
+    garderSeulement(courses.map(cleCourse));
+    setActive(prev => [...courses, ...prev.filter(o => o._isMock)]);
+  }, []);
+
+  useEffect(() => {
+    if (accountActive) restaurerCourses();
+  }, [accountActive, online, restaurerCourses]);
 
   const addMockOrder = useCallback(() => {
     setMockOrders(prev => [makeMockOrder(), ...prev]);
@@ -307,7 +320,7 @@ export default function OrdersScreen({ navigation, route }) {
     if (completedOrder) {
       const key = orderKey(completedOrder);
       setActive(prev => prev.filter(o => orderKey(o) !== key));
-      setActiveSteps(prev => { const n = { ...prev }; delete n[key]; return n; });
+      oublierEtape(cleCourse(completedOrder));
       addToHistory(completedOrder);
       navigation.setParams({ completedOrder: undefined });
     }
@@ -319,25 +332,15 @@ export default function OrdersScreen({ navigation, route }) {
     if (cancelledOrder) {
       const key = orderKey(cancelledOrder);
       setActive(prev => prev.filter(o => orderKey(o) !== key));
-      setActiveSteps(prev => { const n = { ...prev }; delete n[key]; return n; });
+      oublierEtape(cleCourse(cancelledOrder));
       addToHistory(cancelledOrder);
       navigation.setParams({ cancelledOrder: undefined });
     }
   }, [route?.params?.cancelledOrder]);
 
-  // Update step info when returning from DeliveryFlow
+  // Retour depuis l'écran de livraison : étape atteinte relue (etapesCourses).
   useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      // Read step from the DeliveryFlow route state
-      const navState = navigation.getState?.();
-      if (navState) {
-        const dfRoute = navState.routes?.find(r => r.name === 'DeliveryFlow');
-        if (dfRoute?.params?.order && dfRoute.params.currentStep != null) {
-          const key = orderKey(dfRoute.params.order);
-          setActiveSteps(prev => ({ ...prev, [key]: { stepIndex: dfRoute.params.currentStep, stepLabel: dfRoute.params.currentStepLabel || '' } }));
-        }
-      }
-    });
+    const unsubscribe = navigation.addListener('focus', () => setRelecture(n => n + 1));
     return unsubscribe;
   }, [navigation]);
 
@@ -363,34 +366,43 @@ export default function OrdersScreen({ navigation, route }) {
     // Commande simulée : aucun appel backend, transition directe vers active
     if (order?._isMock) {
       setMockOrders(prev => prev.filter(o => orderKey(o) !== key));
-      const accepted = { ...order, status: 'active' };
+      const accepted = { ...order, status: 'accepted' };
       setActive(prev => [accepted, ...prev]);
-      setActiveSteps(prev => ({ ...prev, [orderKey(accepted)]: { stepIndex: 0, stepLabel: '' } }));
+      enregistrerEtape(cleCourse(accepted), { step: 0, statut: 'accepted' });
       navigation.navigate('DeliveryFlow', { order: accepted });
       return;
     }
+    // Une seule demande par course, même sur un double appui.
+    if (acceptEnCours.current.has(key)) return;
+    acceptEnCours.current.add(key);
     // Retrait optimiste de la liste disponible
     setAvailable(prev => prev.filter(o => orderKey(o) !== key));
     try {
       const res = await deliveryService.acceptDelivery(order.order_id);
       const assignment = res?.data ? adaptAssignment(res.data) : { ...order, status: 'accepted' };
-      setActive(prev => [{ ...assignment, status: 'active' }, ...prev]);
-      setActiveSteps(prev => ({ ...prev, [orderKey(assignment)]: { stepIndex: 0, stepLabel: '' } }));
+      setActive(prev => [assignment, ...prev.filter(o => orderKey(o) !== orderKey(assignment))]);
+      enregistrerEtape(cleCourse(assignment), { step: 0, statut: 'accepted' });
       navigation.navigate('DeliveryFlow', { order: assignment });
     } catch (e) {
-      // Remettre la commande dans la liste si l'accept échoue
-      setAvailable(prev => [order, ...prev]);
+      // Course prise par un autre livreur, retirée ou refusée pour ce
+      // livreur : elle ne revient pas. Autre échec : remise dans la liste.
+      const plusPourLui = [403, 404, 409, 423].includes(e?.status);
+      if (!plusPourLui) {
+        setAvailable(prev => (prev.some(o => orderKey(o) === key) ? prev : [order, ...prev]));
+      }
       // Documents demandés par le serveur : pas d'erreur générique.
       if (estDocumentsRequis(e)) signalerDocumentsRequis(e, t);
-      else Alert.alert(t('error'), t('acceptOrderError'));
+      else if (e?.status === 409 || e?.status === 404) Alert.alert(t('error'), t('orderNoLongerAvailable'));
+      else if (e?.isNetworkError) Alert.alert(t('error'), t('errorNetwork'));
+      else Alert.alert(t('error'), (e?.status === 403 && e.serverMessage) || t('acceptOrderError'));
+    } finally {
+      acceptEnCours.current.delete(key);
     }
   }, [navigation, t]);
 
   const onResumeActive = useCallback((order) => {
-    const key = orderKey(order);
-    const stepInfo = activeSteps[key];
-    navigation.navigate('DeliveryFlow', { order, initialStep: stepInfo?.stepIndex || 0 });
-  }, [navigation, activeSteps]);
+    navigation.navigate('DeliveryFlow', { order, initialStep: etapeCourse(order) });
+  }, [navigation]);
 
   const onDecline = useCallback(async (order) => {
     const key = orderKey(order);
@@ -403,8 +415,6 @@ export default function OrdersScreen({ navigation, route }) {
     const keyOf = (o, i) => String(o?._uid || o?.id || o?.code || `order-${i}`);
 
   const onOpen = useCallback((order)=>{ setDetailsOrder(order); setDetailsVisible(true); }, []);
-
-  const onFilterChange = useCallback((id) => setSelectedFilter(id), []);
 
   if (!accountActive) {
     return (
@@ -467,13 +477,12 @@ export default function OrdersScreen({ navigation, route }) {
       )}
 
       {/* En cours */}
-      {online && active.length > 0 && (
+      {active.length > 0 && (
         <>
           <Text style={styles.sectionTitle}>{t('inProgress')}</Text>
           <View style={styles.cardsBlock}>
             {active.map((order, i) => {
-              const key = orderKey(order);
-              const stepInfo = activeSteps[key];
+              const stepInfo = { stepIndex: etapeCourse(order) };
               return (
                 <Pressable key={keyOf(order, i)} style={styles.cardWrap} onPress={() => onResumeActive(order)}>
                   <View style={styles.activeCard}>
