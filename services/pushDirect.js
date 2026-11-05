@@ -118,7 +118,7 @@ async function rejouerRevocations() {
     try {
       await api.delete(ROUTE_RETIRER, { params: { player_id: cle }, timeout: 4000 });
     } catch (e) {
-      if (e?.response?.status !== 404) restantes.push(cle);
+      if (e?.status !== 404) restantes.push(cle);
     }
   }
   await ecrireRevocations(restantes);
@@ -197,7 +197,7 @@ export async function retirerAppareil() {
     await api.delete(ROUTE_RETIRER, { params: { player_id: cle }, timeout: 4000 });
   } catch (e) {
     // Session déjà expirée ou réseau coupé : retrait gardé en attente.
-    if (e?.response?.status !== 404) {
+    if (e?.status !== 404) {
       await marquerRevocation(cle);
       return;
     }

@@ -158,11 +158,21 @@ const BARRE = DEPLIE
   : { backgroundColor: '#fff' };
 const navTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, primary: BRAND, card: '#fff', text: '#111' } };
 
+// Nouvelle course proposée (status « available », DeliveryApp/notifications) :
+// son joué même app ouverte, pour ne pas la manquer. Les autres push restent
+// silencieuses quand l'app est au premier plan.
+function estCourseProposee(notification) {
+  const requete = notification && notification.request;
+  const brut = requete && requete.content && requete.content.data;
+  const donnees = (brut && Object.keys(brut).length ? brut : requete && requete.trigger && requete.trigger.payload) || {};
+  return donnees.status === 'available';
+}
+
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
+  handleNotification: async (notification) => ({
     shouldShowBanner: true,
     shouldShowList: true,
-    shouldPlaySound: false,
+    shouldPlaySound: estCourseProposee(notification),
     shouldSetBadge: false,
   }),
 });

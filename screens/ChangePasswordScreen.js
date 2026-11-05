@@ -6,12 +6,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { authService } from '../services/authService';
+import { useAuth } from '../contexts/AuthContext';
 import useSecureScreen from '../hooks/useSecureScreen';
 
 const BRAND = '#FF6A13';
 
+// Raison du refus, dans la langue du livreur quand elle est connue.
+function messageErreur(err, t) {
+  if (err?.isNetworkError) return t('errorNetwork');
+  if (err?.status === 429) return t('errorTooManyRequests');
+  const m = err?.serverMessage || '';
+  if (/current password is incorrect/i.test(m)) return t('passwordWrong');
+  if (/at least 10 characters/i.test(m)) return t('passwordTooShort');
+  return m || t('passwordChangeError');
+}
+
 export default function ChangePasswordScreen({ navigation }) {
   const { t } = useLanguage();
+  const { reconnecterApresMotDePasse, logout } = useAuth();
   const insets = useSafeAreaInsets();
   // Mots de passe actuel et nouveau.
   useSecureScreen('ChangePassword');
@@ -40,12 +52,24 @@ export default function ChangePasswordScreen({ navigation }) {
     setSaving(true);
     try {
       await authService.updatePassword(currentPwd, newPwd);
-      Alert.alert(t('success'), t('passwordChanged'), [
-        { text: t('ok'), onPress: () => navigation.goBack() },
-      ]);
     } catch (err) {
-      const msg = err?.response?.data?.message || err?.response?.data?.detail || t('passwordChangeError');
-      Alert.alert(t('error'), msg);
+      Alert.alert(t('error'), messageErreur(err, t));
+      setSaving(false);
+      return;
+    }
+    try {
+      // Le serveur refuse désormais les jetons d'avant le changement : on se
+      // reconnecte aussitôt avec le nouveau mot de passe.
+      const reconnecte = await reconnecterApresMotDePasse(newPwd);
+      if (reconnecte) {
+        Alert.alert(t('success'), t('passwordChanged'), [
+          { text: t('ok'), onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        Alert.alert(t('success'), t('passwordChangedReconnect'), [
+          { text: t('ok'), onPress: () => { logout(); } },
+        ]);
+      }
     } finally {
       setSaving(false);
     }
