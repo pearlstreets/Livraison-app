@@ -122,6 +122,7 @@ const translations = {
     payoutStandardNote: "Votre banque ne reçoit pas les virements instantanés : ce virement est parti en standard et les frais vous ont été rendus.",
     deliveryOpensSoonTitle: 'La livraison ouvre bientôt',
     deliveryOpensSoonText: 'Nous vous préviendrons par e-mail dès l\'ouverture. En attendant, vous pouvez simuler une course pour découvrir l\'app.',
+    newDeliveryOffer: 'Nouvelle course',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'Le support a résolu ce ticket.',
     ticketSystemClosed: 'Le support a fermé ce ticket.',
@@ -981,6 +982,7 @@ const translations = {
     payoutStandardNote: "Your bank does not accept instant payouts: this payout was sent as standard and the fee was refunded.",
     deliveryOpensSoonTitle: 'Deliveries open soon',
     deliveryOpensSoonText: 'We will let you know by email as soon as we open. Meanwhile, you can simulate a delivery to discover the app.',
+    newDeliveryOffer: 'New delivery',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'Support has resolved this ticket.',
     ticketSystemClosed: 'Support has closed this ticket.',
@@ -1795,6 +1797,7 @@ const translations = {
     payoutStandardNote: "Su banco no acepta transferencias instantáneas: esta transferencia se envió en modo estándar y se le devolvió la comisión.",
     deliveryOpensSoonTitle: 'Las entregas abren pronto',
     deliveryOpensSoonText: 'Le avisaremos por correo electrónico en cuanto abramos. Mientras tanto, puede simular una entrega para descubrir la app.',
+    newDeliveryOffer: 'Nueva entrega',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'El soporte ha resuelto este ticket.',
     ticketSystemClosed: 'El soporte ha cerrado este ticket.',
@@ -2340,6 +2343,7 @@ const translations = {
     payoutStandardNote: "您的银行不支持即时转账：此转账已改为普通转账，手续费已退还。",
     deliveryOpensSoonTitle: '配送即将开放',
     deliveryOpensSoonText: '开放后我们会第一时间通过电子邮件通知您。在此期间，您可以模拟一次配送来了解应用。',
+    newDeliveryOffer: '新订单',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: '客服已解决此工单。',
     ticketSystemClosed: '客服已关闭此工单。',
@@ -2885,6 +2889,7 @@ const translations = {
     payoutStandardNote: "بنككم لا يقبل التحويلات الفورية: أُرسل هذا التحويل كتحويل عادي وأُعيدت إليكم الرسوم.",
     deliveryOpensSoonTitle: 'التوصيل سيفتح قريبًا',
     deliveryOpensSoonText: 'سنخبركم عبر البريد الإلكتروني فور الافتتاح. في الأثناء، يمكنكم محاكاة توصيلة لاكتشاف التطبيق.',
+    newDeliveryOffer: 'طلب توصيل جديد',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'قام فريق الدعم بحل هذه التذكرة.',
     ticketSystemClosed: 'قام فريق الدعم بإغلاق هذه التذكرة.',
@@ -3430,6 +3435,7 @@ const translations = {
     payoutStandardNote: "Ihre Bank nimmt keine Sofortüberweisungen an: Diese Überweisung wurde als Standard gesendet und die Gebühr erstattet.",
     deliveryOpensSoonTitle: 'Die Lieferungen starten bald',
     deliveryOpensSoonText: 'Wir benachrichtigen Sie per E-Mail, sobald es losgeht. Bis dahin können Sie eine Lieferung simulieren, um die App kennenzulernen.',
+    newDeliveryOffer: 'Neue Lieferung',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'Der Support hat dieses Ticket gelöst.',
     ticketSystemClosed: 'Der Support hat dieses Ticket geschlossen.',
@@ -3975,6 +3981,7 @@ const translations = {
     payoutStandardNote: "Uw bank accepteert geen directe overboekingen: deze overboeking ging als standaard en de kosten zijn terugbetaald.",
     deliveryOpensSoonTitle: 'Bezorgingen starten binnenkort',
     deliveryOpensSoonText: 'We laten het u per e-mail weten zodra we openen. Intussen kunt u een bezorging simuleren om de app te ontdekken.',
+    newDeliveryOffer: 'Nieuwe bezorging',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'De support heeft dit ticket opgelost.',
     ticketSystemClosed: 'De support heeft dit ticket gesloten.',
@@ -4520,6 +4527,7 @@ const translations = {
     payoutStandardNote: "La Sua banca non accetta bonifici istantanei: questo bonifico è partito come standard e la commissione Le è stata rimborsata.",
     deliveryOpensSoonTitle: 'Le consegne aprono presto',
     deliveryOpensSoonText: 'La avviseremo via e-mail non appena apriremo. Nel frattempo, può simulare una consegna per scoprire l\'app.',
+    newDeliveryOffer: 'Nuova consegna',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'Il supporto ha risolto questo ticket.',
     ticketSystemClosed: 'Il supporto ha chiuso questo ticket.',
@@ -5065,6 +5073,7 @@ const translations = {
     payoutStandardNote: "O seu banco não aceita transferências instantâneas: esta transferência seguiu como normal e a taxa foi devolvida.",
     deliveryOpensSoonTitle: 'As entregas abrem em breve',
     deliveryOpensSoonText: 'Vamos avisá-lo por e-mail assim que abrirmos. Enquanto isso, pode simular uma entrega para conhecer a app.',
+    newDeliveryOffer: 'Nova entrega',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'O suporte resolveu este pedido.',
     ticketSystemClosed: 'O suporte fechou este pedido.',
@@ -5610,6 +5619,7 @@ const translations = {
     payoutStandardNote: "お使いの銀行は即時振込に対応していないため、この振込は通常振込で送金され、手数料は返金されました。",
     deliveryOpensSoonTitle: '配達はまもなく開始します',
     deliveryOpensSoonText: '開始しだい、メールでお知らせいたします。それまでの間、配達をシミュレーションしてアプリをお試しいただけます。',
+    newDeliveryOffer: '新しい配達',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'サポートがこのチケットを解決しました。',
     ticketSystemClosed: 'サポートがこのチケットを終了しました。',
@@ -6155,6 +6165,7 @@ const translations = {
     payoutStandardNote: "ธนาคารของท่านไม่รองรับการโอนทันที การโอนนี้จึงส่งแบบปกติและคืนค่าธรรมเนียมให้ท่านแล้ว",
     deliveryOpensSoonTitle: 'การจัดส่งจะเปิดเร็วๆ นี้',
     deliveryOpensSoonText: 'เราจะแจ้งให้คุณทราบทางอีเมลทันทีที่เปิด ระหว่างนี้คุณสามารถจำลองการจัดส่งเพื่อทำความรู้จักแอปได้',
+    newDeliveryOffer: 'งานจัดส่งใหม่',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'ฝ่ายสนับสนุนได้แก้ไขตั๋วนี้แล้ว',
     ticketSystemClosed: 'ฝ่ายสนับสนุนได้ปิดตั๋วนี้แล้ว',
@@ -6700,6 +6711,7 @@ const translations = {
     payoutStandardNote: "Din bank tar inte emot direktutbetalningar: utbetalningen skickades som vanlig och avgiften återbetalades.",
     deliveryOpensSoonTitle: 'Leveranserna öppnar snart',
     deliveryOpensSoonText: 'Vi meddelar dig via e-post så fort vi öppnar. Under tiden kan du simulera en leverans för att upptäcka appen.',
+    newDeliveryOffer: 'Ny leverans',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'Supporten har löst ärendet.',
     ticketSystemClosed: 'Supporten har stängt ärendet.',
@@ -7245,6 +7257,7 @@ const translations = {
     payoutStandardNote: "Ваш банк не принимает мгновенные выплаты: выплата отправлена обычным переводом, комиссия возвращена.",
     deliveryOpensSoonTitle: 'Доставка скоро откроется',
     deliveryOpensSoonText: 'Мы сообщим вам по электронной почте, как только откроемся. А пока вы можете смоделировать доставку, чтобы познакомиться с приложением.',
+    newDeliveryOffer: 'Новая доставка',
     // Tickets livreur (01/11/2026)
     ticketSystemResolved: 'Служба поддержки решила это обращение.',
     ticketSystemClosed: 'Служба поддержки закрыла это обращение.',

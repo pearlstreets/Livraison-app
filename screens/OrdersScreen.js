@@ -7,6 +7,7 @@ import StatusBarShield from '../components/StatusBarShield';
 import { useFocusEffect } from '@react-navigation/native';
 import OrderCard from '../components/OrderCard';
 import CarteDemandeVue from '../components/CarteDemandeVue';
+import OffreCoursePopup from '../components/OffreCoursePopup';
 import DetailsSheet from '../components/DetailsSheet';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -432,6 +433,22 @@ export default function OrdersScreen({ navigation, route }) {
   const [vueListe, setVueListe] = useState(false);
   const carteVide = active.length === 0;
 
+  // Fenêtre « Nouvelle course » : chaque course proposée s'ouvre une fois.
+  const offresVues = useRef(new Set());
+  const [offre, setOffre] = useState(null);
+  useEffect(() => {
+    if (!online || !carteVide || offre) return;
+    const nouvelle = displayedAvailable.find((o, i) => !offresVues.current.has(keyOf(o, i)));
+    if (nouvelle) {
+      offresVues.current.add(keyOf(nouvelle, displayedAvailable.indexOf(nouvelle)));
+      setOffre(nouvelle);
+    }
+  }, [displayedAvailable, online, carteVide, offre]);
+  // Course retirée (prise par un autre, expirée) : la fenêtre se ferme.
+  useEffect(() => {
+    if (offre && !displayedAvailable.includes(offre)) setOffre(null);
+  }, [displayedAvailable, offre]);
+
   if (!accountActive) {
     return (
       <View style={[styles.deactivatedContainer, { paddingTop: insets.top + 16 }]}>
@@ -472,6 +489,7 @@ export default function OrdersScreen({ navigation, route }) {
           </ScrollView>
         )}
         <DetailsSheet visible={detailsVisible} order={detailsOrder} onClose={() => setDetailsVisible(false)} />
+        <OffreCoursePopup order={offre} onAccept={onAccept} onDecline={onDecline} onOpen={onOpen} onClose={() => setOffre(null)} />
       </CarteDemandeVue>
     );
   }
