@@ -219,3 +219,22 @@ export async function envoyerPreuve(assignmentId, kind, uri, { garder = true } =
   await modifierFile((liste) => [...liste, { assignmentId, kind, uri, at: Date.now() }]);
   return 'en_attente';
 }
+
+// QR code du ticket imprimé par le commerçant (05/11/2026) : texte commençant
+// par PSTICKET1:, vérifié par le serveur pour CETTE course. Résout 'ok',
+// 'autre_commande', 'code_invalide' ou 'erreur' (réseau, serveur). Ne rejette
+// jamais : la photo reste toujours possible.
+export const PREFIXE_TICKET_QR = 'PSTICKET1:';
+export async function verifierTicketQr(assignmentId, code) {
+  if (!assignmentId || typeof code !== 'string' || !code.startsWith(PREFIXE_TICKET_QR)) return 'code_invalide';
+  try {
+    const res = await api.post(`/api/v1/delivery/assignments/${assignmentId}/ticket-scan/`, { code }, { timeout: 10000 });
+    if (res?.data?.ok === true) return 'ok';
+    return res?.data?.raison === 'autre_commande' ? 'autre_commande' : 'code_invalide';
+  } catch (err) {
+    const raison = err?.serverData?.raison;
+    if (raison === 'autre_commande') return 'autre_commande';
+    if (raison === 'code_invalide' || err?.status === 400) return 'code_invalide';
+    return 'erreur';
+  }
+}
