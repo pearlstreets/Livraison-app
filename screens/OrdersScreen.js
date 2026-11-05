@@ -7,6 +7,7 @@ import StatusBarShield from '../components/StatusBarShield';
 import { useFocusEffect } from '@react-navigation/native';
 import OrderCard from '../components/OrderCard';
 import CarteDemandeVue from '../components/CarteDemandeVue';
+import OffreCoursePopup from '../components/OffreCoursePopup';
 import DetailsSheet from '../components/DetailsSheet';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -417,10 +418,29 @@ export default function OrdersScreen({ navigation, route }) {
 
   const onOpen = useCallback((order)=>{ setDetailsOrder(order); setDetailsVisible(true); }, []);
 
-  // Accueil sans course à afficher : la carte de la demande (même vue que le
-  // bouton carte), demande du 05/11/2026. L'icône liste revient à la liste.
+  // Accueil sans course en cours : la carte de la demande (même vue que le
+  // bouton carte), demande du 05/11/2026. Les courses proposées arrivent en
+  // cartes par-dessus. L'icône liste revient à la liste.
   const [vueListe, setVueListe] = useState(false);
-  const carteVide = active.length === 0 && (!online || displayedAvailable.length === 0);
+  const carteVide = active.length === 0;
+
+  // Fenêtre « Nouvelle course » : chaque course proposée s'ouvre une fois.
+  const offresVues = useRef(new Set());
+  const [offre, setOffre] = useState(null);
+  // Stable : le minuteur de la fenêtre ne repart pas à chaque rendu.
+  const fermerOffre = useCallback(() => setOffre(null), []);
+  useEffect(() => {
+    if (!online || !carteVide || offre) return;
+    const nouvelle = displayedAvailable.find((o, i) => !offresVues.current.has(keyOf(o, i)));
+    if (nouvelle) {
+      offresVues.current.add(keyOf(nouvelle, displayedAvailable.indexOf(nouvelle)));
+      setOffre(nouvelle);
+    }
+  }, [displayedAvailable, online, carteVide, offre]);
+  // Course retirée (prise par un autre, expirée) : la fenêtre se ferme.
+  useEffect(() => {
+    if (offre && !displayedAvailable.includes(offre)) setOffre(null);
+  }, [displayedAvailable, offre]);
 
   if (!accountActive) {
     return (
@@ -446,6 +466,24 @@ export default function OrdersScreen({ navigation, route }) {
             <Text style={styles.goOnlineBtnTxt}>{t('goOnline')}</Text>
           </Pressable>
         )}
+        {online && canSimulate && (
+          <TouchableOpacity style={[styles.mockBtn, { alignSelf: 'flex-start' }]} onPress={addMockOrder} accessibilityLabel={t('simulate')}>
+            <Ionicons name="flask-outline" size={16} color="#fff" />
+            <Text style={styles.mockBtnTxt}>{t('simulate')}</Text>
+          </TouchableOpacity>
+        )}
+        {online && displayedAvailable.length > 0 && (
+          <ScrollView style={{ maxHeight: Dimensions.get('window').height * 0.45 }} showsVerticalScrollIndicator={false}>
+            {/* La course de la fenêtre « Nouvelle course » n'est pas répétée derrière elle. */}
+            {displayedAvailable.map((order, i) => order === offre ? null : (
+              <View key={keyOf(order, i)} style={styles.cardWrap}>
+                <OrderCard order={order} onAccept={onAccept} onDecline={onDecline} onOpen={onOpen} />
+              </View>
+            ))}
+          </ScrollView>
+        )}
+        <DetailsSheet visible={detailsVisible} order={detailsOrder} onClose={() => setDetailsVisible(false)} />
+        <OffreCoursePopup order={offre} onAccept={onAccept} onDecline={onDecline} onOpen={onOpen} onClose={fermerOffre} />
       </CarteDemandeVue>
     );
   }
@@ -563,7 +601,7 @@ export default function OrdersScreen({ navigation, route }) {
               </TouchableOpacity>
             )}
           </View>
-          <View style={styles.cardsBlock}>
+          <View style={[styles.cardsBlock, SIMULATION_POUR_TOUS && available.length === 0 && styles.cardsBlockCentre]}>
             {SIMULATION_POUR_TOUS && available.length === 0 && (
               <View style={styles.opensSoonCard}>
                 <Ionicons name="time-outline" size={28} color="#FF6A13" />
@@ -625,6 +663,8 @@ const styles = StyleSheet.create({
   opensSoonText: { fontSize: 14, color: '#6b6b70', marginTop: 6, textAlign: 'center', lineHeight: 20 },
   mockBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
   cardsBlock: {  marginBottom: 0  },
+  // Box « La livraison ouvre bientôt » centrée verticalement dans l'espace libre.
+  cardsBlockCentre: { flex: 1, justifyContent: 'center' },
   cardWrap: { marginBottom: 8 },
   emptyText: { color: '#8E8E93', paddingVertical: 8, paddingHorizontal: 4 },
 

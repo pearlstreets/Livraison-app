@@ -140,9 +140,15 @@ function estCourseProposee(notification) {
   return donnees.status === 'available';
 }
 
+function estSonSeul(notification) {
+  const d = notification && notification.request && notification.request.content && notification.request.content.data;
+  return !!(d && d.sonSeul);
+}
+
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => ({
-    shouldShowAlert: true,
+    // sonSeul : son de la fenêtre « Nouvelle course », sans bannière.
+    shouldShowAlert: !estSonSeul(notification),
     shouldPlaySound: estCourseProposee(notification),
     shouldSetBadge: false,
   }),
