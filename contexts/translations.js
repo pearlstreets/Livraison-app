@@ -3,8 +3,6 @@
 
 const translations = {
   fr: {
-    bonusNight: 'nuit',
-    bonusHeat: 'canicule',
     bonusQuietZone: 'zone calme',
     bonusLabel: 'bonus',
     payoutGross: 'Total des courses',
@@ -769,8 +767,6 @@ const translations = {
   },
 
   en: {
-    bonusNight: 'night',
-    bonusHeat: 'heatwave',
     bonusQuietZone: 'quiet area',
     bonusLabel: 'bonus',
     payoutGross: 'Deliveries total',
@@ -1490,8 +1486,6 @@ const translations = {
   },
 
   es: {
-    bonusNight: 'noche',
-    bonusHeat: 'ola de calor',
     bonusQuietZone: 'zona tranquila',
     bonusLabel: 'bonus',
     payoutGross: 'Total de las entregas',
@@ -1942,8 +1936,6 @@ const translations = {
   },
 
   zh: {
-    bonusNight: '夜间',
-    bonusHeat: '高温',
     bonusQuietZone: '冷清区域',
     bonusLabel: '奖励',
     payoutGross: '配送总额',
@@ -2394,8 +2386,6 @@ const translations = {
   },
 
   ar: {
-    bonusNight: 'ليلي',
-    bonusHeat: 'موجة حر',
     bonusQuietZone: 'منطقة هادئة',
     bonusLabel: 'مكافأة',
     payoutGross: 'إجمالي التوصيلات',
@@ -2846,8 +2836,6 @@ const translations = {
   },
 
   de: {
-    bonusNight: 'Nacht',
-    bonusHeat: 'Hitze',
     bonusQuietZone: 'ruhige Zone',
     bonusLabel: 'Bonus',
     payoutGross: 'Summe der Lieferungen',
@@ -3298,8 +3286,6 @@ const translations = {
   },
 
   nl: {
-    bonusNight: 'nacht',
-    bonusHeat: 'hittegolf',
     bonusQuietZone: 'rustige zone',
     bonusLabel: 'bonus',
     payoutGross: 'Totaal bezorgingen',
@@ -3750,8 +3736,6 @@ const translations = {
   },
 
   it: {
-    bonusNight: 'notte',
-    bonusHeat: 'caldo',
     bonusQuietZone: 'zona tranquilla',
     bonusLabel: 'bonus',
     payoutGross: 'Totale consegne',
@@ -4202,8 +4186,6 @@ const translations = {
   },
 
   pt: {
-    bonusNight: 'noite',
-    bonusHeat: 'onda de calor',
     bonusQuietZone: 'zona calma',
     bonusLabel: 'bónus',
     payoutGross: 'Total das entregas',
@@ -4654,8 +4636,6 @@ const translations = {
   },
 
   ja: {
-    bonusNight: '夜間',
-    bonusHeat: '猛暑',
     bonusQuietZone: '閑散エリア',
     bonusLabel: 'ボーナス',
     payoutGross: '配達の合計',
@@ -5106,8 +5086,6 @@ const translations = {
   },
 
   th: {
-    bonusNight: 'กลางคืน',
-    bonusHeat: 'อากาศร้อนจัด',
     bonusQuietZone: 'พื้นที่เงียบ',
     bonusLabel: 'โบนัส',
     payoutGross: 'ยอดรวมการจัดส่ง',
@@ -5558,8 +5536,6 @@ const translations = {
   },
 
   sv: {
-    bonusNight: 'natt',
-    bonusHeat: 'värmebölja',
     bonusQuietZone: 'lugnt område',
     bonusLabel: 'bonus',
     payoutGross: 'Summa leveranser',
@@ -6010,8 +5986,6 @@ const translations = {
   },
 
   ru: {
-    bonusNight: 'ночь',
-    bonusHeat: 'жара',
     bonusQuietZone: 'тихая зона',
     bonusLabel: 'бонус',
     payoutGross: 'Сумма доставок',
