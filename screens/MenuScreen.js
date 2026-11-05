@@ -217,7 +217,7 @@ export default function MenuScreen({ navigation }) {
         <View style={s.accountRow}>
           <Pressable style={s.accountStat} onPress={() => navigation.navigate('Ratings')}>
             <Ionicons name="star" size={18} color="#f5a623" />
-            <Text style={s.accountStatValue}>{rating > 0 ? Number(rating).toFixed(1) : '-'}</Text>
+            <Text style={s.accountStatValue}>{Number(rating || 0).toFixed(1)}</Text>
             <Text style={s.accountStatLabel}>{t('note')}</Text>
           </Pressable>
           <View style={s.accountStatDivider} />
