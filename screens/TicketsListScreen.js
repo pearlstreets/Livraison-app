@@ -85,8 +85,8 @@ export default function TicketsListScreen({ navigation }) {
     try {
       setLoading(true);
       setLoadError(false);
-      const res = await ticketService.getTickets();
-      const raw = res?.results || res?.data || [];
+      // Toutes les pages (le serveur en renvoie 10 par défaut).
+      const raw = await ticketService.getAllTickets();
       setTickets(Array.isArray(raw) ? raw.map(mapTicket) : []);
     } catch {
       // Échec réseau : message et bouton réessayer, la liste déjà lue reste.

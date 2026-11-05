@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
@@ -7,7 +7,9 @@ import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useFocusEffect } from '@react-navigation/native';
 import { formatDayMonth, formatTime } from '../lib/i18nFormat';
+import { ticketService } from '../services/ticketService';
 
 const BRAND = '#FF6A13';
 const parseNum = (v) => { if (!v) return 0; const n = parseFloat(String(v).replace(',', '.').replace(/[^0-9.]/g, '')); return isNaN(n) ? 0 : n; };
@@ -19,10 +21,31 @@ export default function DeliveryDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const order = route.params?.order || {};
 
-  // Read reported status from AuthContext (persisted)
+  // Ticket de cette course, retrouvé sur le serveur par son affectation :
+  // signalement, état résolu et vrai identifiant du fil du support.
+  const assignmentNum = Number(order.assignmentId ?? order._assignmentId);
+  const assignmentId = Number.isInteger(assignmentNum) && assignmentNum > 0 ? assignmentNum : null;
+  const [ticket, setTicket] = useState(null);
+  useFocusEffect(useCallback(() => {
+    if (!assignmentId) return undefined;
+    let actif = true;
+    ticketService.getAllTickets()
+      .then((liste) => {
+        // Liste du serveur triée du plus récent au plus ancien.
+        const trouve = liste.find((tk) => Number(tk?.assignment_id) === assignmentId);
+        if (actif && trouve) setTicket(trouve);
+      })
+      .catch(() => {});
+    return () => { actif = false; };
+  }, [assignmentId]));
+
   const liveOrder = deliveryHistory.find(o => o.id === order.id);
-  const reported = order.reported || (liveOrder && liveOrder.reported) || false;
-  const resolved = false;
+  const reported = !!ticket || order.reported || (liveOrder && liveOrder.reported) || false;
+  const resolved = ticket ? (ticket.status === 'resolved' || ticket.status === 'closed') : false;
+  // Sans ticket retrouvé (pas encore relu), la liste des tickets.
+  const ouvrirTicket = () => (ticket
+    ? navigation.navigate('TicketChat', { ticketId: ticket.id, resolved })
+    : navigation.navigate('TicketsList'));
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -106,7 +129,7 @@ export default function DeliveryDetailScreen({ navigation, route }) {
               <Text style={s.reportedTitle}>{resolved ? t('problemResolved') : t('problemReported')}</Text>
               {!resolved && <View style={s.pendingDot} />}
             </View>
-            <Pressable style={s.ticketBtnSmall} onPress={() => navigation.navigate('TicketChat', { order })}>
+            <Pressable style={s.ticketBtnSmall} onPress={ouvrirTicket}>
               <Ionicons name="chatbubbles-outline" size={16} color={BRAND} style={{ marginRight: 6 }} />
               <Text style={s.ticketBtnSmallTxt}>{t('openTicket')}</Text>
               <Ionicons name={dirIcon('chevron-forward')} size={14} color="#ccc" />

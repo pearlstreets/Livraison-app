@@ -48,7 +48,10 @@ function mapMessage(msg, t) {
 export default function TicketChatScreen({ navigation, route }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
-  const ticketId = route.params?.ticketId || route.params?.order?.id || null;
+  // Identifiant NUMÉRIQUE du ticket seulement (jamais l'id d'une commande,
+  // du type « ORD-123 », que le serveur ne connaît pas).
+  const idBrut = Number(route.params?.ticketId);
+  const ticketId = Number.isInteger(idBrut) && idBrut > 0 ? idBrut : null;
   const flatListRef = useRef();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState([]);
@@ -60,6 +63,8 @@ export default function TicketChatScreen({ navigation, route }) {
 
   const loadMessages = useCallback(async () => {
     if (!ticketId) {
+      // Ticket introuvable : message clair, envoi désactivé (voir plus bas).
+      setMessages([{ id: 'system-error', type: 'system', text: t('ticketMissing'), time: null }]);
       setLoading(false);
       return;
     }
@@ -114,7 +119,7 @@ export default function TicketChatScreen({ navigation, route }) {
 
   async function sendMessage() {
     const text = input.trim();
-    if (!text || isResolvedState || sending) return;
+    if (!text || isResolvedState || sending || !ticketId) return;
     setSending(true);
     setInput('');
     try {
@@ -182,7 +187,7 @@ export default function TicketChatScreen({ navigation, route }) {
         </Pressable>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={s.headerTitle}>{t('ticketSupport')}</Text>
-          <Text style={s.headerSub}>{t('ticketTitle')} #{ticketId || 'N/A'}</Text>
+          {ticketId ? <Text style={s.headerSub}>{t('ticketTitle')} #{ticketId}</Text> : null}
         </View>
         {isResolvedState ? (
           <>
@@ -208,10 +213,10 @@ export default function TicketChatScreen({ navigation, route }) {
       )}
 
       {/* Input or closed banner */}
-      {isResolvedState ? (
+      {isResolvedState || !ticketId ? (
         <View style={[s.closedBar, { paddingBottom: insets.bottom || 16 }]}>
           <Ionicons name="lock-closed" size={16} color="#999" style={{ marginRight: 8 }} />
-          <Text style={s.closedText}>{t('ticketClosed')}</Text>
+          <Text style={s.closedText}>{ticketId ? t('ticketClosed') : t('ticketMissing')}</Text>
         </View>
       ) : (
         <View style={[s.inputBar, { paddingBottom: insets.bottom || 16 }]}>
