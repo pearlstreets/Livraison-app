@@ -27,8 +27,12 @@ export function instantBlockedMessage(wallet, balanceCents, t, fmtPrice) {
   const i = wallet?.instant;
   if (!i) return null;
   if (!i.available) return t(MESSAGE_REFUS[i.reason] || 'cashoutErrOff');
-  if (i.remainingToday <= 0) return t('cashoutErrLimit', { max: i.maxPerDay });
-  if (balanceCents / 100 < i.minBalanceEur) return t('cashoutErrMin', { min: fmtPrice(i.minBalanceEur) });
+  // Limites du serveur seulement : une valeur absente ne bloque rien ici (le
+  // serveur tranchera et donnera son motif).
+  if (i.remainingToday != null && i.remainingToday <= 0) {
+    return i.maxPerDay != null ? t('cashoutErrLimit', { max: i.maxPerDay }) : t('cashoutErrGeneric');
+  }
+  if (i.minBalanceEur != null && balanceCents / 100 < i.minBalanceEur) return t('cashoutErrMin', { min: fmtPrice(i.minBalanceEur) });
   return null;
 }
 
@@ -47,17 +51,19 @@ export default function InstantCashoutSheet({ visible, onClose, accountLabel }) 
   const [step, setStep] = useState('confirm'); // confirm | processing | result
   const [result, setResult] = useState(null);
   // Montants figés à l'ouverture : le solde peut bouger pendant le virement.
-  const [snapshot, setSnapshot] = useState({ balance: 0, fee: 0.99 });
+  const [snapshot, setSnapshot] = useState({ balance: 0, fee: null });
 
   useEffect(() => {
     if (visible) {
       setStep('confirm');
       setResult(null);
-      setSnapshot({ balance: currentEarningsCents / 100, fee: wallet?.instant?.feeEur ?? 0.99 });
+      setSnapshot({ balance: currentEarningsCents / 100, fee: wallet?.instant?.feeEur ?? null });
     }
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const receive = Math.max(snapshot.balance - snapshot.fee, 0);
+  // Frais inconnus (non fournis par le serveur) : lignes frais et montant reçu masquées.
+  const feeKnown = snapshot.fee != null;
+  const receive = Math.max(snapshot.balance - (snapshot.fee || 0), 0);
 
   async function confirm() {
     setStep('processing');
@@ -89,10 +95,15 @@ export default function InstantCashoutSheet({ visible, onClose, accountLabel }) 
     } else {
       icon = 'alert-circle';
       title = t('cashoutNotSent');
-      const cle = MESSAGE_REFUS[result.code] || 'cashoutErrGeneric';
+      // Limite et minimum réels (réponse du refus, sinon portefeuille) ; sans
+      // valeur connue, message générique plutôt qu'un chiffre inventé.
+      const max = result.max ?? wallet?.instant?.maxPerDay ?? null;
+      const min = result.min ?? wallet?.instant?.minBalanceEur ?? null;
+      let cle = MESSAGE_REFUS[result.code] || 'cashoutErrGeneric';
+      if ((cle === 'cashoutErrLimit' && max == null) || (cle === 'cashoutErrMin' && min == null)) cle = 'cashoutErrGeneric';
       desc = t(cle, {
-        max: wallet?.instant?.maxPerDay ?? 3,
-        min: fmtPrice(wallet?.instant?.minBalanceEur ?? 1.99),
+        max,
+        min: min != null ? fmtPrice(min) : null,
       });
     }
   }
@@ -112,14 +123,18 @@ export default function InstantCashoutSheet({ visible, onClose, accountLabel }) 
                   <Text style={s.rowLabel}>{t('instantBalanceLabel')}</Text>
                   <Text style={s.rowValue}>{fmtPrice(snapshot.balance)}</Text>
                 </View>
-                <View style={s.row}>
-                  <Text style={s.rowLabel}>{t('instantFeeLabel')}</Text>
-                  <Text style={s.rowValue}>- {fmtPrice(snapshot.fee)}</Text>
-                </View>
-                <View style={[s.row, s.rowTotal]}>
-                  <Text style={[s.rowLabel, s.bold]}>{t('instantYouReceive')}</Text>
-                  <Text style={[s.rowValue, s.total]}>{fmtPrice(receive)}</Text>
-                </View>
+                {feeKnown && (
+                  <View style={s.row}>
+                    <Text style={s.rowLabel}>{t('instantFeeLabel')}</Text>
+                    <Text style={s.rowValue}>- {fmtPrice(snapshot.fee)}</Text>
+                  </View>
+                )}
+                {feeKnown && (
+                  <View style={[s.row, s.rowTotal]}>
+                    <Text style={[s.rowLabel, s.bold]}>{t('instantYouReceive')}</Text>
+                    <Text style={[s.rowValue, s.total]}>{fmtPrice(receive)}</Text>
+                  </View>
+                )}
               </View>
               <Text style={s.desc}>{t('instantCashoutDesc', { account: accountLabel })}</Text>
               <Pressable style={s.btnPrimary} onPress={confirm}>

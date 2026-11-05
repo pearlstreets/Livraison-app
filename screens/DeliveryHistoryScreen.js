@@ -10,10 +10,11 @@ import { formatDayMonth, isSameDay } from '../lib/i18nFormat';
 
 const BRAND = '#FF6A13';
 
-const HistoryOrderItem = React.memo(({ order, navigation, t }) => {
+const HistoryOrderItem = React.memo(({ order, navigation, t, fmtPrice }) => {
   const isCancelled = order.status === 'cancelled';
   const isReported = order.reported;
-  const price = order.priceText || order.price || '';
+  // Montants en devise du livreur (fmtPrice), depuis les valeurs en euros.
+  const price = fmtPrice(Number(order.priceEur) || 0);
   const distance = order.distanceText || order.distance || '';
   const iconColor = isCancelled ? '#e74c3c' : isReported ? '#e74c3c' : BRAND;
   const borderColor = isCancelled ? '#e74c3c' : isReported ? '#e74c3c' : BRAND;
@@ -26,17 +27,17 @@ const HistoryOrderItem = React.memo(({ order, navigation, t }) => {
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={s.orderId}>{order.id}</Text>
-            <Text style={[s.orderPrice, isCancelled && { color: '#999' }]}>{isCancelled ? '0,00 \u20ac' : price}</Text>
+            <Text style={[s.orderPrice, isCancelled && { color: '#999' }]}>{isCancelled ? fmtPrice(0) : price}</Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={[s.orderTime, isCancelled && { color: '#e74c3c' }]}>
               {isCancelled ? `${t('cancelledAt')} ${order.time}` : order.time}
             </Text>
-            {!isCancelled && order.tip && <Text style={s.orderTip}>+ {order.tip} {t('tip')}</Text>}
+            {!isCancelled && Number(order.tipEur) > 0 && <Text style={s.orderTip}>+ {fmtPrice(Number(order.tipEur))} {t('tip')}</Text>}
           </View>
-          {!isCancelled && !!order.bonus && (
+          {!isCancelled && Number(order.bonusEur) > 0 && (
             <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-              <Text style={s.orderBonus}>+ {order.bonus} {t('bonusShort')}</Text>
+              <Text style={s.orderBonus}>+ {fmtPrice(Number(order.bonusEur))} {t('bonusShort')}</Text>
             </View>
           )}
         </View>
@@ -67,15 +68,15 @@ export default function DeliveryHistoryScreen({ navigation }) {
   const { fmtPrice } = useCurrency();
   const insets = useSafeAreaInsets();
 
-  const parsePrice = useCallback((p) => { const n = parseFloat(String(p).replace(',', '.')); return isNaN(n) ? 0 : n; }, []);
-
-  // Memoize stats to avoid recomputation
-  const { totalEarnings, totalTips, totalOrders } = useMemo(() => ({
-    totalEarnings: deliveryHistory.filter(o => o.status !== 'cancelled')
-      .reduce((s, o) => s + parsePrice(o.priceText) + (Number(o.bonusEur) || 0), 0),
-    totalTips: deliveryHistory.reduce((s, o) => s + (o.tip ? parsePrice(o.tip) : 0), 0),
-    totalOrders: deliveryHistory.length,
-  }), [deliveryHistory, parsePrice]);
+  // Totaux sur les livraisons effectuées seulement (annulées exclues).
+  const { totalEarnings, totalTips, totalOrders } = useMemo(() => {
+    const livrees = deliveryHistory.filter(o => o.status !== 'cancelled');
+    return {
+      totalEarnings: livrees.reduce((s, o) => s + (Number(o.priceEur) || 0) + (Number(o.bonusEur) || 0), 0),
+      totalTips: livrees.reduce((s, o) => s + (Number(o.tipEur) || 0), 0),
+      totalOrders: livrees.length,
+    };
+  }, [deliveryHistory]);
 
   // Memoize date grouping for SectionList
   const sections = useMemo(() => {
@@ -104,8 +105,8 @@ export default function DeliveryHistoryScreen({ navigation }) {
   }, [deliveryHistory, t]);
 
   const renderItem = useCallback(({ item }) => (
-    <HistoryOrderItem order={item} navigation={navigation} t={t} />
-  ), [navigation, t]);
+    <HistoryOrderItem order={item} navigation={navigation} t={t} fmtPrice={fmtPrice} />
+  ), [navigation, t, fmtPrice]);
 
   const renderSectionHeader = useCallback(({ section }) => (
     <Text style={s.dateHeader}>{section.title}</Text>

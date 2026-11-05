@@ -34,7 +34,7 @@ function MiniChart({ bars }) {
 export default function EarningsScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { currentEarningsCents, wallet, weeklyEarnings, currentIban } = useAuth();
+  const { currentEarningsCents, wallet, weeklyEarnings, currentIban, refreshEarnings } = useAuth();
   const { fmtPrice } = useCurrency();
   const scrollRef = useRef(null);
   const earn = { earningsCents: currentEarningsCents, earnings: fmtPrice(currentEarningsCents / 100) };
@@ -46,7 +46,9 @@ export default function EarningsScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, []));
+    // Solde, frais et limites relus sur le serveur à chaque affichage.
+    refreshEarnings?.();
+  }, [refreshEarnings]));
 
   function startEncaiss() {
     if (earn.earningsCents <= 0) return;
@@ -70,7 +72,7 @@ export default function EarningsScreen({ navigation }) {
             <Ionicons name="flash" size={16} color={BRAND} />
             <Text style={s.encaissTxt}>{t('cashout')}</Text>
           </Pressable>
-          {wallet?.instant?.available && (
+          {wallet?.instant?.available && wallet.instant.feeEur != null && wallet.instant.remainingToday != null && (
             <Text style={s.cashoutLimit}>{t('instantInfo', { fee: fmtPrice(wallet.instant.feeEur), left: wallet.instant.remainingToday })}</Text>
           )}
         </View>

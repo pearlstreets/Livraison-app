@@ -7,6 +7,7 @@ import StatusBarShield from '../components/StatusBarShield';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
 import { ticketService } from '../services/ticketService';
+import { useAuth } from '../contexts/AuthContext';
 
 import { formatDayMonth } from '../lib/i18nFormat';
 
@@ -74,6 +75,7 @@ TicketCard.displayName = 'TicketCard';
 
 export default function TicketsListScreen({ navigation }) {
   const { t } = useLanguage();
+  const { refreshTickets } = useAuth();
   const insets = useSafeAreaInsets();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -96,7 +98,9 @@ export default function TicketsListScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => {
     fetchTickets();
-  }, [fetchTickets]));
+    // En quittant l'écran : badge Tickets du menu remis à jour.
+    return () => { refreshTickets?.(); };
+  }, [fetchTickets, refreshTickets]));
 
   const openTickets = tickets.filter(tk => tk.status === 'open');
   const resolvedTickets = tickets.filter(tk => tk.status === 'resolved');
