@@ -205,14 +205,14 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
       {/* Header — ID pill (gauche) + prix dominant (droite) */}
       <View style={styles.header}>
         <View style={styles.idPill}>
-          <Text style={styles.idPillText}>{String(code)}</Text>
-          {!!category && <Text style={styles.category}>· {String(category)}</Text>}
+          <Text style={styles.idPillText} numberOfLines={1}>{String(code)}</Text>
+          {!!category && <Text style={styles.category} numberOfLines={1}>· {String(category)}</Text>}
         </View>
         {!!price && (
           <View style={styles.priceCol}>
             <View style={styles.priceWrap}>
               <Text style={styles.priceLead}>+</Text>
-              <Text style={styles.priceText}>{price}</Text>
+              <Text style={styles.priceText} numberOfLines={1}>{price}</Text>
             </View>
             {order?.bonusEur > 0 && (
               <View style={styles.bonusPill}>
@@ -280,12 +280,12 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
               activeOpacity={0.85}
             >
               <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 6 }} />
-              <Text style={styles.acceptBtnText}>{t('accept')}</Text>
+              <Text style={styles.acceptBtnText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('accept')}</Text>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.detailsLink} onPress={openDetails} activeOpacity={0.6}>
-            <Text style={styles.detailsLinkText}>{t('viewDetails')}</Text>
+            <Text style={styles.detailsLinkText} numberOfLines={1}>{t('viewDetails')}</Text>
             <Ionicons name={dirIcon('chevron-forward')} size={14} color={gris} />
           </TouchableOpacity>
         </>
@@ -297,7 +297,7 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
             activeOpacity={0.85}
           >
             <Ionicons name="navigate" size={18} color="#fff" style={{ marginRight: 6 }} />
-            <Text style={styles.acceptBtnText}>{t('itinerary')}</Text>
+            <Text style={styles.acceptBtnText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('itinerary')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.declineBtn} onPress={openDetails} accessibilityLabel={t('details')}>
             <Ionicons name="information" size={20} color={gris} />
@@ -336,16 +336,16 @@ const makeStyles = (c, dark) => StyleSheet.create({
 
   // Header
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  idPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: dark ? c.border : '#F4F6F8', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  idPillText: { fontSize: 11, fontWeight: '800', color: c.textMuted, letterSpacing: 0.5 },
-  category: { color: BRAND, fontWeight: '700', fontSize: 11, marginLeft: 4 },
-  priceCol: { alignItems: 'flex-end' },
+  idPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: dark ? c.border : '#F4F6F8', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, flexShrink: 1, marginRight: 10 },
+  idPillText: { fontSize: 11, fontWeight: '800', color: c.textMuted, letterSpacing: 0.5, flexShrink: 0 },
+  category: { color: BRAND, fontWeight: '700', fontSize: 11, marginLeft: 4, flexShrink: 1 },
+  priceCol: { alignItems: 'flex-end', flexShrink: 0, maxWidth: '60%' },
   priceWrap: { flexDirection: 'row', alignItems: 'baseline' },
   bonusPill: { marginTop: 3, backgroundColor: '#00A86B', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
   bonusPillText: { color: '#fff', fontSize: 11, fontWeight: '800' },
   bonusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
-  bonusChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.cardAlt, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 },
-  bonusTxt: { color: BRAND, fontSize: 12, fontWeight: '800' },
+  bonusChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.cardAlt, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, maxWidth: '100%' },
+  bonusTxt: { color: BRAND, fontSize: 12, fontWeight: '800', flexShrink: 1 },
   priceLead: { color: BRAND, fontSize: 14, fontWeight: '800', marginRight: 1 },
   priceText: { color: BRAND, fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
 
@@ -376,14 +376,14 @@ const makeStyles = (c, dark) => StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   acceptBtn: {
-    flex: 1, height: 48, borderRadius: 14,
+    flex: 1, height: 48, borderRadius: 14, paddingHorizontal: 10,
     backgroundColor: BRAND,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     shadowColor: BRAND, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
-  acceptBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: -0.2 },
+  acceptBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: -0.2, flexShrink: 1 },
 
   // Details link
   detailsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 10, marginTop: 2 },
-  detailsLinkText: { color: dark ? c.textMuted : '#8E8E93', fontSize: 13, fontWeight: '600' },
+  detailsLinkText: { color: dark ? c.textMuted : '#8E8E93', fontSize: 13, fontWeight: '600', flexShrink: 1 },
 });

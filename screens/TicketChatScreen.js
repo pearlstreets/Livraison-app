@@ -190,13 +190,13 @@ export default function TicketChatScreen({ navigation, route }) {
           <Ionicons name={dirIcon('arrow-back')} size={24} color="#fff" />
         </Pressable>
         <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={s.headerTitle}>{t('ticketSupport')}</Text>
-          {ticketId ? <Text style={s.headerSub}>{t('ticketTitle')} #{ticketId}</Text> : null}
+          <Text style={s.headerTitle} numberOfLines={1}>{t('ticketSupport')}</Text>
+          {ticketId ? <Text style={s.headerSub} numberOfLines={1}>{t('ticketTitle')} #{ticketId}</Text> : null}
         </View>
         {isResolvedState ? (
           <>
-            <Ionicons name="checkmark-circle" size={16} color="#7fff7f" style={{ marginRight: 4 }} />
-            <Text style={s.statusText}>{t('resolved')}</Text>
+            <Ionicons name="checkmark-circle" size={16} color="#7fff7f" style={{ marginLeft: 8, marginRight: 4 }} />
+            <Text style={s.statusText} numberOfLines={1}>{t('resolved')}</Text>
           </>
         ) : null}
       </View>
@@ -247,7 +247,7 @@ const makeStyles = (c) => StyleSheet.create({
   header: { backgroundColor: BRAND, paddingHorizontal: 16, paddingBottom: 14, flexDirection: 'row', alignItems: 'center' },
   headerTitle: { color: '#fff', fontWeight: '800', fontSize: 17 },
   headerSub: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 1 },
-  statusText: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600' },
+  statusText: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600', maxWidth: '35%' },
 
   messagesList: { padding: 16, paddingBottom: 16, flexGrow: 1, justifyContent: 'flex-end' },
 
@@ -274,7 +274,7 @@ const makeStyles = (c) => StyleSheet.create({
   sendBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
 
   closedBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingTop: 14, backgroundColor: c.dark ? c.border : '#f0f0f0', borderTopWidth: 1, borderTopColor: c.dark ? c.borderStrong : '#e0e0e0' },
-  closedText: { color: c.textFaint, fontSize: 14, fontWeight: '700' },
+  closedText: { color: c.textFaint, fontSize: 14, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
 });
 
 // Feuilles de style par thème (clair, sombre), créées une seule fois chacune.

@@ -356,7 +356,7 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
       <Pressable onPress={quitter} hitSlop={10}>
         <Ionicons name={dirIcon('arrow-back')} size={22} color={colors.text} />
       </Pressable>
-      <Text style={s.headerTitle}>{t('idvTitre')}</Text>
+      <Text style={s.headerTitle} numberOfLines={1}>{t('idvTitre')}</Text>
       <View style={{ width: 22 }} />
     </View>
   );
@@ -579,7 +579,7 @@ const makeStyles = (dark, c) => {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg), paddingHorizontal: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 8 },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: k('#111', c.text) },
+  headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 16, fontWeight: '800', color: k('#111', c.text) },
 
   card: { backgroundColor: k('#fff', c.card), borderRadius: 12, padding: 16, marginBottom: 10 },
   cardTitle: { fontSize: 14, fontWeight: '800', color: k('#111', c.text), marginBottom: 6 },
@@ -590,13 +590,13 @@ const makeStyles = (dark, c) => {
   iconeRond: { alignSelf: 'center', width: 64, height: 64, borderRadius: 32, backgroundColor: BRAND + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
 
   cadreVisage: { alignSelf: 'center', width: 150, height: 190, borderRadius: 95, borderWidth: 3, borderColor: BRAND, borderStyle: 'dashed', backgroundColor: k('#fafafa', c.bg), alignItems: 'center', justifyContent: 'center', marginVertical: 6 },
-  pastilleDuree: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', backgroundColor: k('#f0f0f0', c.borderStrong), borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8 },
-  pastilleDureeTxt: { fontSize: 13, fontWeight: '700', color: k('#555', c.textSoft) },
+  pastilleDuree: { alignSelf: 'center', maxWidth: '100%', flexDirection: 'row', alignItems: 'center', backgroundColor: k('#f0f0f0', c.borderStrong), borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8 },
+  pastilleDureeTxt: { flexShrink: 1, fontSize: 13, fontWeight: '700', color: k('#555', c.textSoft) },
   conseilLigne: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   conseilTxt: { flex: 1, fontSize: 14, color: k('#333', c.textSoft), lineHeight: 20 },
 
   chrono: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  chronoTxt: { fontSize: 14, fontWeight: '700', color: k('#555', c.textSoft), textAlign: 'center' },
+  chronoTxt: { flexShrink: 1, fontSize: 14, fontWeight: '700', color: k('#555', c.textSoft), textAlign: 'center' },
 
   centre: { alignItems: 'center', paddingTop: 32 },
   grandTitre: { fontSize: 18, fontWeight: '800', color: k('#111', c.text), textAlign: 'center', marginTop: 12, marginBottom: 8 },
@@ -606,7 +606,7 @@ const makeStyles = (dark, c) => {
   compteur: { fontSize: 11, color: k('#999', c.textFaint), textAlign: 'right', marginTop: 4, marginBottom: 10 },
 
   btnVert: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: VERT, borderRadius: 12, paddingVertical: 14, marginBottom: 10 },
-  btnVertTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  btnVertTxt: { flexShrink: 1, textAlign: 'center', color: '#fff', fontWeight: '800', fontSize: 15 },
   btnSecondaire: { alignItems: 'center', justifyContent: 'center', backgroundColor: k('#fff', c.card), borderRadius: 12, paddingVertical: 13, marginBottom: 10, borderWidth: 1, borderColor: k('#e0e0e0', c.borderStrong) },
   btnSecondaireTxt: { color: k('#333', c.textSoft), fontWeight: '700', fontSize: 14 },
   });

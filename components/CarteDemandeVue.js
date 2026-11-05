@@ -173,7 +173,7 @@ export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPr
 
       {/* Earnings badge */}
       <Pressable style={[s.earningsBadge, { top: insets.top + 12 }]} onPress={() => setGainsOuvert(true)} hitSlop={8} accessibilityRole="button">
-        <Text style={s.earningsText}>{earningsDisplay}</Text>
+        <Text style={s.earningsText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{earningsDisplay}</Text>
       </Pressable>
       <GainsPopup visible={gainsOuvert} onClose={() => setGainsOuvert(false)} navigation={navigation} />
 
@@ -193,7 +193,7 @@ export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPr
       {/* État En ligne / Hors ligne en haut à droite (la barre noire du bas est retirée). */}
       <Pressable style={[s.statusPill, { top: insets.top + 10 }]} onPress={onStatusPress} disabled={!onStatusPress} hitSlop={8}>
         <View style={[s.statusDot, !isOnline && { backgroundColor: '#999' }]} />
-        <Text style={s.statusText}>{isOnline ? (t('online') || 'En ligne') : (t('offline') || 'Hors ligne')}</Text>
+        <Text style={s.statusText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{isOnline ? (t('online') || 'En ligne') : (t('offline') || 'Hors ligne')}</Text>
       </Pressable>
 
       {/* Legend */}
@@ -223,7 +223,8 @@ const s = StyleSheet.create({
 
   homeBtn: { position: 'absolute', left: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(30,30,30,0.85)', alignItems: 'center', justifyContent: 'center' },
 
-  earningsBadge: { position: 'absolute', alignSelf: 'center', backgroundColor: 'rgba(30,30,30,0.9)', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
+  // Largeurs maximales du badge (32 %) et de la pastille d'état (28 %) : sur 375 pt, ni l'un ni l'autre ne peut toucher son voisin.
+  earningsBadge: { position: 'absolute', alignSelf: 'center', maxWidth: '32%', backgroundColor: 'rgba(30,30,30,0.9)', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
   earningsText: { color: '#fff', fontWeight: '900', fontSize: 18 },
 
   basCol: { position: 'absolute', left: 0, right: 0 },
@@ -231,15 +232,15 @@ const s = StyleSheet.create({
   basContenu: { marginTop: 12, paddingHorizontal: 16, gap: 10 },
   controlBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(30,30,30,0.85)', alignItems: 'center', justifyContent: 'center' },
 
-  statusPill: { position: 'absolute', right: 16, height: 44, borderRadius: 22, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(30,30,30,0.85)' },
+  statusPill: { position: 'absolute', right: 16, maxWidth: '28%', height: 44, borderRadius: 22, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(30,30,30,0.85)' },
   statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginRight: 8 },
-  statusText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  statusText: { flexShrink: 1, color: '#fff', fontWeight: '700', fontSize: 15 },
 
   noMap: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
   noMapTxt: { marginTop: 12, color: '#9ca3af', fontSize: 15, fontWeight: '600', textAlign: 'center' },
 
-  legend: { position: 'absolute', right: 16, backgroundColor: 'rgba(30,30,30,0.85)', borderRadius: 12, padding: 10, gap: 6 },
+  legend: { position: 'absolute', right: 16, maxWidth: '50%', backgroundColor: 'rgba(30,30,30,0.85)', borderRadius: 12, padding: 10, gap: 6 },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { color: '#ccc', fontSize: 12, fontWeight: '600' },
+  legendText: { flexShrink: 1, color: '#ccc', fontSize: 12, fontWeight: '600' },
 });

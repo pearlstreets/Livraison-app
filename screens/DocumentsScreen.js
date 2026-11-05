@@ -84,7 +84,7 @@ export default function DocumentsScreen({ navigation }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('documentsTitle')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{t('documentsTitle')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -131,9 +131,9 @@ const makeStyles = (dark, c) => {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg) },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: k('#111', c.text) },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: k('#111', c.text), flex: 1, textAlign: 'center', marginHorizontal: 8 },
   verifiedBadge: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 8, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14 },
-  verifiedText: { fontWeight: '700', fontSize: 14 },
+  verifiedText: { fontWeight: '700', fontSize: 14, flexShrink: 1 },
   subtitle: { color: k('#888', c.textFaint), fontSize: 14, paddingHorizontal: 16, marginBottom: 16 },
   docRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: k('#fff', c.card), paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: k('#f0f0f0', c.border) },
   docLabel: { fontWeight: '700', fontSize: 15, color: k('#111', c.text) },

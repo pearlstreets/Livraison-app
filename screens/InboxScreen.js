@@ -125,7 +125,7 @@ export default function InboxScreen() {
             <Pressable onPress={() => setSelectedNotif(null)}>
               <Ionicons name="close" size={28} color={colors.text} />
             </Pressable>
-            <Text style={s.modalHeaderTitle}>{t('message')}</Text>
+            <Text style={s.modalHeaderTitle} numberOfLines={1}>{t('message')}</Text>
             <View style={{ width: 28 }} />
           </View>
 
@@ -172,7 +172,7 @@ const makeStyles = (c) => StyleSheet.create({
 
   modalContainer: { flex: 1, backgroundColor: c.card },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: c.dark ? c.border : '#f0f0f0' },
-  modalHeaderTitle: { fontSize: 17, fontWeight: '800', color: c.text },
+  modalHeaderTitle: { fontSize: 17, fontWeight: '800', color: c.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
   modalContent: { padding: 24, alignItems: 'center' },
   modalIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 22, fontWeight: '900', color: c.text, textAlign: 'center', marginBottom: 8 },

@@ -66,14 +66,14 @@ export default function WalletScreen({ navigation }) {
           <Pressable onPress={() => navigation.goBack()}>
             <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
           </Pressable>
-          <Text style={s.headerTitle}>{t('wallet')}</Text>
+          <Text style={s.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('wallet')}</Text>
           <View style={{ width: 24 }} />
         </View>
 
         <View style={s.balanceCard}>
           <Text style={s.balanceLabel}>{t('balance')}</Text>
           <View style={s.balanceRow}>
-            <Text style={s.balanceAmount}>{fmtPrice((earn.earningsCents || 0) / 100)}</Text>
+            <Text style={s.balanceAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{fmtPrice((earn.earningsCents || 0) / 100)}</Text>
             <Ionicons name={dirIcon('chevron-forward')} size={22} color="#999" />
           </View>
           <Text style={s.nextPayout}>{nextPayoutText(wallet, t, fmtPrice)}</Text>
@@ -96,10 +96,10 @@ export default function WalletScreen({ navigation }) {
             <Pressable key={v.id ?? i} style={[s.versementRow, i < showVersements.length - 1 && s.versementBorder]} onPress={() => navigation.navigate('VersementDetail', { versement: v })}>
               <Ionicons name="calendar-outline" size={22} color={colors.dark ? colors.textMuted : '#666'} style={{ marginRight: 12 }} />
               <View style={{ flex: 1 }}>
-                <Text style={s.versementLabel}>{payoutTypeLabel(v, t)}</Text>
+                <Text style={s.versementLabel} numberOfLines={2}>{payoutTypeLabel(v, t)}</Text>
                 <View style={s.versementDateRow}>
-                  <Text style={s.versementAmount}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
-                  <Text style={s.versementDate}>{payoutDateLabel(v, t)} · {payoutStatusLabel(v.status, t)}</Text>
+                  <Text style={s.versementAmount} numberOfLines={1}>{v.amountEur != null ? fmtPrice(v.amountEur) : v.amount}</Text>
+                  <Text style={s.versementDate} numberOfLines={2}>{payoutDateLabel(v, t)} · {payoutStatusLabel(v.status, t)}</Text>
                 </View>
               </View>
               <Ionicons name={dirIcon('chevron-forward')} size={16} color={colors.chevron} style={{ marginLeft: 8 }} />
@@ -123,12 +123,12 @@ export default function WalletScreen({ navigation }) {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.pmIbanLabel}>{t('currentBankAccount')}</Text>
-              <Text style={s.pmIbanValue}>{currentIban}</Text>
+              <Text style={s.pmIbanValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{currentIban}</Text>
             </View>
           </View>
           <Pressable style={s.pmEditBtn} onPress={() => navigation.navigate('EditIban')}>
             <Ionicons name="create-outline" size={16} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={s.pmEditTxt}>{t('changeBankAccount')}</Text>
+            <Text style={s.pmEditTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('changeBankAccount')}</Text>
           </Pressable>
         </View>
 
@@ -137,7 +137,7 @@ export default function WalletScreen({ navigation }) {
           onPress={handleStripeConnect}
         >
           <Ionicons name="card-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={s.stripeBtnTxt}>{t('setupPayments')}</Text>
+          <Text style={s.stripeBtnTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('setupPayments')}</Text>
         </Pressable>
 
         <Pressable style={s.helpRow} onPress={() => navigation.navigate('Help')}>
@@ -161,11 +161,11 @@ const makeStyles = (c) => {
   const p = (clair, sombre) => (c.dark ? sombre : clair);
   return StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 18, fontWeight: '800', color: c.text },
   balanceCard: { backgroundColor: BRAND, borderRadius: 20, padding: 20, marginHorizontal: 16, marginBottom: 24 },
   balanceLabel: { color: '#fff', fontSize: 13, fontWeight: '600' },
   balanceRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  balanceAmount: { color: '#fff', fontSize: 36, fontWeight: '900', marginVertical: 4 },
+  balanceAmount: { color: '#fff', fontSize: 36, fontWeight: '900', marginVertical: 4, flexShrink: 1, marginRight: 8 },
   nextPayout: { color: '#fff', fontSize: 13, marginBottom: 12 },
   encaissBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: 20, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start' },
   encaissTxt: { fontWeight: '700', fontSize: 14, color: BRAND },
@@ -179,21 +179,21 @@ const makeStyles = (c) => {
   versementBorder: { borderBottomWidth: 1, borderBottomColor: p('#f0f0f0', c.border) },
   versementLabel: { fontWeight: '700', fontSize: 15, color: c.text },
   versementDateRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
-  versementDate: { color: p('#888', c.textMuted), fontSize: 13 },
-  versementAmount: { fontWeight: '800', fontSize: 16, color: c.text },
+  versementDate: { color: p('#888', c.textMuted), fontSize: 13, flexShrink: 1, textAlign: 'right' },
+  versementAmount: { fontWeight: '800', fontSize: 16, color: c.text, flexShrink: 0, marginRight: 10 },
   paymentMethodCard: { backgroundColor: c.card, marginHorizontal: 16, borderRadius: 16, padding: 16, marginBottom: 12 },
   pmHeaderRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  pmTitle: { fontWeight: '700', fontSize: 15, color: c.text },
+  pmTitle: { fontWeight: '700', fontSize: 15, color: c.text, flexShrink: 1 },
   pmIbanRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: p('#f8f8f8', c.border), borderRadius: 12, padding: 12, marginBottom: 12 },
   pmIbanIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: c.cardAlt, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   pmIbanLabel: { fontSize: 12, color: p('#888', c.textMuted), fontWeight: '600' },
   pmIbanValue: { fontSize: 15, fontWeight: '800', color: c.text, marginTop: 2, letterSpacing: 0.5 },
-  pmEditBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, paddingVertical: 12 },
-  pmEditTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
-  stripeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#6772e5', borderRadius: 12, marginHorizontal: 16, marginBottom: 12, paddingVertical: 14 },
-  stripeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  pmEditBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 12 },
+  pmEditTxt: { color: '#fff', fontWeight: '800', fontSize: 14, flexShrink: 1 },
+  stripeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#6772e5', borderRadius: 12, marginHorizontal: 16, marginBottom: 12, paddingVertical: 14, paddingHorizontal: 12 },
+  stripeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14, flexShrink: 1 },
   helpRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, marginHorizontal: 16, borderRadius: 16, padding: 16 },
-  helpText: { fontWeight: '700', fontSize: 15, color: c.text, flex: 1 },
+  helpText: { fontWeight: '700', fontSize: 15, color: c.text, flex: 1, marginRight: 8 },
 
   // Popup encaissement
   overlay: { flex: 1, backgroundColor: p('rgba(0,0,0,0.5)', c.overlay), justifyContent: 'flex-end' },

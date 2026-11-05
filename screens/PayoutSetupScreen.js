@@ -119,7 +119,7 @@ export default function PayoutSetupScreen({ navigation }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('payoutSetupTitle')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{t('payoutSetupTitle')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -186,7 +186,7 @@ const makeStyles = (c) => {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: p('#fff', c.bg) },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, backgroundColor: p('#fff', c.card), borderBottomWidth: 1, borderBottomColor: p('#f0f0f0', c.border) },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: c.text },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: c.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
   body: { padding: 20, paddingBottom: 20 },
   info: { fontSize: 13, color: c.textMuted, marginBottom: 18, lineHeight: 19 },
   okCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.cardAlt, borderRadius: 10, padding: 12, marginBottom: 14 },

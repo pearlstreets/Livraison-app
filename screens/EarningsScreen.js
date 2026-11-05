@@ -74,7 +74,7 @@ export default function EarningsScreen({ navigation }) {
 
         <View style={s.balanceCard}>
           <Text style={s.balanceLabel}>{t('currentBalance')}</Text>
-          <Text style={s.balanceAmount}>{earn.earnings}</Text>
+          <Text style={s.balanceAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{earn.earnings}</Text>
           <Text style={s.cashoutLimit}>{nextPayoutText(wallet, t, fmtPrice)}</Text>
           <Pressable style={[s.encaissBtn, (earn.earningsCents <= 0 || blocked) && { opacity: 0.4 }]} onPress={startEncaiss}>
             <Ionicons name="flash" size={16} color={BRAND} />
@@ -104,9 +104,9 @@ export default function EarningsScreen({ navigation }) {
 
         {semaines.map((week, i) => (
           <Pressable key={week?.start || i} style={s.weekRow} onPress={() => navigation.navigate('WeekDetail', { weekIndex: i })}>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, marginRight: 8 }}>
               <Text style={s.weekRange}>{formatRange(week.start, week.end) || week.range}</Text>
-              <Text style={s.weekTotal}>{fmtPrice(week.total)}</Text>
+              <Text style={s.weekTotal} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{fmtPrice(week.total)}</Text>
             </View>
             <MiniChart bars={week.bars} s={s} />
           </Pressable>
@@ -128,7 +128,7 @@ const makeStyles = (c) => {
   balanceLabel: { color: '#fff', fontSize: 13, fontWeight: '600' },
   balanceAmount: { color: '#fff', fontSize: 36, fontWeight: '900', marginVertical: 6 },
   encaissBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: 20, paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'flex-start', marginTop: 4 },
-  encaissTxt: { fontWeight: '700', fontSize: 14, color: BRAND },
+  encaissTxt: { fontWeight: '700', fontSize: 14, color: BRAND, flexShrink: 1 },
   cashoutLimit: { color: '#fff', fontSize: 12, marginTop: 8, fontWeight: '600' },
   releveRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, marginBottom: 24, padding: 14 },
   releveIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: c.cardAlt, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
@@ -136,8 +136,8 @@ const makeStyles = (c) => {
   releveDesc: { fontSize: 13, color: p('#888', c.textMuted), marginTop: 2 },
   sectionHeader: { fontSize: 22, fontWeight: '900', color: c.text, paddingHorizontal: 16, marginBottom: 12 },
   tableHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.borderStrong, backgroundColor: c.card },
-  tableHeaderLeft: { fontSize: 13, fontWeight: '600', color: p('#666', c.textMuted) },
-  tableHeaderRight: { fontSize: 13, fontWeight: '600', color: p('#666', c.textMuted) },
+  tableHeaderLeft: { fontSize: 13, fontWeight: '600', color: p('#666', c.textMuted), flexShrink: 1 },
+  tableHeaderRight: { fontSize: 13, fontWeight: '600', color: p('#666', c.textMuted), marginLeft: 12, flexShrink: 0 },
   weekRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, backgroundColor: c.card, borderBottomWidth: 1, borderBottomColor: p('#f0f0f0', c.border) },
   weekRange: { fontSize: 14, color: p('#666', c.textMuted), marginBottom: 4 },
   weekTotal: { fontSize: 20, fontWeight: '900', color: c.text },
