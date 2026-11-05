@@ -71,6 +71,10 @@ function SlideButton({ label, onComplete, color: couleur = BRAND, disabled = fal
   // Glissière verrouillée (preuve de retrait manquante) : geste ignoré.
   const disabledRef = useRef(disabled);
   disabledRef.current = disabled;
+  // Action relue à chaque rendu : le geste, créé une seule fois, appelait la
+  // première version (photo du ticket encore absente) et ne faisait rien.
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
   // En arabe, la piste est inversée par la mise en page, mais ni le geste ni
   // la translation : on les retourne pour glisser de droite à gauche.
   const translateX = useRef(isRTL ? Animated.multiply(pan, -1) : pan).current;
@@ -98,7 +102,7 @@ function SlideButton({ label, onComplete, color: couleur = BRAND, disabled = fal
         if ((isRTL ? -gs.dx : gs.dx) > maxSlide * 0.7) {
           completed.current = true;
           Animated.timing(pan, { toValue: maxSlide, duration: 150, useNativeDriver: false }).start(() => {
-            onComplete?.();
+            onCompleteRef.current?.();
             setTimeout(() => { completed.current = false; pan.setValue(0); }, 300);
           });
         } else {
