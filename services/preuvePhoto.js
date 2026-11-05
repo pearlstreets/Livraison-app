@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import { requireOptionalNativeModule } from 'expo';
 import api from './api';
 
 // Preuves photo d'une course (ticket au retrait, sac posé devant la porte).
@@ -47,6 +48,81 @@ export async function prendrePhoto() {
     // galerie indisponible aussi
   }
   return { indisponible: true };
+}
+
+// Appareil photo intégré (expo-camera + expo-image-manipulator, 05/11/2026).
+// Les binaires 1.0.5 à 1.0.7 n'embarquent PAS ces modules natifs et reçoivent
+// pourtant les mises à jour à distance : leurs fichiers JS appellent
+// requireNativeModule dès leur chargement, ce qui planterait. On sonde donc
+// d'abord les modules natifs (requireOptionalNativeModule rend null sans rien
+// lever), et on ne charge les modules JS qu'ensuite, par un require différé.
+// Module absent : chemin d'origine, prendrePhoto (expo-image-picker).
+let modulesCamera; // undefined : pas encore sondé ; null : indisponible
+function chargerModulesCamera() {
+  if (modulesCamera !== undefined) return modulesCamera;
+  modulesCamera = null;
+  try {
+    if (requireOptionalNativeModule('ExpoCamera') && requireOptionalNativeModule('ExpoImageManipulator')) {
+      const camera = require('expo-camera');
+      const manip = require('expo-image-manipulator');
+      if (camera?.CameraView && manip?.manipulateAsync) modulesCamera = { camera, manip };
+    }
+  } catch {
+    modulesCamera = null;
+  }
+  return modulesCamera;
+}
+
+// Composant CameraView, ou null si le binaire ne l'a pas.
+export function composantCamera() {
+  return chargerModulesCamera()?.camera.CameraView || null;
+}
+
+// Préchargement à l'étape de retrait : modules chargés et autorisation lue
+// (sans la demander), pour que l'appareil s'ouvre sans attente.
+let autorisationConnue = false;
+export function prechargerCamera() {
+  const m = chargerModulesCamera();
+  if (!m || autorisationConnue) return;
+  m.camera.Camera.getCameraPermissionsAsync()
+    .then((p) => { autorisationConnue = !!p?.granted; })
+    .catch(() => {});
+}
+
+// true si l'appareil intégré peut s'ouvrir (module présent et caméra
+// autorisée, demandée au besoin). false : passer par prendrePhoto.
+export async function cameraIntegreePrete() {
+  const m = chargerModulesCamera();
+  if (!m) return false;
+  if (autorisationConnue) return true;
+  try {
+    let p = await m.camera.Camera.getCameraPermissionsAsync();
+    if (!p?.granted && p?.canAskAgain !== false) p = await m.camera.Camera.requestCameraPermissionsAsync();
+    autorisationConnue = !!p?.granted;
+    return autorisationConnue;
+  } catch {
+    return false;
+  }
+}
+
+// Photo allégée : côté le plus long ramené à 1280 px, JPEG compressé à 0.5,
+// sans EXIF (le réencodage les retire). Environ 100 à 200 Ko. En cas d'échec,
+// la photo d'origine est gardée : le livreur n'est jamais bloqué.
+const COTE_MAX = 1280;
+export async function allegerPhoto(photo) {
+  const uri = photo?.uri;
+  const m = chargerModulesCamera();
+  if (!uri || !m) return uri || null;
+  try {
+    const w = photo.width || 0;
+    const h = photo.height || 0;
+    const actions = [];
+    if (Math.max(w, h) > COTE_MAX || !w || !h) actions.push({ resize: w >= h ? { width: COTE_MAX } : { height: COTE_MAX } });
+    const res = await m.manip.manipulateAsync(uri, actions, { compress: 0.5, format: m.manip.SaveFormat.JPEG });
+    return res?.uri || uri;
+  } catch {
+    return uri;
+  }
 }
 
 async function envoyerUneFois(assignmentId, kind, uri) {

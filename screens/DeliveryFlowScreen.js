@@ -14,7 +14,8 @@ import { sanitizeInput, createRateLimiter } from '../utils/validation';
 import { deliveryService } from '../services/deliveryService';
 import { ticketService } from '../services/ticketService';
 import { etasConnues, surEtas } from '../services/positionLivreur';
-import { prendrePhoto, preparerCamera, envoyerPreuve, renvoyerPreuvesEnAttente } from '../services/preuvePhoto';
+import { prendrePhoto, preparerCamera, envoyerPreuve, renvoyerPreuvesEnAttente, cameraIntegreePrete, prechargerCamera } from '../services/preuvePhoto';
+import AppareilPhotoIntegre from '../components/AppareilPhotoIntegre';
 import { lienApplePlansVers } from '../lib/carteDemande';
 import { cleCourse, enregistrerEtape, lireEtape } from '../services/etapesCourses';
 
@@ -417,6 +418,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const [preuveManquante, setPreuveManquante] = useState(false);
   const [ticketEnvoi, setTicketEnvoi] = useState(null); // 'envoi' | 'envoyee' | 'en_attente' | 'refusee'
   const [depotBusy, setDepotBusy] = useState(false);
+  // Appareil photo intégré : consigne affichée (null = fermé).
+  const [cameraConsigne, setCameraConsigne] = useState(null);
+  const resolveurCamera = useRef(null);
   const step = STEPS[stepIndex];
 
   const restaurant = order.restaurant || order.merchantName || t('restaurant');
@@ -696,17 +700,35 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       });
   }, [assignmentId, absentBusy, absentNote, absentPolicy, nextStep, t]);
 
-  // Ouvre la caméra (repli galerie dans prendrePhoto). Renvoie l'URI, null
-  // si annulé, 'indisponible' si aucune photo n'a pu être obtenue.
+  // Fermeture de l'appareil intégré : rend la photo (URI), null si fermé,
+  // { erreur: true } si la caméra n'a pas pu démarrer.
+  const finirCamera = useCallback((res) => {
+    const resoudre = resolveurCamera.current;
+    resolveurCamera.current = null;
+    setCameraConsigne(null);
+    if (resoudre) resoudre(res);
+  }, []);
+
+  // Ouvre la caméra : appareil intégré si le binaire l'a et que la caméra est
+  // autorisée, sinon appareil du système (repli galerie dans prendrePhoto).
+  // Renvoie l'URI, null si annulé, 'indisponible' si aucune photo n'a pu être obtenue.
   // Un seul appui compte : le bouton montre aussitôt que la caméra s'ouvre,
   // un 2e appui pendant l'ouverture est ignoré.
   const [cameraOuverture, setCameraOuverture] = useState(false);
   const cameraOccupee = useRef(false);
-  const ouvrirCamera = useCallback(async () => {
+  const ouvrirCamera = useCallback(async (consigne) => {
     if (cameraOccupee.current) return null;
     cameraOccupee.current = true;
     setCameraOuverture(true);
     try {
+      if (await cameraIntegreePrete()) {
+        const photo = await new Promise((resolve) => {
+          resolveurCamera.current = resolve;
+          setCameraConsigne(consigne || '');
+        });
+        if (!(photo && photo.erreur)) return typeof photo === 'string' ? photo : null;
+        // Caméra intégrée en panne : appareil du système.
+      }
       const res = await prendrePhoto();
       if (res && res.indisponible) return 'indisponible';
       return typeof res === 'string' ? res : null;
@@ -721,7 +743,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   // Accès caméra préparé dès l'étape de retrait (et l'arrivée chez le client),
   // pour que la caméra s'ouvre sans attente au moment de la photo.
   useEffect(() => {
-    if (step === 'pickup' || step === 'arrived') preparerCamera().catch(() => {});
+    if (step === 'pickup' || step === 'arrived') { prechargerCamera(); preparerCamera().catch(() => {}); }
   }, [step]);
 
   // Preuves gardées sur le téléphone lors d'une course précédente : renvoi.
@@ -732,7 +754,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   // Photo du ticket au retrait. Débloque aussitôt la glissière ; l'envoi part
   // en arrière-plan (course d'essai : aucun envoi).
   const photographierTicket = useCallback(async () => {
-    const uri = await ouvrirCamera();
+    const uri = await ouvrirCamera(t('ticketPhotoHint'));
     if (!uri) return;
     // Aucune photo possible : le livreur n'est jamais bloqué.
     if (uri === 'indisponible') { setPreuveManquante(true); return; }
@@ -741,13 +763,13 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     setTicketEnvoi('envoi');
     const etat = await envoyerPreuve(assignmentId, 'pickup', uri);
     setTicketEnvoi(etat);
-  }, [ouvrirCamera, assignmentId]);
+  }, [ouvrirCamera, assignmentId, t]);
 
   // Fin de l'attente, client absent : sac posé devant la porte, photo, puis
   // remise sans code (dépôt en lieu sûr, revalidé par le serveur).
   const depotDevantPorte = useCallback(async () => {
     if (depotBusy) return;
-    const uri = await ouvrirCamera();
+    const uri = await ouvrirCamera(t('bagDoorHint'));
     if (!uri) return;
     // Aucune photo possible : le chemin par code reste.
     if (uri === 'indisponible') { Alert.alert(t('bagDoorFailedTitle'), t('bagDoorRefused')); return; }
@@ -1355,6 +1377,14 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           </Animated.View>
         </Pressable>
       )}
+
+      {/* Appareil photo intégré des preuves (absent d'un ancien binaire : rien n'est rendu). */}
+      <AppareilPhotoIntegre
+        visible={cameraConsigne !== null}
+        consigne={cameraConsigne}
+        onPhoto={finirCamera}
+        onFermer={(info) => finirCamera(info && info.erreur ? { erreur: true } : null)}
+      />
 
       {/* Problème code modal */}
       <Modal visible={showCodeProblem} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCodeProblem(false)}>

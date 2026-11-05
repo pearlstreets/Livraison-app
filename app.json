@@ -5,6 +5,7 @@
     "scheme": "pearldelivery",
     "version": "1.0.7",
     "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash.png",
@@ -83,6 +84,14 @@
           "isIosBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true,
           "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "La caméra est utilisée pour la preuve de livraison.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
         }
       ],
       "./plugins/withFmtConstevalFix",
