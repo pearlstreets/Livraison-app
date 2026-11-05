@@ -13,7 +13,7 @@ const BRAND = '#FF6A13';
 export default function OpportunitiesScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { readOpportunities, markOpportunityRead } = useAuth();
+  const { readOpportunities, markOpportunityRead, setOpportunityIds } = useAuth();
   const [promos, setPromos] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -23,6 +23,8 @@ export default function OpportunitiesScreen({ navigation }) {
       try {
         const r = await deliveryService.getOpportunities();
         const list = (r && (r.data || r.results)) || [];
+        // Le badge du menu suit exactement cette liste.
+        if (alive) setOpportunityIds(list.map((o) => String(o.id)));
         if (alive) setPromos(list.map((o) => ({
           id: String(o.id),
           title: o.title || '',

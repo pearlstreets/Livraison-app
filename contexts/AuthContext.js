@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { Alert } from 'react-native';
 import { useLanguage } from './LanguageContext';
 import { isValidEmail } from '../utils/validation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import secureStorage from '../services/secureStorage';
 import { authService } from '../services/authService';
 import { deliveryService } from '../services/deliveryService';
@@ -13,6 +14,10 @@ import { estDocumentsRequis, signalerDocumentsRequis } from '../services/documen
 import { formatDayMonth, formatTime, formatKm } from '../lib/i18nFormat';
 
 const AuthContext = createContext(null);
+
+const CLE_OPPORTUNITES_LUES = 'pearl_opportunites_lues';
+// Notifications déjà ouvertes (le serveur n'a pas d'état « lu »), voir InboxScreen.
+export const CLE_NOTIFICATIONS_LUES = 'pearl_notifications_lues';
 
 // Backend list endpoints answer with several shapes ({results}, {data}, raw array).
 function extractList(resp) {
@@ -64,12 +69,19 @@ function adaptEarningsWeek(rec) {
     start,
     end: rec.period_end || '',
     range: start && rec.period_end ? `${fmtDate(start)} - ${fmtDate(rec.period_end)}` : start,
-    total: Number(rec.net_amount ?? rec.gross_amount ?? 0),
-    // Vraies barres par jour (lun→dim) fournies par le backend (daily_breakdown).
+    // Total versé (net_amount du serveur) : il comprend déjà pourboires et
+    // bonus, après commission et cotisations URSSAF.
+    total: Number(rec.net_amount ?? 0),
+    // Total brut (courses + pourboires + bonus), avant retenues.
+    gross: Number(rec.gross_amount ?? 0),
+    // Vraies barres par jour (lun à dim) fournies par le backend (daily_breakdown),
+    // en brut : courses + pourboires + bonus du jour.
     bars: Array.isArray(rec.daily_breakdown) && rec.daily_breakdown.length === 7
       ? rec.daily_breakdown.map((v) => Number(v) || 0)
       : [0, 0, 0, 0, 0, 0, 0],
-    net: Number(rec.net_amount ?? 0),
+    // Part des courses seules : total moins pourboires et bonus, pour que
+    // Prix net + Pourboire + Bonus = Total.
+    net: Math.max(0, Math.round((Number(rec.net_amount ?? 0) - Number(rec.tips_amount ?? 0) - (Number(rec.bonus_amount ?? 0) || 0)) * 100) / 100),
     tips: Number(rec.tips_amount ?? 0),
     // Bonus de demande versés (déjà compris dans le total).
     bonus: Number(rec.bonus_amount ?? 0) || 0,
@@ -170,6 +182,9 @@ export function AuthProvider({ children }) {
   const [rating, setRating] = useState(0);
   const [totalDeliveries, setTotalDeliveries] = useState(0);
   const [weeklyCancels, setWeeklyCancels] = useState(0);
+  // Plafond d'annulations de la semaine donné par le serveur (null tant qu'il
+  // n'est pas connu : l'écran se replie alors sur MAX_WEEKLY_CANCELS).
+  const [maxWeeklyCancels, setMaxWeeklyCancels] = useState(null);
   const [isOnline, setIsOnlineState] = useState(false);
   // Vrai pendant qu'une livraison est en cours (écran DeliveryFlow monté).
   // Force le tracking GPS même si le livreur s'est mis hors-ligne, sinon le
@@ -186,8 +201,27 @@ export function AuthProvider({ children }) {
   const [versements, setVersements] = useState([]);
   const [ratingsSummary, setRatingsSummary] = useState(null);
   const [openTicketCount, setOpenTicketCount] = useState(0);
-  const [opportunitiesCount, setOpportunitiesCount] = useState(0);
+  // Identifiants des opportunités actives renvoyées par le serveur : le badge
+  // compte exactement celles de la liste, jamais une valeur par défaut.
+  const [opportunityIds, setOpportunityIds] = useState([]);
   const [readOpportunities, setReadOpportunities] = useState([]);
+  const lusChargesRef = useRef(false);
+
+  // Opportunités déjà ouvertes : gardées sur le téléphone pour que le badge
+  // ne revienne pas à chaque lancement de l'app.
+  useEffect(() => {
+    AsyncStorage.getItem(CLE_OPPORTUNITES_LUES)
+      .then((v) => {
+        const lus = v ? JSON.parse(v) : [];
+        if (Array.isArray(lus)) setReadOpportunities((prev) => Array.from(new Set([...lus.map(String), ...prev])));
+      })
+      .catch(() => {})
+      .finally(() => { lusChargesRef.current = true; });
+  }, []);
+  useEffect(() => {
+    if (!lusChargesRef.current) return;
+    AsyncStorage.setItem(CLE_OPPORTUNITES_LUES, JSON.stringify(readOpportunities)).catch(() => {});
+  }, [readOpportunities]);
   const [ticketMessages, setTicketMessages] = useState({});
   const [ticketReadCounts, setTicketReadCounts] = useState({});
   const MAX_WEEKLY_CANCELS = 5;
@@ -225,10 +259,11 @@ export function AuthProvider({ children }) {
         instant: b?.instant ? {
           available: !!b.instant.available,
           reason: b.instant.reason || '',
-          feeEur: Number(b.instant.fee ?? 0.99),
-          minBalanceEur: Number(b.instant.min_balance ?? 1.99),
-          maxPerDay: Number(b.instant.max_per_day ?? 3),
-          remainingToday: Number(b.instant.remaining_today ?? 0),
+          // Valeurs du serveur seulement : null si absentes (ligne masquée).
+          feeEur: b.instant.fee != null ? Number(b.instant.fee) : null,
+          minBalanceEur: b.instant.min_balance != null ? Number(b.instant.min_balance) : null,
+          maxPerDay: b.instant.max_per_day != null ? Number(b.instant.max_per_day) : null,
+          remainingToday: b.instant.remaining_today != null ? Number(b.instant.remaining_today) : null,
           youReceiveEur: Number(b.instant.you_receive ?? 0),
         } : null,
       });
@@ -256,6 +291,7 @@ export function AuthProvider({ children }) {
       if (typeof s.warnings_count === 'number') setWarnings(s.warnings_count);
       if (typeof s.account_active === 'boolean') setAccountActive(s.account_active);
       if (typeof s.cancellations_this_week === 'number') setWeeklyCancels(s.cancellations_this_week);
+      if (typeof s.max_weekly_cancels === 'number') setMaxWeeklyCancels(s.max_weekly_cancels);
     } catch (e) { /* keep last known */ }
   }, []);
 
@@ -287,7 +323,7 @@ export function AuthProvider({ children }) {
     // Compte réel d'opportunités actives (pour le badge, au lieu d'un 4 en dur).
     try {
       const r = await deliveryService.getOpportunities();
-      setOpportunitiesCount(extractList(r).length);
+      setOpportunityIds(extractList(r).map((o) => String(o.id)));
     } catch (e) { /* keep last known */ }
   }, []);
 
@@ -374,36 +410,48 @@ export function AuthProvider({ children }) {
     }
   }, [applyProfile, refreshAll]);
 
-  const logout = useCallback(async () => {
-    try { await authService.logout(); } catch (e) { /* clear locally regardless */ }
+  // Remet à zéro tout l'état du compte (déconnexion, suppression) : aucun
+  // chiffre du compte précédent ne reste affiché au compte suivant.
+  const viderEtatCompte = useCallback(() => {
     setUser(null);
     setWeeklyEarnings([]);
     setVersements([]);
     setDeliveryHistory([]);
     setWarningsList([]);
     setCurrentEarningsCents(0);
+    setWallet(null);
     setWarnings(0);
+    setAccountActive(true);
     setRating(0);
     setTotalDeliveries(0);
+    setWeeklyCancels(0);
+    setMaxWeeklyCancels(null);
+    setRatingsSummary(null);
+    setOpenTicketCount(0);
+    setOpportunityIds([]);
+    setReadOpportunities([]);
+    AsyncStorage.removeItem(CLE_OPPORTUNITES_LUES).catch(() => {});
+    AsyncStorage.removeItem(CLE_NOTIFICATIONS_LUES).catch(() => {});
+    setTicketMessages({});
+    setTicketReadCounts({});
+    setCurrentIban('');
+    ibanRef.current = '';
+    setActiveDelivery(false);
     setIsOnlineState(false);
   }, []);
+
+  const logout = useCallback(async () => {
+    try { await authService.logout(); } catch (e) { /* clear locally regardless */ }
+    viderEtatCompte();
+  }, [viderEtatCompte]);
 
   // Suppression de compte (Apple 5.1.1(v)). Relaie l'erreur si l'appel serveur
   // échoue (l'appelant garde l'utilisateur connecté + affiche l'erreur) ; en cas
   // de succès, purge la session comme un logout → retour à l'écran de connexion.
   const deleteAccount = useCallback(async () => {
     await authService.deleteAccount();
-    setUser(null);
-    setWeeklyEarnings([]);
-    setVersements([]);
-    setDeliveryHistory([]);
-    setWarningsList([]);
-    setCurrentEarningsCents(0);
-    setWarnings(0);
-    setRating(0);
-    setTotalDeliveries(0);
-    setIsOnlineState(false);
-  }, []);
+    viderEtatCompte();
+  }, [viderEtatCompte]);
 
   // Attend la réponse du serveur : le changement n'est appliqué en local qu'en
   // cas de succès. En cas de refus (409 pendant une course, 403 compte en
@@ -494,7 +542,14 @@ export function AuthProvider({ children }) {
       const r = await earningsService.requestCashout();
       res = { ok: true, code: r?.code || 'instantane', amountEur: Number(r?.data?.amount ?? 0) };
     } catch (e) {
-      res = { ok: false, code: e?.code || (e?.isNetworkError ? 'reseau' : 'erreur') };
+      // Limite et minimum réels du refus (429 limite_jour, minimum), si fournis.
+      const d = e?.serverData || {};
+      res = {
+        ok: false,
+        code: e?.code || (e?.isNetworkError ? 'reseau' : 'erreur'),
+        max: d.max_per_day != null ? Number(d.max_per_day) : null,
+        min: d.min_balance != null ? Number(d.min_balance) : null,
+      };
     }
     await refreshEarnings();
     return res;
@@ -507,31 +562,25 @@ export function AuthProvider({ children }) {
   }, [refreshHistory, refreshEarnings]);
 
   // --- account standing (warnings) -------------------------------------
-  // reasonKey : clé de traduction du motif, affichée dans la langue courante.
-  function addWarning(reasonKey) {
-    const now = new Date();
-    setWarningsList((prev) => [{
-      id: `W-${Date.now()}`,
-      reasonKey: typeof reasonKey === 'string' ? reasonKey : 'warnTooManyCancels',
-      date: formatDayMonth(now, { year: true }),
-      time: formatTime(now),
-      createdAt: now.toISOString(),
-    }, ...prev]);
-    setWarnings((prev) => {
-      const next = prev + 1;
-      if (next >= 3) setAccountActive(false);
-      return next;
-    });
-  }
+  // Les avertissements viennent seulement du serveur (refreshWarnings) : aucun
+  // avertissement n'est créé sur le téléphone.
 
+  // Repli hors connexion seulement : compte l'annulation en local, sans
+  // avertissement (le serveur tranchera au prochain rafraîchissement).
   function cancelOrder() {
+    const plafond = maxWeeklyCancels ?? MAX_WEEKLY_CANCELS;
     const newCount = weeklyCancels + 1;
     setWeeklyCancels(newCount);
-    if (newCount > MAX_WEEKLY_CANCELS) {
-      addWarning('warnCancelLimitExceeded');
-      return { warning: true, remaining: 0 };
-    }
-    return { warning: false, remaining: MAX_WEEKLY_CANCELS - newCount };
+    return { warning: false, remaining: Math.max(0, plafond - newCount) };
+  }
+
+  // Résultat réel du serveur après une annulation acceptée.
+  function applyCancelResult(resp) {
+    if (!resp || typeof resp !== 'object') return;
+    if (typeof resp.weekly_cancels === 'number') setWeeklyCancels(resp.weekly_cancels);
+    if (typeof resp.max_weekly_cancels === 'number') setMaxWeeklyCancels(resp.max_weekly_cancels);
+    if (typeof resp.warnings_count === 'number') setWarnings(resp.warnings_count);
+    if (typeof resp.account_active === 'boolean') setAccountActive(resp.account_active);
   }
 
   function reactivateAccount() {
@@ -569,23 +618,23 @@ export function AuthProvider({ children }) {
     setReadOpportunities((prev) => (prev.includes(id) ? prev : [...prev, id]));
   }
 
-  function getUnreadOpportunitiesCount(total) {
-    // Utilise le vrai nombre d'opportunités si connu, sinon le total passé.
-    const n = opportunitiesCount || total || 0;
-    return Math.max(0, n - readOpportunities.length);
+  function getUnreadOpportunitiesCount() {
+    // Opportunités actives (serveur) pas encore ouvertes : 0 si la liste est vide.
+    return opportunityIds.filter((id) => !readOpportunities.includes(id)).length;
   }
 
   return (
     <AuthContext.Provider value={{
       bootstrapping, user, login, register, logout, deleteAccount, updateUser, updateDocument,
       warnings, accountActive, rating, totalDeliveries,
-      addWarning, cancelOrder, weeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount,
+      cancelOrder, applyCancelResult, weeklyCancels, maxWeeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount,
       deliveryHistory, addToHistory, markOrderReported, refreshAll,
+      refreshEarnings, refreshTickets, refreshOpportunities,
       getTicketMessages, saveTicketMessages, markTicketRead, getUnreadTicketCount,
       ticketMessages, ticketReadCounts,
       currentEarningsCents, wallet, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban,
-      isOnline, setIsOnline, activeDelivery, setActiveDelivery, warningsList, ratingsSummary, refreshRatings,
-      readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount,
+      isOnline, setIsOnline, setIsOnlineState, activeDelivery, setActiveDelivery, warningsList, ratingsSummary, refreshRatings,
+      readOpportunities, markOpportunityRead, getUnreadOpportunitiesCount, setOpportunityIds,
     }}>
       {children}
     </AuthContext.Provider>

@@ -212,7 +212,7 @@ function Main() {
   // (so the customer never loses the live pin if the driver toggles offline
   // mid-course).
   useLocationTracking(isOnline || activeDelivery);
-  const totalProfileNotifs = getUnreadTicketCount() + getUnreadOpportunitiesCount(4);
+  const totalProfileNotifs = getUnreadTicketCount() + getUnreadOpportunitiesCount();
   const { t } = useLanguage();
 
   useEffect(() => {
