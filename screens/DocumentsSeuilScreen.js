@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Alert, ActivityIndicator, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { uploadService } from '../services/uploadService';
 import {
   chargerDocumentsSeuil, donneesConnues, ecouter, envoyerDocumentSeuil, texteBlocage,
@@ -60,6 +61,8 @@ function choisir(titre, message, options) {
 export default function DocumentsSeuilScreen({ navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
+  const { dark, colors } = useTheme();
+  const s = useMemo(() => makeStyles(dark, colors), [dark, colors]);
   // Pièces du livreur (identité, RIB, domicile) : captures bloquées.
   useSecureScreen('DocumentsSeuil');
 
@@ -88,7 +91,9 @@ export default function DocumentsSeuilScreen({ navigation }) {
 
   const charger = useCallback(async () => {
     setEchecChargement(false);
-    const d = await chargerDocumentsSeuil();
+    // Une exception du service ne doit pas laisser la roue tourner sans fin.
+    let d = null;
+    try { d = await chargerDocumentsSeuil(); } catch (e) { d = null; }
     if (!monte.current) return;
     if (d) setDonnees(d);
     else if (!donneesConnues()) setEchecChargement(true);
@@ -235,8 +240,8 @@ export default function DocumentsSeuilScreen({ navigation }) {
 
         {montrerRaison && (
           <View style={s.raison}>
-            {motif && <Text style={s.raisonTexte}>{motif}</Text>}
-            {commentaire && <Text style={[s.raisonTexte, motif && { marginTop: 4 }]}>{commentaire}</Text>}
+            {!!motif && <Text style={s.raisonTexte}>{motif}</Text>}
+            {!!commentaire && <Text style={[s.raisonTexte, !!motif && { marginTop: 4 }]}>{commentaire}</Text>}
           </View>
         )}
 
@@ -283,14 +288,14 @@ export default function DocumentsSeuilScreen({ navigation }) {
     );
   }
 
-  const documents = donnees?.documents || [];
+  const documents = Array.isArray(donnees?.documents) ? donnees.documents.filter((d) => d && d.cle) : [];
 
   return (
     <>
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
-          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
         <Text style={s.headerTitle}>{t('docsSeuilTitre')}</Text>
         <View style={{ width: 24 }} />
@@ -300,7 +305,7 @@ export default function DocumentsSeuilScreen({ navigation }) {
         <ActivityIndicator color={BRAND} style={{ marginTop: 40 }} />
       ) : echecChargement && !donnees ? (
         <View style={s.vide}>
-          <Ionicons name="cloud-offline-outline" size={40} color="#bbb" />
+          <Ionicons name="cloud-offline-outline" size={40} color={dark ? colors.textFaint : '#bbb'} />
           <Text style={s.videTexte}>{t('docsSeuilEchecChargement')}</Text>
           <Pressable style={[s.bouton, { alignSelf: 'stretch', marginHorizontal: 16 }]} onPress={() => { setChargement(true); charger(); }}>
             <Text style={s.boutonTexte}>{t('retry')}</Text>
@@ -309,7 +314,7 @@ export default function DocumentsSeuilScreen({ navigation }) {
       ) : (
         <>
           <View style={[s.intro, etat === 'bloque' && s.introBloque]}>
-            <Text style={[s.introTexte, etat === 'bloque' && { color: '#B42318' }]}>{phraseHaut()}</Text>
+            <Text style={[s.introTexte, etat === 'bloque' && { color: dark ? '#ff8a80' : '#B42318' }]}>{phraseHaut()}</Text>
           </View>
           {!mineur && documents.map(carte)}
         </>
@@ -320,29 +325,33 @@ export default function DocumentsSeuilScreen({ navigation }) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+// Styles selon le mode : en clair, valeurs d'origine à l'identique.
+const makeStyles = (dark, c) => {
+  const k = (clair, sombre) => (dark ? sombre : clair);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg) },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111', flex: 1, textAlign: 'center', marginHorizontal: 8 },
-  intro: { backgroundColor: '#FFF1E8', borderRadius: 14, marginHorizontal: 16, padding: 14, marginBottom: 12 },
-  introBloque: { backgroundColor: '#FDECEC' },
-  introTexte: { fontSize: 14, color: '#7C2D12', lineHeight: 20 },
-  carte: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, padding: 16, marginBottom: 12 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: k('#111', c.text), flex: 1, textAlign: 'center', marginHorizontal: 8 },
+  intro: { backgroundColor: k('#FFF1E8', c.cardAlt), borderRadius: 14, marginHorizontal: 16, padding: 14, marginBottom: 12 },
+  introBloque: { backgroundColor: k('#FDECEC', '#3a1d1d') },
+  introTexte: { fontSize: 14, color: k('#7C2D12', '#FDBA8C'), lineHeight: 20 },
+  carte: { backgroundColor: k('#fff', c.card), borderRadius: 16, marginHorizontal: 16, padding: 16, marginBottom: 12 },
   ligneHaut: { flexDirection: 'row', alignItems: 'center' },
-  nom: { flex: 1, fontSize: 15, fontWeight: '700', color: '#111' },
+  nom: { flex: 1, fontSize: 15, fontWeight: '700', color: k('#111', c.text) },
   pastille: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginStart: 8 },
   pastilleTexte: { fontSize: 12, fontWeight: '700' },
-  raison: { backgroundColor: '#FDECEC', borderRadius: 10, padding: 10, marginTop: 12 },
-  raisonTexte: { fontSize: 13, color: '#B42318', lineHeight: 18 },
-  info: { fontSize: 13, color: '#666', marginTop: 10 },
+  raison: { backgroundColor: k('#FDECEC', '#3a1d1d'), borderRadius: 10, padding: 10, marginTop: 12 },
+  raisonTexte: { fontSize: 13, color: k('#B42318', '#ff8a80'), lineHeight: 18 },
+  info: { fontSize: 13, color: k('#666', c.textMuted), marginTop: 10 },
   apercus: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  apercu: { width: 72, height: 72, borderRadius: 10, backgroundColor: '#eee', borderWidth: 1, borderColor: '#E6E8EB' },
-  erreur: { fontSize: 13, color: '#B42318', marginTop: 10 },
+  apercu: { width: 72, height: 72, borderRadius: 10, backgroundColor: k('#eee', c.borderStrong), borderWidth: 1, borderColor: k('#E6E8EB', c.border) },
+  erreur: { fontSize: 13, color: k('#B42318', '#ff8a80'), marginTop: 10 },
   bouton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, paddingVertical: 13, marginTop: 14 },
   boutonEnCours: { opacity: 0.6 },
   boutonTexte: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  boutonSecondaire: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 12, paddingVertical: 13, marginTop: 14, borderWidth: 1, borderColor: '#E6E8EB' },
-  boutonSecondaireTexte: { color: '#111', fontWeight: '700', fontSize: 15 },
+  boutonSecondaire: { alignItems: 'center', justifyContent: 'center', backgroundColor: k('#fff', c.card), borderRadius: 12, paddingVertical: 13, marginTop: 14, borderWidth: 1, borderColor: k('#E6E8EB', c.borderStrong) },
+  boutonSecondaireTexte: { color: k('#111', c.text), fontWeight: '700', fontSize: 15 },
   vide: { alignItems: 'center', marginTop: 40, gap: 12 },
-  videTexte: { fontSize: 14, color: '#666', textAlign: 'center', paddingHorizontal: 24 },
-});
+  videTexte: { fontSize: 14, color: k('#666', c.textMuted), textAlign: 'center', paddingHorizontal: 24 },
+  });
+};

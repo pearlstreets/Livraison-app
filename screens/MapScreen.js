@@ -1,7 +1,8 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable, Linking, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { mapsAvailable } from '../lib/maps';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -26,6 +27,9 @@ const ECART_MAX_M = 60;
 export default function MapScreen({ route, navigation }) {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
+  const { colors, dark } = useTheme();
+  // Couleurs du thème : en mode clair, valeurs identiques à l'écran d'origine.
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const order = route?.params?.order || {};
   const pLat = num(order.pickupLat ?? order.pickup_lat);
   const pLng = num(order.pickupLng ?? order.pickup_lng);
@@ -162,6 +166,8 @@ export default function MapScreen({ route, navigation }) {
           initialRegion={{ ...center, latitudeDelta: 0.08, longitudeDelta: 0.08 }}
           showsUserLocation
           showsMyLocationButton={false}
+          // Mode sombre : fond de carte sombre (iOS). Mode clair : réglage d'origine.
+          userInterfaceStyle={dark ? 'dark' : undefined}
         >
           {hasPickup && (
             <Marker coordinate={{ latitude: pLat, longitude: pLng }} title={order.shopName || order.restaurant || t('pickup')} pinColor={BRAND} />
@@ -175,13 +181,13 @@ export default function MapScreen({ route, navigation }) {
         </MapView>
       ) : (
         <View style={[StyleSheet.absoluteFillObject, styles.noMap]}>
-          <Ionicons name="map-outline" size={48} color="#b0b7bf" />
+          <Ionicons name="map-outline" size={48} color={dark ? colors.textFaint : '#b0b7bf'} />
           <Text style={styles.noMapTxt}>{t('mapUnavailable')}</Text>
         </View>
       )}
 
       <Pressable onPress={() => navigation?.goBack?.()} style={[styles.back, { top: (insets?.top || 0) + 8 }]}>
-        <Ionicons name={dirIcon('arrow-back')} size={22} color="#111" />
+        <Ionicons name={dirIcon('arrow-back')} size={22} color={colors.text} />
       </Pressable>
 
       <View style={[styles.card, { paddingBottom: (insets?.bottom || 0) + 12 }]}>
@@ -219,18 +225,18 @@ export default function MapScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  back: { position: 'absolute', left: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6, elevation: 4, zIndex: 1000 },
-  card: { position: 'absolute', left: 12, right: 12, bottom: 12, backgroundColor: '#fff', borderRadius: 18, padding: 14, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
+const makeStyles = (c, dark) => StyleSheet.create({
+  back: { position: 'absolute', left: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6, elevation: 4, zIndex: 1000 },
+  card: { position: 'absolute', left: 12, right: 12, bottom: 12, backgroundColor: c.card, borderRadius: 18, padding: 14, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12, elevation: 8 },
   shopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  shop: { fontSize: 16, fontWeight: '800', color: '#111', flexShrink: 1 },
+  shop: { fontSize: 16, fontWeight: '800', color: c.text, flexShrink: 1 },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
-  addr: { color: '#333', flexShrink: 1 },
-  noCoords: { color: '#888', fontStyle: 'italic', marginBottom: 8 },
+  addr: { color: dark ? c.textSoft : '#333', flexShrink: 1 },
+  noCoords: { color: dark ? c.textMuted : '#888', fontStyle: 'italic', marginBottom: 8 },
   btns: { flexDirection: 'row', gap: 10, marginTop: 8 },
   btn: { flex: 1, height: 44, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   btnTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  noMap: { backgroundColor: '#eef1f4', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 220 },
-  noMapTxt: { marginTop: 12, color: '#6b7280', fontSize: 15, fontWeight: '600', textAlign: 'center' },
+  noMap: { backgroundColor: dark ? c.bg : '#eef1f4', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 220 },
+  noMapTxt: { marginTop: 12, color: c.textMuted, fontSize: 15, fontWeight: '600', textAlign: 'center' },
 });

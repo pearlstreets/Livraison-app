@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
@@ -8,6 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
 import { payoutDateLabel, payoutStatusLabel, payoutTypeLabel } from '../lib/payouts';
 import useSecureScreen from '../hooks/useSecureScreen';
+import { useTheme } from '../contexts/ThemeContext';
 
 const BRAND = '#FF6A13';
 
@@ -15,17 +16,19 @@ export default function VersementDetailScreen({ navigation, route }) {
   const { t } = useLanguage();
   const { currentIban } = useAuth();
   const { fmtPrice } = useCurrency();
+  const { colors } = useTheme();
+  const s = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   // IBAN du versement.
   useSecureScreen('VersementDetail');
-  const v = route.params?.versement || {};
+  const v = route?.params?.versement || {};
   const isExceptionnel = v.label === 'Versement exceptionnel';
 
   return (
     <View style={s.container}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
         <Text style={s.headerTitle}>{t('payoutDetail') || 'Détail du versement'}</Text>
         <View style={{ width: 24 }} />
@@ -34,7 +37,7 @@ export default function VersementDetailScreen({ navigation, route }) {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Type + montant */}
         <View style={s.topCard}>
-          <View style={[s.iconCircle, isExceptionnel && { backgroundColor: '#fff3e0' }]}>
+          <View style={[s.iconCircle, isExceptionnel && { backgroundColor: colors.dark ? colors.cardAlt : '#fff3e0' }]}>
             <Ionicons name={isExceptionnel ? 'flash' : 'calendar-outline'} size={28} color={isExceptionnel ? '#f5a623' : BRAND} />
           </View>
           <Text style={s.typeLabel}>{payoutTypeLabel(v, t)}</Text>
@@ -118,28 +121,32 @@ export default function VersementDetailScreen({ navigation, route }) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+// Couleurs : en clair, valeurs d'origine à l'identique ; en sombre, celles du thème.
+const makeStyles = (c) => {
+  const p = (clair, sombre) => (c.dark ? sombre : clair);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
 
-  topCard: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, padding: 20, alignItems: 'center', marginBottom: 12 },
-  iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  typeLabel: { fontSize: 15, fontWeight: '700', color: '#555', marginBottom: 4 },
-  amount: { fontSize: 32, fontWeight: '900', color: '#111', marginBottom: 6 },
+  topCard: { backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, padding: 20, alignItems: 'center', marginBottom: 12 },
+  iconCircle: { width: 56, height: 56, borderRadius: 28, backgroundColor: c.cardAlt, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  typeLabel: { fontSize: 15, fontWeight: '700', color: p('#555', c.textSoft), marginBottom: 4 },
+  amount: { fontSize: 32, fontWeight: '900', color: c.text, marginBottom: 6 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   statusTxt: { fontSize: 14, fontWeight: '700', color: BRAND },
-  noteTxt: { fontSize: 13, color: '#666', textAlign: 'center', marginTop: 8, paddingHorizontal: 16, lineHeight: 18 },
+  noteTxt: { fontSize: 13, color: p('#666', c.textMuted), textAlign: 'center', marginTop: 8, paddingHorizontal: 16, lineHeight: 18 },
 
-  detailCard: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, padding: 16 },
-  detailCardTitle: { fontSize: 16, fontWeight: '800', color: '#111', marginBottom: 12 },
+  detailCard: { backgroundColor: c.card, borderRadius: 16, marginHorizontal: 16, padding: 16 },
+  detailCardTitle: { fontSize: 16, fontWeight: '800', color: c.text, marginBottom: 12 },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-  detailLabel: { fontSize: 14, color: '#888' },
-  detailValue: { fontSize: 14, fontWeight: '700', color: '#111' },
-  note: { fontSize: 12, color: '#888', lineHeight: 17, marginTop: 2, marginBottom: 4 },
-  divider: { height: 1, backgroundColor: '#f0f0f0', marginVertical: 6 },
+  detailLabel: { fontSize: 14, color: p('#888', c.textMuted) },
+  detailValue: { fontSize: 14, fontWeight: '700', color: c.text },
+  note: { fontSize: 12, color: p('#888', c.textMuted), lineHeight: 17, marginTop: 2, marginBottom: 4 },
+  divider: { height: 1, backgroundColor: p('#f0f0f0', c.border), marginVertical: 6 },
 
   bottomWrap: { paddingTop: 6, paddingHorizontal: 16 },
   closeBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 14 },
   closeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
-});
+  });
+};

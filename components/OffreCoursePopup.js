@@ -35,7 +35,7 @@ export default function OffreCoursePopup({ order, onAccept, onDecline, onOpen, o
 
   return (
     <Modal visible={!!order} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={[s.fond, { paddingBottom: insets.bottom + 84 }]} onPress={onClose}>
+      <Pressable style={[s.fond, { paddingBottom: insets.bottom + 24 }]} onPress={onClose}>
         <Pressable onPress={() => {}}>
           {order ? (
             <OrderCard

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView, BackHandler, Linking, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ecranDeplie, largeurMoitie } from '../utils/deuxEcrans';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { isValidEmail, sanitizeInput, isStrongPassword } from '../utils/validation';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -137,6 +138,9 @@ export default function LoginScreen() {
   // l'edge-to-edge devient obligatoire). On lit donc l'inset reel, comme le
   // reste du projet (cf. VehicleScreen).
   const insets = useSafeAreaInsets();
+  const { dark, colors } = useTheme();
+  const s = useMemo(() => makeS(dark, colors), [dark, colors]);
+  const p = useMemo(() => makeP(dark, colors), [dark, colors]);
   // Mot de passe, pièces d'identité, permis et justificatif IBAN de l'inscription.
   useSecureScreen('Login');
   const { t, lang, setLang, LANGUAGES } = useLanguage();
@@ -324,6 +328,8 @@ export default function LoginScreen() {
   // Photos (selfie, ID card) use the image library; paperwork (KBIS, RIB,
   // proof of address, RC Pro, URSSAF) also accepts a PDF via the file picker.
   const pickDocument = async (setter, allowPdf = false) => {
+    // Erreur du sélecteur : message au lieu d'une promesse rejetée sans suite.
+    try {
     if (allowPdf) {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['image/*', 'application/pdf'],
@@ -339,6 +345,9 @@ export default function LoginScreen() {
     if (!result.canceled && result.assets?.length > 0) {
       const asset = result.assets[0];
       setter({ uri: asset.uri, size: asset.fileSize ?? null, type: asset.mimeType ?? 'image/jpeg' });
+    }
+    } catch {
+      Alert.alert(t('docUploadError') || "Impossible d'ajouter le document. Veuillez réessayer.");
     }
   };
 
@@ -411,7 +420,9 @@ export default function LoginScreen() {
     if (!loginPassword.trim()) { setError(t('errorNoPassword') || 'Veuillez saisir votre mot de passe'); return; }
     if (loading) return;
     setLoading(true);
-    const result = await login(loginEmail.trim(), loginPassword);
+    // Exception imprévue : traitée comme une coupure réseau, le bouton ne reste jamais bloqué.
+    let result;
+    try { result = await login(loginEmail.trim(), loginPassword); } catch { result = { network: true }; }
     setLoading(false);
     if (result && result.ok) { termineRef.current = true; effacerBrouillonConnexion(); return; } // AuthContext sets the user -> navigation happens
     if (result && result.pending) { setPendingValidation(true); return; }
@@ -580,7 +591,9 @@ export default function LoginScreen() {
         setLoading(false); setError(t('errorNetwork') || t('genericError')); return;
       }
     }
-    const result = await register({
+    let result;
+    // Exception imprévue : le chargement s'arrête et l'erreur s'affiche.
+    try { result = await register({
       email: email.trim(), password, nom: nom.trim(), prenom: prenom.trim(), pseudo: pseudo.trim(),
       phone: phone.trim(), phoneCode: selectedPhoneCountry.phoneCode, country, companyName: companyName.trim(),
       legal_status: legalStatus,
@@ -590,7 +603,7 @@ export default function LoginScreen() {
       iban: ibanPropre, iban_holder_name: legalStatus === 'societe' ? companyName.trim() : `${prenom.trim()} ${nom.trim()}`,
       account_token: accountToken,
       vehicle_type: vehicle, role: isPro ? 'professionaluser' : 'user', documents: docUrls,
-    });
+    }); } catch { result = null; }
     setLoading(false);
     if (result && result.ok) { termineRef.current = true; effacerBrouillonConnexion(); setPendingValidation(true); return; }
     setError((result && result.error) || t('genericError'));
@@ -599,19 +612,19 @@ export default function LoginScreen() {
   // Pending validation page
   if (pendingValidation) {
     return (
-      <SafeAreaView style={{flex:1, backgroundColor:'#fff'}}>
+      <SafeAreaView style={{flex:1, backgroundColor: dark ? colors.bg : '#fff'}}>
         <ScrollView contentContainerStyle={{flexGrow:1, justifyContent:'center', paddingHorizontal:32}}>
           <View style={{alignItems:'center'}}>
-            <View style={{width:80, height:80, borderRadius:40, backgroundColor:'#FEF3C7', alignItems:'center', justifyContent:'center', marginBottom:24}}>
+            <View style={{width:80, height:80, borderRadius:40, backgroundColor: dark ? '#3a2e14' : '#FEF3C7', alignItems:'center', justifyContent:'center', marginBottom:24}}>
               <Ionicons name="time-outline" size={40} color="#F59E0B" />
             </View>
-            <Text style={{fontSize:24, fontWeight:'900', color:'#111', textAlign:'center', marginBottom:12}}>
+            <Text style={{fontSize:24, fontWeight:'900', color: dark ? colors.text : '#111', textAlign:'center', marginBottom:12}}>
               {t('pendingTitle') || 'En attente de validation'}
             </Text>
-            <Text style={{fontSize:15, color:'#6B7280', textAlign:'center', lineHeight:22, marginBottom:24}}>
+            <Text style={{fontSize:15, color: dark ? colors.textMuted : '#6B7280', textAlign:'center', lineHeight:22, marginBottom:24}}>
               {t('pendingMsg') || 'Vos documents sont en cours de vérification. Vous recevrez un email une fois approuvé.'}
             </Text>
-            <View style={{backgroundColor:'#F9FAFB', borderRadius:12, padding:16, width:'100%', marginBottom:24}}>
+            <View style={{backgroundColor: dark ? colors.card : '#F9FAFB', borderRadius:12, padding:16, width:'100%', marginBottom:24}}>
               {[
                 { icon: 'mail-outline', text: t('pendingEmail') || 'Un email de confirmation vous sera envoyé' },
                 { icon: 'shield-checkmark-outline', text: t('pendingReview') || 'Vérification sous 24-48h ouvrées' },
@@ -619,7 +632,7 @@ export default function LoginScreen() {
               ].map((item, i) => (
                 <View key={i} style={{flexDirection:'row', alignItems:'center', marginBottom: i < 2 ? 12 : 0}}>
                   <Ionicons name={item.icon} size={20} color={BRAND} style={{marginRight:10}} />
-                  <Text style={{fontSize:14, color:'#374151'}}>{item.text}</Text>
+                  <Text style={{fontSize:14, color: dark ? colors.textSoft : '#374151'}}>{item.text}</Text>
                 </View>
               ))}
             </View>
@@ -636,9 +649,9 @@ export default function LoginScreen() {
   const isSignup = mode === 'signup' || mode === 'choose';
 
   const errorBox = error ? (
-    <View style={{backgroundColor:'#FEE2E2', borderRadius:10, padding:12, marginBottom:16, flexDirection:'row', alignItems:'center'}}>
+    <View style={{backgroundColor: dark ? '#3a1d1d' : '#FEE2E2', borderRadius:10, padding:12, marginBottom:16, flexDirection:'row', alignItems:'center'}}>
       <Ionicons name="alert-circle" size={18} color="#EF4444" />
-      <Text style={{color:'#EF4444', fontSize:13, marginLeft:8, flex:1}}>{error}</Text>
+      <Text style={{color: dark ? '#ff8a80' : '#EF4444', fontSize:13, marginLeft:8, flex:1}}>{error}</Text>
     </View>
   ) : null;
   // Titre de section de la page 2 (icône + libellé, filet au-dessus).
@@ -656,12 +669,12 @@ export default function LoginScreen() {
   const largeurFeuille = ecranDeplie() ? { width: largeurMoitie(), alignSelf:'center' } : null;
 
   return (
-    <KeyboardAvoidingView style={{flex:1, backgroundColor:'#fff'}} behavior="padding">
+    <KeyboardAvoidingView style={{flex:1, backgroundColor: dark ? colors.bg : '#fff'}} behavior="padding">
       <SafeAreaView style={{flex:1}}>
         {/* Back arrow */}
         {(mode !== 'login') && (
           <TouchableOpacity onPress={handleBack} style={{paddingHorizontal:16, paddingTop: insets.top + 12}}>
-            <Ionicons name={dirIcon('arrow-back')} size={26} color="#111" />
+            <Ionicons name={dirIcon('arrow-back')} size={26} color={dark ? colors.text : '#111'} />
           </TouchableOpacity>
         )}
 
@@ -672,7 +685,7 @@ export default function LoginScreen() {
             <View style={[s.logoTuile, s.logoTuilePetite]}>
               <Image source={LOGO} style={s.logoImg} />
             </View>
-            <Text style={{fontSize:22, fontWeight:'900', color:'#111', marginTop:10}}>Pearl Delivery</Text>
+            <Text style={{fontSize:22, fontWeight:'900', color: dark ? colors.text : '#111', marginTop:10}}>Pearl Delivery</Text>
           </View>
         )}
 
@@ -680,7 +693,7 @@ export default function LoginScreen() {
 
           {/* Step title on form pages */}
           {mode === 'signup' && isPro !== null && (
-            <Text style={{fontSize:18, fontWeight:'800', color:'#111', marginBottom:16}}>
+            <Text style={{fontSize:18, fontWeight:'800', color: dark ? colors.text : '#111', marginBottom:16}}>
               {step === 1 ? (t('stepEmail') || 'Identifiants') : (t('stepInfo') || 'Informations')}
             </Text>
           )}
@@ -696,19 +709,19 @@ export default function LoginScreen() {
                 <View style={s.logoTuile}>
                   <Image source={LOGO} style={s.logoImg} />
                 </View>
-                <Text style={{fontSize:28, fontWeight:'900', color:'#111', marginTop:16}}>Pearl Delivery</Text>
-                <Text style={{fontSize:15, color:'#6B7280', marginTop:4}}>{t('loginTitle')}</Text>
+                <Text style={{fontSize:28, fontWeight:'900', color: dark ? colors.text : '#111', marginTop:16}}>Pearl Delivery</Text>
+                <Text style={{fontSize:15, color: dark ? colors.textMuted : '#6B7280', marginTop:4}}>{t('loginTitle')}</Text>
               </View>
               {errorBox}
               <Text style={s.label}>{t('emailLabel')}</Text>
               <View style={s.champ}>
                 <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
-                <TextInput style={s.champInput} value={loginEmail} onChangeText={setLoginEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <TextInput style={s.champInput} value={loginEmail} onChangeText={setLoginEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
               </View>
               <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
               <View style={s.champ}>
                 <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
-                <TextInput style={s.champInput} value={loginPassword} onChangeText={setLoginPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <TextInput style={s.champInput} value={loginPassword} onChangeText={setLoginPassword} placeholder="••••••••" placeholderTextColor={dark ? colors.textFaint : '#aaa'} secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
                 <Pressable onPress={() => setShowPwd(v => !v)} hitSlop={10} style={{padding:4}}>
                   <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#9CA3AF" />
                 </Pressable>
@@ -720,7 +733,7 @@ export default function LoginScreen() {
                 <Text style={{color:BRAND, fontSize:15, fontWeight:'700'}}>{t('forgotPasswordLink')}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => { setMode('choose'); setIsPro(null); setStep(1); setError(''); }} style={{alignItems:'center', paddingVertical:20}}>
-                <Text style={{color:'#6B7280', fontSize:15}}>
+                <Text style={{color: dark ? colors.textMuted : '#6B7280', fontSize:15}}>
                   {t('noAccount') || 'Pas de compte ?'} <Text style={{color:BRAND, fontWeight:'800'}}>{t('signUp') || "S'inscrire"}</Text>
                 </Text>
               </TouchableOpacity>
@@ -730,8 +743,8 @@ export default function LoginScreen() {
           {/* === MOT DE PASSE OUBLIÉ === */}
           {mode === 'forgot' && (
             <>
-              <Text style={{fontSize:22, fontWeight:'900', color:'#111', marginBottom:8}}>{t('forgotTitle')}</Text>
-              <Text style={{fontSize:15, color:'#6B7280', marginBottom:20, lineHeight:21}}>
+              <Text style={{fontSize:22, fontWeight:'900', color: dark ? colors.text : '#111', marginBottom:8}}>{t('forgotTitle')}</Text>
+              <Text style={{fontSize:15, color: dark ? colors.textMuted : '#6B7280', marginBottom:20, lineHeight:21}}>
                 {forgotStep === 1 ? t('forgotIntro') : forgotInfo}
               </Text>
               {errorBox}
@@ -740,7 +753,7 @@ export default function LoginScreen() {
                   <Text style={s.label}>{t('emailLabel')}</Text>
                   <View style={s.champ}>
                     <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
-                    <TextInput style={s.champInput} value={forgotEmail} onChangeText={setForgotEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                    <TextInput style={s.champInput} value={forgotEmail} onChangeText={setForgotEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
                   </View>
                   <Pressable style={s.btn} onPress={envoyerCodeOublie} disabled={loading}>
                     {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{t('forgotSendCode')}</Text>}
@@ -751,12 +764,12 @@ export default function LoginScreen() {
                   <Text style={s.label}>{t('forgotCodeLabel')}</Text>
                   <View style={s.champ}>
                     <Ionicons name="keypad-outline" size={20} color="#9CA3AF" />
-                    <TextInput style={s.champInput} value={forgotCode} onChangeText={(v) => setForgotCode(v.replace(/\D/g, '').slice(0, 6))} placeholder="123456" placeholderTextColor="#aaa" keyboardType="number-pad" maxLength={6} autoComplete="one-time-code" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                    <TextInput style={s.champInput} value={forgotCode} onChangeText={(v) => setForgotCode(v.replace(/\D/g, '').slice(0, 6))} placeholder="123456" placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="number-pad" maxLength={6} autoComplete="one-time-code" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
                   </View>
                   <Text style={s.label}>{t('newPassword')}</Text>
                   <View style={s.champ}>
                     <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
-                    <TextInput style={s.champInput} value={forgotPwd} onChangeText={setForgotPwd} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                    <TextInput style={s.champInput} value={forgotPwd} onChangeText={setForgotPwd} placeholder="••••••••" placeholderTextColor={dark ? colors.textFaint : '#aaa'} secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
                     <Pressable onPress={() => setShowPwd(v => !v)} hitSlop={10} style={{padding:4}}>
                       <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#9CA3AF" />
                     </Pressable>
@@ -764,7 +777,7 @@ export default function LoginScreen() {
                   <Text style={s.label}>{t('confirmPassword')}</Text>
                   <View style={s.champ}>
                     <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
-                    <TextInput style={s.champInput} value={forgotConfirm} onChangeText={setForgotConfirm} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showConfirmPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                    <TextInput style={s.champInput} value={forgotConfirm} onChangeText={setForgotConfirm} placeholder="••••••••" placeholderTextColor={dark ? colors.textFaint : '#aaa'} secureTextEntry={!showConfirmPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
                     <Pressable onPress={() => setShowConfirmPwd(v => !v)} hitSlop={10} style={{padding:4}}>
                       <Ionicons name={showConfirmPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#9CA3AF" />
                     </Pressable>
@@ -790,12 +803,12 @@ export default function LoginScreen() {
                   points: [['person-outline', t('choixPartPoint1')], ['wallet-outline', t('choixPartPoint2')], ['swap-horizontal-outline', t('choixPartPoint3')]] },
               ].map((opt, i) => (
                 <TouchableOpacity key={i} onPress={() => { setIsPro(opt.pro); setMode('signup'); setStep(1); setError(''); }} style={s.carteChoix}>
-                  <View style={{width:52, height:52, borderRadius:16, backgroundColor:'#FFF1E8', alignItems:'center', justifyContent:'center', marginRight:16}}>
+                  <View style={{width:52, height:52, borderRadius:16, backgroundColor: dark ? colors.cardAlt : '#FFF1E8', alignItems:'center', justifyContent:'center', marginRight:16}}>
                     <Ionicons name={opt.icon} size={26} color={BRAND} />
                   </View>
                   <View style={{flex:1}}>
-                    <Text style={{fontSize:17, fontWeight:'800', color:'#111'}}>{opt.label}</Text>
-                    <Text style={{fontSize:13, color:'#6B7280', marginTop:4}}>{opt.desc}</Text>
+                    <Text style={{fontSize:17, fontWeight:'800', color: dark ? colors.text : '#111'}}>{opt.label}</Text>
+                    <Text style={{fontSize:13, color: dark ? colors.textMuted : '#6B7280', marginTop:4}}>{opt.desc}</Text>
                     {/* Ce que chaque statut implique : documents (pro), plafond de revenus (particulier). */}
                     <View style={s.points}>
                       {opt.points.map(([icone, texte], j) => (
@@ -818,12 +831,12 @@ export default function LoginScreen() {
               <Text style={s.label}>{t('emailLabel')}</Text>
               <View style={s.champ}>
                 <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
-                <TextInput style={s.champInput} value={email} onChangeText={setEmail} placeholder={t('emailPlaceholder')} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <TextInput style={s.champInput} value={email} onChangeText={setEmail} placeholder={t('emailPlaceholder')} placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
               </View>
               <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
               <View style={s.champ}>
                 <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
-                <TextInput style={s.champInput} value={password} onChangeText={setPassword} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <TextInput style={s.champInput} value={password} onChangeText={setPassword} placeholder="••••••••" placeholderTextColor={dark ? colors.textFaint : '#aaa'} secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
                 <Pressable onPress={() => setShowPwd(v => !v)} hitSlop={10} style={{padding:4}}>
                   <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#9CA3AF" />
                 </Pressable>
@@ -831,7 +844,7 @@ export default function LoginScreen() {
               <Text style={s.label}>{t('confirmPassword') || 'Confirmer le mot de passe'}</Text>
               <View style={s.champ}>
                 <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
-                <TextInput style={s.champInput} value={confirmPwd} onChangeText={setConfirmPwd} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showConfirmPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <TextInput style={s.champInput} value={confirmPwd} onChangeText={setConfirmPwd} placeholder="••••••••" placeholderTextColor={dark ? colors.textFaint : '#aaa'} secureTextEntry={!showConfirmPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
                 <Pressable onPress={() => setShowConfirmPwd(v => !v)} hitSlop={10} style={{padding:4}}>
                   <Ionicons name={showConfirmPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#9CA3AF" />
                 </Pressable>
@@ -868,7 +881,7 @@ export default function LoginScreen() {
                     })}
                   </View>
                   <Text style={p.label}>{t('siretLabel')}</Text>
-                  <TextInput style={p.input} value={siret} onChangeText={(v) => setSiret(v.replace(/[^\d ]/g, ''))} placeholder="123 456 789 00012" placeholderTextColor="#aaa" keyboardType="number-pad" maxLength={17} />
+                  <TextInput style={p.input} value={siret} onChangeText={(v) => setSiret(v.replace(/[^\d ]/g, ''))} placeholder="123 456 789 00012" placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="number-pad" maxLength={17} />
                   {siretEtat === 'recherche' && (
                     <View style={p.siretLigne}><ActivityIndicator size="small" color={BRAND} /><Text style={[p.hintSous, {marginTop:0, marginLeft:6}]}>{t('siretSearching')}</Text></View>
                   )}
@@ -879,7 +892,7 @@ export default function LoginScreen() {
                     <View style={p.siretLigne}><Ionicons name="alert-circle" size={16} color="#EF4444" /><Text style={[p.hintSous, {marginTop:0, marginLeft:6, color:'#EF4444', flex:1}]}>{t(siretEtat === 'ferme' ? 'siretClosed' : 'siretNotFound')}</Text></View>
                   )}
                   <Text style={p.label}>{t('companyName') || "Nom de l'établissement"}</Text>
-                  <TextInput style={p.input} value={companyName} onChangeText={setCompanyName} placeholder={t('shopPlaceholder')} placeholderTextColor="#aaa" />
+                  <TextInput style={p.input} value={companyName} onChangeText={setCompanyName} placeholder={t('shopPlaceholder')} placeholderTextColor={dark ? colors.textFaint : '#aaa'} />
                 </>
               )}
 
@@ -887,15 +900,15 @@ export default function LoginScreen() {
               <View style={p.row}>
                 <View style={{flex:1, marginRight:10}}>
                   <Text style={p.label}>{t('driverFirstName') || 'Prénom'}</Text>
-                  <TextInput style={p.input} value={prenom} onChangeText={setPrenom} placeholder={t('firstNamePlaceholder')} placeholderTextColor="#aaa" autoCapitalize="words" />
+                  <TextInput style={p.input} value={prenom} onChangeText={setPrenom} placeholder={t('firstNamePlaceholder')} placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="words" />
                 </View>
                 <View style={{flex:1}}>
                   <Text style={p.label}>{t('driverLastName') || 'Nom'}</Text>
-                  <TextInput style={p.input} value={nom} onChangeText={setNom} placeholder={t('lastNamePlaceholder')} placeholderTextColor="#aaa" autoCapitalize="words" />
+                  <TextInput style={p.input} value={nom} onChangeText={setNom} placeholder={t('lastNamePlaceholder')} placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="words" />
                 </View>
               </View>
               <Text style={p.label}>{t('birthDate')}</Text>
-              <TextInput style={p.input} value={dob} onChangeText={(v) => setDob(formaterDate(v))} placeholder={t('birthDatePlaceholder')} placeholderTextColor="#aaa" keyboardType="number-pad" maxLength={10} />
+              <TextInput style={p.input} value={dob} onChangeText={(v) => setDob(formaterDate(v))} placeholder={t('birthDatePlaceholder')} placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="number-pad" maxLength={10} />
               <Text style={p.label}>{t('phoneLabel') || 'Numéro de téléphone'}</Text>
               <View style={p.row}>
                 <TouchableOpacity onPress={() => setPhonePickerVisible(true)} style={[p.input, p.select, {marginRight:8, paddingRight:8}]}>
@@ -903,7 +916,7 @@ export default function LoginScreen() {
                   <Text style={p.selectTxt}>{selectedPhoneCountry.phoneCode}</Text>
                   <Ionicons name="chevron-down" size={14} color="#9CA3AF" style={{marginLeft:4}} />
                 </TouchableOpacity>
-                <TextInput style={[p.input, {flex:1}]} value={formatPhone(phone, phoneFmt)} onChangeText={(txt) => setPhone(txt.replace(/\D/g, '').slice(0, phoneFmt.len))} placeholder={phonePlaceholder(phoneFmt)} placeholderTextColor="#aaa" keyboardType="phone-pad" maxLength={phoneFmt.len + phoneFmt.groups.length} />
+                <TextInput style={[p.input, {flex:1}]} value={formatPhone(phone, phoneFmt)} onChangeText={(txt) => setPhone(txt.replace(/\D/g, '').slice(0, phoneFmt.len))} placeholder={phonePlaceholder(phoneFmt)} placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="phone-pad" maxLength={phoneFmt.len + phoneFmt.groups.length} />
               </View>
 
               {section('home-outline', t('sectionAddress'))}
@@ -919,7 +932,7 @@ export default function LoginScreen() {
                 value={address}
                 onChangeText={(txt) => { setAddress(txt); fetchAddressSuggestions(txt, selectedCountry.code); }}
                 placeholder={t('addressPlaceholder')}
-                placeholderTextColor="#aaa"
+                placeholderTextColor={dark ? colors.textFaint : '#aaa'}
               />
               {addrSearching && <ActivityIndicator size="small" color={BRAND} style={{marginTop:6}} />}
               {addrSuggestions.length > 0 && (
@@ -933,9 +946,9 @@ export default function LoginScreen() {
                         if (sugg.ville) setCity(sugg.ville);
                         setAddrSuggestions([]);
                       }}
-                      style={{paddingVertical:10, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6'}}
+                      style={{paddingVertical:10, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor: dark ? colors.border : '#F3F4F6'}}
                     >
-                      <Text style={{fontSize:13, color:'#111'}}>{sugg.label}</Text>
+                      <Text style={{fontSize:13, color: dark ? colors.text : '#111'}}>{sugg.label}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -943,11 +956,11 @@ export default function LoginScreen() {
               <View style={p.row}>
                 <View style={{flex:1, marginRight:10}}>
                   <Text style={p.label}>{t('postalCode')}</Text>
-                  <TextInput style={p.input} value={postalCode} onChangeText={setPostalCode} placeholder="75002" placeholderTextColor="#aaa" keyboardType="number-pad" maxLength={10} />
+                  <TextInput style={p.input} value={postalCode} onChangeText={setPostalCode} placeholder="75002" placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="number-pad" maxLength={10} />
                 </View>
                 <View style={{flex:2}}>
                   <Text style={p.label}>{t('city')}</Text>
-                  <TextInput style={p.input} value={city} onChangeText={setCity} placeholder="Paris" placeholderTextColor="#aaa" autoCapitalize="words" />
+                  <TextInput style={p.input} value={city} onChangeText={setCity} placeholder="Paris" placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="words" />
                 </View>
               </View>
 
@@ -956,7 +969,7 @@ export default function LoginScreen() {
                   {section('document-text-outline', t('sectionTax'))}
                   <Text style={p.hint}>{t('sectionTaxHint')}</Text>
                   <Text style={p.label}>{t('taxIdLabel')}</Text>
-                  <TextInput style={p.input} value={taxId} onChangeText={setTaxId} placeholder="1234567890123" placeholderTextColor="#aaa" autoCapitalize="characters" autoCorrect={false} maxLength={32} />
+                  <TextInput style={p.input} value={taxId} onChangeText={setTaxId} placeholder="1234567890123" placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="characters" autoCorrect={false} maxLength={32} />
                   <Text style={p.hintSous}>{t('taxIdHint')}</Text>
                 </>
               )}
@@ -977,7 +990,7 @@ export default function LoginScreen() {
               {section('card-outline', t('sectionPayouts'))}
               <Text style={p.hint}>{t('payoutSetupIntro')}</Text>
               <Text style={p.label}>{t('ibanLabel')}</Text>
-              <TextInput style={p.input} value={iban} onChangeText={setIban} placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX" placeholderTextColor="#aaa" autoCapitalize="characters" autoCorrect={false} maxLength={42} />
+              <TextInput style={p.input} value={iban} onChangeText={setIban} placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX" placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="characters" autoCorrect={false} maxLength={42} />
               {legalStatus === 'societe' && <Text style={p.hintSous}>{t('signupPayoutCompanyLater')}</Text>}
 
               {section('folder-open-outline', t('sectionDocuments'))}
@@ -986,8 +999,8 @@ export default function LoginScreen() {
                 <TouchableOpacity key={doc.slot} onPress={() => pickDocument(doc.setter, doc.pdf)} style={[p.doc, doc.value?.uri && p.chipActif]}>
                   <Ionicons name={doc.value?.uri ? 'checkmark-circle' : doc.icon} size={22} color={doc.value?.uri ? BRAND : '#9CA3AF'} style={{marginRight:12}} />
                   <View style={{flex:1}}>
-                    <Text style={{fontSize:13, fontWeight:'600', color:'#111'}}>{doc.label} *</Text>
-                    {!!doc.aide && <Text style={{fontSize:11, color:'#6B7280', marginTop:2}}>{doc.aide}</Text>}
+                    <Text style={{fontSize:13, fontWeight:'600', color: dark ? colors.text : '#111'}}>{doc.label} *</Text>
+                    {!!doc.aide && <Text style={{fontSize:11, color: dark ? colors.textMuted : '#6B7280', marginTop:2}}>{doc.aide}</Text>}
                     <Text style={{fontSize:11, color: doc.value?.uri ? BRAND : '#9CA3AF', marginTop:2}}>{doc.value?.uri ? (t('docUploaded') || 'Document ajouté') : (t('docTapUpload') || 'Appuyez pour ajouter')}</Text>
                   </View>
                   {doc.value?.uri && (
@@ -1017,7 +1030,7 @@ export default function LoginScreen() {
         {/* Already have account — fixed above language on choose page */}
         {mode === 'choose' && (
           <TouchableOpacity onPress={() => { setMode('login'); setError(''); }} style={{alignItems:'center', paddingVertical:12}}>
-            <Text style={{color:'#6B7280', fontSize:15}}>
+            <Text style={{color: dark ? colors.textMuted : '#6B7280', fontSize:15}}>
               {t('hasAccount') || 'Déjà un compte Pearl Delivery ?'} <Text style={{color:BRAND, fontWeight:'800'}}>{t('loginButton') || 'Se connecter'}</Text>
             </Text>
           </TouchableOpacity>
@@ -1027,10 +1040,10 @@ export default function LoginScreen() {
         <TouchableOpacity onPress={() => setLangPickerVisible(true)} style={{
           flexDirection:'row', alignItems:'center', justifyContent:'center', alignSelf:'center',
           marginBottom:12 + (Platform.OS === 'android' ? insets.bottom : 0), paddingVertical:9, paddingHorizontal:16,
-          borderRadius:999, borderWidth:1, borderColor:'#E5E7EB', backgroundColor:'#fff'
+          borderRadius:999, borderWidth:1, borderColor: dark ? colors.borderStrong : '#E5E7EB', backgroundColor: dark ? colors.card : '#fff'
         }}>
           <Ionicons name="globe-outline" size={17} color="#6B7280" style={{marginRight:8}} />
-          <Text style={{fontSize:14, fontWeight:'600', color:'#374151'}}>
+          <Text style={{fontSize:14, fontWeight:'600', color: dark ? colors.textSoft : '#374151'}}>
             {LANGUAGES.find(l => l.code === lang)?.flag || '🌐'} {LANGUAGES.find(l => l.code === lang)?.native || 'Language'}
           </Text>
           <Ionicons name="chevron-down" size={15} color="#9CA3AF" style={{marginLeft:6}} />
@@ -1043,15 +1056,15 @@ export default function LoginScreen() {
         <Modal visible={countryPickerVisible} animationType="none" transparent statusBarTranslucent navigationBarTranslucent onRequestClose={() => setCountryPickerVisible(false)}>
           <View style={voile}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setCountryPickerVisible(false)} />
-            <View style={[{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:basFeuille}, largeurFeuille]}>
-              <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:'#F3F4F6'}}>
-                <Text style={{fontSize:18, fontWeight:'800', color:'#111'}}>{t('countryLabel') || 'Pays de résidence'}</Text>
-                <TouchableOpacity onPress={() => setCountryPickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
+            <View style={[{backgroundColor: dark ? colors.card : '#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:basFeuille}, largeurFeuille]}>
+              <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor: dark ? colors.border : '#F3F4F6'}}>
+                <Text style={{fontSize:18, fontWeight:'800', color: dark ? colors.text : '#111'}}>{t('countryLabel') || 'Pays de résidence'}</Text>
+                <TouchableOpacity onPress={() => setCountryPickerVisible(false)}><Ionicons name="close" size={24} color={dark ? colors.textMuted : '#666'} /></TouchableOpacity>
               </View>
               <FlatList data={COUNTRIES} keyExtractor={c => c.code} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: c}) => (
-                <TouchableOpacity onPress={() => { setCountry(c.code); setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setCountryPickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: country === c.code ? '#FFF7F2' : '#fff'}}>
+                <TouchableOpacity onPress={() => { setCountry(c.code); setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setCountryPickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor: dark ? colors.border : '#F3F4F6', backgroundColor: country === c.code ? (dark ? colors.cardAlt : '#FFF7F2') : (dark ? colors.card : '#fff')}}>
                   <Text style={{fontSize:24, marginRight:14}}>{c.flag}</Text>
-                  <Text style={{flex:1, fontSize:16, fontWeight: country === c.code ? '700' : '500', color: country === c.code ? BRAND : '#111'}}>{countryName(c.code, lang, c.name)}</Text>
+                  <Text style={{flex:1, fontSize:16, fontWeight: country === c.code ? '700' : '500', color: country === c.code ? BRAND : (dark ? colors.text : '#111')}}>{countryName(c.code, lang, c.name)}</Text>
                   {country === c.code && <Ionicons name="checkmark-circle" size={20} color={BRAND} />}
                 </TouchableOpacity>
               )} />
@@ -1063,16 +1076,16 @@ export default function LoginScreen() {
         <Modal visible={phonePickerVisible} animationType="none" transparent statusBarTranslucent navigationBarTranslucent onRequestClose={() => setPhonePickerVisible(false)}>
           <View style={voile}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setPhonePickerVisible(false)} />
-            <View style={[{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:basFeuille}, largeurFeuille]}>
-              <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:'#F3F4F6'}}>
-                <Text style={{fontSize:18, fontWeight:'800', color:'#111'}}>{t('phoneCodeLabel') || 'Indicatif téléphonique'}</Text>
-                <TouchableOpacity onPress={() => setPhonePickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
+            <View style={[{backgroundColor: dark ? colors.card : '#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:basFeuille}, largeurFeuille]}>
+              <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor: dark ? colors.border : '#F3F4F6'}}>
+                <Text style={{fontSize:18, fontWeight:'800', color: dark ? colors.text : '#111'}}>{t('phoneCodeLabel') || 'Indicatif téléphonique'}</Text>
+                <TouchableOpacity onPress={() => setPhonePickerVisible(false)}><Ionicons name="close" size={24} color={dark ? colors.textMuted : '#666'} /></TouchableOpacity>
               </View>
               <FlatList data={COUNTRIES} keyExtractor={c => c.code + '_p'} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: c}) => (
-                <TouchableOpacity onPress={() => { setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setPhonePickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: phoneCountry === c.code ? '#FFF7F2' : '#fff'}}>
+                <TouchableOpacity onPress={() => { setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setPhonePickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor: dark ? colors.border : '#F3F4F6', backgroundColor: phoneCountry === c.code ? (dark ? colors.cardAlt : '#FFF7F2') : (dark ? colors.card : '#fff')}}>
                   <Text style={{fontSize:24, marginRight:14}}>{c.flag}</Text>
-                  <Text style={{flex:1, fontSize:16, fontWeight: phoneCountry === c.code ? '700' : '500', color: phoneCountry === c.code ? BRAND : '#111'}}>{countryName(c.code, lang, c.name)}</Text>
-                  <Text style={{fontSize:14, fontWeight:'700', color:'#374151'}}>{c.phoneCode}</Text>
+                  <Text style={{flex:1, fontSize:16, fontWeight: phoneCountry === c.code ? '700' : '500', color: phoneCountry === c.code ? BRAND : (dark ? colors.text : '#111')}}>{countryName(c.code, lang, c.name)}</Text>
+                  <Text style={{fontSize:14, fontWeight:'700', color: dark ? colors.textSoft : '#374151'}}>{c.phoneCode}</Text>
                   {phoneCountry === c.code && <Ionicons name="checkmark-circle" size={20} color={BRAND} style={{marginLeft:8}} />}
                 </TouchableOpacity>
               )} />
@@ -1084,15 +1097,15 @@ export default function LoginScreen() {
         <Modal visible={langPickerVisible} animationType="none" transparent statusBarTranslucent navigationBarTranslucent onRequestClose={() => setLangPickerVisible(false)}>
           <View style={voile}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setLangPickerVisible(false)} />
-            <View style={[{backgroundColor:'#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'60%', paddingBottom:basFeuille}, largeurFeuille]}>
-              <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor:'#F3F4F6'}}>
-                <Text style={{fontSize:18, fontWeight:'800', color:'#111'}}>{t('languageLabel') || 'Langue'}</Text>
-                <TouchableOpacity onPress={() => setLangPickerVisible(false)}><Ionicons name="close" size={24} color="#666" /></TouchableOpacity>
+            <View style={[{backgroundColor: dark ? colors.card : '#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'60%', paddingBottom:basFeuille}, largeurFeuille]}>
+              <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor: dark ? colors.border : '#F3F4F6'}}>
+                <Text style={{fontSize:18, fontWeight:'800', color: dark ? colors.text : '#111'}}>{t('languageLabel') || 'Langue'}</Text>
+                <TouchableOpacity onPress={() => setLangPickerVisible(false)}><Ionicons name="close" size={24} color={dark ? colors.textMuted : '#666'} /></TouchableOpacity>
               </View>
               <FlatList data={LANGUAGES} keyExtractor={l => l.code} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: l}) => (
-                <TouchableOpacity onPress={() => { setLang(l.code); setLangPickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor:'#F3F4F6', backgroundColor: lang === l.code ? '#FFF7F2' : '#fff'}}>
+                <TouchableOpacity onPress={() => { setLang(l.code); setLangPickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor: dark ? colors.border : '#F3F4F6', backgroundColor: lang === l.code ? (dark ? colors.cardAlt : '#FFF7F2') : (dark ? colors.card : '#fff')}}>
                   <Text style={{fontSize:24, marginRight:14}}>{l.flag}</Text>
-                  <Text style={{flex:1, fontSize:16, fontWeight: lang === l.code ? '700' : '500', color: lang === l.code ? BRAND : '#111'}}>{l.native}</Text>
+                  <Text style={{flex:1, fontSize:16, fontWeight: lang === l.code ? '700' : '500', color: lang === l.code ? BRAND : (dark ? colors.text : '#111')}}>{l.native}</Text>
                   {lang === l.code && <Ionicons name="checkmark-circle" size={20} color={BRAND} />}
                 </TouchableOpacity>
               )} />
@@ -1109,59 +1122,66 @@ const ombre = Platform.select({
   default: { elevation: 3 },
 });
 
-const s = StyleSheet.create({
+// Styles selon le mode : en clair, valeurs d'origine à l'identique.
+const makeS = (dark, c) => {
+  const k = (clair, sombre) => (dark ? sombre : clair);
+  return StyleSheet.create({
   // Logo de l'app (icone orange) en tuile arrondie.
   logoTuile: { width: 88, height: 88, borderRadius: 24, overflow: 'hidden', backgroundColor: '#fff', ...ombre },
   logoTuilePetite: { width: 60, height: 60, borderRadius: 17 },
   logoImg: { width: '100%', height: '100%' },
-  label: { fontWeight: '600', fontSize: 13, color: '#374151', marginBottom: 7, marginTop: 16 },
+  label: { fontWeight: '600', fontSize: 13, color: k('#374151', c.textSoft), marginBottom: 7, marginTop: 16 },
   // Case de saisie : fond blanc, bord gris fin, icone a gauche.
   champ: {
-    flexDirection: 'row', alignItems: 'center', height: 54, backgroundColor: '#fff',
-    borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 14,
+    flexDirection: 'row', alignItems: 'center', height: 54, backgroundColor: k('#fff', c.input),
+    borderRadius: 14, borderWidth: 1, borderColor: k('#E5E7EB', c.inputBorder), paddingHorizontal: 14,
   },
-  champInput: { flex: 1, height: '100%', fontSize: 16, color: '#111', marginLeft: 10, paddingVertical: 0 },
+  champInput: { flex: 1, height: '100%', fontSize: 16, color: k('#111', c.text), marginLeft: 10, paddingVertical: 0 },
   btn: {
     backgroundColor: BRAND, borderRadius: 14, height: 54, justifyContent: 'center',
     alignItems: 'center', marginTop: 28, ...ombre,
   },
   btnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  points: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  points: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: k('#F3F4F6', c.border) },
   point: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 },
-  pointTxt: { flex: 1, fontSize: 13, color: '#374151', marginLeft: 8, lineHeight: 18 },
+  pointTxt: { flex: 1, fontSize: 13, color: k('#374151', c.textSoft), marginLeft: 8, lineHeight: 18 },
   carteChoix: {
     flexDirection: 'row', alignItems: 'center', padding: 18, marginBottom: 14,
-    borderRadius: 18, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff', ...ombre,
+    borderRadius: 18, borderWidth: 1, borderColor: k('#E5E7EB', c.border), backgroundColor: k('#fff', c.card), ...ombre,
   },
-});
+  });
+};
 
 // Inscription (26/10/2026) : champs, boutons et sections au style de l'app
 // pro, sur fond blanc.
-const p = StyleSheet.create({
-  section: { flexDirection: 'row', alignItems: 'center', marginTop: 26, paddingTop: 18, borderTopWidth: 1, borderTopColor: '#F0F0F0', marginBottom: 2 },
+const makeP = (dark, c) => {
+  const k = (clair, sombre) => (dark ? sombre : clair);
+  return StyleSheet.create({
+  section: { flexDirection: 'row', alignItems: 'center', marginTop: 26, paddingTop: 18, borderTopWidth: 1, borderTopColor: k('#F0F0F0', c.border), marginBottom: 2 },
   sectionPremier: { marginTop: 0, paddingTop: 0, borderTopWidth: 0 },
-  sectionTxt: { fontSize: 16, fontWeight: '700', color: '#111', marginLeft: 8 },
-  hint: { fontSize: 12, color: '#6B7280', lineHeight: 17, marginTop: 6 },
+  sectionTxt: { fontSize: 16, fontWeight: '700', color: k('#111', c.text), marginLeft: 8 },
+  hint: { fontSize: 12, color: k('#6B7280', c.textMuted), lineHeight: 17, marginTop: 6 },
   siretLigne: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-  hintSous: { fontSize: 11, color: '#6B7280', lineHeight: 16, marginTop: 5 },
-  label: { fontSize: 12, fontWeight: '600', color: '#111', marginBottom: 5, marginTop: 14 },
-  input: { height: 45, backgroundColor: '#fff', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', paddingHorizontal: 10, fontSize: 13, color: '#111' },
+  hintSous: { fontSize: 11, color: k('#6B7280', c.textMuted), lineHeight: 16, marginTop: 5 },
+  label: { fontSize: 12, fontWeight: '600', color: k('#111', c.text), marginBottom: 5, marginTop: 14 },
+  input: { height: 45, backgroundColor: k('#fff', c.input), borderRadius: 10, borderWidth: 1, borderColor: k('rgba(0,0,0,0.15)', c.inputBorder), paddingHorizontal: 10, fontSize: 13, color: k('#111', c.text) },
   row: { flexDirection: 'row', alignItems: 'flex-end' },
   select: { flexDirection: 'row', alignItems: 'center' },
-  selectTxt: { fontSize: 13, fontWeight: '600', color: '#111' },
-  suggestions: { borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', borderRadius: 10, marginTop: 6, overflow: 'hidden' },
+  selectTxt: { fontSize: 13, fontWeight: '600', color: k('#111', c.text) },
+  suggestions: { borderWidth: 1, borderColor: k('rgba(0,0,0,0.15)', c.inputBorder), borderRadius: 10, marginTop: 6, overflow: 'hidden' },
   pwdRow: { flexDirection: 'row', alignItems: 'center' },
   eyeBtn: { position: 'absolute', right: 10, padding: 4 },
   chipsRow: { flexDirection: 'row', marginTop: 12 },
-  chip: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 45, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', marginRight: 10, backgroundColor: '#fff' },
-  chipActif: { borderColor: BRAND, backgroundColor: '#FFF1E8' },
-  chipTxt: { fontSize: 13, fontWeight: '600', color: '#374151', flexShrink: 1 },
-  vehicule: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', marginRight: 10, backgroundColor: '#fff' },
-  vehiculeTxt: { fontSize: 11, marginTop: 4, fontWeight: '500', color: '#6B7280' },
-  doc: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,0,0,0.15)', marginTop: 10, backgroundColor: '#fff' },
+  chip: { flex: 1, flexDirection: 'row', alignItems: 'center', height: 45, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: k('rgba(0,0,0,0.15)', c.inputBorder), marginRight: 10, backgroundColor: k('#fff', c.card) },
+  chipActif: { borderColor: BRAND, backgroundColor: k('#FFF1E8', c.cardAlt) },
+  chipTxt: { fontSize: 13, fontWeight: '600', color: k('#374151', c.textSoft), flexShrink: 1 },
+  vehicule: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: k('rgba(0,0,0,0.15)', c.inputBorder), marginRight: 10, backgroundColor: k('#fff', c.card) },
+  vehiculeTxt: { fontSize: 11, marginTop: 4, fontWeight: '500', color: k('#6B7280', c.textMuted) },
+  doc: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: k('rgba(0,0,0,0.15)', c.inputBorder), marginTop: 10, backgroundColor: k('#fff', c.card) },
   checkRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 22 },
-  checkTxt: { flex: 1, fontSize: 13, color: '#333', lineHeight: 19 },
+  checkTxt: { flex: 1, fontSize: 13, color: k('#333', c.textSoft), lineHeight: 19 },
   lien: { color: BRAND, fontWeight: '700', textDecorationLine: 'underline' },
   btn: { height: 46, backgroundColor: BRAND, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 24 },
   btnTxt: { color: '#fff', fontWeight: '700', fontSize: 16 },
-});
+  });
+};

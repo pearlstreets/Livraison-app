@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { mapsAvailable } from '../lib/maps';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { deliveryService } from '../services/deliveryService';
 import {
   CLES_NIVEAU, COULEURS, NIVEAUX_FORTS, delaiRafraichissementMs, lienApplePlans, lienGoogleMaps, lienWaze,
@@ -41,6 +42,15 @@ export default function CarteDemandeModal({ visible, onClose }) {
   const insets = useSafeAreaInsets();
   const { t } = useLanguage();
   const { fmtPrice } = useCurrency();
+  const { colors } = useTheme();
+  // Fond, bouton fermer et panneau du bas suivent le thème ; les repères posés sur la carte restent clairs.
+  const th = useMemo(() => ({
+    fond: { backgroundColor: colors.dark ? colors.bg : '#f2f2f7' },
+    carte: { backgroundColor: colors.dark ? colors.card : '#fff' },
+    texte: { color: colors.dark ? colors.text : '#1c1c1e' },
+    texteDoux: { color: colors.dark ? colors.textSoft : '#3a3a3c' },
+    texteDiscret: { color: colors.dark ? colors.textMuted : '#6e6e73' },
+  }), [colors]);
   const mapRef = useRef(null);
   const [lieux, setLieux] = useState([]);
   const [forteDemande, setForteDemande] = useState(0);
@@ -60,7 +70,8 @@ export default function CarteDemandeModal({ visible, onClose }) {
       setForteDemande(Number(data.forte_demande) || liste.filter((l) => NIVEAUX_FORTS.includes(l.niveau)).length);
       setChoisiId((id) => (liste.some((l) => l.id === id) ? id : lieuParDefaut(liste)?.id ?? null));
       const c = pos || data.position || (liste[0] ? { lat: liste[0].lat, lng: liste[0].lng } : null);
-      if (c) setCentre((avant) => avant || { latitude: Number(c.lat), longitude: Number(c.lng) });
+      // Centre valide seulement : des coordonnées non numériques feraient planter la carte.
+      if (c && Number.isFinite(Number(c.lat)) && Number.isFinite(Number(c.lng))) setCentre((avant) => avant || { latitude: Number(c.lat), longitude: Number(c.lng) });
     } catch {
       if (pos) setCentre((avant) => avant || { latitude: pos.lat, longitude: pos.lng });
     } finally {
@@ -104,7 +115,7 @@ export default function CarteDemandeModal({ visible, onClose }) {
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <View style={s.container}>
+      <View style={[s.container, th.fond]}>
         {mapsAvailable && centre ? (
           <MapView
             ref={mapRef}
@@ -143,20 +154,20 @@ export default function CarteDemandeModal({ visible, onClose }) {
             ))}
           </MapView>
         ) : (
-          <View style={s.sansCarte} />
+          <View style={[s.sansCarte, th.fond]} />
         )}
 
         <Pressable
-          style={[s.fermer, { top: insets.top + 10 }]}
+          style={[s.fermer, th.carte, { top: insets.top + 10 }]}
           onPress={onClose}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel={t('close')}
         >
-          <Ionicons name="close" size={26} color="#1c1c1e" />
+          <Ionicons name="close" size={26} color={th.texte.color} />
         </Pressable>
 
-        <View style={[s.panneau, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[s.panneau, th.carte, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           {choisi ? (
             <>
               <View style={s.pastilles}>
@@ -171,20 +182,20 @@ export default function CarteDemandeModal({ visible, onClose }) {
                   </View>
                 )}
               </View>
-              <Text style={s.nom} numberOfLines={1}>{choisi.nom}</Text>
+              <Text style={[s.nom, th.texte]} numberOfLines={1}>{choisi.nom}</Text>
               {Number.isFinite(choisi.minutes) && (
-                <Text style={s.minutes}>{t('carteDemandAwayMin', { n: choisi.minutes })}</Text>
+                <Text style={[s.minutes, th.texteDoux]}>{t('carteDemandAwayMin', { n: choisi.minutes })}</Text>
               )}
-              <Text style={s.proches}>{libelleProches}</Text>
-              <Text style={s.phrase}>{t(cles.phrase)} {t('carteDemandUpdatedEvery10')}</Text>
-              {choisi.bonus > 0 && <Text style={s.phrase}>{t('carteDemandBonusText')}</Text>}
+              <Text style={[s.proches, th.texte]}>{libelleProches}</Text>
+              <Text style={[s.phrase, th.texteDiscret]}>{t(cles.phrase)} {t('carteDemandUpdatedEvery10')}</Text>
+              {choisi.bonus > 0 && <Text style={[s.phrase, th.texteDiscret]}>{t('carteDemandBonusText')}</Text>}
               <Pressable style={s.naviguer} onPress={naviguer} accessibilityRole="button">
                 <Ionicons name="navigate" size={18} color="#fff" />
                 <Text style={s.naviguerTxt}>{t('carteDemandNavigate')}</Text>
               </Pressable>
             </>
           ) : (
-            <Text style={s.vide}>{charge ? t('carteDemandNoPlaces') : t('carteDemandLoading')}</Text>
+            <Text style={[s.vide, th.texteDiscret]}>{charge ? t('carteDemandNoPlaces') : t('carteDemandLoading')}</Text>
           )}
         </View>
       </View>

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, TextInput, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { ticketService } from '../services/ticketService';
 
@@ -21,6 +22,8 @@ const PROBLEMS = [
 
 export default function ReportProblemScreen({ navigation, route }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const s = stylesPour(colors);
   const { markOrderReported } = useAuth();
   const insets = useSafeAreaInsets();
   const order = route.params?.order || {};
@@ -66,11 +69,14 @@ export default function ReportProblemScreen({ navigation, route }) {
   }
 
   return (
-    <View style={[s.container, { paddingTop: insets.top }]}>
+    // Défilement + clavier : sur petit écran, le clavier cachait le bouton Envoyer
+    // (le champ multiligne ne se ferme pas avec la touche Retour).
+    <KeyboardAvoidingView style={[s.container, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}>
       {/* Header */}
       <View style={s.headerRow}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name={dirIcon('arrow-back')} size={22} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={22} color={colors.text} />
         </Pressable>
         <Text style={s.headerTitle}>{t('reportTitle')}</Text>
         <View style={{ width: 22 }} />
@@ -78,7 +84,7 @@ export default function ReportProblemScreen({ navigation, route }) {
 
       {/* Order ref */}
       <View style={s.orderRef}>
-        <Ionicons name="receipt-outline" size={14} color="#888" style={{ marginRight: 6 }} />
+        <Ionicons name="receipt-outline" size={14} color={colors.dark ? colors.textMuted : '#888'} style={{ marginRight: 6 }} />
         <Text style={s.orderRefText}>{orderRef}</Text>
       </View>
 
@@ -91,7 +97,7 @@ export default function ReportProblemScreen({ navigation, route }) {
           style={[s.problemRow, selectedProblem === p.id && s.problemRowActive]}
           onPress={() => setSelectedProblem(p.id)}
         >
-          <Ionicons name={p.icon} size={16} color={selectedProblem === p.id ? BRAND : '#666'} />
+          <Ionicons name={p.icon} size={16} color={selectedProblem === p.id ? BRAND : (colors.dark ? colors.textMuted : '#666')} />
           <Text style={[s.problemRowText, selectedProblem === p.id && { color: BRAND, fontWeight: '800' }]}>{t(p.labelKey)}</Text>
           {selectedProblem === p.id && <Ionicons name="checkmark-circle" size={18} color={BRAND} />}
         </Pressable>
@@ -101,7 +107,7 @@ export default function ReportProblemScreen({ navigation, route }) {
       <TextInput
         style={s.commentInput}
         placeholder={t('describeProblemPlaceholder')}
-        placeholderTextColor="#aaa"
+        placeholderTextColor={colors.dark ? colors.textFaint : '#aaa'}
         multiline
         numberOfLines={3}
         textAlignVertical="top"
@@ -123,26 +129,35 @@ export default function ReportProblemScreen({ navigation, route }) {
             </>
         }
       </Pressable>
-    </View>
+    </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', paddingHorizontal: 16 },
+const makeStyles = (c) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg, paddingHorizontal: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 8 },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#111' },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: c.text },
 
-  orderRef: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, padding: 8, marginBottom: 8 },
-  orderRefText: { fontSize: 12, color: '#666', fontWeight: '600' },
+  orderRef: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, borderRadius: 10, padding: 8, marginBottom: 8 },
+  orderRefText: { fontSize: 12, color: c.dark ? c.textMuted : '#666', fontWeight: '600' },
 
-  sectionTitle: { fontSize: 13, fontWeight: '800', color: '#111', marginBottom: 6 },
+  sectionTitle: { fontSize: 13, fontWeight: '800', color: c.text, marginBottom: 6 },
 
-  problemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 5, gap: 10, borderWidth: 1.5, borderColor: 'transparent' },
+  problemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 5, gap: 10, borderWidth: 1.5, borderColor: 'transparent' },
   problemRowActive: { borderColor: BRAND, backgroundColor: BRAND + '10' },
-  problemRowText: { flex: 1, fontSize: 13, color: '#333', fontWeight: '600' },
+  problemRowText: { flex: 1, fontSize: 13, color: c.dark ? c.textSoft : '#333', fontWeight: '600' },
 
-  commentInput: { backgroundColor: '#fff', borderRadius: 12, padding: 12, fontSize: 13, minHeight: 70, borderWidth: 1, borderColor: '#e0e0e0', marginBottom: 10 },
+  // Case de saisie : fond blanc en clair, texte lisible en sombre.
+  commentInput: { backgroundColor: c.dark ? c.input : '#fff', ...(c.dark ? { color: c.text } : null), borderRadius: 12, padding: 12, fontSize: 13, minHeight: 70, borderWidth: 1, borderColor: c.dark ? c.inputBorder : '#e0e0e0', marginBottom: 10 },
 
   submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 12, paddingVertical: 14 },
   submitBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
 });
+
+// Feuilles de style par thème (clair, sombre), créées une seule fois chacune.
+const stylesParTheme = new Map();
+function stylesPour(c) {
+  if (!stylesParTheme.has(c)) stylesParTheme.set(c, makeStyles(c));
+  return stylesParTheme.get(c);
+}

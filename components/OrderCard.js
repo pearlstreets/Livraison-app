@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking, Animated, Image } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 // Bonus du livreur envoyés par le serveur (`bonus.details[].cle`).
 const BONUS_ICONES = { zone_calme: 'map-marker-radius' };
@@ -55,12 +56,13 @@ function openItinerary(order) {
     if (lat!=null && lng!=null) url=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
     else if (addr) url=`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(String(addr))}`;
     else url='https://www.google.com/maps';
-    Linking.openURL(url);
+    // Promesse : une erreur d'ouverture ne doit pas remonter en exception non gérée.
+    Linking.openURL(url).catch(() => {});
   } catch {}
 }
 
 /* ---------- Countdown bar ---------- */
-function CountdownBar({ seconds, onExpire }) {
+function CountdownBar({ seconds, onExpire, styles }) {
   const [remaining, setRemaining] = useState(seconds);
   const progress = useRef(new Animated.Value(1)).current;
   // Ref keeps the latest onExpire without re-running the expiration effect.
@@ -68,11 +70,12 @@ function CountdownBar({ seconds, onExpire }) {
   useEffect(() => { onExpireRef.current = onExpire; }, [onExpire]);
 
   useEffect(() => {
-    Animated.timing(progress, {
+    const anim = Animated.timing(progress, {
       toValue: 0,
       duration: seconds * 1000,
       useNativeDriver: false,
-    }).start();
+    });
+    anim.start();
 
     const interval = setInterval(() => {
       setRemaining(prev => {
@@ -84,7 +87,8 @@ function CountdownBar({ seconds, onExpire }) {
       });
     }, 1000);
 
-    return () => clearInterval(interval);
+    // Arrêt de l'animation au démontage (carte retirée avant la fin).
+    return () => { clearInterval(interval); anim.stop(); };
   }, []);
 
   // Fire onExpire AFTER the commit (not inside the setRemaining updater),
@@ -112,7 +116,7 @@ function CountdownBar({ seconds, onExpire }) {
 }
 
 /* ---------- Inline metrics ---------- */
-function InlineMetrics({ distance, eta, items, readyTime }) {
+function InlineMetrics({ distance, eta, items, readyTime, styles, colors, dark }) {
   const { t } = useLanguage();
   const segments = [];
   if (readyTime) segments.push({ icon: 'alarm-outline', label: t('readyAtTime', { time: readyTime }) });
@@ -125,7 +129,7 @@ function InlineMetrics({ distance, eta, items, readyTime }) {
       {segments.map((s, i) => (
         <View key={s.icon} style={styles.metricItem}>
           {i > 0 && <View style={styles.metricDot} />}
-          <Ionicons name={s.icon} size={14} color="#8E8E93" />
+          <Ionicons name={s.icon} size={14} color={dark ? colors.textMuted : '#8E8E93'} />
           <Text style={styles.metricText}>{s.label}</Text>
         </View>
       ))}
@@ -137,6 +141,10 @@ function InlineMetrics({ distance, eta, items, readyTime }) {
 export default function OrderCard({ order, onAccept, onDecline, onOpen, initialAccepted=false }) {
   const { fmtPrice: fmtDriverPrice } = useDriverCurrency();
   const { t } = useLanguage();
+  const { colors, dark } = useTheme();
+  // Couleurs du thème : en mode clair, valeurs identiques à la carte d'origine.
+  const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
+  const gris = dark ? colors.textMuted : '#8E8E93';
   const inferAccepted = ['accepted','acceptée','active','en_cours'].includes(String(order?.status||'').toLowerCase());
   const [accepted, setAccepted] = useState(inferAccepted || initialAccepted);
 
@@ -152,7 +160,9 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
   const price = order?.priceEur != null
     ? fmtDriverPrice(order.priceEur)
     : fmtPrice(pickHybrid(order, ['priceText','price','amount','payout','total'], /(price|amount|payout|total|fare|cost)/i));
-  const items = pickHybrid(order, ['itemsCount','items','nbItems'], /(items|nb.*items)/i);
+  // `items` peut être la liste des articles : on affiche alors leur nombre.
+  const itemsBrut = pickHybrid(order, ['itemsCount','items','nbItems'], /(items|nb.*items)/i);
+  const items = Array.isArray(itemsBrut) ? itemsBrut.length : (Number(itemsBrut) || 0);
   const shopImage = order?.shopImage || order?.shop_image || '';
   // Heure à laquelle la commande sera prête en boutique (serveur).
   const readyTime = order?.readyAt ? formatTime(order.readyAt) : '';
@@ -189,7 +199,7 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
     <View style={[styles.card, !accepted && styles.cardPending]}>
       {/* Countdown for pending orders */}
       {!accepted && secondesOffre != null && (
-        <CountdownBar seconds={secondesOffre} onExpire={handleExpire} />
+        <CountdownBar seconds={secondesOffre} onExpire={handleExpire} styles={styles} />
       )}
 
       {/* Header — ID pill (gauche) + prix dominant (droite) */}
@@ -216,8 +226,8 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
       {/* Bonus compris dans le prix (zone calme). */}
       {Array.isArray(order?.bonus) && order.bonus.length > 0 && (
         <View style={styles.bonusRow}>
-          {order.bonus.map((b) => (
-            <View key={b.cle} style={styles.bonusChip}>
+          {order.bonus.filter(Boolean).map((b, i) => (
+            <View key={`${b.cle || 'bonus'}-${i}`} style={styles.bonusChip}>
               <MaterialCommunityIcons name={BONUS_ICONES[b.cle] || 'star-circle'} size={13} color={BRAND} />
               <Text style={styles.bonusTxt}>
                 +{fmtDriverPrice(Number(b.montant) || 0)} {t(BONUS_LIBELLES[b.cle] || 'bonusLabel')}
@@ -244,13 +254,13 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
       {/* Adresse */}
       {!!address && (
         <View style={styles.addressRow}>
-          <Ionicons name="location-sharp" size={14} color="#e74c3c" style={{ marginTop: 1 }} />
+          <Ionicons name="location-sharp" size={14} color={colors.danger} style={{ marginTop: 1 }} />
           <Text style={styles.addressText} numberOfLines={2}>{String(address)}</Text>
         </View>
       )}
 
       {/* Métriques inline (prête à · km · min · articles) */}
-      <InlineMetrics distance={distance} eta={eta} items={items} readyTime={readyTime} />
+      <InlineMetrics distance={distance} eta={eta} items={items} readyTime={readyTime} styles={styles} colors={colors} dark={dark} />
 
       <View style={styles.divider} />
 
@@ -262,7 +272,7 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
               onPress={() => { try { if (typeof onDecline === 'function') onDecline(order); } catch {} }}
               accessibilityLabel={t('refuse')}
             >
-              <Ionicons name="close" size={22} color="#8E8E93" />
+              <Ionicons name="close" size={22} color={gris} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.acceptBtn}
@@ -276,7 +286,7 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
 
           <TouchableOpacity style={styles.detailsLink} onPress={openDetails} activeOpacity={0.6}>
             <Text style={styles.detailsLinkText}>{t('viewDetails')}</Text>
-            <Ionicons name={dirIcon('chevron-forward')} size={14} color="#8E8E93" />
+            <Ionicons name={dirIcon('chevron-forward')} size={14} color={gris} />
           </TouchableOpacity>
         </>
       ) : (
@@ -290,7 +300,7 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
             <Text style={styles.acceptBtnText}>{t('itinerary')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.declineBtn} onPress={openDetails} accessibilityLabel={t('details')}>
-            <Ionicons name="information" size={20} color="#8E8E93" />
+            <Ionicons name="information" size={20} color={gris} />
           </TouchableOpacity>
         </View>
       )}
@@ -299,9 +309,9 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
 }
 
 /* ---------- Styles ---------- */
-const styles = StyleSheet.create({
+const makeStyles = (c, dark) => StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: c.card,
     borderRadius: 22,
     paddingHorizontal: 18,
     paddingTop: 16,
@@ -320,21 +330,21 @@ const styles = StyleSheet.create({
 
   // Countdown
   countdownWrap: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  countdownBarBg: { flex: 1, height: 5, backgroundColor: '#EEF1F4', borderRadius: 3, overflow: 'hidden', marginRight: 10 },
+  countdownBarBg: { flex: 1, height: 5, backgroundColor: dark ? c.borderStrong : '#EEF1F4', borderRadius: 3, overflow: 'hidden', marginRight: 10 },
   countdownBarFill: { height: 5, borderRadius: 3 },
   countdownText: { fontWeight: '900', fontSize: 14, width: 34, textAlign: 'right' },
 
   // Header
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  idPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F4F6F8', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  idPillText: { fontSize: 11, fontWeight: '800', color: '#6B7280', letterSpacing: 0.5 },
+  idPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: dark ? c.border : '#F4F6F8', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  idPillText: { fontSize: 11, fontWeight: '800', color: c.textMuted, letterSpacing: 0.5 },
   category: { color: BRAND, fontWeight: '700', fontSize: 11, marginLeft: 4 },
   priceCol: { alignItems: 'flex-end' },
   priceWrap: { flexDirection: 'row', alignItems: 'baseline' },
   bonusPill: { marginTop: 3, backgroundColor: '#00A86B', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
   bonusPillText: { color: '#fff', fontSize: 11, fontWeight: '800' },
   bonusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
-  bonusChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFF1E8', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 },
+  bonusChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c.cardAlt, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 },
   bonusTxt: { color: BRAND, fontSize: 12, fontWeight: '800' },
   priceLead: { color: BRAND, fontSize: 14, fontWeight: '800', marginRight: 1 },
   priceText: { color: BRAND, fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
@@ -342,27 +352,27 @@ const styles = StyleSheet.create({
   // Restaurant
   merchantRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   merchantIcon: { width: 22, height: 22, borderRadius: 11, backgroundColor: BRAND + '1A', alignItems: 'center', justifyContent: 'center', marginRight: 8 },
-  merchantImg: { width: 30, height: 30, borderRadius: 8, marginRight: 8, backgroundColor: '#f0f0f0' },
-  merchantText: { fontSize: 17, fontWeight: '800', color: '#111', flexShrink: 1, letterSpacing: -0.2 },
+  merchantImg: { width: 30, height: 30, borderRadius: 8, marginRight: 8, backgroundColor: dark ? c.border : '#f0f0f0' },
+  merchantText: { fontSize: 17, fontWeight: '800', color: c.text, flexShrink: 1, letterSpacing: -0.2 },
 
   // Address
   addressRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 10, paddingLeft: 2 },
-  addressText: { fontSize: 13, color: '#4B5563', flexShrink: 1, lineHeight: 18 },
+  addressText: { fontSize: 13, color: dark ? c.textSoft : '#4B5563', flexShrink: 1, lineHeight: 18 },
 
   // Inline metrics
   metricsRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginBottom: 14, paddingLeft: 2 },
   metricItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  metricDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#D1D5DB', marginHorizontal: 8 },
-  metricText: { fontSize: 13, color: '#374151', fontWeight: '600' },
+  metricDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: dark ? c.chevron : '#D1D5DB', marginHorizontal: 8 },
+  metricText: { fontSize: 13, color: dark ? c.textSoft : '#374151', fontWeight: '600' },
 
   // Divider
-  divider: { height: 1, backgroundColor: '#F1F2F4', marginBottom: 12 },
+  divider: { height: 1, backgroundColor: dark ? c.border : '#F1F2F4', marginBottom: 12 },
 
   // Actions
   actionsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   declineBtn: {
     width: 48, height: 48, borderRadius: 14,
-    backgroundColor: '#F4F6F8',
+    backgroundColor: dark ? c.border : '#F4F6F8',
     alignItems: 'center', justifyContent: 'center',
   },
   acceptBtn: {
@@ -375,5 +385,5 @@ const styles = StyleSheet.create({
 
   // Details link
   detailsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2, paddingVertical: 10, marginTop: 2 },
-  detailsLinkText: { color: '#8E8E93', fontSize: 13, fontWeight: '600' },
+  detailsLinkText: { color: dark ? c.textMuted : '#8E8E93', fontSize: 13, fontWeight: '600' },
 });
