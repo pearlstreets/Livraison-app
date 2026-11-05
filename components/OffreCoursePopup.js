@@ -1,35 +1,31 @@
 import React, { useEffect } from 'react';
-import { Modal, View, Text, Pressable, StyleSheet, Vibration } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Modal, Pressable, StyleSheet, Vibration } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLanguage } from '../contexts/LanguageContext';
 import OrderCard from './OrderCard';
 
-// Fenêtre « Nouvelle course » façon Uber Eats (05/11/2026) : monte du bas
-// par-dessus la carte à l'arrivée d'une course, avec une vibration. Reprend
-// la carte de course (prix, compte à rebours, Accepter, Refuser, détail).
-// La croix ferme la fenêtre sans refuser : la course reste sur la carte.
+// Fenêtre « Nouvelle course » façon Uber Eats (05/11/2026) : la carte de
+// course monte du bas et se pose sur la carte, au même style que les courses
+// affichées sur la carte, avec une vibration et un son. Toucher la carte
+// autour ferme la fenêtre sans refuser : la course reste sur la carte.
 export default function OffreCoursePopup({ order, onAccept, onDecline, onOpen, onClose }) {
   const insets = useSafeAreaInsets();
-  const { t } = useLanguage();
 
   useEffect(() => {
-    if (order) Vibration.vibrate([0, 400, 200, 400]);
+    if (!order) return;
+    Vibration.vibrate([0, 400, 200, 400]);
+    // Son de la notification locale : le gestionnaire d'App.js le joue sans
+    // afficher de bannière (sonSeul), la fenêtre étant déjà à l'écran.
+    Notifications.scheduleNotificationAsync({
+      content: { title: '', body: '', sound: 'default', data: { status: 'available', sonSeul: true } },
+      trigger: null,
+    }).catch(() => {});
   }, [order]);
 
   return (
     <Modal visible={!!order} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={s.fond}>
-        <View style={[s.feuille, { paddingBottom: insets.bottom + 16 }]}>
-          <View style={s.entete}>
-            <View style={s.titreWrap}>
-              <View style={s.point} />
-              <Text style={s.titre}>{t('newDeliveryOffer') || 'Nouvelle course'}</Text>
-            </View>
-            <Pressable onPress={onClose} hitSlop={12} style={s.fermer}>
-              <Ionicons name="close" size={22} color="#111" />
-            </Pressable>
-          </View>
+      <Pressable style={[s.fond, { paddingBottom: insets.bottom + 84 }]} onPress={onClose}>
+        <Pressable onPress={() => {}}>
           {order ? (
             <OrderCard
               order={order}
@@ -38,18 +34,12 @@ export default function OffreCoursePopup({ order, onAccept, onDecline, onOpen, o
               onOpen={(o) => { onClose(); onOpen(o); }}
             />
           ) : null}
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
-  fond: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.35)' },
-  feuille: { backgroundColor: '#F2F2F2', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 14, paddingHorizontal: 16 },
-  entete: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  titreWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  point: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#FF6A13' },
-  titre: { fontSize: 22, fontWeight: '900', color: '#111' },
-  fermer: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  fond: { flex: 1, justifyContent: 'flex-end', paddingHorizontal: 16 },
 });
