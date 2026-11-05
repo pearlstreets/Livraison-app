@@ -61,10 +61,13 @@ export default function VersementDetailScreen({ navigation, route }) {
           </View>
           <View style={s.divider} />
 
-          <View style={s.detailRow}>
-            <Text style={s.detailLabel}>{t('payoutGross')}</Text>
-            <Text style={s.detailValue}>{v.detail?.netEur != null ? fmtPrice(v.detail.netEur) : (v.detail?.net || v.amount)}</Text>
-          </View>
+          {/* Total des courses = BRUT du serveur (avant retenues) ; ligne masquée s'il ne le donne pas. */}
+          {v.detail?.grossEur != null ? (
+            <View style={s.detailRow}>
+              <Text style={s.detailLabel}>{t('payoutGross')}</Text>
+              <Text style={s.detailValue}>{fmtPrice(v.detail.grossEur)}</Text>
+            </View>
+          ) : null}
           <View style={s.detailRow}>
             <Text style={s.detailLabel}>{t('tips')}</Text>
             <Text style={[s.detailValue, { color: BRAND }]}>{v.detail?.tipsEur != null ? fmtPrice(v.detail.tipsEur) : (v.detail?.tips || fmtPrice(0))}</Text>

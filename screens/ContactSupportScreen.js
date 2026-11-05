@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, KeyboardAvoidingView, Platform, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,9 +35,19 @@ export default function ContactSupportScreen({ navigation, route }) {
       } else {
         setSent(true);
       }
-    } catch {
+    } catch (err) {
       setSending(false);
-      Alert.alert(t('error'), t('errorNetwork'));
+      if (err?.isNetworkError) {
+        Alert.alert(t('error'), t('errorNetwork'));
+      } else if (err?.status === 401 || err?.status === 403) {
+        // Compte désactivé ou non autorisé : le support reste joignable par e-mail.
+        Alert.alert(t('error'), t('supportUnreachable'), [
+          { text: t('cancel'), style: 'cancel' },
+          { text: t('writeToSupport'), onPress: () => Linking.openURL('mailto:support@pearlstreets.com').catch(() => {}) },
+        ]);
+      } else {
+        Alert.alert(t('error'), t('genericError'));
+      }
     }
   }
 
