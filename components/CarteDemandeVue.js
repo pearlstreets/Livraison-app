@@ -1,0 +1,246 @@
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, Pressable, Dimensions, Platform } from 'react-native';
+import MapView, { Heatmap, Circle, PROVIDER_DEFAULT } from 'react-native-maps';
+import { mapsAvailable } from '../lib/maps';
+import { useCurrency } from '../contexts/CurrencyContext';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
+import { StatusBar } from 'expo-status-bar';
+import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { deliveryService } from '../services/deliveryService';
+
+const BRAND = '#FF6A13';
+const { width, height } = Dimensions.get('window');
+
+// Meaux center
+const MEAUX = { latitude: 48.9536, longitude: 2.8788 };
+
+// Sur iPhone la carte (Apple Plans) est sombre : heure et icônes de la barre d'état
+// en blanc, seulement tant que l'écran est affiché (App.js les remet en sombre sur
+// les autres écrans). Sur Android la carte Google reste claire : icônes inchangées.
+function LightStatusBarWhileFocused() {
+  const isFocused = useIsFocused();
+  return Platform.OS === 'ios' && isFocused ? <StatusBar style="light" /> : null;
+}
+
+// Sur iPhone la carte est Apple Plans, où la bibliothèque ne fournit pas de couche
+// Heatmap (Google Maps seulement). Chaque zone y est dessinée en deux cercles
+// (halo + cœur) aux couleurs de la légende, selon son nombre de commandes
+// rapporté à celui de la zone la plus chargée.
+const ZONE_RGB = { high: '255, 0, 0', medium: '255, 170, 0', low: '0, 170, 255' };
+
+function zoneCircles(points) {
+  const zones = points
+    .map((p) => {
+      const weight = Number(p.weight);
+      return {
+        latitude: Number(p.latitude),
+        longitude: Number(p.longitude),
+        weight: Number.isFinite(weight) && weight > 0 ? weight : 1,
+      };
+    })
+    .filter((z) => Number.isFinite(z.latitude) && Number.isFinite(z.longitude));
+  if (zones.length === 0) return [];
+  const max = Math.max(...zones.map((z) => z.weight));
+  return zones.map((z, i) => {
+    const ratio = z.weight / max;
+    return {
+      key: `${i}:${z.latitude}:${z.longitude}`,
+      center: { latitude: z.latitude, longitude: z.longitude },
+      radius: 350 + 450 * ratio, // en mètres
+      rgb: ratio >= 0.66 ? ZONE_RGB.high : ratio >= 0.33 ? ZONE_RGB.medium : ZONE_RGB.low,
+    };
+  });
+}
+
+// Carte de la demande, partagée par l'écran carte (bouton carte de l'accueil)
+// et par l'accueil lui-même quand aucune course n'est affichée (05/11/2026).
+// onHome : bouton maison en haut à gauche (absent si non fourni).
+// onList : icône liste de la barre du bas. onStatusPress : appui sur l'état.
+// children : contenu posé au-dessus de la barre du bas, sous les boutons.
+export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPress, children }) {
+  const insets = useSafeAreaInsets();
+  const { currentEarningsCents, isOnline } = useAuth();
+  const { t } = useLanguage();
+  const { fmtPrice } = useCurrency();
+  const mapRef = useRef(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [heatmapPoints, setHeatmapPoints] = useState([]);
+  const [barH, setBarH] = useState(56);
+
+  const fetchHeatmap = useCallback(async () => {
+    try {
+      const res = await deliveryService.getHeatmap();
+      const zones = Array.isArray(res?.data) ? res.data : [];
+      const points = zones
+        .filter(z => z.lat != null && z.lng != null)
+        .map(z => ({
+          latitude: z.lat,
+          longitude: z.lng,
+          // Poids NUMÉRIQUE (nombre de commandes) pour la heatmap ; fallback 1.
+          weight: typeof z.weight === 'number' ? z.weight : (typeof z.active_orders === 'number' ? z.active_orders : 1),
+        }));
+      setHeatmapPoints(points);
+    } catch (_) {
+      // Keep existing points on error
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchHeatmap();
+  }, [fetchHeatmap]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchHeatmap();
+    }, [fetchHeatmap])
+  );
+
+  const zones = useMemo(
+    () => (Platform.OS === 'ios' ? zoneCircles(heatmapPoints) : []),
+    [heatmapPoints]
+  );
+
+  const earningsDisplay = fmtPrice(currentEarningsCents / 100);
+
+  function recenter() {
+    mapRef.current?.animateToRegion({
+      ...MEAUX,
+      latitudeDelta: 0.06,
+      longitudeDelta: 0.06,
+    }, 500);
+  }
+
+  return (
+    <View style={s.container}>
+      <LightStatusBarWhileFocused />
+      {mapsAvailable ? (
+        <MapView
+          ref={mapRef}
+          style={s.map}
+          provider={PROVIDER_DEFAULT}
+          initialRegion={{
+            ...MEAUX,
+            latitudeDelta: 0.06,
+            longitudeDelta: 0.06,
+          }}
+          userInterfaceStyle="dark"
+          onMapReady={() => setMapReady(true)}
+        >
+          {mapReady && heatmapPoints.length > 0 && Platform.OS !== 'ios' && (
+            <Heatmap
+              points={heatmapPoints}
+              radius={40}
+              opacity={0.7}
+              gradient={{
+                colors: ['#0000ff', '#00ff00', '#ffff00', '#ff8800', '#ff0000'],
+                startPoints: [0.01, 0.1, 0.3, 0.6, 1.0],
+                colorMapSize: 256,
+              }}
+            />
+          )}
+          {mapReady && zones.map((z) => (
+            <React.Fragment key={z.key}>
+              <Circle center={z.center} radius={z.radius} fillColor={`rgba(${z.rgb}, 0.18)`} strokeColor="transparent" strokeWidth={0} />
+              <Circle center={z.center} radius={z.radius * 0.45} fillColor={`rgba(${z.rgb}, 0.38)`} strokeColor="transparent" strokeWidth={0} />
+            </React.Fragment>
+          ))}
+        </MapView>
+      ) : (
+        <View style={[s.map, s.noMap]}>
+          <Ionicons name="map-outline" size={48} color="#6b7280" />
+          <Text style={s.noMapTxt}>{t('mapUnavailable')}</Text>
+        </View>
+      )}
+
+      {/* Overlay UI */}
+      {/* Home button */}
+      {onHome && (
+        <Pressable style={[s.homeBtn, { top: insets.top + 10 }]} onPress={onHome}>
+          <Ionicons name="home" size={22} color="#fff" />
+        </Pressable>
+      )}
+
+      {/* Earnings badge */}
+      <View style={[s.earningsBadge, { top: insets.top + 12 }]}>
+        <Text style={s.earningsText}>{earningsDisplay}</Text>
+      </View>
+
+      {/* Right controls + contenu au-dessus de la barre du bas */}
+      <View style={[s.basCol, { bottom: barH + 30 }]} pointerEvents="box-none">
+        <View style={s.rightControls}>
+          <Pressable style={s.controlBtn} onPress={() => navigation.navigate('Revenus', { screen: 'EarningsMain' })}>
+            <Ionicons name="bar-chart" size={22} color="#fff" />
+          </Pressable>
+          <Pressable style={s.controlBtn} onPress={recenter}>
+            <Ionicons name="locate" size={22} color="#fff" />
+          </Pressable>
+        </View>
+        {children ? <View style={s.basContenu}>{children}</View> : null}
+      </View>
+
+      {/* Bottom bar */}
+      <View style={[s.bottomBar, { paddingBottom: 14 }]} onLayout={(e) => setBarH(e.nativeEvent.layout.height)}>
+        <Pressable style={s.bottomIconWrap} onPress={onList}>
+          <Ionicons name="list" size={22} color="#fff" />
+        </Pressable>
+        <Pressable style={s.statusWrap} onPress={onStatusPress} disabled={!onStatusPress}>
+          <View style={[s.statusDot, !isOnline && { backgroundColor: '#999' }]} />
+          <Text style={s.statusText}>{isOnline ? (t('youAreOnline') || 'Vous \u00eates en ligne') : (t('offline') || 'Hors ligne')}</Text>
+        </Pressable>
+        <Pressable style={s.bottomIconWrap} onPress={() => {}}>
+          <Ionicons name="options" size={22} color="#fff" />
+        </Pressable>
+      </View>
+
+      {/* Legend */}
+      {mapsAvailable && (
+      <View style={[s.legend, { top: insets.top + 60 }]}>
+        <View style={s.legendRow}>
+          <View style={[s.legendDot, { backgroundColor: '#ff0000' }]} />
+          <Text style={s.legendText}>{t('demandHigh')}</Text>
+        </View>
+        <View style={s.legendRow}>
+          <View style={[s.legendDot, { backgroundColor: '#ffaa00' }]} />
+          <Text style={s.legendText}>{t('demandMedium')}</Text>
+        </View>
+        <View style={s.legendRow}>
+          <View style={[s.legendDot, { backgroundColor: '#00aaff' }]} />
+          <Text style={s.legendText}>{t('demandLow')}</Text>
+        </View>
+      </View>
+      )}
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#1a1a2e' },
+  map: { ...StyleSheet.absoluteFillObject },
+
+  homeBtn: { position: 'absolute', left: 16, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(30,30,30,0.85)', alignItems: 'center', justifyContent: 'center' },
+
+  earningsBadge: { position: 'absolute', alignSelf: 'center', backgroundColor: 'rgba(30,30,30,0.9)', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
+  earningsText: { color: '#fff', fontWeight: '900', fontSize: 18 },
+
+  basCol: { position: 'absolute', left: 0, right: 0 },
+  rightControls: { alignSelf: 'flex-end', marginRight: 16, gap: 10 },
+  basContenu: { marginTop: 12, paddingHorizontal: 16, gap: 10 },
+  controlBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(30,30,30,0.85)', alignItems: 'center', justifyContent: 'center' },
+
+  bottomBar: { position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(20,20,20,0.95)', paddingTop: 14, paddingHorizontal: 16 },
+  bottomIconWrap: { width: 40, alignItems: 'center' },
+  statusWrap: { flexDirection: 'row', alignItems: 'center' },
+  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: BRAND, marginRight: 8 },
+  statusText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+  noMap: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+  noMapTxt: { marginTop: 12, color: '#9ca3af', fontSize: 15, fontWeight: '600', textAlign: 'center' },
+
+  legend: { position: 'absolute', right: 16, backgroundColor: 'rgba(30,30,30,0.85)', borderRadius: 12, padding: 10, gap: 6 },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendText: { color: '#ccc', fontSize: 12, fontWeight: '600' },
+});
