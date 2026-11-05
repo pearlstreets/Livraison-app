@@ -54,7 +54,7 @@ export default function VehicleScreen({ navigation }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('vehicleTitle')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{t('vehicleTitle')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -90,13 +90,13 @@ const makeStyles = (dark, c) => {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg) },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: k('#111', c.text) },
+  headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 18, fontWeight: '800', color: k('#111', c.text) },
   subtitle: { color: k('#888', c.textFaint), fontSize: 14, paddingHorizontal: 16, marginBottom: 16 },
   list: { marginHorizontal: 16 },
   vehicleRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: k('#fff', c.card), borderRadius: 16, padding: 16, marginBottom: 10 },
   vehicleRowActive: { borderWidth: 2, borderColor: BRAND },
   iconCircle: { width: 52, height: 52, borderRadius: 26, backgroundColor: k('#f0f0f0', c.borderStrong), alignItems: 'center', justifyContent: 'center', marginRight: 14 },
-  vehicleLabel: { flex: 1, fontSize: 17, fontWeight: '600', color: k('#111', c.text) },
+  vehicleLabel: { flex: 1, marginRight: 8, fontSize: 17, fontWeight: '600', color: k('#111', c.text) },
   saveBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginHorizontal: 16, marginTop: 16 },
   saveTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
   });

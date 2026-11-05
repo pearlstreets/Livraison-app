@@ -76,7 +76,7 @@ export default function ContactSupportScreen({ navigation, route }) {
           <Pressable onPress={() => navigation.goBack()}>
             <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
           </Pressable>
-          <Text style={s.headerTitle}>{t('contactTitle')}</Text>
+          <Text style={s.headerTitle} numberOfLines={1}>{t('contactTitle')}</Text>
           <View style={{ width: 24 }} />
         </View>
 
@@ -120,7 +120,7 @@ export default function ContactSupportScreen({ navigation, route }) {
 const makeStyles = (c) => StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
   infoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, marginHorizontal: 16, borderRadius: 14, padding: 16, marginBottom: 10 },
   infoLabel: { fontSize: 12, color: c.dark ? c.textMuted : '#888' },
   infoValue: { fontWeight: '700', fontSize: 15, color: c.text, marginTop: 2 },
@@ -131,7 +131,7 @@ const makeStyles = (c) => StyleSheet.create({
   // Case de saisie : fond blanc en clair, texte lisible en sombre.
   textArea: { backgroundColor: c.dark ? c.input : '#fff', ...(c.dark ? { color: c.text } : null), marginHorizontal: 16, borderRadius: 14, padding: 16, fontSize: 15, minHeight: 150, borderWidth: 1, borderColor: c.dark ? c.inputBorder : '#e0e0e0' },
   sendBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginTop: 20 },
-  sendTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  sendTxt: { color: '#fff', fontWeight: '800', fontSize: 16, flexShrink: 1 },
   sentIconWrap: { marginBottom: 20 },
   sentTitle: { fontSize: 24, fontWeight: '900', color: c.text, marginBottom: 8 },
   sentDesc: { fontSize: 15, color: c.dark ? c.textMuted : '#666', textAlign: 'center', lineHeight: 22, marginBottom: 24 },

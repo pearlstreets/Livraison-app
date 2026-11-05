@@ -64,7 +64,7 @@ export default function EditIbanScreen({ navigation }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('paymentMethod')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{t('paymentMethod')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -143,13 +143,13 @@ const makeStyles = (c) => {
   return StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, backgroundColor: c.card, borderBottomWidth: 1, borderBottomColor: p('#f0f0f0', c.border) },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text, flex: 1, textAlign: 'center', marginHorizontal: 8 },
   body: { padding: 16, paddingBottom: 20 },
   currentCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, borderRadius: 16, padding: 16, marginBottom: 12 },
   currentIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: c.cardAlt, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   currentLabel: { fontSize: 13, color: p('#888', c.textMuted), fontWeight: '600' },
   currentValue: { fontSize: 16, fontWeight: '800', color: c.text, marginTop: 2, letterSpacing: 0.5 },
-  activeBadge: { backgroundColor: c.cardAlt, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+  activeBadge: { backgroundColor: c.cardAlt, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8, flexShrink: 0 },
   activeTxt: { color: BRAND, fontWeight: '800', fontSize: 12 },
   info: { fontSize: 13, color: p('#888', c.textMuted), paddingHorizontal: 4, marginBottom: 16, lineHeight: 18 },
   divider: { height: 1, backgroundColor: c.borderStrong, marginBottom: 16 },

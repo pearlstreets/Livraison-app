@@ -209,14 +209,14 @@ export default function MapScreen({ route, navigation }) {
         <View style={styles.btns}>
           <Pressable style={[styles.btn, { backgroundColor: BRAND }]} onPress={() => openExternal('google')}>
             <Ionicons name="navigate" size={16} color="#fff" style={{ marginRight: 6 }} />
-            <Text style={styles.btnTxt}>Google Maps</Text>
+            <Text style={styles.btnTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Google Maps</Text>
           </Pressable>
           <Pressable style={[styles.btn, { backgroundColor: '#33ccff' }]} onPress={() => openExternal('waze')}>
-            <Text style={styles.btnTxt}>Waze</Text>
+            <Text style={styles.btnTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>Waze</Text>
           </Pressable>
           {Platform.OS === 'ios' && (
             <Pressable style={[styles.btn, { backgroundColor: '#007AFF' }]} onPress={() => openExternal('apple')}>
-              <Text style={styles.btnTxt}>{t('navAppleMaps')}</Text>
+              <Text style={styles.btnTxt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{t('navAppleMaps')}</Text>
             </Pressable>
           )}
         </View>
@@ -235,8 +235,9 @@ const makeStyles = (c, dark) => StyleSheet.create({
   addr: { color: dark ? c.textSoft : '#333', flexShrink: 1 },
   noCoords: { color: dark ? c.textMuted : '#888', fontStyle: 'italic', marginBottom: 8 },
   btns: { flexDirection: 'row', gap: 10, marginTop: 8 },
-  btn: { flex: 1, height: 44, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  btnTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  // Trois boutons sur 375 pt : le libellé rétrécit au lieu de sortir du bouton.
+  btn: { flex: 1, paddingHorizontal: 6, height: 44, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  btnTxt: { flexShrink: 1, color: '#fff', fontWeight: '800', fontSize: 15 },
   noMap: { backgroundColor: dark ? c.bg : '#eef1f4', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, paddingBottom: 220 },
   noMapTxt: { marginTop: 12, color: c.textMuted, fontSize: 15, fontWeight: '600', textAlign: 'center' },
 });

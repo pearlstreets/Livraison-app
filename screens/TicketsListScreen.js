@@ -53,10 +53,10 @@ const TicketCard = React.memo(({ ticket, navigation, t }) => {
       <View style={s.ticketHeader}>
         <View style={s.ticketIdRow}>
           <Ionicons name={isOpen ? 'chatbubble-ellipses' : 'checkmark-circle'} size={18} color={isOpen ? '#f5a623' : BRAND} />
-          <Text style={s.ticketId}>{ticket.displayId}</Text>
+          <Text style={s.ticketId} numberOfLines={1}>{ticket.displayId}</Text>
         </View>
         <View style={[s.statusBadge, isOpen ? s.statusOpen : s.statusResolved]}>
-          <Text style={[s.statusText, isOpen ? s.statusOpenText : s.statusResolvedText]}>
+          <Text style={[s.statusText, isOpen ? s.statusOpenText : s.statusResolvedText]} numberOfLines={1}>
             {isOpen ? t('inProgress') : t('resolved')}
           </Text>
         </View>
@@ -117,7 +117,7 @@ export default function TicketsListScreen({ navigation }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('ticketsTitle')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('ticketsTitle')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -125,15 +125,15 @@ export default function TicketsListScreen({ navigation }) {
       <View style={s.statsRow}>
         <View style={s.statCard}>
           <Text style={s.statValue}>{openTickets.length}</Text>
-          <Text style={s.statLabel}>{t('inProgress')}</Text>
+          <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('inProgress')}</Text>
         </View>
         <View style={s.statCard}>
           <Text style={[s.statValue, { color: BRAND }]}>{resolvedTickets.length}</Text>
-          <Text style={s.statLabel}>{t('resolved')}</Text>
+          <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('resolved')}</Text>
         </View>
         <View style={s.statCard}>
           <Text style={s.statValue}>{tickets.length}</Text>
-          <Text style={s.statLabel}>{t('total')}</Text>
+          <Text style={s.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t('total')}</Text>
         </View>
       </View>
 
@@ -177,7 +177,7 @@ export default function TicketsListScreen({ navigation }) {
 const makeStyles = (c) => StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 18, fontWeight: '800', color: c.text },
 
   statsRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 20 },
   statCard: { flex: 1, backgroundColor: c.card, borderRadius: 14, padding: 14, alignItems: 'center' },
@@ -188,9 +188,9 @@ const makeStyles = (c) => StyleSheet.create({
 
   ticketCard: { backgroundColor: c.card, marginHorizontal: 16, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: c.dark ? c.borderStrong : '#e8e8e8' },
   ticketHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  ticketIdRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  ticketId: { fontSize: 15, fontWeight: '800', color: c.text },
-  statusBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },
+  ticketIdRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, marginRight: 10 },
+  ticketId: { fontSize: 15, fontWeight: '800', color: c.text, flexShrink: 1 },
+  statusBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3, flexShrink: 0, maxWidth: '55%' },
   statusOpen: { backgroundColor: c.dark ? 'rgba(245,166,35,0.18)' : '#fff8e6' },
   statusResolved: { backgroundColor: c.cardAlt },
   statusText: { fontSize: 12, fontWeight: '700' },
@@ -200,7 +200,7 @@ const makeStyles = (c) => StyleSheet.create({
   ticketOrder: { fontSize: 13, color: c.dark ? c.textMuted : '#888', marginBottom: 8 },
   ticketFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: c.dark ? c.border : '#f0f0f0', paddingTop: 8 },
   ticketLastMsg: { flex: 1, fontSize: 13, color: c.textFaint, marginRight: 8 },
-  ticketDate: { fontSize: 12, color: c.dark ? c.textFaint : '#bbb', fontWeight: '600' },
+  ticketDate: { fontSize: 12, color: c.dark ? c.textFaint : '#bbb', fontWeight: '600', flexShrink: 0 },
 
   errorCard: { backgroundColor: c.card, marginHorizontal: 16, borderRadius: 14, padding: 16, marginBottom: 16, alignItems: 'center', gap: 10 },
   errorText: { fontSize: 14, color: c.dark ? c.textSoft : '#333', fontWeight: '600', textAlign: 'center' },

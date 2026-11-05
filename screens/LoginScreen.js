@@ -632,7 +632,7 @@ export default function LoginScreen() {
               ].map((item, i) => (
                 <View key={i} style={{flexDirection:'row', alignItems:'center', marginBottom: i < 2 ? 12 : 0}}>
                   <Ionicons name={item.icon} size={20} color={BRAND} style={{marginRight:10}} />
-                  <Text style={{fontSize:14, color: dark ? colors.textSoft : '#374151'}}>{item.text}</Text>
+                  <Text style={{flex:1, fontSize:14, color: dark ? colors.textSoft : '#374151'}}>{item.text}</Text>
                 </View>
               ))}
             </View>
@@ -883,7 +883,7 @@ export default function LoginScreen() {
                   <Text style={p.label}>{t('siretLabel')}</Text>
                   <TextInput style={p.input} value={siret} onChangeText={(v) => setSiret(v.replace(/[^\d ]/g, ''))} placeholder="123 456 789 00012" placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="number-pad" maxLength={17} />
                   {siretEtat === 'recherche' && (
-                    <View style={p.siretLigne}><ActivityIndicator size="small" color={BRAND} /><Text style={[p.hintSous, {marginTop:0, marginLeft:6}]}>{t('siretSearching')}</Text></View>
+                    <View style={p.siretLigne}><ActivityIndicator size="small" color={BRAND} /><Text style={[p.hintSous, {marginTop:0, marginLeft:6, flex:1}]}>{t('siretSearching')}</Text></View>
                   )}
                   {siretEtat === 'ok' && (
                     <View style={p.siretLigne}><Ionicons name="checkmark-circle" size={16} color={BRAND} /><Text style={[p.hintSous, {marginTop:0, marginLeft:6, color:BRAND, flex:1}]}>{siretNom ? `${t('siretFound')} : ${siretNom}` : t('siretFound')}</Text></View>
@@ -981,7 +981,7 @@ export default function LoginScreen() {
                   return (
                     <TouchableOpacity key={v.id} onPress={() => setVehicle(v.id)} style={[p.vehicule, active && p.chipActif, v.id === 'walk' && {marginRight:0}]}>
                       <Ionicons name={v.icon} size={22} color={active ? BRAND : '#9CA3AF'} />
-                      <Text style={[p.vehiculeTxt, active && {color:BRAND, fontWeight:'700'}]}>{t(v.labelKey) || v.id}</Text>
+                      <Text style={[p.vehiculeTxt, active && {color:BRAND, fontWeight:'700'}]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{t(v.labelKey) || v.id}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -1058,7 +1058,7 @@ export default function LoginScreen() {
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setCountryPickerVisible(false)} />
             <View style={[{backgroundColor: dark ? colors.card : '#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:basFeuille}, largeurFeuille]}>
               <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor: dark ? colors.border : '#F3F4F6'}}>
-                <Text style={{fontSize:18, fontWeight:'800', color: dark ? colors.text : '#111'}}>{t('countryLabel') || 'Pays de résidence'}</Text>
+                <Text style={{flexShrink:1, marginRight:12, fontSize:18, fontWeight:'800', color: dark ? colors.text : '#111'}}>{t('countryLabel') || 'Pays de résidence'}</Text>
                 <TouchableOpacity onPress={() => setCountryPickerVisible(false)}><Ionicons name="close" size={24} color={dark ? colors.textMuted : '#666'} /></TouchableOpacity>
               </View>
               <FlatList data={COUNTRIES} keyExtractor={c => c.code} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: c}) => (
@@ -1078,14 +1078,14 @@ export default function LoginScreen() {
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setPhonePickerVisible(false)} />
             <View style={[{backgroundColor: dark ? colors.card : '#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'70%', paddingBottom:basFeuille}, largeurFeuille]}>
               <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor: dark ? colors.border : '#F3F4F6'}}>
-                <Text style={{fontSize:18, fontWeight:'800', color: dark ? colors.text : '#111'}}>{t('phoneCodeLabel') || 'Indicatif téléphonique'}</Text>
+                <Text style={{flexShrink:1, marginRight:12, fontSize:18, fontWeight:'800', color: dark ? colors.text : '#111'}}>{t('phoneCodeLabel') || 'Indicatif téléphonique'}</Text>
                 <TouchableOpacity onPress={() => setPhonePickerVisible(false)}><Ionicons name="close" size={24} color={dark ? colors.textMuted : '#666'} /></TouchableOpacity>
               </View>
               <FlatList data={COUNTRIES} keyExtractor={c => c.code + '_p'} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: c}) => (
                 <TouchableOpacity onPress={() => { setPhoneCountry(c.code); setPhone(p => p.replace(/\D/g, '').slice(0, phoneFmtFor(c.code).len)); setPhonePickerVisible(false); }} style={{flexDirection:'row', alignItems:'center', paddingVertical:14, paddingHorizontal:12, borderBottomWidth:1, borderBottomColor: dark ? colors.border : '#F3F4F6', backgroundColor: phoneCountry === c.code ? (dark ? colors.cardAlt : '#FFF7F2') : (dark ? colors.card : '#fff')}}>
                   <Text style={{fontSize:24, marginRight:14}}>{c.flag}</Text>
                   <Text style={{flex:1, fontSize:16, fontWeight: phoneCountry === c.code ? '700' : '500', color: phoneCountry === c.code ? BRAND : (dark ? colors.text : '#111')}}>{countryName(c.code, lang, c.name)}</Text>
-                  <Text style={{fontSize:14, fontWeight:'700', color: dark ? colors.textSoft : '#374151'}}>{c.phoneCode}</Text>
+                  <Text style={{fontSize:14, fontWeight:'700', color: dark ? colors.textSoft : '#374151', marginLeft:8, flexShrink:0}}>{c.phoneCode}</Text>
                   {phoneCountry === c.code && <Ionicons name="checkmark-circle" size={20} color={BRAND} style={{marginLeft:8}} />}
                 </TouchableOpacity>
               )} />
@@ -1099,7 +1099,7 @@ export default function LoginScreen() {
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setLangPickerVisible(false)} />
             <View style={[{backgroundColor: dark ? colors.card : '#fff', borderTopLeftRadius:24, borderTopRightRadius:24, maxHeight:'60%', paddingBottom:basFeuille}, largeurFeuille]}>
               <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, borderBottomWidth:1, borderBottomColor: dark ? colors.border : '#F3F4F6'}}>
-                <Text style={{fontSize:18, fontWeight:'800', color: dark ? colors.text : '#111'}}>{t('languageLabel') || 'Langue'}</Text>
+                <Text style={{flexShrink:1, marginRight:12, fontSize:18, fontWeight:'800', color: dark ? colors.text : '#111'}}>{t('languageLabel') || 'Langue'}</Text>
                 <TouchableOpacity onPress={() => setLangPickerVisible(false)}><Ionicons name="close" size={24} color={dark ? colors.textMuted : '#666'} /></TouchableOpacity>
               </View>
               <FlatList data={LANGUAGES} keyExtractor={l => l.code} contentContainerStyle={{paddingHorizontal:16}} renderItem={({item: l}) => (
@@ -1159,7 +1159,7 @@ const makeP = (dark, c) => {
   return StyleSheet.create({
   section: { flexDirection: 'row', alignItems: 'center', marginTop: 26, paddingTop: 18, borderTopWidth: 1, borderTopColor: k('#F0F0F0', c.border), marginBottom: 2 },
   sectionPremier: { marginTop: 0, paddingTop: 0, borderTopWidth: 0 },
-  sectionTxt: { fontSize: 16, fontWeight: '700', color: k('#111', c.text), marginLeft: 8 },
+  sectionTxt: { flexShrink: 1, fontSize: 16, fontWeight: '700', color: k('#111', c.text), marginLeft: 8 },
   hint: { fontSize: 12, color: k('#6B7280', c.textMuted), lineHeight: 17, marginTop: 6 },
   siretLigne: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
   hintSous: { fontSize: 11, color: k('#6B7280', c.textMuted), lineHeight: 16, marginTop: 5 },
@@ -1176,7 +1176,7 @@ const makeP = (dark, c) => {
   chipActif: { borderColor: BRAND, backgroundColor: k('#FFF1E8', c.cardAlt) },
   chipTxt: { fontSize: 13, fontWeight: '600', color: k('#374151', c.textSoft), flexShrink: 1 },
   vehicule: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: k('rgba(0,0,0,0.15)', c.inputBorder), marginRight: 10, backgroundColor: k('#fff', c.card) },
-  vehiculeTxt: { fontSize: 11, marginTop: 4, fontWeight: '500', color: k('#6B7280', c.textMuted) },
+  vehiculeTxt: { maxWidth: '100%', paddingHorizontal: 4, fontSize: 11, marginTop: 4, fontWeight: '500', color: k('#6B7280', c.textMuted) },
   doc: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: k('rgba(0,0,0,0.15)', c.inputBorder), marginTop: 10, backgroundColor: k('#fff', c.card) },
   checkRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 22 },
   checkTxt: { flex: 1, fontSize: 13, color: k('#333', c.textSoft), lineHeight: 19 },

@@ -23,7 +23,7 @@ export default function OpportunityDetailScreen({ navigation, route }) {
         <Pressable onPress={() => navigation.goBack()}>
           <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
-        <Text style={s.headerTitle}>{t('opportunitiesTitle')}</Text>
+        <Text style={s.headerTitle} numberOfLines={1}>{t('opportunitiesTitle')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -66,15 +66,15 @@ export default function OpportunityDetailScreen({ navigation, route }) {
 const makeStyles = (c) => StyleSheet.create({
   container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, backgroundColor: c.bg },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 18, fontWeight: '800', color: c.text },
 
   heroWrap: { alignItems: 'center', marginTop: 20, marginBottom: 16 },
   heroCircle: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center' },
 
   title: { fontSize: 22, fontWeight: '900', color: c.text, textAlign: 'center', paddingHorizontal: 24, marginBottom: 10 },
 
-  periodBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, gap: 6, marginBottom: 20 },
-  periodText: { fontSize: 13, fontWeight: '700' },
+  periodBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'center', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, gap: 6, marginBottom: 20, maxWidth: '90%' },
+  periodText: { flexShrink: 1, fontSize: 13, fontWeight: '700' },
 
   descCard: { backgroundColor: c.card, marginHorizontal: 16, borderRadius: 14, padding: 16, marginBottom: 12 },
   descTitle: { fontSize: 15, fontWeight: '800', color: c.text, marginBottom: 8 },

@@ -70,7 +70,7 @@ export default function WeekDetailScreen({ route, navigation }) {
         <Pressable onPress={() => canPrev && setIdx(idx - 1)} style={{ opacity: canPrev ? 1 : 0.3 }}>
           <Ionicons name={dirIcon('chevron-back')} size={28} color={colors.text} />
         </Pressable>
-        <Text style={s.totalAmount}>{fmtPrice(week.total)}</Text>
+        <Text style={s.totalAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{fmtPrice(week.total)}</Text>
         <Pressable onPress={() => canNext && setIdx(idx + 1)} style={{ opacity: canNext ? 1 : 0.3 }}>
           <Ionicons name={dirIcon('chevron-forward')} size={28} color={colors.text} />
         </Pressable>
@@ -85,7 +85,7 @@ export default function WeekDetailScreen({ route, navigation }) {
             <View key={i} style={s.barCol}>
               <View style={[s.bar, { height: Math.max((v / maxBar) * 120, 3) }]} />
               <Text style={s.barDate}>{week.dates[i]}</Text>
-              <Text style={s.barDay}>{nomsJours[i]}</Text>
+              <Text style={s.barDay} numberOfLines={1}>{nomsJours[i]}</Text>
             </View>
           ))}
         </View>
@@ -147,7 +147,7 @@ const makeStyles = (c) => {
   backBtn: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   weekRange: { textAlign: 'center', fontSize: 15, color: p('#666', c.textMuted), marginBottom: 4 },
   totalRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 20 },
-  totalAmount: { fontSize: 36, fontWeight: '900', color: c.text },
+  totalAmount: { fontSize: 36, fontWeight: '900', color: c.text, flexShrink: 1 },
 
   chartContainer: { marginHorizontal: 16, backgroundColor: c.card, borderRadius: 16, padding: 16, marginBottom: 24 },
   maxLabel: { fontSize: 12, color: c.textFaint, marginBottom: 4 },
@@ -168,8 +168,8 @@ const makeStyles = (c) => {
   divider: { height: 1, backgroundColor: c.borderStrong, marginHorizontal: 16, marginBottom: 16 },
 
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10 },
-  detailLabel: { fontSize: 15, color: p('#333', c.textSoft) },
-  detailValue: { fontSize: 15, color: c.text },
+  detailLabel: { fontSize: 15, color: p('#333', c.textSoft), flexShrink: 1 },
+  detailValue: { fontSize: 15, color: c.text, marginLeft: 12, flexShrink: 0 },
   detailRowDashed: { height: 1, borderStyle: 'dashed', borderWidth: 0.5, borderColor: p('#ddd', c.borderStrong), marginHorizontal: 16 },
   closeBtn: { backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, marginHorizontal: 16, marginTop: 8, alignItems: 'center' },
   closeBtnTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },

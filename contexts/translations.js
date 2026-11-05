@@ -3,6 +3,10 @@
 
 const translations = {
   fr: {
+    gainsTabDay: "Jour",
+    gainsTabWeek: "Semaine",
+    gainsTabMonth: "Mois",
+    gainsTabYear: "Année",
     gainsCoursesNet: "Courses (net)",
     gainsBonus: "Bonus",
     gainsAvgPerCourse: "Moyenne par course",
@@ -879,6 +883,10 @@ const translations = {
   },
 
   en: {
+    gainsTabDay: "Day",
+    gainsTabWeek: "Week",
+    gainsTabMonth: "Month",
+    gainsTabYear: "Year",
     gainsCoursesNet: "Deliveries (net)",
     gainsBonus: "Bonus",
     gainsAvgPerCourse: "Average per delivery",
@@ -1710,6 +1718,10 @@ const translations = {
   },
 
   es: {
+    gainsTabDay: "Día",
+    gainsTabWeek: "Semana",
+    gainsTabMonth: "Mes",
+    gainsTabYear: "Año",
     gainsCoursesNet: "Entregas (neto)",
     gainsBonus: "Bono",
     gainsAvgPerCourse: "Media por entrega",
@@ -2272,6 +2284,10 @@ const translations = {
   },
 
   zh: {
+    gainsTabDay: "日",
+    gainsTabWeek: "周",
+    gainsTabMonth: "月",
+    gainsTabYear: "年",
     gainsCoursesNet: "配送（净额）",
     gainsBonus: "奖金",
     gainsAvgPerCourse: "每单平均",
@@ -2834,6 +2850,10 @@ const translations = {
   },
 
   ar: {
+    gainsTabDay: "يوم",
+    gainsTabWeek: "أسبوع",
+    gainsTabMonth: "شهر",
+    gainsTabYear: "سنة",
     gainsCoursesNet: "التوصيلات (صافي)",
     gainsBonus: "مكافأة",
     gainsAvgPerCourse: "المتوسط لكل توصيلة",
@@ -3396,6 +3416,10 @@ const translations = {
   },
 
   de: {
+    gainsTabDay: "Tag",
+    gainsTabWeek: "Woche",
+    gainsTabMonth: "Monat",
+    gainsTabYear: "Jahr",
     gainsCoursesNet: "Lieferungen (netto)",
     gainsBonus: "Bonus",
     gainsAvgPerCourse: "Durchschnitt pro Lieferung",
@@ -3958,6 +3982,10 @@ const translations = {
   },
 
   nl: {
+    gainsTabDay: "Dag",
+    gainsTabWeek: "Week",
+    gainsTabMonth: "Maand",
+    gainsTabYear: "Jaar",
     gainsCoursesNet: "Bezorgingen (netto)",
     gainsBonus: "Bonus",
     gainsAvgPerCourse: "Gemiddeld per bezorging",
@@ -4520,6 +4548,10 @@ const translations = {
   },
 
   it: {
+    gainsTabDay: "Giorno",
+    gainsTabWeek: "Settimana",
+    gainsTabMonth: "Mese",
+    gainsTabYear: "Anno",
     gainsCoursesNet: "Consegne (netto)",
     gainsBonus: "Bonus",
     gainsAvgPerCourse: "Media per consegna",
@@ -5082,6 +5114,10 @@ const translations = {
   },
 
   pt: {
+    gainsTabDay: "Dia",
+    gainsTabWeek: "Semana",
+    gainsTabMonth: "Mês",
+    gainsTabYear: "Ano",
     gainsCoursesNet: "Entregas (líquido)",
     gainsBonus: "Bónus",
     gainsAvgPerCourse: "Média por entrega",
@@ -5644,6 +5680,10 @@ const translations = {
   },
 
   ja: {
+    gainsTabDay: "日",
+    gainsTabWeek: "週",
+    gainsTabMonth: "月",
+    gainsTabYear: "年",
     gainsCoursesNet: "配達（純額）",
     gainsBonus: "ボーナス",
     gainsAvgPerCourse: "配達あたりの平均",
@@ -6206,6 +6246,10 @@ const translations = {
   },
 
   th: {
+    gainsTabDay: "วัน",
+    gainsTabWeek: "สัปดาห์",
+    gainsTabMonth: "เดือน",
+    gainsTabYear: "ปี",
     gainsCoursesNet: "การจัดส่ง (สุทธิ)",
     gainsBonus: "โบนัส",
     gainsAvgPerCourse: "เฉลี่ยต่อการจัดส่ง",
@@ -6768,6 +6812,10 @@ const translations = {
   },
 
   sv: {
+    gainsTabDay: "Dag",
+    gainsTabWeek: "Vecka",
+    gainsTabMonth: "Månad",
+    gainsTabYear: "År",
     gainsCoursesNet: "Leveranser (netto)",
     gainsBonus: "Bonus",
     gainsAvgPerCourse: "Snitt per leverans",
@@ -7330,6 +7378,10 @@ const translations = {
   },
 
   ru: {
+    gainsTabDay: "День",
+    gainsTabWeek: "Неделя",
+    gainsTabMonth: "Месяц",
+    gainsTabYear: "Год",
     gainsCoursesNet: "Доставки (нетто)",
     gainsBonus: "Бонус",
     gainsAvgPerCourse: "В среднем за доставку",
