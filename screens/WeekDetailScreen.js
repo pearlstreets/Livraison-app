@@ -31,6 +31,8 @@ export default function WeekDetailScreen({ route, navigation }) {
   const [idx, setIdx] = useState(weekIndex);
   const rawWeek = weeklyEarnings[idx] || weeklyEarnings[0] || EMPTY_WEEK;
   // 100% données réelles (adaptEarningsWeek : total/net/tips/courses/bars).
+  // Barres en NET (net de la semaine réparti au prorata du brut de chaque jour,
+  // le serveur ne donnant pas de net par jour) : même base que l'écran Gains.
   // Temps en ligne et points : non suivis par le serveur, donc non affichés.
   const bars = Array.isArray(rawWeek.bars) && rawWeek.bars.length === 7 ? rawWeek.bars : [0, 0, 0, 0, 0, 0, 0];
   const week = {

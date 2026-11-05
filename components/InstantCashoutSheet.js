@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Modal, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -20,6 +20,9 @@ const MESSAGE_REFUS = {
   compte_absent: 'cashoutErrNoAccount',
   desactive: 'cashoutErrOff',
   echec_virement: 'cashoutErrFailed',
+  maximum: 'cashoutErrMax',
+  stripe_indisponible: 'cashoutErrStripe',
+  erreur: 'cashoutErrGeneric',
 };
 
 // Texte du motif pour lequel le virement instantané n'est pas possible, ou null.
@@ -65,11 +68,21 @@ export default function InstantCashoutSheet({ visible, onClose, accountLabel }) 
   const feeKnown = snapshot.fee != null;
   const receive = Math.max(snapshot.balance - (snapshot.fee || 0), 0);
 
+  // Un seul virement par appui, même si le bouton est touché deux fois très vite.
+  const envoiEnCours = useRef(false);
   async function confirm() {
+    if (envoiEnCours.current) return;
+    envoiEnCours.current = true;
     setStep('processing');
-    const r = await cashOut();
-    setResult(r);
-    setStep('result');
+    try {
+      const r = await cashOut();
+      setResult(r);
+    } catch {
+      setResult({ ok: false, code: 'erreur' });
+    } finally {
+      envoiEnCours.current = false;
+      setStep('result');
+    }
   }
 
   function close() {
@@ -92,6 +105,12 @@ export default function InstantCashoutSheet({ visible, onClose, accountLabel }) 
       icon = 'time-outline';
       title = t('cashoutPendingTitle');
       desc = t('cashoutPendingDesc');
+    } else if (result.code === 'reseau') {
+      // Réponse perdue (réseau, délai) : le virement a pu partir, on ne dit
+      // pas « non envoyé » mais on invite à vérifier les versements.
+      icon = 'time-outline';
+      title = t('cashoutCheckTitle');
+      desc = t('cashoutCheckDesc');
     } else {
       icon = 'alert-circle';
       title = t('cashoutNotSent');
@@ -100,9 +119,11 @@ export default function InstantCashoutSheet({ visible, onClose, accountLabel }) 
       const max = result.max ?? wallet?.instant?.maxPerDay ?? null;
       const min = result.min ?? wallet?.instant?.minBalanceEur ?? null;
       let cle = MESSAGE_REFUS[result.code] || 'cashoutErrGeneric';
-      if ((cle === 'cashoutErrLimit' && max == null) || (cle === 'cashoutErrMin' && min == null)) cle = 'cashoutErrGeneric';
+      const maxMontant = result.maxAmount ?? null;
+      if ((cle === 'cashoutErrLimit' && max == null) || (cle === 'cashoutErrMin' && min == null)
+        || (cle === 'cashoutErrMax' && maxMontant == null)) cle = 'cashoutErrGeneric';
       desc = t(cle, {
-        max,
+        max: cle === 'cashoutErrMax' ? fmtPrice(maxMontant) : max,
         min: min != null ? fmtPrice(min) : null,
       });
     }
@@ -137,7 +158,7 @@ export default function InstantCashoutSheet({ visible, onClose, accountLabel }) 
                 )}
               </View>
               <Text style={s.desc}>{t('instantCashoutDesc', { account: accountLabel })}</Text>
-              <Pressable style={s.btnPrimary} onPress={confirm}>
+              <Pressable style={s.btnPrimary} onPress={confirm} disabled={step !== 'confirm'}>
                 <Text style={s.btnPrimaryTxt}>{t('confirmCashout')}</Text>
               </Pressable>
               <Pressable style={s.btnCancel} onPress={close}>

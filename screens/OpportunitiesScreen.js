@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
@@ -16,11 +17,15 @@ export default function OpportunitiesScreen({ navigation }) {
   const { readOpportunities, markOpportunityRead, setOpportunityIds } = useAuth();
   const [promos, setPromos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [essai, setEssai] = useState(0);
 
-  useEffect(() => {
+  // Relue à chaque retour sur l'écran ; échec = message et bouton Réessayer.
+  useFocusEffect(useCallback(() => {
     let alive = true;
     (async () => {
       try {
+        if (alive) setLoadError(false);
         const r = await deliveryService.getOpportunities();
         const list = (r && (r.data || r.results)) || [];
         // Le badge du menu suit exactement cette liste.
@@ -33,11 +38,12 @@ export default function OpportunitiesScreen({ navigation }) {
           icon: o.icon || 'flash',
           color: o.color || BRAND,
         })));
-      } catch (e) { /* garde la liste vide */ }
-      finally { if (alive) setLoading(false); }
+      } catch {
+        if (alive) setLoadError(true);
+      } finally { if (alive) setLoading(false); }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [essai])); // eslint-disable-line react-hooks/exhaustive-deps
 
   function openPromo(promo) {
     markOpportunityRead(promo.id);
@@ -60,7 +66,16 @@ export default function OpportunitiesScreen({ navigation }) {
       {loading && (
         <ActivityIndicator color={BRAND} style={{ marginTop: 24 }} />
       )}
-      {!loading && promos.length === 0 && (
+      {!loading && loadError && promos.length === 0 && (
+        <View style={{ alignItems: 'center', marginTop: 40, paddingHorizontal: 32 }}>
+          <Ionicons name="cloud-offline-outline" size={36} color="#ccc" style={{ marginBottom: 10 }} />
+          <Text style={{ color: '#999', textAlign: 'center' }}>{t('opportunitiesLoadError')}</Text>
+          <Pressable onPress={() => { setLoading(true); setEssai((n) => n + 1); }} style={{ marginTop: 14, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 10, backgroundColor: BRAND }}>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>{t('retry')}</Text>
+          </Pressable>
+        </View>
+      )}
+      {!loading && !loadError && promos.length === 0 && (
         <View style={{ alignItems: 'center', marginTop: 40, paddingHorizontal: 32 }}>
           <Ionicons name="sparkles-outline" size={36} color="#ccc" style={{ marginBottom: 10 }} />
           <Text style={{ color: '#999', textAlign: 'center' }}>{t('noOpportunities') || 'Aucune opportunité pour le moment'}</Text>

@@ -162,7 +162,7 @@ export default function HeatmapScreen({ navigation }) {
 
       {/* Right controls */}
       <View style={[s.rightControls, { bottom: insets.bottom + 80 }]}>
-        <Pressable style={s.controlBtn} onPress={() => navigation.navigate('EarningsMain')}>
+        <Pressable style={s.controlBtn} onPress={() => navigation.navigate('Revenus', { screen: 'EarningsMain' })}>
           <Ionicons name="bar-chart" size={22} color="#fff" />
         </Pressable>
         <Pressable style={s.controlBtn} onPress={recenter}>

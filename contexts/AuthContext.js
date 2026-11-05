@@ -64,8 +64,29 @@ function adaptProfile(raw) {
   };
 }
 
+// Gains NETS par jour (lun à dim). Le serveur ne donne par jour que le brut
+// (daily_breakdown : courses + pourboires + bonus) ; le net de la semaine
+// (net_amount) est réparti sur les jours au prorata de ce brut, au centime
+// près : la somme des 7 jours vaut exactement le net de la semaine.
+function joursNets(brutParJour, netSemaine) {
+  const brut = brutParJour.reduce((a, v) => a + v, 0);
+  if (!(brut > 0) || !(netSemaine > 0)) return brutParJour.map(() => 0);
+  const centimes = Math.round(netSemaine * 100);
+  const parts = brutParJour.map((v) => (v * centimes) / brut);
+  const nets = parts.map((v) => Math.floor(v));
+  // Centimes restants : aux jours qui ont les plus grands restes.
+  let reste = centimes - nets.reduce((a, v) => a + v, 0);
+  parts.map((v, i) => [v - nets[i], i]).sort((x, y) => y[0] - x[0]).forEach(([, i]) => {
+    if (reste > 0) { nets[i] += 1; reste -= 1; }
+  });
+  return nets.map((c) => c / 100);
+}
+
 function adaptEarningsWeek(rec) {
   const start = rec.period_start || '';
+  const barsGross = Array.isArray(rec.daily_breakdown) && rec.daily_breakdown.length === 7
+    ? rec.daily_breakdown.map((v) => Number(v) || 0)
+    : [0, 0, 0, 0, 0, 0, 0];
   return {
     start,
     end: rec.period_end || '',
@@ -75,11 +96,10 @@ function adaptEarningsWeek(rec) {
     total: Number(rec.net_amount ?? 0),
     // Total brut (courses + pourboires + bonus), avant retenues.
     gross: Number(rec.gross_amount ?? 0),
-    // Vraies barres par jour (lun à dim) fournies par le backend (daily_breakdown),
-    // en brut : courses + pourboires + bonus du jour.
-    bars: Array.isArray(rec.daily_breakdown) && rec.daily_breakdown.length === 7
-      ? rec.daily_breakdown.map((v) => Number(v) || 0)
-      : [0, 0, 0, 0, 0, 0, 0],
+    // Barres par jour (lun à dim) en NET, comme le total (voir joursNets) ;
+    // le brut par jour du serveur reste dans barsGross.
+    bars: joursNets(barsGross, Number(rec.net_amount ?? 0)),
+    barsGross,
     // Part des courses seules : total moins pourboires et bonus, pour que
     // Prix net + Pourboire + Bonus = Total.
     net: Math.max(0, Math.round((Number(rec.net_amount ?? 0) - Number(rec.tips_amount ?? 0) - (Number(rec.bonus_amount ?? 0) || 0)) * 100) / 100),
@@ -141,17 +161,18 @@ function adaptPayout(p, iban) {
     createdAtRaw: p.created_at || null,
     // Détail réel du versement (DriverEarnings) : net, pourboires, nb de courses.
     detail: {
-      net: `${Number(p.total_before_deductions ?? p.net_amount ?? p.amount ?? 0).toFixed(2)} €`,
+      net: `${Number(p.net_amount ?? p.amount ?? 0).toFixed(2)} €`,
       tips: p.tips_amount != null ? `${Number(p.tips_amount).toFixed(2)} €` : '-',
-      netEur: Number(p.total_before_deductions ?? p.net_amount ?? p.amount ?? 0),
+      netEur: Number(p.net_amount ?? p.amount ?? 0),
       tipsEur: p.tips_amount != null ? Number(p.tips_amount) : null,
       courses: p.total_deliveries != null ? p.total_deliveries : '-',
       status: statut,
       feeEur: Number(p.fee_amount ?? 0),
       feeRefunded: !!p.fee_refunded,
-      // Retenues (04/11/2026) : total des courses, commission Pearl Streets,
+      // Retenues (04/11/2026) : total des courses (brut du serveur, courses +
+      // pourboires + bonus, avant retenues), commission Pearl Streets,
       // cotisations URSSAF payées par Pearl Streets pour le livreur.
-      grossEur: p.total_before_deductions != null ? Number(p.total_before_deductions) : null,
+      grossEur: p.gross_amount != null ? Number(p.gross_amount) : null,
       commissionEur: Number(p.commission ?? 0),
       urssafEur: Number(p.urssaf_amount ?? 0),
       urssafRate: Number(p.urssaf_rate ?? 0),
@@ -279,6 +300,15 @@ export function AuthProvider({ children }) {
     } catch (e) { /* keep last known */ }
   }, []);
 
+  // Profil relu sur le serveur (ex. après la configuration des virements :
+  // IBAN et état du compte à jour).
+  const refreshProfile = useCallback(async () => {
+    try {
+      const prof = await authService.getProfile();
+      applyProfile(prof?.data || prof);
+    } catch (e) { /* keep last known */ }
+  }, [applyProfile]);
+
   const refreshHistory = useCallback(async () => {
     try {
       const h = await deliveryService.getDeliveryHistory(1);
@@ -314,8 +344,8 @@ export function AuthProvider({ children }) {
     // Badge « support » = nombre de tickets non résolus (source backend réelle,
     // remplace l'ancien compteur local mort).
     try {
-      const r = await ticketService.getTickets();
-      const list = extractList(r);
+      // Toutes les pages : au-delà de 10 tickets, le compte restait faux.
+      const list = await ticketService.getAllTickets();
       const openCount = list.filter((tk) => {
         const st = String(tk?.status || '').toLowerCase();
         return st === 'open' || st === 'in_progress';
@@ -627,6 +657,8 @@ export function AuthProvider({ children }) {
         ok: false,
         code: e?.code || (e?.isNetworkError ? 'reseau' : 'erreur'),
         max: d.max_per_day != null ? Number(d.max_per_day) : null,
+        // Plafond d'un virement instantané (refus « maximum »).
+        maxAmount: d.max_amount != null ? Number(d.max_amount) : null,
         min: d.min_balance != null ? Number(d.min_balance) : null,
       };
     }
@@ -708,7 +740,7 @@ export function AuthProvider({ children }) {
       warnings, accountActive, rating, totalDeliveries,
       cancelOrder, applyCancelResult, weeklyCancels, maxWeeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount,
       deliveryHistory, addToHistory, markOrderReported, refreshAll,
-      refreshEarnings, refreshTickets, refreshOpportunities,
+      refreshEarnings, refreshTickets, refreshOpportunities, refreshProfile,
       getTicketMessages, saveTicketMessages, markTicketRead, getUnreadTicketCount,
       ticketMessages, ticketReadCounts,
       currentEarningsCents, wallet, cashOut, versements, weeklyEarnings, currentIban, setCurrentIban,
