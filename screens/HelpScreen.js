@@ -5,6 +5,7 @@ import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useFocusEffect } from '@react-navigation/native';
 import Constants from 'expo-constants';
 
@@ -21,6 +22,8 @@ const TOPICS = [
 
 export default function HelpScreen({ navigation }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const s = stylesPour(colors);
   const insets = useSafeAreaInsets();
   const scrollRef = useRef(null);
   useFocusEffect(useCallback(() => {
@@ -31,7 +34,7 @@ export default function HelpScreen({ navigation }) {
     <ScrollView ref={scrollRef} style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
         <Text style={s.headerTitle}>{t('helpTitle')}</Text>
         <View style={{ width: 24 }} />
@@ -46,7 +49,7 @@ export default function HelpScreen({ navigation }) {
             <Text style={s.topicLabel}>{t(topic.labelKey)}</Text>
             <Text style={s.topicDesc}>{t(topic.descKey)}</Text>
           </View>
-          <Ionicons name={dirIcon('chevron-forward')} size={18} color="#ccc" />
+          <Ionicons name={dirIcon('chevron-forward')} size={18} color={colors.chevron} />
         </Pressable>
       ))}
 
@@ -64,16 +67,23 @@ export default function HelpScreen({ navigation }) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+const makeStyles = (c) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
-  sectionTitle: { fontSize: 20, fontWeight: '900', color: '#111', paddingHorizontal: 16, marginBottom: 16 },
-  topicRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  topicLabel: { fontWeight: '700', fontSize: 15, color: '#111' },
-  topicDesc: { color: '#888', fontSize: 13, marginTop: 2 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
+  sectionTitle: { fontSize: 20, fontWeight: '900', color: c.text, paddingHorizontal: 16, marginBottom: 16 },
+  topicRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: c.card, paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.dark ? c.border : '#f0f0f0' },
+  topicLabel: { fontWeight: '700', fontSize: 15, color: c.text },
+  topicDesc: { color: c.dark ? c.textMuted : '#888', fontSize: 13, marginTop: 2 },
   divider: { height: 20 },
   contactBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, marginHorizontal: 16 },
   contactTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  version: { textAlign: 'center', color: '#ccc', fontSize: 12, marginTop: 20 },
+  version: { textAlign: 'center', color: c.dark ? c.textFaint : '#ccc', fontSize: 12, marginTop: 20 },
 });
+
+// Feuilles de style par thème (clair, sombre), créées une seule fois chacune.
+const stylesParTheme = new Map();
+function stylesPour(c) {
+  if (!stylesParTheme.has(c)) stylesParTheme.set(c, makeStyles(c));
+  return stylesParTheme.get(c);
+}

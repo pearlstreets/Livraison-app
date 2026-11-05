@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { authService } from '../services/authService';
 import { useAuth } from '../contexts/AuthContext';
 import useSecureScreen from '../hooks/useSecureScreen';
@@ -25,6 +26,8 @@ export default function ChangePasswordScreen({ navigation }) {
   const { t } = useLanguage();
   const { reconnecterApresMotDePasse, logout } = useAuth();
   const insets = useSafeAreaInsets();
+  const { dark, colors } = useTheme();
+  const s = useMemo(() => makeStyles(dark, colors), [dark, colors]);
   // Mots de passe actuel et nouveau.
   useSecureScreen('ChangePassword');
 
@@ -70,6 +73,12 @@ export default function ChangePasswordScreen({ navigation }) {
           { text: t('ok'), onPress: () => { logout(); } },
         ]);
       }
+    } catch (e) {
+      // Mot de passe bien changé mais reconnexion en échec : on le dit, puis
+      // déconnexion pour se reconnecter avec le nouveau mot de passe.
+      Alert.alert(t('success'), t('passwordChangedReconnect'), [
+        { text: t('ok'), onPress: () => { logout(); } },
+      ]);
     } finally {
       setSaving(false);
     }
@@ -81,7 +90,7 @@ export default function ChangePasswordScreen({ navigation }) {
         {/* Header */}
         <View style={s.headerRow}>
           <Pressable onPress={() => navigation.goBack()}>
-            <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
+            <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
           </Pressable>
           <Text style={s.headerTitle}>{t('changePassword') || 'Modifier le mot de passe'}</Text>
           <View style={{ width: 24 }} />
@@ -100,13 +109,13 @@ export default function ChangePasswordScreen({ navigation }) {
           <TextInput
             style={s.input}
             placeholder="••••••••"
-            placeholderTextColor="#bbb"
+            placeholderTextColor={dark ? colors.textFaint : '#bbb'}
             secureTextEntry={!showCurrent}
             value={currentPwd}
             onChangeText={setCurrentPwd}
           />
           <Pressable style={s.eyeBtn} onPress={() => setShowCurrent(!showCurrent)}>
-            <Ionicons name={showCurrent ? 'eye-off' : 'eye'} size={20} color="#999" />
+            <Ionicons name={showCurrent ? 'eye-off' : 'eye'} size={20} color={colors.textFaint} />
           </Pressable>
         </View>
 
@@ -116,13 +125,13 @@ export default function ChangePasswordScreen({ navigation }) {
           <TextInput
             style={s.input}
             placeholder={t('pwdMin6')}
-            placeholderTextColor="#bbb"
+            placeholderTextColor={dark ? colors.textFaint : '#bbb'}
             secureTextEntry={!showNew}
             value={newPwd}
             onChangeText={setNewPwd}
           />
           <Pressable style={s.eyeBtn} onPress={() => setShowNew(!showNew)}>
-            <Ionicons name={showNew ? 'eye-off' : 'eye'} size={20} color="#999" />
+            <Ionicons name={showNew ? 'eye-off' : 'eye'} size={20} color={colors.textFaint} />
           </Pressable>
         </View>
 
@@ -144,13 +153,13 @@ export default function ChangePasswordScreen({ navigation }) {
           <TextInput
             style={s.input}
             placeholder={t('pwdRetype')}
-            placeholderTextColor="#bbb"
+            placeholderTextColor={dark ? colors.textFaint : '#bbb'}
             secureTextEntry={!showConfirm}
             value={confirmPwd}
             onChangeText={setConfirmPwd}
           />
           <Pressable style={s.eyeBtn} onPress={() => setShowConfirm(!showConfirm)}>
-            <Ionicons name={showConfirm ? 'eye-off' : 'eye'} size={20} color="#999" />
+            <Ionicons name={showConfirm ? 'eye-off' : 'eye'} size={20} color={colors.textFaint} />
           </Pressable>
         </View>
 
@@ -184,27 +193,31 @@ export default function ChangePasswordScreen({ navigation }) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+// Styles selon le mode : en clair, valeurs d'origine à l'identique.
+const makeStyles = (dark, c) => {
+  const k = (clair, sombre) => (dark ? sombre : clair);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg) },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, paddingTop: 16 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: k('#111', c.text) },
 
   iconWrap: { alignItems: 'center', marginBottom: 28 },
-  iconCircle: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#FFF1E8', alignItems: 'center', justifyContent: 'center' },
+  iconCircle: { width: 70, height: 70, borderRadius: 35, backgroundColor: k('#FFF1E8', c.cardAlt), alignItems: 'center', justifyContent: 'center' },
 
-  label: { fontWeight: '700', fontSize: 14, color: '#333', marginBottom: 6, marginTop: 16 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#e0e0e0' },
-  input: { flex: 1, paddingHorizontal: 14, paddingVertical: 14, fontSize: 16, color: '#111' },
+  label: { fontWeight: '700', fontSize: 14, color: k('#333', c.textSoft), marginBottom: 6, marginTop: 16 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: k('#fff', c.input), borderRadius: 12, borderWidth: 1, borderColor: k('#e0e0e0', c.inputBorder) },
+  input: { flex: 1, paddingHorizontal: 14, paddingVertical: 14, fontSize: 16, color: k('#111', c.text) },
   eyeBtn: { paddingHorizontal: 14, paddingVertical: 14 },
 
   strengthRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
-  strengthBar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#e0e0e0' },
-  strengthText: { fontSize: 12, fontWeight: '700', color: '#888', marginLeft: 8 },
+  strengthBar: { flex: 1, height: 4, borderRadius: 2, backgroundColor: k('#e0e0e0', c.borderStrong) },
+  strengthText: { fontSize: 12, fontWeight: '700', color: k('#888', c.textFaint), marginLeft: 8 },
 
   matchRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
   matchText: { fontSize: 13, fontWeight: '600' },
 
   saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: BRAND, borderRadius: 14, paddingVertical: 16, marginTop: 32 },
   saveTxt: { color: '#fff', fontWeight: '800', fontSize: 16 },
-});
+  });
+};

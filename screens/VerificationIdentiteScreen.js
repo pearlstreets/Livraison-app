@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TextInput, Alert, ActivityIndicator, ScrollView, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dirIcon } from '../lib/rtl';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDayMonth, formatTime } from '../lib/i18nFormat';
 import {
@@ -60,6 +61,8 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
   const { t } = useLanguage();
   const { setIsOnline, setIsOnlineState } = useAuth();
   const insets = useSafeAreaInsets();
+  const { dark, colors } = useTheme();
+  const s = useMemo(() => makeStyles(dark, colors), [dark, colors]);
   const maintenant = useMaintenant();
 
   const [etat, setEtatBrut] = useState(route?.params?.etat || null);
@@ -163,7 +166,7 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
           nbRenvois.current += 1;
           setReprise(true);
           minuteurRenvoi.current = setTimeout(() => {
-            lireVideoEnAttente(verificationId).then((a) => { if (a) envoyer(a.verificationId, a.video); });
+            lireVideoEnAttente(verificationId).then((a) => { if (a) envoyer(a.verificationId, a.video); }).catch(() => {});
           }, delai);
         } else {
           setReprise(false);
@@ -197,7 +200,9 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
   // Vidéo restée en attente (app fermée pendant une coupure) : renvoyée dès
   // l'ouverture de l'écran.
   const reprendreVideo = useCallback(async () => {
-    const attente = await lireVideoEnAttente(null);
+    // Lecture du stockage en échec : rien à renvoyer, sans erreur non rattrapée.
+    let attente = null;
+    try { attente = await lireVideoEnAttente(null); } catch { attente = null; }
     if (attente && !envoiEnCours.current) envoyer(attente.verificationId, attente.video);
   }, [envoyer]);
 
@@ -284,8 +289,11 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
     }
     setEssai(null);
     nbRenvois.current = 0;
-    const gardee = await garderVideoEnAttente(verification.id, video, finVerificationRef.current);
-    envoyer(gardee.verificationId, gardee.video);
+    // Vidéo non gardée sur l'appareil (stockage plein) : envoyée quand même.
+    let gardee = null;
+    try { gardee = await garderVideoEnAttente(verification.id, video, finVerificationRef.current); } catch { gardee = null; }
+    if (gardee?.video) envoyer(gardee.verificationId, gardee.video);
+    else envoyer(verification.id, video);
   }, [verification, envoi, t, cameraIndisponible, envoyer]);
 
   const annuler = useCallback(async () => {
@@ -346,7 +354,7 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
   const entete = (
     <View style={s.headerRow}>
       <Pressable onPress={quitter} hitSlop={10}>
-        <Ionicons name={dirIcon('arrow-back')} size={22} color="#111" />
+        <Ionicons name={dirIcon('arrow-back')} size={22} color={colors.text} />
       </Pressable>
       <Text style={s.headerTitle}>{t('idvTitre')}</Text>
       <View style={{ width: 22 }} />
@@ -421,11 +429,11 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
           <Text style={s.cardText}>{motifTexte}</Text>
           <Text style={s.consigne}>{t('idvGuideTitre')}</Text>
           <View style={s.cadreVisage}>
-            <Ionicons name="person-outline" size={72} color="#bbb" />
+            <Ionicons name="person-outline" size={72} color={dark ? colors.textFaint : '#bbb'} />
           </View>
           <Text style={s.consigne}>{t('idvGuideTete')}</Text>
           <View style={s.pastilleDuree}>
-            <Ionicons name="timer-outline" size={15} color="#555" style={{ marginRight: 4 }} />
+            <Ionicons name="timer-outline" size={15} color={dark ? colors.textSoft : '#555'} style={{ marginRight: 4 }} />
             <Text style={s.pastilleDureeTxt}>{t('idvGuideDuree')}</Text>
           </View>
           <Text style={s.conseil}>{t('idvConseil')}</Text>
@@ -435,7 +443,7 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
         </View>
         {resteVerification != null && (
           <View style={s.chrono}>
-            <Ionicons name="time-outline" size={16} color={depasse ? '#e74c3c' : '#555'} style={{ marginRight: 6 }} />
+            <Ionicons name="time-outline" size={16} color={depasse ? '#e74c3c' : (dark ? colors.textSoft : '#555')} style={{ marginRight: 6 }} />
             <Text style={[s.chronoTxt, depasse && { color: '#e74c3c' }]}>
               {depasse ? t('idvDelaiDepasse') : t('idvTempsRestant', { temps: formatDuree(resteVerification) })}
             </Text>
@@ -456,7 +464,9 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
   } else if (etat && etat.bloque && blocage) {
     const finConnue = blocage.fin_blocage != null;
     const peutRefaire = blocage.peut_refaire_selfie === true || (finConnue && resteBlocage != null && resteBlocage <= 0);
-    const finAppel = blocage.fin_appel ? new Date(blocage.fin_appel) : null;
+    // Date d'appel illisible : traitée comme inconnue, l'appel reste possible.
+    const dateAppel = blocage.fin_appel ? new Date(blocage.fin_appel) : null;
+    const finAppel = dateAppel && Number.isFinite(dateAppel.getTime()) ? dateAppel : null;
     const resteAppel = finAppel ? finAppel.getTime() - maintenant : null;
     const appelPossible = blocage.peut_faire_appel === true && !blocage.appel
       && (resteAppel == null || resteAppel > 0);
@@ -464,7 +474,7 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
     contenu = (
       <>
         <View style={s.card}>
-          <View style={[s.iconeRond, { backgroundColor: '#fdecea' }]}>
+          <View style={[s.iconeRond, { backgroundColor: dark ? '#3a1d1d' : '#fdecea' }]}>
             <Ionicons name="lock-closed" size={36} color="#e74c3c" />
           </View>
           <Text style={s.grandTitre}>{finConnue ? t('idvBloqueTitre') : t('idvBloqueAgentTitre')}</Text>
@@ -512,7 +522,7 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
             <TextInput
               style={s.saisie}
               placeholder={t('idvAppelPlaceholder')}
-              placeholderTextColor="#aaa"
+              placeholderTextColor={dark ? colors.textFaint : '#aaa'}
               multiline
               textAlignVertical="top"
               maxLength={APPEL_MAX}
@@ -563,37 +573,41 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', paddingHorizontal: 16 },
+// Styles selon le mode : en clair, valeurs d'origine à l'identique.
+const makeStyles = (dark, c) => {
+  const k = (clair, sombre) => (dark ? sombre : clair);
+  return StyleSheet.create({
+  container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg), paddingHorizontal: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 8 },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#111' },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: k('#111', c.text) },
 
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 10 },
-  cardTitle: { fontSize: 14, fontWeight: '800', color: '#111', marginBottom: 6 },
-  cardText: { fontSize: 14, color: '#333', lineHeight: 20, marginBottom: 6, textAlign: 'center' },
-  consigne: { fontSize: 16, fontWeight: '800', color: '#111', lineHeight: 22, textAlign: 'center', marginVertical: 8 },
-  conseil: { fontSize: 12, color: '#777', lineHeight: 17, textAlign: 'center', marginBottom: 8 },
-  reponse: { fontSize: 13, color: '#333', lineHeight: 19, backgroundColor: '#f7f7f7', borderRadius: 10, padding: 10, marginTop: 4 },
+  card: { backgroundColor: k('#fff', c.card), borderRadius: 12, padding: 16, marginBottom: 10 },
+  cardTitle: { fontSize: 14, fontWeight: '800', color: k('#111', c.text), marginBottom: 6 },
+  cardText: { fontSize: 14, color: k('#333', c.textSoft), lineHeight: 20, marginBottom: 6, textAlign: 'center' },
+  consigne: { fontSize: 16, fontWeight: '800', color: k('#111', c.text), lineHeight: 22, textAlign: 'center', marginVertical: 8 },
+  conseil: { fontSize: 12, color: k('#777', c.textMuted), lineHeight: 17, textAlign: 'center', marginBottom: 8 },
+  reponse: { fontSize: 13, color: k('#333', c.textSoft), lineHeight: 19, backgroundColor: k('#f7f7f7', c.borderStrong), borderRadius: 10, padding: 10, marginTop: 4 },
   iconeRond: { alignSelf: 'center', width: 64, height: 64, borderRadius: 32, backgroundColor: BRAND + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
 
-  cadreVisage: { alignSelf: 'center', width: 150, height: 190, borderRadius: 95, borderWidth: 3, borderColor: BRAND, borderStyle: 'dashed', backgroundColor: '#fafafa', alignItems: 'center', justifyContent: 'center', marginVertical: 6 },
-  pastilleDuree: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f0f0', borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8 },
-  pastilleDureeTxt: { fontSize: 13, fontWeight: '700', color: '#555' },
+  cadreVisage: { alignSelf: 'center', width: 150, height: 190, borderRadius: 95, borderWidth: 3, borderColor: BRAND, borderStyle: 'dashed', backgroundColor: k('#fafafa', c.bg), alignItems: 'center', justifyContent: 'center', marginVertical: 6 },
+  pastilleDuree: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', backgroundColor: k('#f0f0f0', c.borderStrong), borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8 },
+  pastilleDureeTxt: { fontSize: 13, fontWeight: '700', color: k('#555', c.textSoft) },
   conseilLigne: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  conseilTxt: { flex: 1, fontSize: 14, color: '#333', lineHeight: 20 },
+  conseilTxt: { flex: 1, fontSize: 14, color: k('#333', c.textSoft), lineHeight: 20 },
 
   chrono: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  chronoTxt: { fontSize: 14, fontWeight: '700', color: '#555', textAlign: 'center' },
+  chronoTxt: { fontSize: 14, fontWeight: '700', color: k('#555', c.textSoft), textAlign: 'center' },
 
   centre: { alignItems: 'center', paddingTop: 32 },
-  grandTitre: { fontSize: 18, fontWeight: '800', color: '#111', textAlign: 'center', marginTop: 12, marginBottom: 8 },
-  sousTitre: { fontSize: 14, color: '#555', textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+  grandTitre: { fontSize: 18, fontWeight: '800', color: k('#111', c.text), textAlign: 'center', marginTop: 12, marginBottom: 8 },
+  sousTitre: { fontSize: 14, color: k('#555', c.textSoft), textAlign: 'center', lineHeight: 20, marginBottom: 20 },
 
-  saisie: { backgroundColor: '#fff', borderRadius: 12, padding: 12, fontSize: 14, minHeight: 110, borderWidth: 1, borderColor: '#e0e0e0' },
-  compteur: { fontSize: 11, color: '#999', textAlign: 'right', marginTop: 4, marginBottom: 10 },
+  saisie: { backgroundColor: k('#fff', c.input), borderRadius: 12, padding: 12, fontSize: 14, minHeight: 110, borderWidth: 1, borderColor: k('#e0e0e0', c.inputBorder), ...(dark ? { color: c.text } : {}) },
+  compteur: { fontSize: 11, color: k('#999', c.textFaint), textAlign: 'right', marginTop: 4, marginBottom: 10 },
 
   btnVert: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: VERT, borderRadius: 12, paddingVertical: 14, marginBottom: 10 },
   btnVertTxt: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  btnSecondaire: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', borderRadius: 12, paddingVertical: 13, marginBottom: 10, borderWidth: 1, borderColor: '#e0e0e0' },
-  btnSecondaireTxt: { color: '#333', fontWeight: '700', fontSize: 14 },
-});
+  btnSecondaire: { alignItems: 'center', justifyContent: 'center', backgroundColor: k('#fff', c.card), borderRadius: 12, paddingVertical: 13, marginBottom: 10, borderWidth: 1, borderColor: k('#e0e0e0', c.borderStrong) },
+  btnSecondaireTxt: { color: k('#333', c.textSoft), fontWeight: '700', fontSize: 14 },
+  });
+};

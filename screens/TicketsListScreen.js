@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import StatusBarShield from '../components/StatusBarShield';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { ticketService } from '../services/ticketService';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -33,14 +34,16 @@ function mapTicket(ticket) {
     orderId: ticket.order_id || null,
     assignmentId: ticket.assignment_id || null,
     problemType: ticket.problem_type || '',
-    subject: ticket.description?.split('\n')[0] || '',
+    subject: String(ticket.description || '').split('\n')[0],
     dateRaw: ticket.updated_at || ticket.created_at || null,
     status: isOpen ? 'open' : 'resolved',
-    lastMessage: ticket.description || '',
+    lastMessage: String(ticket.description || ''),
   };
 }
 
 const TicketCard = React.memo(({ ticket, navigation, t }) => {
+  const { colors } = useTheme();
+  const s = stylesPour(colors);
   const isOpen = ticket.status === 'open';
   return (
     <Pressable
@@ -75,6 +78,8 @@ TicketCard.displayName = 'TicketCard';
 
 export default function TicketsListScreen({ navigation }) {
   const { t } = useLanguage();
+  const { colors } = useTheme();
+  const s = stylesPour(colors);
   const { refreshTickets } = useAuth();
   const insets = useSafeAreaInsets();
   const [tickets, setTickets] = useState([]);
@@ -110,7 +115,7 @@ export default function TicketsListScreen({ navigation }) {
     <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
       <View style={[s.headerRow, { paddingTop: insets.top }]}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Ionicons name={dirIcon('arrow-back')} size={24} color="#111" />
+          <Ionicons name={dirIcon('arrow-back')} size={24} color={colors.text} />
         </Pressable>
         <Text style={s.headerTitle}>{t('ticketsTitle')}</Text>
         <View style={{ width: 24 }} />
@@ -169,36 +174,43 @@ export default function TicketsListScreen({ navigation }) {
   );
 }
 
-const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+const makeStyles = (c) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#111' },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: c.text },
 
   statsRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 10, marginBottom: 20 },
-  statCard: { flex: 1, backgroundColor: '#fff', borderRadius: 14, padding: 14, alignItems: 'center' },
-  statValue: { fontSize: 24, fontWeight: '900', color: '#111' },
-  statLabel: { fontSize: 12, color: '#888', fontWeight: '600', marginTop: 2 },
+  statCard: { flex: 1, backgroundColor: c.card, borderRadius: 14, padding: 14, alignItems: 'center' },
+  statValue: { fontSize: 24, fontWeight: '900', color: c.text },
+  statLabel: { fontSize: 12, color: c.dark ? c.textMuted : '#888', fontWeight: '600', marginTop: 2 },
 
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#111', paddingHorizontal: 16, marginBottom: 10, marginTop: 4 },
+  sectionTitle: { fontSize: 16, fontWeight: '800', color: c.text, paddingHorizontal: 16, marginBottom: 10, marginTop: 4 },
 
-  ticketCard: { backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: '#e8e8e8' },
+  ticketCard: { backgroundColor: c.card, marginHorizontal: 16, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: c.dark ? c.borderStrong : '#e8e8e8' },
   ticketHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   ticketIdRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  ticketId: { fontSize: 15, fontWeight: '800', color: '#111' },
+  ticketId: { fontSize: 15, fontWeight: '800', color: c.text },
   statusBadge: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 },
-  statusOpen: { backgroundColor: '#fff8e6' },
-  statusResolved: { backgroundColor: '#FFF1E8' },
+  statusOpen: { backgroundColor: c.dark ? 'rgba(245,166,35,0.18)' : '#fff8e6' },
+  statusResolved: { backgroundColor: c.cardAlt },
   statusText: { fontSize: 12, fontWeight: '700' },
   statusOpenText: { color: '#f5a623' },
   statusResolvedText: { color: BRAND },
-  ticketSubject: { fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 4 },
-  ticketOrder: { fontSize: 13, color: '#888', marginBottom: 8 },
-  ticketFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 8 },
-  ticketLastMsg: { flex: 1, fontSize: 13, color: '#999', marginRight: 8 },
-  ticketDate: { fontSize: 12, color: '#bbb', fontWeight: '600' },
+  ticketSubject: { fontSize: 14, fontWeight: '700', color: c.dark ? c.textSoft : '#333', marginBottom: 4 },
+  ticketOrder: { fontSize: 13, color: c.dark ? c.textMuted : '#888', marginBottom: 8 },
+  ticketFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: c.dark ? c.border : '#f0f0f0', paddingTop: 8 },
+  ticketLastMsg: { flex: 1, fontSize: 13, color: c.textFaint, marginRight: 8 },
+  ticketDate: { fontSize: 12, color: c.dark ? c.textFaint : '#bbb', fontWeight: '600' },
 
-  errorCard: { backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 14, padding: 16, marginBottom: 16, alignItems: 'center', gap: 10 },
-  errorText: { fontSize: 14, color: '#333', fontWeight: '600', textAlign: 'center' },
+  errorCard: { backgroundColor: c.card, marginHorizontal: 16, borderRadius: 14, padding: 16, marginBottom: 16, alignItems: 'center', gap: 10 },
+  errorText: { fontSize: 14, color: c.dark ? c.textSoft : '#333', fontWeight: '600', textAlign: 'center' },
   retryBtn: { backgroundColor: BRAND, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 24 },
   retryTxt: { color: '#fff', fontWeight: '800', fontSize: 14 },
 });
+
+// Feuilles de style par thème (clair, sombre), créées une seule fois chacune.
+const stylesParTheme = new Map();
+function stylesPour(c) {
+  if (!stylesParTheme.has(c)) stylesParTheme.set(c, makeStyles(c));
+  return stylesParTheme.get(c);
+}

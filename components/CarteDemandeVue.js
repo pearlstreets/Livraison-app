@@ -10,6 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { deliveryService } from '../services/deliveryService';
+import GainsPopup from './GainsPopup';
 
 const BRAND = '#FF6A13';
 const { width, height } = Dimensions.get('window');
@@ -68,6 +69,8 @@ export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPr
   const mapRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const [heatmapPoints, setHeatmapPoints] = useState([]);
+  // Fenêtre « Mes gains » ouverte par le badge argent.
+  const [gainsOuvert, setGainsOuvert] = useState(false);
 
   const fetchHeatmap = useCallback(async () => {
     try {
@@ -169,9 +172,10 @@ export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPr
       )}
 
       {/* Earnings badge */}
-      <View style={[s.earningsBadge, { top: insets.top + 12 }]}>
+      <Pressable style={[s.earningsBadge, { top: insets.top + 12 }]} onPress={() => setGainsOuvert(true)} hitSlop={8} accessibilityRole="button">
         <Text style={s.earningsText}>{earningsDisplay}</Text>
-      </View>
+      </Pressable>
+      <GainsPopup visible={gainsOuvert} onClose={() => setGainsOuvert(false)} navigation={navigation} />
 
       {/* Right controls + contenu au-dessus de la barre du bas */}
       <View style={[s.basCol, { bottom: 24 }]} pointerEvents="box-none">
