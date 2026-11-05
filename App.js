@@ -23,7 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { initOneSignalOnce } from './services/oneSignalInit';
-import { navigationRef, navigate as naviguer } from './services/navigationService';
+import { navigationRef } from './services/navigationService';
 import { deepLink } from './services/deepLink';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
@@ -58,7 +58,6 @@ import WarningsScreen from './screens/WarningsScreen';
 import HeatmapScreen from './screens/HeatmapScreen';
 import MapScreen from './screens/MapScreen';
 import CarteDemandeModal from './components/CarteDemandeModal';
-import { aMontrerAuLancement } from './lib/carteDemande';
 import ChangePasswordScreen from './screens/ChangePasswordScreen';
 import OpportunityDetailScreen from './screens/OpportunityDetailScreen';
 import VersementsListScreen from './screens/VersementsListScreen';
@@ -244,14 +243,10 @@ function Main() {
     })();
   }, []);
 
-  // Carte de la demande : une fois par ouverture de l'app, livreur connecté.
-  const ongletsAffiches = Boolean(user) && !bootstrapping;
-  // Ouvre l'écran carte sombre (légende, gains, en ligne) à la place de
-  // l'ancienne fenêtre claire, demande du 05/11/2026.
+  // Carte de la demande : depuis le 05/11/2026 l'accueil EST la carte sombre
+  // (légende, gains, en ligne) tant qu'aucune course n'est affichée ; plus
+  // d'écran carte poussé au lancement, il doublait l'accueil.
   const [carteDemande, setCarteDemande] = useState(false);
-  useEffect(() => {
-    if (ongletsAffiches && aMontrerAuLancement()) naviguer('Accueil', { screen: 'Heatmap' });
-  }, [ongletsAffiches]);
 
   if (bootstrapping) return null;
   if (!user) return DEPLIE ? <AuMilieu><LoginScreen /></AuMilieu> : <LoginScreen />;
