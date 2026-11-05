@@ -162,6 +162,12 @@ export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPr
           <Ionicons name="home" size={22} color="#fff" />
         </Pressable>
       )}
+      {/* Sans bouton maison (accueil) : icône liste, ouvre la page des courses en plein écran. */}
+      {!onHome && onList && (
+        <Pressable style={[s.homeBtn, { top: insets.top + 10 }]} onPress={onList} hitSlop={8}>
+          <Ionicons name="list" size={22} color="#fff" />
+        </Pressable>
+      )}
 
       {/* Earnings badge */}
       <View style={[s.earningsBadge, { top: insets.top + 12 }]}>
