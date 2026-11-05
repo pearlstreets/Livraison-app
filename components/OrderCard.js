@@ -5,8 +5,8 @@ import { dirIcon } from '../lib/rtl';
 import { useLanguage } from '../contexts/LanguageContext';
 
 // Bonus du livreur envoyés par le serveur (`bonus.details[].cle`).
-const BONUS_ICONES = { nuit: 'weather-night', canicule: 'white-balance-sunny', zone_calme: 'map-marker-radius' };
-const BONUS_LIBELLES = { nuit: 'bonusNight', canicule: 'bonusHeat', zone_calme: 'bonusQuietZone' };
+const BONUS_ICONES = { zone_calme: 'map-marker-radius' };
+const BONUS_LIBELLES = { zone_calme: 'bonusQuietZone' };
 import { formatKm, formatMinutes, formatTime } from '../lib/i18nFormat';
 // Alias : le module a déjà un helper local `fmtPrice` (parse des chaînes
 // pré-formatées) — on importe donc le formateur devise sous un autre nom.
@@ -199,7 +199,7 @@ export default function OrderCard({ order, onAccept, onDecline, onOpen, initialA
         )}
       </View>
 
-      {/* Bonus compris dans le prix (nuit, canicule, zone calme). */}
+      {/* Bonus compris dans le prix (zone calme). */}
       {Array.isArray(order?.bonus) && order.bonus.length > 0 && (
         <View style={styles.bonusRow}>
           {order.bonus.map((b) => (
