@@ -23,7 +23,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { demanderAutorisation, enregistrerAppareil } from './services/pushDirect';
-import { navigationRef } from './services/navigationService';
+import { navigationRef, navigate as naviguer } from './services/navigationService';
 import { deepLink } from './services/deepLink';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CurrencyProvider } from './contexts/CurrencyContext';
@@ -290,9 +290,11 @@ function Main() {
   }, [user]);
 
   // Carte de la demande : une fois par ouverture de l'app, livreur connecté.
+  // Ouvre l'écran carte sombre (légende, gains, en ligne) à la place de
+  // l'ancienne fenêtre claire, demande du 05/11/2026.
   const [carteDemande, setCarteDemande] = useState(false);
   useEffect(() => {
-    if (ongletsAffiches && aMontrerAuLancement()) setCarteDemande(true);
+    if (ongletsAffiches && aMontrerAuLancement()) naviguer('Accueil', { screen: 'Heatmap' });
   }, [ongletsAffiches]);
 
   if (bootstrapping) return null;
