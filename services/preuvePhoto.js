@@ -47,7 +47,8 @@ async function envoyerUneFois(assignmentId, kind, uri) {
 // Refus définitif du serveur (photo illisible, course d'un autre, annulée) :
 // inutile de réessayer.
 function refusDefinitif(err) {
-  const code = err?.response?.status;
+  // Erreurs de services/api.js : le code HTTP est dans `status`.
+  const code = err?.status;
   return code >= 400 && code < 500 && code !== 408 && code !== 429;
 }
 
@@ -69,20 +70,43 @@ async function ecrireFile(liste) {
   }
 }
 
+// Chaque lecture puis écriture de la file passe à son tour : une preuve
+// ajoutée pendant un renvoi n'est jamais écrasée.
+let fileVerrou = Promise.resolve();
+function modifierFile(changer) {
+  const suite = fileVerrou.then(async () => {
+    const liste = await lireFile();
+    await ecrireFile(changer(liste));
+  });
+  fileVerrou = suite.catch(() => {});
+  return suite;
+}
+
+const memePreuve = (a, b) => a.assignmentId === b.assignmentId && a.kind === b.kind && a.uri === b.uri && a.at === b.at;
+
 // Renvoie les preuves gardées sur le téléphone (appelé à l'ouverture de
-// l'écran de course et avant chaque nouvel envoi).
-export async function renvoyerPreuvesEnAttente() {
-  const liste = await lireFile();
-  if (!liste.length) return;
-  const restantes = [];
-  for (const p of liste) {
-    try {
-      await envoyerUneFois(p.assignmentId, p.kind, p.uri);
-    } catch (err) {
-      if (!refusDefinitif(err)) restantes.push(p);
-    }
+// l'écran de course et avant chaque nouvel envoi). Un seul renvoi à la fois.
+let renvoiEnCours = null;
+export function renvoyerPreuvesEnAttente() {
+  if (!renvoiEnCours) {
+    renvoiEnCours = (async () => {
+      await fileVerrou;
+      const liste = await lireFile();
+      if (!liste.length) return;
+      const finies = [];
+      for (const p of liste) {
+        try {
+          await envoyerUneFois(p.assignmentId, p.kind, p.uri);
+          finies.push(p);
+        } catch (err) {
+          if (refusDefinitif(err)) finies.push(p);
+        }
+      }
+      // Retire seulement les preuves traitées ; celles ajoutées entre-temps restent.
+      if (finies.length) await modifierFile((actuelle) => actuelle.filter((p) => !finies.some((f) => memePreuve(f, p))));
+    })().finally(() => { renvoiEnCours = null; });
   }
-  await ecrireFile(restantes);
+  return renvoiEnCours;
 }
 
 // Envoie une preuve. Résout 'envoyee', 'en_attente' (gardée, renvoyée plus
@@ -101,8 +125,6 @@ export async function envoyerPreuve(assignmentId, kind, uri, { garder = true } =
     }
   }
   if (!garder) return 'echec';
-  const liste = await lireFile();
-  liste.push({ assignmentId, kind, uri, at: Date.now() });
-  await ecrireFile(liste);
+  await modifierFile((liste) => [...liste, { assignmentId, kind, uri, at: Date.now() }]);
   return 'en_attente';
 }

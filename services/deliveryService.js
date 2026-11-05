@@ -72,6 +72,22 @@ export const deliveryService = {
     return data;
   },
 
+  // Courses du livreur encore en cours sur le serveur (acceptée, récupérée, en
+  // route, arrivé), lues par statut dans l'historique. Rejette si une lecture
+  // échoue : l'appelant garde alors ce qu'il affiche.
+  async getActiveDeliveries() {
+    const statuts = ['accepted', 'picked_up', 'in_transit', 'arrived'];
+    const pages = await Promise.all(statuts.map((status) => (
+      api.get('/api/v1/delivery/history/', { params: { status, page_size: 20 } }).then((r) => r.data)
+    )));
+    const liste = [];
+    for (const p of pages) {
+      const res = Array.isArray(p) ? p : (Array.isArray(p?.results) ? p.results : (Array.isArray(p?.data) ? p.data : []));
+      liste.push(...res);
+    }
+    return liste;
+  },
+
   async getPenalties() {
     const { data } = await api.get('/api/v1/delivery/penalties/');
     return data;
