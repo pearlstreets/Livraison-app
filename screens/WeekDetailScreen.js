@@ -30,8 +30,8 @@ export default function WeekDetailScreen({ route, navigation }) {
   const weekIndex = route?.params?.weekIndex ?? 0;
   const [idx, setIdx] = useState(weekIndex);
   const rawWeek = weeklyEarnings[idx] || weeklyEarnings[0] || EMPTY_WEEK;
-  // 100% données réelles (adaptEarningsWeek : total/net/tips/courses/bars). Pas
-  // de suivi du temps en ligne côté backend → '—'.
+  // 100% données réelles (adaptEarningsWeek : total/net/tips/courses/bars).
+  // Temps en ligne et points : non suivis par le serveur, donc non affichés.
   const bars = Array.isArray(rawWeek.bars) && rawWeek.bars.length === 7 ? rawWeek.bars : [0, 0, 0, 0, 0, 0, 0];
   const week = {
     ...rawWeek,
@@ -39,9 +39,7 @@ export default function WeekDetailScreen({ route, navigation }) {
     dates: getDatesForWeek(rawWeek.start),
     net: typeof rawWeek.net === 'number' ? rawWeek.net : (rawWeek.total || 0),
     tips: typeof rawWeek.tips === 'number' ? rawWeek.tips : 0,
-    hours: '-',
     courses: typeof rawWeek.courses === 'number' ? rawWeek.courses : '-',
-    points: '---',
   };
   const maxBar = Math.max(...bars, 1);
   const maxEur = Math.max(...bars, 0).toFixed(2);
@@ -88,17 +86,9 @@ export default function WeekDetailScreen({ route, navigation }) {
       <Text style={s.sectionTitle}>{t('statistics')}</Text>
       <View style={s.statsGrid}>
         <View style={s.statItem}>
-          <Text style={s.statLabel}>{t('onlineTime')}</Text>
-          <Text style={s.statValue}>{week.hours}</Text>
-        </View>
-        <View style={s.statItem}>
           <Text style={s.statLabel}>{t('courses')}</Text>
           <Text style={s.statValue}>{week.courses}</Text>
         </View>
-      </View>
-      <View style={s.statItem}>
-        <Text style={s.statLabel}>{t('points')}</Text>
-        <Text style={s.statValue}>{week.points}</Text>
       </View>
       <Text style={s.linkText}>{t('howWeCalculate')}</Text>
 

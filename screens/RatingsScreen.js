@@ -22,7 +22,6 @@ export default function RatingsScreen({ navigation }) {
   const rawRating = (typeof summary.average === 'number' && summary.average > 0)
     ? summary.average
     : (typeof user?.rating === 'number' ? user.rating : 0);
-  const totalDeliveries = summary.total_deliveries ?? (typeof user?.total_deliveries === 'number' ? user.total_deliveries : 0);
   const avg = rawRating > 0 ? rawRating.toFixed(1) : '-';
   const avgRounded = rawRating > 0 ? Math.round(rawRating) : 0;
   const dist = summary.distribution || {};
@@ -50,7 +49,7 @@ export default function RatingsScreen({ navigation }) {
             <Ionicons key={i} name={i <= avgRounded ? 'star' : 'star-outline'} size={28} color="#FF6A13" />
           ))}
         </View>
-        <Text style={s.avgLabel}>{totalDeliveries} {t('evaluations') || 'livraisons'}</Text>
+        <Text style={s.avgLabel}>{count} {t('evaluations')}</Text>
       </View>
 
       {/* Pourboires reçus (cumulés) — réel */}
