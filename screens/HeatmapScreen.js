@@ -161,7 +161,7 @@ export default function HeatmapScreen({ navigation }) {
       </View>
 
       {/* Right controls */}
-      <View style={[s.rightControls, { bottom: insets.bottom + 80 }]}>
+      <View style={[s.rightControls, { bottom: 80 }]}>
         <Pressable style={s.controlBtn} onPress={() => navigation.navigate('Revenus', { screen: 'EarningsMain' })}>
           <Ionicons name="bar-chart" size={22} color="#fff" />
         </Pressable>
@@ -171,7 +171,7 @@ export default function HeatmapScreen({ navigation }) {
       </View>
 
       {/* Bottom bar */}
-      <View style={[s.bottomBar, { paddingBottom: insets.bottom + 8 }]}>
+      <View style={[s.bottomBar, { paddingBottom: 14 }]}>
         <Pressable style={s.bottomIconWrap} onPress={() => navigation.goBack()}>
           <Ionicons name="list" size={22} color="#fff" />
         </Pressable>
