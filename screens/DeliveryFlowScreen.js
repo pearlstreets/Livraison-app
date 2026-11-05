@@ -781,13 +781,15 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     return etat;
   }, [order._isMock, assignmentId, finirCamera, t]);
 
-  // Photo du ticket au retrait (ou QR code du ticket scanné). Débloque aussitôt
-  // la glissière ; l'envoi de la photo part en arrière-plan (course d'essai :
+  // Photo du ticket au retrait (ou QR code du ticket scanné, qui confirme le
+  // retrait). La photo débloque aussitôt la glissière ; l'envoi de la photo part en arrière-plan (course d'essai :
   // aucun envoi).
   const photographierTicket = useCallback(async () => {
     const uri = await ouvrirCamera(t('ticketScanHint'), { qr: true });
     if (!uri) return;
-    if (uri.ticketScanne) { setTicketScanne(true); return; }
+    // Bon ticket scanné : le retrait est confirmé aussitôt, sans glisser
+    // (comme Uber Eats).
+    if (uri.ticketScanne) { setTicketScanne(true); slideRateLimiter(nextStep); return; }
     // Aucune photo possible : le livreur n'est jamais bloqué.
     if (uri === 'indisponible') { setPreuveManquante(true); return; }
     setTicketPhoto(uri);
@@ -795,7 +797,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     setTicketEnvoi('envoi');
     const etat = await envoyerPreuve(assignmentId, 'pickup', uri);
     setTicketEnvoi(etat);
-  }, [ouvrirCamera, assignmentId, t]);
+  }, [ouvrirCamera, assignmentId, nextStep, t]);
 
   // Fin de l'attente, client absent : sac posé devant la porte, photo, puis
   // remise sans code (dépôt en lieu sûr, revalidé par le serveur).
