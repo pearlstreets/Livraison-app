@@ -436,6 +436,8 @@ export default function OrdersScreen({ navigation, route }) {
   // Fenêtre « Nouvelle course » : chaque course proposée s'ouvre une fois.
   const offresVues = useRef(new Set());
   const [offre, setOffre] = useState(null);
+  // Stable : le minuteur de la fenêtre ne repart pas à chaque rendu.
+  const fermerOffre = useCallback(() => setOffre(null), []);
   useEffect(() => {
     if (!online || !carteVide || offre) return;
     const nouvelle = displayedAvailable.find((o, i) => !offresVues.current.has(keyOf(o, i)));
@@ -481,7 +483,8 @@ export default function OrdersScreen({ navigation, route }) {
         )}
         {online && displayedAvailable.length > 0 && (
           <ScrollView style={{ maxHeight: Dimensions.get('window').height * 0.45 }} showsVerticalScrollIndicator={false}>
-            {displayedAvailable.map((order, i) => (
+            {/* La course de la fenêtre « Nouvelle course » n'est pas répétée derrière elle. */}
+            {displayedAvailable.map((order, i) => order === offre ? null : (
               <View key={keyOf(order, i)} style={styles.cardWrap}>
                 <OrderCard order={order} onAccept={onAccept} onDecline={onDecline} onOpen={onOpen} />
               </View>
@@ -489,7 +492,7 @@ export default function OrdersScreen({ navigation, route }) {
           </ScrollView>
         )}
         <DetailsSheet visible={detailsVisible} order={detailsOrder} onClose={() => setDetailsVisible(false)} />
-        <OffreCoursePopup order={offre} onAccept={onAccept} onDecline={onDecline} onOpen={onOpen} onClose={() => setOffre(null)} />
+        <OffreCoursePopup order={offre} onAccept={onAccept} onDecline={onDecline} onOpen={onOpen} onClose={fermerOffre} />
       </CarteDemandeVue>
     );
   }

@@ -8,8 +8,19 @@ import OrderCard from './OrderCard';
 // course monte du bas et se pose sur la carte, au même style que les courses
 // affichées sur la carte, avec une vibration et un son. Toucher la carte
 // autour ferme la fenêtre sans refuser : la course reste sur la carte.
+const DUREE_FENETRE_MS = 30000;
+
 export default function OffreCoursePopup({ order, onAccept, onDecline, onOpen, onClose }) {
   const insets = useSafeAreaInsets();
+
+  // Sans réponse, la fenêtre se referme seule (la course reste sur la carte)
+  // et laisse la place à la demande suivante. Une offre chronométrée par le
+  // serveur garde son propre compte à rebours (refus automatique).
+  useEffect(() => {
+    if (!order || order.offerExpiresAt) return undefined;
+    const minuteur = setTimeout(onClose, DUREE_FENETRE_MS);
+    return () => clearTimeout(minuteur);
+  }, [order, onClose]);
 
   useEffect(() => {
     if (!order) return;
