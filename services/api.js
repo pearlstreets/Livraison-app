@@ -1,3 +1,4 @@
+import { EN_TETE_PROVENANCE, provenanceInstallation } from './provenanceInstall';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -76,6 +77,12 @@ api.interceptors.request.use(async (config) => {
 
   // Request ID for tracing
   config.headers['X-Request-ID'] = generateRequestId();
+
+  // Provenance publicitaire de l'installation (services/provenanceInstall),
+  // sur les POST : le serveur la range sur le compte livreur créé.
+  if ((config.method || '').toLowerCase() === 'post') {
+    config.headers[EN_TETE_PROVENANCE] = provenanceInstallation();
+  }
 
   // Rate limiting headers : vraie version de l'appli, 1.0.0 si illisible.
   config.headers['X-Client-Version'] = VERSION_APPLI;
