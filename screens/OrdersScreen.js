@@ -83,7 +83,7 @@ function adaptAssignment(a, { revealCustomer = true } = {}) {
     bonusEur: bonus > 0 ? bonus : 0,
     delivery_fee: fee,
     tip_amount: tip,
-    // Bonus compris dans le prix (nuit, canicule, zone calme), calculés serveur.
+    // Bonus compris dans le prix (zone calme), calculés serveur.
     bonus: Array.isArray(a.bonus?.details) ? a.bonus.details : [],
     // Heure à laquelle la commande sera prête en boutique (ISO UTC ou null).
     readyAt: a.ready_at || null,
