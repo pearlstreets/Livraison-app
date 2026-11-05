@@ -5,6 +5,7 @@ import { isValidEmail } from '../utils/validation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import secureStorage from '../services/secureStorage';
 import { authService } from '../services/authService';
+import { setOnSessionPurgee } from '../services/api';
 import { deliveryService } from '../services/deliveryService';
 import { earningsService } from '../services/earningsService';
 import { ticketService } from '../services/ticketService';
@@ -332,22 +333,53 @@ export function AuthProvider({ children }) {
   }, [refreshEarnings, refreshHistory, refreshWarnings, refreshRatings, refreshTickets, refreshOpportunities]);
 
   // Restore an existing session on cold start.
+  // Sans réseau (sous-sol, zone blanche) la session reste valable : le profil
+  // gardé sur le téléphone est affiché et le serveur est relu en arrière-plan,
+  // au lieu de renvoyer le livreur à l'écran de connexion.
+  const relectureRef = useRef(null);
   useEffect(() => {
+    let actif = true;
+    const relireProfil = async () => {
+      const prof = await authService.getProfile();
+      if (!actif) return;
+      applyProfile(prof?.data || prof);
+      await refreshAll();
+    };
+    const relireEnArrierePlan = () => {
+      relectureRef.current = setTimeout(async () => {
+        relectureRef.current = null;
+        if (!actif) return;
+        try {
+          if (!(await secureStorage.getSecure('accessToken'))) return;
+          await relireProfil();
+        } catch (e) {
+          if (actif && e?.isNetworkError) relireEnArrierePlan();
+        }
+      }, 15000);
+    };
     (async () => {
       try {
         await authService.reduireUserDataStocke();
         const token = await secureStorage.getSecure('accessToken');
-        if (token) {
-          const prof = await authService.getProfile();
-          applyProfile(prof?.data || prof);
-          await refreshAll();
-        }
+        if (token) await relireProfil();
       } catch (e) {
-        // no valid session -> the login screen is shown
+        if (e?.isNetworkError && (await secureStorage.getSecure('accessToken').catch(() => null))) {
+          const garde = await authService.getStoredUser().catch(() => null);
+          if (garde && actif) {
+            setUser((u) => u || adaptProfile(garde));
+            if (garde.account_active === false) setAccountActive(false);
+            relireEnArrierePlan();
+          }
+        }
+        // Sinon : pas de session valable, l'écran de connexion s'affiche.
       } finally {
-        setBootstrapping(false);
+        if (actif) setBootstrapping(false);
       }
     })();
+    return () => {
+      actif = false;
+      if (relectureRef.current) clearTimeout(relectureRef.current);
+    };
   }, [applyProfile, refreshAll]);
 
   const login = useCallback(async (email, password) => {
@@ -363,7 +395,9 @@ export function AuthProvider({ children }) {
       if (e?.status === 403 && /pending validation/i.test(e?.serverMessage || '')) {
         return { ok: false, pending: true, error: 'pending_validation' };
       }
-      return { ok: false, error: e?.message || 'login_failed' };
+      // Statut et coupure réseau remontés à l'écran : seul un refus des
+      // identifiants compte comme une tentative ratée.
+      return { ok: false, error: e?.message || 'login_failed', status: e?.status, network: !!e?.isNetworkError, serverMessage: e?.serverMessage || null };
     }
   }, [applyProfile, refreshAll]);
 
@@ -398,6 +432,8 @@ export function AuthProvider({ children }) {
         [
           'id_card_front_url', 'id_card_back_url', 'iban_doc_url', 'kbis_doc_url',
           'rc_pro_url', 'urssaf_doc_url', 'proof_of_address_url', 'profile_photo_url',
+          // Permis de conduire : exigé par le serveur pour une voiture.
+          'driver_license_url',
         ].forEach((k) => { if (d[k]) payload[k] = d[k]; });
       }
       await authService.register(payload);
@@ -405,8 +441,14 @@ export function AuthProvider({ children }) {
       // documents — no auto-login; the app shows the pending screen.
       return { ok: true, pending: true };
     } catch (e) {
-      // Refus de Stripe (422) : son message, pour corriger sur la page.
-      return { ok: false, error: (e?.status === 422 && e?.serverMessage) || e?.message || 'register_failed' };
+      // Refus du serveur (400 champ manquant, 422 Stripe...) : son message,
+      // pour corriger sur la page. Sinon un texte traduit, jamais l'anglais
+      // générique de l'intercepteur.
+      const tr = tRef.current;
+      if (e?.status >= 400 && e?.status < 500 && e?.serverMessage) return { ok: false, error: e.serverMessage };
+      if (e?.isNetworkError && tr) return { ok: false, error: tr('errorNetwork') };
+      if (e?.status === 429 && tr) return { ok: false, error: tr('errorTooManyRequests') };
+      return { ok: false, error: tr ? tr('genericError') : 'register_failed' };
     }
   }, [applyProfile, refreshAll]);
 
@@ -444,6 +486,40 @@ export function AuthProvider({ children }) {
     try { await authService.logout(); } catch (e) { /* clear locally regardless */ }
     viderEtatCompte();
   }, [viderEtatCompte]);
+
+  // Session refusée par le serveur (jetons vidés par l'intercepteur) : retour
+  // à l'écran de connexion, suivi de position arrêté. Si une nouvelle
+  // connexion a déjà reposé un jeton entre-temps, rien n'est touché.
+  const reconnexionRef = useRef(false);
+  useEffect(() => {
+    setOnSessionPurgee(() => {
+      if (reconnexionRef.current) return;
+      secureStorage.getSecure('accessToken')
+        .then((jeton) => { if (!jeton) logout(); })
+        .catch(() => { logout(); });
+    });
+    return () => setOnSessionPurgee(null);
+  }, [logout]);
+
+  // Mot de passe changé depuis le profil : le serveur refuse désormais les
+  // jetons d'avant. Nouvelle connexion aussitôt avec le nouveau mot de passe,
+  // pour que le livreur reste connecté. Renvoie false si elle échoue.
+  const reconnecterApresMotDePasse = useCallback(async (nouveauMotDePasse) => {
+    const adresse = String(user?.email || '').trim();
+    if (!adresse) return false;
+    // Un appel parti avec l'ancien jeton peut échouer pendant ce temps : sa
+    // purge ne doit pas déconnecter le livreur qu'on reconnecte.
+    reconnexionRef.current = true;
+    try {
+      const res = await authService.login(adresse, nouveauMotDePasse);
+      applyProfile(res?.user);
+      return true;
+    } catch (e) {
+      return false;
+    } finally {
+      reconnexionRef.current = false;
+    }
+  }, [user, applyProfile]);
 
   // Suppression de compte (Apple 5.1.1(v)). Relaie l'erreur si l'appel serveur
   // échoue (l'appelant garde l'utilisateur connecté + affiche l'erreur) ; en cas
@@ -625,7 +701,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      bootstrapping, user, login, register, logout, deleteAccount, updateUser, updateDocument,
+      bootstrapping, user, login, register, logout, deleteAccount, updateUser, updateDocument, reconnecterApresMotDePasse,
       warnings, accountActive, rating, totalDeliveries,
       cancelOrder, applyCancelResult, weeklyCancels, maxWeeklyCancels, MAX_WEEKLY_CANCELS, reactivateAccount,
       deliveryHistory, addToHistory, markOrderReported, refreshAll,

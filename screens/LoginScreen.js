@@ -212,6 +212,15 @@ export default function LoginScreen() {
   const loginFailsRef = useRef(0);
   const [loginDisabled, setLoginDisabled] = useState(false);
   const cooldownTimerRef = useRef(null);
+  useEffect(() => () => { if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current); }, []);
+
+  // Mot de passe oublié : 1 = adresse e-mail, 2 = code reçu et nouveau mot de passe.
+  const [forgotStep, setForgotStep] = useState(1);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotCode, setForgotCode] = useState('');
+  const [forgotPwd, setForgotPwd] = useState('');
+  const [forgotConfirm, setForgotConfirm] = useState('');
+  const [forgotInfo, setForgotInfo] = useState('');
 
   // Saisie complete, pour la retrouver apres un pliage ou un depliage.
   const brouillonRef = useRef(null);
@@ -358,6 +367,10 @@ export default function LoginScreen() {
   const handleBack = () => {
     setError('');
     if (mode === 'login') return;
+    if (mode === 'forgot') {
+      if (forgotStep === 2) { setForgotStep(1); setForgotInfo(''); return; }
+      setMode('login'); return;
+    }
     if (mode === 'choose') { setMode('login'); return; }
     if (step === 2) { setStep(1); return; }
     if (isPro !== null) { setIsPro(null); setMode('choose'); return; }
@@ -396,11 +409,19 @@ export default function LoginScreen() {
     if (!loginEmail.trim()) { setError(t('errorNoEmail') || 'Veuillez saisir votre email'); return; }
     if (!isValidEmail(loginEmail.trim())) { setError(t('errorInvalidEmail') || 'Format email invalide'); return; }
     if (!loginPassword.trim()) { setError(t('errorNoPassword') || 'Veuillez saisir votre mot de passe'); return; }
+    if (loading) return;
     setLoading(true);
     const result = await login(loginEmail.trim(), loginPassword);
     setLoading(false);
     if (result && result.ok) { termineRef.current = true; effacerBrouillonConnexion(); return; } // AuthContext sets the user -> navigation happens
     if (result && result.pending) { setPendingValidation(true); return; }
+    // Seul un refus des identifiants (401) compte comme une tentative ratée :
+    // une coupure réseau ou un refus temporaire du serveur n'accuse jamais
+    // le mot de passe.
+    if (result && result.network) { setError(t('errorNetwork')); return; }
+    if (result && result.status === 429) { setError(t('errorTooManyRequests')); return; }
+    if (result && result.status === 403) { setError(t('loginNoDriverAccount')); return; }
+    if (result && result.status !== 401) { setError(t('genericError')); return; }
     loginFailsRef.current += 1;
     if (loginFailsRef.current >= MAX_LOGIN_FAILS) {
       setLoginDisabled(true);
@@ -411,6 +432,63 @@ export default function LoginScreen() {
       }, LOGIN_COOLDOWN_MS);
     } else {
       setError(t('loginErrorCredentials') || 'Email ou mot de passe incorrect');
+    }
+  };
+
+  // Mot de passe oublié, étape 1 : un code est envoyé à l'adresse du compte.
+  // Le serveur répond pareil que le compte existe ou non.
+  const ouvrirMotDePasseOublie = () => {
+    setError(''); setForgotInfo(''); setForgotStep(1);
+    setForgotEmail(loginEmail.trim()); setForgotCode(''); setForgotPwd(''); setForgotConfirm('');
+    setMode('forgot');
+  };
+  const erreurMotDePasseOublie = (e) => {
+    if (e?.isNetworkError) return t('errorNetwork');
+    if (e?.status === 429) return t('errorTooManyRequests');
+    const m = e?.serverMessage || '';
+    if (/invalid otp/i.test(m)) return t('forgotCodeInvalid');
+    if (/at least 10 characters/i.test(m)) return t('errorPasswordWeak');
+    if (/invalid email/i.test(m)) return t('errorInvalidEmail');
+    return m || t('genericError');
+  };
+  const envoyerCodeOublie = async () => {
+    setError(''); setForgotInfo('');
+    const adresse = forgotEmail.trim();
+    if (!adresse) { setError(t('errorNoEmail')); return; }
+    if (!isValidEmail(adresse)) { setError(t('errorInvalidEmail')); return; }
+    if (loading) return;
+    setLoading(true);
+    try {
+      await authService.forgotPassword(adresse);
+      setForgotStep(2);
+      setForgotInfo(t('forgotCodeSent'));
+    } catch (e) {
+      setError(erreurMotDePasseOublie(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+  // Étape 2 : code et nouveau mot de passe, puis retour à la connexion.
+  const enregistrerMotDePasseOublie = async () => {
+    setError('');
+    const code = forgotCode.replace(/\s+/g, '');
+    if (!code || !forgotPwd || !forgotConfirm) { setError(t('errorEmpty')); return; }
+    if (!isStrongPassword(forgotPwd)) { setError(t('errorPasswordWeak')); return; }
+    if (forgotPwd !== forgotConfirm) { setError(t('errorPasswordMismatch')); return; }
+    if (loading) return;
+    setLoading(true);
+    try {
+      await authService.resetPassword({ email: forgotEmail.trim(), otp: code, new_password: forgotPwd });
+      setLoginEmail(forgotEmail.trim());
+      setLoginPassword('');
+      loginFailsRef.current = 0;
+      setForgotStep(1); setForgotCode(''); setForgotPwd(''); setForgotConfirm(''); setForgotInfo('');
+      setMode('login');
+      Alert.alert(t('success'), t('forgotDone'));
+    } catch (e) {
+      setError(erreurMotDePasseOublie(e));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -608,7 +686,7 @@ export default function LoginScreen() {
           )}
 
           {/* Error (connexion : sous le logo, contre le formulaire) */}
-          {mode !== 'login' && errorBox}
+          {mode !== 'login' && mode !== 'forgot' && errorBox}
 
           {/* === LOGIN === */}
           {mode === 'login' && (
@@ -635,14 +713,70 @@ export default function LoginScreen() {
                   <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#9CA3AF" />
                 </Pressable>
               </View>
-              <Pressable style={[s.btn, loginDisabled && { opacity: 0.5 }]} onPress={handleLogin} disabled={loginDisabled}>
+              <Pressable style={[s.btn, loginDisabled && { opacity: 0.5 }]} onPress={handleLogin} disabled={loginDisabled || loading}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{t('loginButton') || 'Se connecter'}</Text>}
               </Pressable>
+              <TouchableOpacity onPress={ouvrirMotDePasseOublie} style={{alignItems:'center', paddingTop:16}}>
+                <Text style={{color:BRAND, fontSize:15, fontWeight:'700'}}>{t('forgotPasswordLink')}</Text>
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => { setMode('choose'); setIsPro(null); setStep(1); setError(''); }} style={{alignItems:'center', paddingVertical:20}}>
                 <Text style={{color:'#6B7280', fontSize:15}}>
                   {t('noAccount') || 'Pas de compte ?'} <Text style={{color:BRAND, fontWeight:'800'}}>{t('signUp') || "S'inscrire"}</Text>
                 </Text>
               </TouchableOpacity>
+            </>
+          )}
+
+          {/* === MOT DE PASSE OUBLIÉ === */}
+          {mode === 'forgot' && (
+            <>
+              <Text style={{fontSize:22, fontWeight:'900', color:'#111', marginBottom:8}}>{t('forgotTitle')}</Text>
+              <Text style={{fontSize:15, color:'#6B7280', marginBottom:20, lineHeight:21}}>
+                {forgotStep === 1 ? t('forgotIntro') : forgotInfo}
+              </Text>
+              {errorBox}
+              {forgotStep === 1 ? (
+                <>
+                  <Text style={s.label}>{t('emailLabel')}</Text>
+                  <View style={s.champ}>
+                    <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
+                    <TextInput style={s.champInput} value={forgotEmail} onChangeText={setForgotEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor="#aaa" keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                  </View>
+                  <Pressable style={s.btn} onPress={envoyerCodeOublie} disabled={loading}>
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{t('forgotSendCode')}</Text>}
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Text style={s.label}>{t('forgotCodeLabel')}</Text>
+                  <View style={s.champ}>
+                    <Ionicons name="keypad-outline" size={20} color="#9CA3AF" />
+                    <TextInput style={s.champInput} value={forgotCode} onChangeText={(v) => setForgotCode(v.replace(/\D/g, '').slice(0, 6))} placeholder="123456" placeholderTextColor="#aaa" keyboardType="number-pad" maxLength={6} autoComplete="one-time-code" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                  </View>
+                  <Text style={s.label}>{t('newPassword')}</Text>
+                  <View style={s.champ}>
+                    <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
+                    <TextInput style={s.champInput} value={forgotPwd} onChangeText={setForgotPwd} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                    <Pressable onPress={() => setShowPwd(v => !v)} hitSlop={10} style={{padding:4}}>
+                      <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#9CA3AF" />
+                    </Pressable>
+                  </View>
+                  <Text style={s.label}>{t('confirmPassword')}</Text>
+                  <View style={s.champ}>
+                    <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
+                    <TextInput style={s.champInput} value={forgotConfirm} onChangeText={setForgotConfirm} placeholder="••••••••" placeholderTextColor="#aaa" secureTextEntry={!showConfirmPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                    <Pressable onPress={() => setShowConfirmPwd(v => !v)} hitSlop={10} style={{padding:4}}>
+                      <Ionicons name={showConfirmPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#9CA3AF" />
+                    </Pressable>
+                  </View>
+                  <Pressable style={s.btn} onPress={enregistrerMotDePasseOublie} disabled={loading}>
+                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{t('forgotSubmit')}</Text>}
+                  </Pressable>
+                  <TouchableOpacity onPress={envoyerCodeOublie} disabled={loading} style={{alignItems:'center', paddingVertical:20}}>
+                    <Text style={{color:BRAND, fontSize:15, fontWeight:'700'}}>{t('forgotResendCode')}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </>
           )}
 
