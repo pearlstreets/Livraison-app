@@ -415,10 +415,13 @@ export default function OrdersScreen({ navigation, route }) {
       else if (e?.status === 409 || e?.status === 404) Alert.alert(t('error'), t('orderNoLongerAvailable'));
       else if (e?.isNetworkError) Alert.alert(t('error'), t('errorNetwork'));
       else Alert.alert(t('error'), (e?.status === 403 && e.serverMessage) || t('acceptOrderError'));
+      // Réponse perdue ou course déjà attribuée : elle est peut-être à ce
+      // livreur, on relit ses courses en cours sur le serveur.
+      if (e?.isNetworkError || e?.status === 409) restaurerCourses();
     } finally {
       acceptEnCours.current.delete(key);
     }
-  }, [navigation, t]);
+  }, [navigation, t, restaurerCourses]);
 
   const onResumeActive = useCallback((order) => {
     navigation.navigate('DeliveryFlow', { order, initialStep: etapeCourse(order) });
