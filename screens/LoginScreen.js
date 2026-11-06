@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView, BackHandler, Linking } from 'react-native';
+import { View, Text, TextInput, Pressable, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Alert, ScrollView, Modal, FlatList, SafeAreaView, ActivityIndicator, InputAccessoryView, BackHandler, Linking, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { uploadService } from '../services/uploadService';
 import useSecureScreen from '../hooks/useSecureScreen';
 import { noterBrouillonConnexion, lireBrouillonConnexion, effacerBrouillonConnexion } from '../utils/repliEcran';
+import { ecrireBrouillonInscription, lireBrouillonInscription, effacerBrouillonInscription } from '../utils/brouillonInscription';
 
 import { countryName } from '../data/countryNames';
 import { authService } from '../services/authService';
@@ -223,6 +224,9 @@ export default function LoginScreen() {
   };
   // Connecte ou dossier envoye : rien a garder.
   const termineRef = useRef(false);
+  // Brouillon d'inscription relu : avant, la saisie vide ne l'ecrase pas.
+  const inscriptionPreteRef = useRef(false);
+  const minuterieInscriptionRef = useRef(null);
 
   useEffect(() => {
     const appliquer = (b) => {
@@ -251,8 +255,15 @@ export default function LoginScreen() {
     brouillonMemoire = null;
     if (memoire && Date.now() - memoire.demonte < VALIDITE_BROUILLON) {
       appliquer(memoire.brouillon);
+      inscriptionPreteRef.current = true;
     } else {
-      lireBrouillonConnexion().then(appliquer).catch(() => {});
+      // Pas de pliage juste avant : l'inscription laissee en cours (refus,
+      // reseau, app fermee) est rendue, sans etre effacee.
+      lireBrouillonConnexion()
+        .then((b) => b || lireBrouillonInscription())
+        .then(appliquer)
+        .catch(() => {})
+        .finally(() => { inscriptionPreteRef.current = true; });
     }
     const retirer = noterBrouillonConnexion(() => (termineRef.current ? null : brouillonRef.current));
     return () => {
@@ -260,6 +271,29 @@ export default function LoginScreen() {
       brouillonMemoire = termineRef.current ? null : { brouillon: brouillonRef.current, demonte: Date.now() };
     };
   }, []);
+
+  // Brouillon d'inscription : ecrit apres chaque changement (anti-rebond) et
+  // aussitot a la mise en arriere-plan (utils/brouillonInscription.js).
+  const sauverInscription = useCallback(() => {
+    if (minuterieInscriptionRef.current) { clearTimeout(minuterieInscriptionRef.current); minuterieInscriptionRef.current = null; }
+    if (!inscriptionPreteRef.current || termineRef.current) return;
+    ecrireBrouillonInscription(brouillonRef.current);
+  }, []);
+  useEffect(() => {
+    if (!inscriptionPreteRef.current || termineRef.current) return;
+    if (minuterieInscriptionRef.current) clearTimeout(minuterieInscriptionRef.current);
+    minuterieInscriptionRef.current = setTimeout(sauverInscription, 500);
+  }, [sauverInscription, mode, isPro, step, email, password, confirmPwd, nom, prenom, pseudo, companyName, phone, address,
+    country, phoneCountry, vehicle, proStatus, dob, postalCode, city, deliveryZone, taxId, siret, iban,
+    docIdFront, docIdBack, docIban, docKbiss, docLicense, docPhoto, docProofAddress, docRcPro, docUrssaf]);
+  useEffect(() => {
+    const abonnement = AppState.addEventListener('change', (etat) => { if (etat !== 'active') sauverInscription(); });
+    return () => {
+      abonnement.remove();
+      // Ecran quitte avec une ecriture en attente : faite tout de suite.
+      if (minuterieInscriptionRef.current) sauverInscription();
+    };
+  }, [sauverInscription]);
 
   const selectedCountry = COUNTRIES.find(c => c.code === country) || COUNTRIES[0];
   const selectedPhoneCountry = COUNTRIES.find(c => c.code === phoneCountry) || COUNTRIES[0];
@@ -513,7 +547,7 @@ export default function LoginScreen() {
       vehicle_type: vehicle, role: isPro ? 'professionaluser' : 'user', documents: docUrls,
     });
     setLoading(false);
-    if (result && result.ok) { termineRef.current = true; effacerBrouillonConnexion(); setPendingValidation(true); return; }
+    if (result && result.ok) { termineRef.current = true; effacerBrouillonConnexion(); effacerBrouillonInscription(); setPendingValidation(true); return; }
     setError((result && result.error) || t('genericError'));
   };
 
