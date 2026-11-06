@@ -166,8 +166,8 @@ export default function MapScreen({ route, navigation }) {
           initialRegion={{ ...center, latitudeDelta: 0.08, longitudeDelta: 0.08 }}
           showsUserLocation
           showsMyLocationButton={false}
-          // Mode sombre : fond de carte sombre (iOS). Mode clair : réglage d'origine.
-          userInterfaceStyle={dark ? 'dark' : undefined}
+          // Fond de carte du même mode que l'app (iOS).
+          userInterfaceStyle={dark ? 'dark' : 'light'}
         >
           {hasPickup && (
             <Marker coordinate={{ latitude: pLat, longitude: pLng }} title={order.shopName || order.restaurant || t('pickup')} pinColor={BRAND} />

@@ -25,6 +25,7 @@ import {
 } from '@react-navigation/native';
 import {BottomTabBarHeightContext} from '@react-navigation/bottom-tabs';
 import {Freeze} from 'react-freeze';
+import {useTheme} from '../contexts/ThemeContext';
 import {dimensionsReelles, largeurMoitie} from '../utils/deuxEcrans';
 import {
   aGauche,
@@ -72,6 +73,7 @@ function DeuxEcransNavigator({
   gauche = [],
   sansBarre = [],
 }) {
+  const {colors} = useTheme();
   const {state, descriptors, NavigationContent} = useNavigationBuilder(
     routeurDeuxEcrans,
     {
@@ -99,7 +101,7 @@ function DeuxEcransNavigator({
 
   return (
     <NavigationContent>
-      <View style={styles.racine}>
+      <View style={[styles.racine, {backgroundColor: colors.bg}]}>
         {iDroite === -1 ? (
           <PanneauRepos left={moitie} width={largeur - moitie} />
         ) : null}

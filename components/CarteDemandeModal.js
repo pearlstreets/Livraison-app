@@ -121,6 +121,7 @@ export default function CarteDemandeModal({ visible, onClose }) {
             ref={mapRef}
             style={StyleSheet.absoluteFillObject}
             provider={PROVIDER_DEFAULT}
+            userInterfaceStyle={colors.dark ? 'dark' : 'light'}
             initialRegion={{ ...centre, latitudeDelta: DELTA, longitudeDelta: DELTA }}
             showsUserLocation
             showsMyLocationButton={false}

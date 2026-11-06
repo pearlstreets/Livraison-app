@@ -1,11 +1,15 @@
 // Mode clair / sombre de l'application livreur (05/11/2026).
-// Par défaut AUTOMATIQUE, comme Google Maps : sombre la nuit (19h-7h) ou si
-// le téléphone est en mode sombre. Le livreur peut forcer Clair ou Sombre
-// (choix gardé sur l'appareil). Note : le réglage du téléphone n'est lu
-// qu'avec un binaire construit avec `userInterfaceStyle: automatic`.
+// Par défaut AUTOMATIQUE : l'app suit le réglage du téléphone, sombre si le
+// téléphone est en sombre, claire s'il est en clair (06/11/2026). Le livreur
+// peut forcer Clair ou Sombre dans son profil (choix gardé sur l'appareil) ;
+// le choix est aussi appliqué à iOS / Android (cartes, clavier, fenêtres).
+// Le réglage du téléphone n'est lisible qu'à partir du binaire 1.0.8
+// (`userInterfaceStyle: automatic`) : avant, Automatique garde l'ancienne
+// règle (sombre la nuit, 19h-7h).
 // Les écrans lisent `colors` via useTheme() au lieu de couleurs en dur.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Appearance } from 'react-native';
+import * as Application from 'expo-application';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CLE = 'pearl.delivery.theme';
@@ -54,6 +58,14 @@ const SOMBRE = {
 
 const MODES = ['auto', 'light', 'dark'];
 
+// Binaire capable de lire le réglage du téléphone (1.0.8 et suivants).
+function lisLeTelephone() {
+  const v = String(Application.nativeApplicationVersion || '0').split('.').map((n) => parseInt(n, 10) || 0);
+  const [a = 0, b = 0, c = 0] = v;
+  return a > 1 || (a === 1 && (b > 0 || c >= 8));
+}
+const SUIT_LE_TELEPHONE = lisLeTelephone();
+
 function estLaNuit(d = new Date()) {
   const h = d.getHours();
   return h >= 19 || h < 7;
@@ -80,9 +92,14 @@ export function ThemeProvider({ children }) {
     AsyncStorage.setItem(CLE, m).catch(() => {});
   }, []);
 
+  // Le choix du profil s'applique aussi aux éléments d'iOS / Android.
+  useEffect(() => {
+    try { Appearance.setColorScheme?.(mode === 'auto' ? 'unspecified' : mode); } catch (_) {}
+  }, [mode]);
+
   const cycleMode = useCallback(() => setMode(MODES[(MODES.indexOf(mode) + 1) % MODES.length]), [mode, setMode]);
 
-  const dark = mode === 'dark' || (mode === 'auto' && (systeme === 'dark' || nuit));
+  const dark = mode === 'dark' || (mode === 'auto' && (systeme === 'dark' || (!SUIT_LE_TELEPHONE && nuit)));
   const value = useMemo(() => ({ dark, mode, colors: dark ? SOMBRE : CLAIR, cycleMode, setMode }), [dark, mode, cycleMode, setMode]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
