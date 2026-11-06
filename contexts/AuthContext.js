@@ -319,6 +319,7 @@ export function AuthProvider({ children }) {
         [
           'id_card_front_url', 'id_card_back_url', 'iban_doc_url', 'kbis_doc_url',
           'rc_pro_url', 'urssaf_doc_url', 'proof_of_address_url', 'profile_photo_url',
+          'driver_license_url',
         ].forEach((k) => { if (d[k]) payload[k] = d[k]; });
       }
       await authService.register(payload);
