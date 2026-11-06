@@ -17,7 +17,7 @@ import { etasConnues, surEtas } from '../services/positionLivreur';
 import { prendrePhoto, preparerCamera, envoyerPreuve, renvoyerPreuvesEnAttente, cameraIntegreePrete, prechargerCamera, verifierTicketQr, PREFIXE_TICKET_QR } from '../services/preuvePhoto';
 import AppareilPhotoIntegre from '../components/AppareilPhotoIntegre';
 import { lienApplePlansVers } from '../lib/carteDemande';
-import { cleCourse, enregistrerEtape, lireEtape } from '../services/etapesCourses';
+import { cleCourse, enregistrerEtape, lireEtape, oublierEtape } from '../services/etapesCourses';
 
 // Statuts serveur d'une course en cours, dans l'ordre imposé par le serveur
 // (aucun saut possible). 'delivered' est envoyé à part, avec le code.
@@ -569,6 +569,15 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             enregistrerEtape(cle, { statut: suivant });
           } catch (e) {
             const dejaLa = /from '(\w+)'/.exec(String(e?.serverMessage || ''));
+            // Course annulée par le client : retour à l'accueil, plus d'étape gardée.
+            if (dejaLa && dejaLa[1] === 'cancelled') {
+              oublierEtape(cle);
+              const cancelledOrder = { ...order, status: 'cancelled', priceText: `${formatAmount(0)} €`, priceEur: 0, cancelledAt: new Date().toISOString() };
+              Alert.alert(t('orderCancelled'), undefined, [
+                { text: t('ok'), onPress: () => navigation.navigate('OrdersMain', { cancelledOrder }) },
+              ]);
+              return;
+            }
             if (dejaLa && CHAINE_STATUTS.includes(dejaLa[1]) && dejaLa[1] !== statutRef.current) {
               statutRef.current = dejaLa[1];
               enregistrerEtape(cle, { statut: dejaLa[1] });
@@ -587,7 +596,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       }
     }
     setStepIndex(stepIndex + 1);
-  }, [stepIndex, assignmentId, cle, t]);
+  }, [stepIndex, assignmentId, cle, t, order, navigation]);
 
   // Étape atteinte gardée sur le téléphone (reprise depuis l'accueil).
   useEffect(() => {
@@ -669,6 +678,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
         .then(() => { setTimeout(nextStep, 300); })
         .catch((e) => {
           const msg = String(e?.serverMessage || '');
+          // Réponse précédente perdue : le serveur a déjà clôturé la course.
+          if (msg.includes("from 'delivered'")) { setTimeout(nextStep, 300); return; }
           if (e?.isNetworkError) Alert.alert(t('error'), t('errorNetwork'));
           else if (e?.status === 429) Alert.alert(t('error'), t('codeTooManyAttempts'));
           else if (e?.status === 400 && /invalid delivery code|4 digits/i.test(msg)) Alert.alert(t('wrongCode'), t('wrongCodeMsg'));
@@ -699,8 +710,14 @@ export default function DeliveryFlowScreen({ navigation, route }) {
         setAbsentOpen(false);
         setTimeout(nextStep, 300);
       })
-      .catch(() => {
+      .catch((e) => {
         setAbsentBusy(false);
+        // Réponse précédente perdue : le serveur a déjà clôturé la course.
+        if (String(e?.serverMessage || '').includes("from 'delivered'")) {
+          setAbsentOpen(false);
+          setTimeout(nextStep, 300);
+          return;
+        }
         Alert.alert(t('absentRefusedTitle'), t('absentRefusedMsg'));
       });
   }, [assignmentId, absentBusy, absentNote, absentPolicy, nextStep, t]);
@@ -822,8 +839,10 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       await deliveryService.updateDeliveryStatus(assignmentId, 'delivered', null, null, true);
       setDepotBusy(false);
       fin();
-    } catch {
+    } catch (e) {
       setDepotBusy(false);
+      // Réponse précédente perdue : le serveur a déjà clôturé la course.
+      if (String(e?.serverMessage || '').includes("from 'delivered'")) { fin(); return; }
       Alert.alert(t('bagDoorFailedTitle'), t('bagDoorRefused'));
     }
   }, [depotBusy, ouvrirCamera, assignmentId, t]);
