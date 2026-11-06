@@ -14,7 +14,8 @@ import { sanitizeInput, createRateLimiter } from '../utils/validation';
 import { deliveryService } from '../services/deliveryService';
 import { ticketService } from '../services/ticketService';
 import { etasConnues, surEtas } from '../services/positionLivreur';
-import { prendrePhoto, preparerCamera, envoyerPreuve, renvoyerPreuvesEnAttente } from '../services/preuvePhoto';
+import { prendrePhoto, preparerCamera, envoyerPreuve, renvoyerPreuvesEnAttente, cameraIntegreePrete, prechargerCamera, verifierTicketQr, PREFIXE_TICKET_QR } from '../services/preuvePhoto';
+import AppareilPhotoIntegre from '../components/AppareilPhotoIntegre';
 import { lienApplePlansVers } from '../lib/carteDemande';
 import { cleCourse, enregistrerEtape, lireEtape } from '../services/etapesCourses';
 
@@ -414,9 +415,17 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const [absentBusy, setAbsentBusy] = useState(false);
   // Preuve de retrait : photo du ticket ou du reçu, exigée avant « Commande récupérée ».
   const [ticketPhoto, setTicketPhoto] = useState(null);
+  // QR code du ticket scanné et reconnu par le serveur : vaut preuve de retrait.
+  const [ticketScanne, setTicketScanne] = useState(false);
   const [preuveManquante, setPreuveManquante] = useState(false);
   const [ticketEnvoi, setTicketEnvoi] = useState(null); // 'envoi' | 'envoyee' | 'en_attente' | 'refusee'
   const [depotBusy, setDepotBusy] = useState(false);
+  // Appareil photo intégré : consigne affichée (null = fermé).
+  const [cameraConsigne, setCameraConsigne] = useState(null);
+  // Lecture du QR code du ticket dans l'appareil (retrait seulement) et message affiché.
+  const [cameraQr, setCameraQr] = useState(false);
+  const [messageQr, setMessageQr] = useState(null);
+  const resolveurCamera = useRef(null);
   const step = STEPS[stepIndex];
 
   const restaurant = order.restaurant || order.merchantName || t('restaurant');
@@ -696,17 +705,41 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       });
   }, [assignmentId, absentBusy, absentNote, absentPolicy, nextStep, t]);
 
-  // Ouvre la caméra (repli galerie dans prendrePhoto). Renvoie l'URI, null
-  // si annulé, 'indisponible' si aucune photo n'a pu être obtenue.
+  // Fermeture de l'appareil intégré : rend la photo (URI), null si fermé,
+  // { erreur: true } si la caméra n'a pas pu démarrer, { ticketScanne: true }
+  // si le QR code du ticket a été reconnu.
+  const finirCamera = useCallback((res) => {
+    const resoudre = resolveurCamera.current;
+    resolveurCamera.current = null;
+    setCameraConsigne(null);
+    setCameraQr(false);
+    setMessageQr(null);
+    if (resoudre) resoudre(res);
+  }, []);
+
+  // Ouvre la caméra : appareil intégré si le binaire l'a et que la caméra est
+  // autorisée, sinon appareil du système (repli galerie dans prendrePhoto).
+  // Renvoie l'URI, null si annulé, 'indisponible' si aucune photo n'a pu être obtenue.
   // Un seul appui compte : le bouton montre aussitôt que la caméra s'ouvre,
   // un 2e appui pendant l'ouverture est ignoré.
   const [cameraOuverture, setCameraOuverture] = useState(false);
   const cameraOccupee = useRef(false);
-  const ouvrirCamera = useCallback(async () => {
+  const ouvrirCamera = useCallback(async (consigne, { qr = false } = {}) => {
     if (cameraOccupee.current) return null;
     cameraOccupee.current = true;
     setCameraOuverture(true);
     try {
+      if (await cameraIntegreePrete()) {
+        const photo = await new Promise((resolve) => {
+          resolveurCamera.current = resolve;
+          setCameraQr(qr);
+          setMessageQr(null);
+          setCameraConsigne(consigne || '');
+        });
+        if (photo && photo.ticketScanne) return photo;
+        if (!(photo && photo.erreur)) return typeof photo === 'string' ? photo : null;
+        // Caméra intégrée en panne : appareil du système.
+      }
       const res = await prendrePhoto();
       if (res && res.indisponible) return 'indisponible';
       return typeof res === 'string' ? res : null;
@@ -721,7 +754,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   // Accès caméra préparé dès l'étape de retrait (et l'arrivée chez le client),
   // pour que la caméra s'ouvre sans attente au moment de la photo.
   useEffect(() => {
-    if (step === 'pickup' || step === 'arrived') preparerCamera().catch(() => {});
+    if (step === 'pickup' || step === 'arrived') { prechargerCamera(); preparerCamera().catch(() => {}); }
   }, [step]);
 
   // Preuves gardées sur le téléphone lors d'une course précédente : renvoi.
@@ -729,11 +762,34 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     if (!order._isMock) renvoyerPreuvesEnAttente().catch(() => {});
   }, [order._isMock]);
 
-  // Photo du ticket au retrait. Débloque aussitôt la glissière ; l'envoi part
-  // en arrière-plan (course d'essai : aucun envoi).
+  // QR code du ticket lu par l'appareil : vérifié par le serveur pour cette
+  // course (course d'essai : tout code PSTICKET1: accepté sans appel). Reconnu :
+  // l'appareil se ferme comme après une photo. Sinon un message court, la photo
+  // reste possible : le livreur n'est jamais bloqué.
+  const verifierCodeQr = useCallback(async (texte) => {
+    const ouverture = resolveurCamera.current;
+    let etat;
+    if (order._isMock) etat = typeof texte === 'string' && texte.startsWith(PREFIXE_TICKET_QR) ? 'ok' : 'code_invalide';
+    else {
+      setMessageQr(t('ticketScanChecking'));
+      etat = await verifierTicketQr(assignmentId, texte);
+    }
+    // Appareil fermé entre-temps (ou photo prise) : la réponse ne compte plus.
+    if (!ouverture || resolveurCamera.current !== ouverture) return etat;
+    if (etat === 'ok') { finirCamera({ ticketScanne: true }); return 'ok'; }
+    setMessageQr(etat === 'autre_commande' ? t('ticketScanOtherOrder') : etat === 'code_invalide' ? t('ticketScanInvalid') : t('ticketScanNetwork'));
+    return etat;
+  }, [order._isMock, assignmentId, finirCamera, t]);
+
+  // Photo du ticket au retrait (ou QR code du ticket scanné, qui confirme le
+  // retrait). La photo débloque aussitôt la glissière ; l'envoi de la photo part en arrière-plan (course d'essai :
+  // aucun envoi).
   const photographierTicket = useCallback(async () => {
-    const uri = await ouvrirCamera();
+    const uri = await ouvrirCamera(t('ticketScanHint'), { qr: true });
     if (!uri) return;
+    // Bon ticket scanné : le retrait est confirmé aussitôt, sans glisser
+    // (comme Uber Eats).
+    if (uri.ticketScanne) { setTicketScanne(true); slideRateLimiter(nextStep); return; }
     // Aucune photo possible : le livreur n'est jamais bloqué.
     if (uri === 'indisponible') { setPreuveManquante(true); return; }
     setTicketPhoto(uri);
@@ -741,13 +797,13 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     setTicketEnvoi('envoi');
     const etat = await envoyerPreuve(assignmentId, 'pickup', uri);
     setTicketEnvoi(etat);
-  }, [ouvrirCamera, assignmentId]);
+  }, [ouvrirCamera, assignmentId, nextStep, t]);
 
   // Fin de l'attente, client absent : sac posé devant la porte, photo, puis
   // remise sans code (dépôt en lieu sûr, revalidé par le serveur).
   const depotDevantPorte = useCallback(async () => {
     if (depotBusy) return;
-    const uri = await ouvrirCamera();
+    const uri = await ouvrirCamera(t('bagDoorHint'));
     if (!uri) return;
     // Aucune photo possible : le chemin par code reste.
     if (uri === 'indisponible') { Alert.alert(t('bagDoorFailedTitle'), t('bagDoorRefused')); return; }
@@ -921,7 +977,14 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             </Pressable>
 
             {/* Preuve de retrait : photo du ticket ou du reçu (QR compris). */}
-            {ticketPhoto ? (
+            {ticketScanne ? (
+              <View style={[ss.preuveCard, ss.preuveCardOk]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="checkmark-circle" size={22} color={BRAND} style={{ marginRight: 8 }} />
+                  <Text style={ss.preuveOkTitle}>{t('ticketScanned')}</Text>
+                </View>
+              </View>
+            ) : ticketPhoto ? (
               <View style={[ss.preuveCard, ss.preuveCardOk]}>
                 {/* Miniature réduite à sa taille d'affichage : l'écran ne fige pas sur une photo de 12 à 48 Mpx. */}
                 <ImageReduite source={{ uri: ticketPhoto }} style={ss.preuveThumb} contentFit="cover" />
@@ -1231,8 +1294,8 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       {/* Fixed bottom slide button + cancel */}
       {(step === 'pickup' || step === 'enroute' || step === 'arrived') && (
         <View style={ss.bottomBar}>
-          {step === 'pickup' && !ticketPhoto && !preuveManquante && <Text style={ss.preuveLock}>{t('ticketPhotoRequired')}</Text>}
-          {step === 'pickup' && <SlideButton label={t('orderPickedUp')} disabled={!ticketPhoto && !preuveManquante} onComplete={() => { if (ticketPhoto || preuveManquante) slideRateLimiter(nextStep); }} />}
+          {step === 'pickup' && !ticketPhoto && !ticketScanne && !preuveManquante && <Text style={ss.preuveLock}>{t('ticketPhotoRequired')}</Text>}
+          {step === 'pickup' && <SlideButton label={t('orderPickedUp')} disabled={!ticketPhoto && !ticketScanne && !preuveManquante} onComplete={() => { if (ticketPhoto || ticketScanne || preuveManquante) slideRateLimiter(nextStep); }} />}
           {step === 'enroute' && <SlideButton label={t('iArrived')} onComplete={() => slideRateLimiter(nextStep)} color="#2196F3" />}
           {step === 'arrived' && <SlideButton label={t('orderGiven')} onComplete={() => slideRateLimiter(nextStep)} color="#f5a623" />}
           <Pressable style={ss.cancelBtn} onPress={() => setShowCancelPopup(true)}>
@@ -1355,6 +1418,16 @@ export default function DeliveryFlowScreen({ navigation, route }) {
           </Animated.View>
         </Pressable>
       )}
+
+      {/* Appareil photo intégré des preuves (absent d'un ancien binaire : rien n'est rendu). */}
+      <AppareilPhotoIntegre
+        visible={cameraConsigne !== null}
+        consigne={cameraConsigne}
+        onPhoto={finirCamera}
+        onCodeQr={cameraQr ? verifierCodeQr : undefined}
+        messageQr={messageQr}
+        onFermer={(info) => finirCamera(info && info.erreur ? { erreur: true } : null)}
+      />
 
       {/* Problème code modal */}
       <Modal visible={showCodeProblem} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCodeProblem(false)}>
