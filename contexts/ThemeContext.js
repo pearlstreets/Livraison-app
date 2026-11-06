@@ -9,7 +9,7 @@
 // Les écrans lisent `colors` via useTheme() au lieu de couleurs en dur.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Appearance } from 'react-native';
-import * as Application from 'expo-application';
+import * as Updates from 'expo-updates';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CLE = 'pearl.delivery.theme';
@@ -60,7 +60,8 @@ const MODES = ['auto', 'light', 'dark'];
 
 // Binaire capable de lire le réglage du téléphone (1.0.8 et suivants).
 function lisLeTelephone() {
-  const v = String(Application.nativeApplicationVersion || '0').split('.').map((n) => parseInt(n, 10) || 0);
+  // runtimeVersion = version du binaire (politique appVersion), présent sur tous les binaires.
+  const v = String(Updates.runtimeVersion || '0').split('.').map((n) => parseInt(n, 10) || 0);
   const [a = 0, b = 0, c = 0] = v;
   return a > 1 || (a === 1 && (b > 0 || c >= 8));
 }
