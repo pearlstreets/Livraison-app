@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { deliveryService } from '../services/deliveryService';
 import GainsPopup from './GainsPopup';
@@ -18,12 +19,12 @@ const { width, height } = Dimensions.get('window');
 // Meaux center
 const MEAUX = { latitude: 48.9536, longitude: 2.8788 };
 
-// Sur iPhone la carte (Apple Plans) est sombre : heure et icônes de la barre d'état
-// en blanc, seulement tant que l'écran est affiché (App.js les remet en sombre sur
-// les autres écrans). Sur Android la carte Google reste claire : icônes inchangées.
-function LightStatusBarWhileFocused() {
+// Sur iPhone la carte (Apple Plans) suit le mode clair / sombre de l'app (06/11) :
+// en sombre, heure et icônes de la barre d'état en blanc tant que l'écran est
+// affiché. Sur Android la carte Google reste claire : icônes inchangées.
+function LightStatusBarWhileFocused({ dark }) {
   const isFocused = useIsFocused();
-  return Platform.OS === 'ios' && isFocused ? <StatusBar style="light" /> : null;
+  return Platform.OS === 'ios' && isFocused && dark ? <StatusBar style="light" /> : null;
 }
 
 // Sur iPhone la carte est Apple Plans, où la bibliothèque ne fournit pas de couche
@@ -65,6 +66,7 @@ export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPr
   const insets = useSafeAreaInsets();
   const { currentEarningsCents, isOnline } = useAuth();
   const { t } = useLanguage();
+  const { dark } = useTheme();
   const { fmtPrice } = useCurrency();
   const mapRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
@@ -116,8 +118,8 @@ export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPr
   }
 
   return (
-    <View style={s.container}>
-      <LightStatusBarWhileFocused />
+    <View style={[s.container, !dark && { backgroundColor: '#eef1f4' }]}>
+      <LightStatusBarWhileFocused dark={dark} />
       {mapsAvailable ? (
         <MapView
           ref={mapRef}
@@ -128,7 +130,7 @@ export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPr
             latitudeDelta: 0.06,
             longitudeDelta: 0.06,
           }}
-          userInterfaceStyle="dark"
+          userInterfaceStyle={dark ? 'dark' : 'light'}
           onMapReady={() => setMapReady(true)}
         >
           {mapReady && heatmapPoints.length > 0 && Platform.OS !== 'ios' && (
