@@ -23,6 +23,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { demanderAutorisation, enregistrerAppareil } from './services/pushDirect';
+import { annoncerCourse } from './services/sonCourse';
+import { lirePreferences } from './services/preferencesNotifications';
+import { useVeilleCourses } from './hooks/useVeilleCourses';
 import { navigationRef } from './services/navigationService';
 import { deepLink } from './services/deepLink';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -66,6 +69,7 @@ import VersementsListScreen from './screens/VersementsListScreen';
 import VersementDetailScreen from './screens/VersementDetailScreen';
 import VerificationIdentiteScreen from './screens/VerificationIdentiteScreen';
 import ReleveComptableScreen from './screens/ReleveComptableScreen';
+import NotificationsReglagesScreen from './screens/NotificationsReglagesScreen';
 import { ecranDeplie, largeurMoitie } from './utils/deuxEcrans';
 import { createDeuxEcransNavigator, AuMilieu } from './navigation/DeuxEcransStack';
 import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli, noterEtatNavigation } from './utils/repliEcran';
@@ -165,11 +169,14 @@ function navThemeDe(c) {
 // Nouvelle course proposée (status « available », DeliveryApp/notifications) :
 // son joué même app ouverte, pour ne pas la manquer. Les autres push restent
 // silencieuses quand l'app est au premier plan.
-function estCourseProposee(notification) {
+function donneesDe(notification) {
   const requete = notification && notification.request;
   const brut = requete && requete.content && requete.content.data;
-  const donnees = (brut && Object.keys(brut).length ? brut : requete && requete.trigger && requete.trigger.payload) || {};
-  return donnees.status === 'available';
+  return (brut && Object.keys(brut).length ? brut : requete && requete.trigger && requete.trigger.payload) || {};
+}
+
+function estCourseProposee(notification) {
+  return donneesDe(notification).status === 'available';
 }
 
 function estSonSeul(notification) {
@@ -178,13 +185,23 @@ function estSonSeul(notification) {
 }
 
 Notifications.setNotificationHandler({
-  handleNotification: async (notification) => ({
-    // sonSeul : son de la fenêtre « Nouvelle course », sans bannière.
-    shouldShowBanner: !estSonSeul(notification),
-    shouldShowList: !estSonSeul(notification),
-    shouldPlaySound: estCourseProposee(notification),
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    // sonSeul : son d'une nouvelle course (services/sonCourse.js), sans
+    // bannière. Push « available » reçue app ouverte : son joué par
+    // annoncerCourse, une seule fois par course, jamais en double avec la
+    // fenêtre « Nouvelle course » ou la relève des courses.
+    const sonSeul = estSonSeul(notification);
+    if (!sonSeul && estCourseProposee(notification)) {
+      const donnees = donneesDe(notification);
+      annoncerCourse(donnees.order_id != null ? String(donnees.order_id) : '');
+    }
+    return {
+      shouldShowBanner: !sonSeul,
+      shouldShowList: !sonSeul,
+      shouldPlaySound: sonSeul,
+      shouldSetBadge: false,
+    };
+  },
 });
 
 function HomeStackScreen() {
@@ -242,6 +259,7 @@ function MenuStackScreen() {
       <MenuStack.Screen name="VersementDetail" component={VersementDetailScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="Warnings" component={WarningsScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="NotificationsReglages" component={NotificationsReglagesScreen} options={{ headerShown: false }} />
     </MenuStack.Navigator>
   );
 }
@@ -261,6 +279,8 @@ function Main() {
   // (so the customer never loses the live pin if the driver toggles offline
   // mid-course).
   useLocationTracking(isOnline || activeDelivery);
+  // Son des nouvelles courses sur toutes les pages, pas seulement l'accueil.
+  useVeilleCourses(Boolean(user) && isOnline);
   const totalProfileNotifs = getUnreadTicketCount() + getUnreadOpportunitiesCount();
   const { colors } = useTheme();
   const { t } = useLanguage();
@@ -289,6 +309,12 @@ function Main() {
   useEffect(() => {
     demanderAutorisation().catch(() => {});
   }, []);
+
+  // Réglage « Son de nouvelle course » relu à chaque connexion.
+  const idCompte = user ? (user.id ?? user.email ?? 'connecte') : null;
+  useEffect(() => {
+    if (idCompte) lirePreferences().catch(() => {});
+  }, [idCompte]);
 
   // Retour au premier plan (autorisation accordée dans les réglages, envoi
   // précédent échoué) : nouvel enregistrement, sans effet s'il est à jour.
