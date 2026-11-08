@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { Platform, View } from 'react-native';
 
 // Security: Disable React DevTools in production
@@ -30,6 +30,7 @@ import { CurrencyProvider } from './contexts/CurrencyContext';
 import { useLocationTracking } from './hooks/useLocationTracking';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import LoginScreen from './screens/LoginScreen';
+import LancementAnime from './components/LancementAnime';
 import OrdersScreen from './screens/OrdersScreen';
 import EarningsScreen from './screens/EarningsScreen';
 import WeekDetailScreen from './screens/WeekDetailScreen';
@@ -277,6 +278,14 @@ function CurrencyGate({ children }) {
   return <CurrencyProvider country={country}>{children}</CurrencyProvider>;
 }
 
+// Animation de lancement (P + vélo), effacée quand la session est prête.
+function Lancement() {
+  const { bootstrapping } = useAuth() || {};
+  const [visible, setVisible] = useState(true);
+  if (!visible) return null;
+  return <LancementAnime pret={!bootstrapping} onFini={() => setVisible(false)} />;
+}
+
 export default function App() {
   // Pliable : rechargement au pliage et au depliage (utils/repliEcran.js).
   useEffect(() => surveillerRepliEcran(), []);
@@ -290,6 +299,7 @@ export default function App() {
                 <StatusBar style="dark" />
                 <Main />
               </NavigationContainer>
+              <Lancement />
             </View>
           </CurrencyGate>
         </AuthProvider>
