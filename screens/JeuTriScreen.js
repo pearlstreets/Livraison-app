@@ -18,10 +18,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import { ecouterNouvelleCourse } from '../services/sonCourse';
+import { deliveryService } from '../services/deliveryService';
+import ClassementJeu from '../components/ClassementJeu';
 import {
   ZONES, VIES_PAR_NIVEAU, reglagesNiveau, pointsColis, nouveauColis, cleSauvegarde,
   chargerPartie, enregistrerPartie, apresBonTri, apresErreur, niveauSuivant,
-  recommencerNiveau, nouvellePartie,
+  recommencerNiveau, nouvellePartie, recordAEnvoyer, apresEnvoiRecord,
 } from '../utils/jeuTri';
 
 // Vibration légère : module natif facultatif, le jeu marche sans.
@@ -61,6 +63,7 @@ export default function JeuTriScreen({ navigation }) {
   const hauteurRef = useRef(0);
   const [alerteCourse, setAlerteCourse] = useState(false);
   const [retour, setRetour] = useState(null); // { ok, texte, n }
+  const [classementOuvert, setClassementOuvert] = useState(false);
   const minuteurRetour = useRef(null);
 
   const progression = useRef(new Animated.Value(0)).current;
@@ -69,10 +72,41 @@ export default function JeuTriScreen({ navigation }) {
   const jetonRef = useRef(0); // invalide la fin d'une chute arrêtée
   const monteRef = useRef(true);
 
+  // Record envoyé au classement en tâche de fond, jamais pendant la chute
+  // d'un colis : rien n'est affiché en cas d'échec, nouvel essai à la
+  // prochaine pause ou au prochain lancement (`scoreEnvoye` dans la sauvegarde).
+  const envoiEnCours = useRef(null);
+  const envoyerRef = useRef(null);
+  const envoyerRecord = useCallback(() => {
+    if (envoiEnCours.current) return envoiEnCours.current;
+    const record = recordAEnvoyer(etatRef.current);
+    if (!record) return Promise.resolve();
+    const promesse = deliveryService.envoyerScoreJeu(record.score, record.niveau)
+      .then(() => true)
+      // 400 : record refusé par le serveur, inutile de le renvoyer.
+      .catch((err) => (err?.status ?? err?.response?.status) === 400)
+      .then((recu) => {
+        const e = etatRef.current;
+        if (!recu || !e) return;
+        const n = apresEnvoiRecord(e, record.score);
+        etatRef.current = n;
+        if (monteRef.current) setEtat(n);
+        enregistrerPartie(cle, n);
+        // Un record battu pendant l'envoi part juste après.
+        setTimeout(() => envoyerRef.current?.(), 0);
+      })
+      .catch(() => {})
+      .finally(() => { envoiEnCours.current = null; });
+    envoiEnCours.current = promesse;
+    return promesse;
+  }, [cle]);
+  envoyerRef.current = envoyerRecord;
+
   const appliquer = useCallback((nouvel, sauver = true) => {
     etatRef.current = nouvel;
     if (monteRef.current) setEtat(nouvel);
     if (sauver) enregistrerPartie(cle, nouvel);
+    if (nouvel?.phase !== 'jeu') envoyerRef.current?.();
   }, [cle]);
 
   // Position du colis (0 en haut, 1 au sol), calculée sur l'horloge :
@@ -332,6 +366,7 @@ export default function JeuTriScreen({ navigation }) {
                 <Text style={styles.texteDiscret}>{t('jeuRegleExpress')}</Text>
                 <Records etat={etat} t={t} styles={styles} />
                 <Bouton styles={styles} texte={t('jeuJouer')} onPress={() => appliquer(nouvellePartie(etat))} />
+                <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
               </>
             )}
             {etat.phase === 'pause' && (
@@ -341,6 +376,7 @@ export default function JeuTriScreen({ navigation }) {
                 <Text style={styles.texte}>{t('jeuSauvegarde')}</Text>
                 <Records etat={etat} t={t} styles={styles} />
                 <Bouton styles={styles} texte={t('jeuReprendre')} onPress={() => appliquer({ ...etat, phase: 'jeu' })} />
+                <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton styles={styles} secondaire texte={t('jeuNouvellePartie')} onPress={confirmerNouvellePartie} />
               </>
             )}
@@ -360,10 +396,23 @@ export default function JeuTriScreen({ navigation }) {
                 <Text style={styles.texte}>{t('jeuPlusDeViesTexte', { n: etat.niveau })}</Text>
                 <Records etat={etat} t={t} styles={styles} />
                 <Bouton styles={styles} texte={t('jeuRecommencerNiveau', { n: etat.niveau })} onPress={() => appliquer(recommencerNiveau(etat))} />
+                <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton styles={styles} secondaire texte={t('jeuNouvellePartie')} onPress={confirmerNouvellePartie} />
               </>
             )}
           </View>
+        </View>
+      )}
+      {/* Classement : le jeu reste en pause derrière (jamais ouvert pendant une chute). */}
+      {classementOuvert && etat.phase !== 'jeu' && (
+        <View style={styles.voile}>
+          <ClassementJeu
+            t={t}
+            colors={colors}
+            dark={dark}
+            avantChargement={envoyerRecord}
+            onFermer={() => setClassementOuvert(false)}
+          />
         </View>
       )}
       {alerteCourse && (

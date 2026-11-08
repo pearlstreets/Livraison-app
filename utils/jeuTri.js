@@ -60,6 +60,8 @@ export function partieNeuve(records = {}) {
     colis: null,
     meilleurScore: entier(records.meilleurScore),
     meilleurNiveau: Math.max(1, entier(records.meilleurNiveau)),
+    // Meilleur score déjà reçu par le serveur (classement des livreurs).
+    scoreEnvoye: entier(records.scoreEnvoye),
   };
 }
 
@@ -103,7 +105,24 @@ export function nettoyerSauvegarde(brut) {
     colis,
     meilleurScore: Math.max(base.meilleurScore, score),
     meilleurNiveau: Math.max(base.meilleurNiveau, niveau),
+    scoreEnvoye: Math.min(base.scoreEnvoye, Math.max(base.meilleurScore, score)),
   };
+}
+
+/**
+ * Record à envoyer au classement : seulement hors chute d'un colis et quand
+ * le meilleur score dépasse celui déjà reçu par le serveur. Sinon null.
+ */
+export function recordAEnvoyer(etat) {
+  if (!etat || etat.phase === 'jeu') return null;
+  const score = entier(etat.meilleurScore);
+  if (score <= 0 || score <= entier(etat.scoreEnvoye)) return null;
+  return { score, niveau: Math.max(1, entier(etat.meilleurNiveau, 1)) };
+}
+
+/** Record reçu par le serveur : retenu dans la sauvegarde (jamais en baisse). */
+export function apresEnvoiRecord(etat, score) {
+  return { ...etat, scoreEnvoye: Math.max(entier(etat.scoreEnvoye), entier(score)) };
 }
 
 /** Une partie par compte livreur sur le téléphone. */

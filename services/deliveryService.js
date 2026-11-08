@@ -155,4 +155,17 @@ export const deliveryService = {
     const { data } = await api.post(`/api/v1/delivery/assignments/${assignmentId}/pro-messages/`, { text });
     return data;
   },
+
+  // Mini-jeu Tri express : record du livreur (le serveur garde le max).
+  // Réponse : { status, moi: { rang, score, niveau } }.
+  async envoyerScoreJeu(score, niveau) {
+    const { data } = await api.post('/api/v1/delivery/driver/jeu/score/', { score, niveau }, { timeout: 10000 });
+    return data;
+  },
+
+  // Classement des livreurs : { classement: [{ rang, nom, niveau, score, moi }], moi }.
+  async getClassementJeu() {
+    const { data } = await api.get('/api/v1/delivery/driver/jeu/classement/', { timeout: 10000 });
+    return data;
+  },
 };
