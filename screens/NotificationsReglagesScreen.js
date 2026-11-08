@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +29,24 @@ export default function NotificationsReglagesScreen({ navigation }) {
   const { dark, colors } = useTheme();
   const s = useMemo(() => makeStyles(dark, colors), [dark, colors]);
   const [prefs, setPrefs] = useState(() => normaliserPreferences({}));
+  // 'charge' : lecture du serveur ; 'ok' : interrupteurs actifs ; 'erreur' :
+  // réseau, toucher pour réessayer (rien n'est enregistré à l'aveugle).
+  const [etat, setEtat] = useState('charge');
   const monte = useRef(true);
+  // Chaque clé garde sa dernière demande : une réponse plus ancienne ne
+  // remet pas l'interrupteur en arrière.
+  const versions = useRef({});
+
+  function charger() {
+    setEtat('charge');
+    lirePreferences().then((p) => {
+      if (!monte.current) return;
+      setPrefs(p);
+      setEtat('ok');
+    }).catch(() => {
+      if (monte.current) setEtat('erreur');
+    });
+  }
 
   useEffect(() => {
     monte.current = true;
@@ -37,22 +54,22 @@ export default function NotificationsReglagesScreen({ navigation }) {
     sonCourseActif().then((son) => {
       if (monte.current) setPrefs((p) => ({ ...p, son_course: son }));
     }).catch(() => {});
-    lirePreferences().then((p) => {
-      if (monte.current) setPrefs(p);
-    }).catch(() => {
-      // Hors réseau : valeurs par défaut affichées, enregistrées à la bascule.
-    });
+    charger();
     return () => { monte.current = false; };
   }, []);
 
   async function basculer(cle, valeur) {
     const avant = prefs[cle];
+    const version = (versions.current[cle] || 0) + 1;
+    versions.current[cle] = version;
+    const derniere = () => monte.current && versions.current[cle] === version;
     setPrefs((p) => ({ ...p, [cle]: valeur }));
     try {
       const p = await modifierPreference(cle, valeur);
-      if (monte.current) setPrefs(p);
+      if (derniere()) setPrefs((x) => ({ ...x, [cle]: p[cle] }));
     } catch (e) {
-      if (monte.current) setPrefs((p) => ({ ...p, [cle]: avant }));
+      if (!derniere()) return;
+      setPrefs((p) => ({ ...p, [cle]: avant }));
       Alert.alert(t('error'), e?.serverMessage || (e?.isNetworkError ? t('errorNetwork') : t('notifEnregistrementEchec')));
     }
   }
@@ -63,6 +80,7 @@ export default function NotificationsReglagesScreen({ navigation }) {
       <Switch
         value={!!prefs[cle]}
         onValueChange={(v) => basculer(cle, v)}
+        disabled={etat !== 'ok'}
         trackColor={{ false: dark ? colors.borderStrong : '#d1d1d6', true: BRAND }}
         thumbColor="#fff"
         ios_backgroundColor={dark ? colors.borderStrong : '#d1d1d6'}
@@ -81,6 +99,13 @@ export default function NotificationsReglagesScreen({ navigation }) {
         <Text style={s.headerTitle} numberOfLines={1}>{t('notifReglagesTitre')}</Text>
         <View style={{ width: 24 }} />
       </View>
+
+      {etat === 'charge' && <ActivityIndicator color={BRAND} style={s.chargement} />}
+      {etat === 'erreur' && (
+        <Pressable onPress={charger} style={s.erreur} accessibilityRole="button">
+          <Text style={s.erreurTexte}>{t('errorNetwork')}</Text>
+        </Pressable>
+      )}
 
       <Text style={s.sectionTitre}>{t('notifSectionEnLigne')}</Text>
       <View style={s.carte}>
@@ -116,6 +141,9 @@ const makeStyles = (dark, c) => {
   ligneBord: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: k('#e0e0e0', c.border) },
   libelle: { flex: 1, marginRight: 12, fontSize: 16, fontWeight: '600', color: k('#111', c.text) },
   toujours: { fontSize: 15, fontWeight: '600', color: k('#888', c.textMuted) },
+  chargement: { marginBottom: 12 },
+  erreur: { marginHorizontal: 16, marginBottom: 12, padding: 14, borderRadius: 12, backgroundColor: k('#fff4ec', c.card) },
+  erreurTexte: { textAlign: 'center', fontSize: 15, fontWeight: '600', color: BRAND },
   piedPage: { color: k('#888', c.textFaint), fontSize: 13, paddingHorizontal: 16, marginTop: 4 },
   });
 };
