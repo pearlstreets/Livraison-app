@@ -38,11 +38,11 @@
         }
       },
       "bundleIdentifier": "com.pearlstreets.delivery",
-      "buildNumber": "1017"
+      "buildNumber": "1018"
     },
     "android": {
       "package": "com.pearlstreets.delivery",
-      "versionCode": 1018,
+      "versionCode": 1019,
       "jsEngine": "hermes",
       "config": {
         "googleMaps": {
