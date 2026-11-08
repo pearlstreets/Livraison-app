@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity, Pressable, Dimensions, Alert, AppState } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity, Pressable, Dimensions, Alert, AppState, DeviceEventEmitter } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -323,6 +323,12 @@ export default function OrdersScreen({ navigation, route }) {
   useEffect(() => {
     if (accountActive) restaurerCourses();
   }, [accountActive, online, restaurerCourses]);
+
+  // Course annulée (notification course_cancelled, App.js) : liste relue.
+  useEffect(() => {
+    const abo = DeviceEventEmitter.addListener('courseAnnulee', () => { if (accountActive) restaurerCourses(); });
+    return () => abo.remove();
+  }, [accountActive, restaurerCourses]);
 
   const addMockOrder = useCallback(() => {
     setMockOrders(prev => [makeMockOrder(), ...prev]);
