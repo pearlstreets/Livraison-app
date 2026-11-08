@@ -14,6 +14,7 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from './api';
+import { binaireAvecSon, CANAL_COURSES_MUET, CANAL_COURSES_SON, SON_COURSE } from './sonCourse';
 
 // Canal Android de toutes les notifications livreur (nouvelle course en
 // tête) : importance haute, donc bandeau et son. Nouvel id exprès : un canal
@@ -44,6 +45,30 @@ async function preparerCanal() {
     });
   } catch {
     // Canal non créé : Android affiche quand même, dans le canal de repli.
+  }
+  // Canaux des nouvelles courses, avec le son de l'app ou sans son (réglage
+  // « Son de nouvelle course »). Un canal ne change plus de son une fois
+  // créé : seulement sur un binaire qui contient le son (1.0.9 et plus).
+  // Binaire plus ancien : le serveur vise un canal absent, Android se replie
+  // sur le canal « courses » ci-dessus.
+  if (!binaireAvecSon()) return;
+  try {
+    await Notifications.setNotificationChannelAsync(CANAL_COURSES_SON, {
+      name: 'Nouvelles courses',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: SON_COURSE,
+      vibrationPattern: [0, 400, 200, 400],
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+    await Notifications.setNotificationChannelAsync(CANAL_COURSES_MUET, {
+      name: 'Nouvelles courses sans son',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: null,
+      vibrationPattern: [0, 400, 200, 400],
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+  } catch {
+    // Canaux non créés : repli sur le canal « courses ».
   }
 }
 

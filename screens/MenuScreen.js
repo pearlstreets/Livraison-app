@@ -270,6 +270,7 @@ export default function MenuScreen({ navigation }) {
         <MenuItem icon="chatbubbles-outline" label={t('ticketsTitle')} onPress={() => navigation.navigate('TicketsList')} badge={nbTickets > 0 ? String(nbTickets) : null} />
         <MenuItem icon="document-text-outline" label={t('documents')} onPress={() => navigation.navigate('Documents')} />
         <MenuItem icon="car-outline" label={t('vehicle')} onPress={() => navigation.navigate('Vehicle')} detail={t(VEHICLE_LABEL_KEYS[user?.vehicle] || 'bike')} />
+        <MenuItem icon="notifications-outline" label={t('notifReglagesTitre')} onPress={() => navigation.navigate('NotificationsReglages')} />
         <MenuItem icon="star-outline" label={t('ratings')} onPress={() => navigation.navigate('Ratings')} />
       </View>
 
