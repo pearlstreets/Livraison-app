@@ -16,6 +16,8 @@ const ORANGE = '#FF6A13';
 const P_BOX = { x: 364, y: 262, w: 382, h: 524 };
 const POINT_BOX = { x: 496, y: 394, w: 110, h: 112 };
 const VELO = { w: 172, h: 178 };
+// Colis tenu au-dessus des mains (repère de velo-bras.png, mains vers x 5-10, y 28 et 78).
+const COLIS = { x: -32, y: 24, w: 34, h: 58 };
 
 // Tracé du P (milieu du trait) : barre verticale de BAS_BARRE à C.y, puis
 // boucle de rayon R autour de C, dans le sens des aiguilles d'une montre,
@@ -202,6 +204,21 @@ export default function LancementAnime({ pret, onFini }) {
           resizeMode="contain"
           style={[styles.veloImage, { width: VELO.w * k, height: VELO.h * k, opacity: bras }]}
         />
+        {/* Bras levés : il brandit un colis au-dessus de ses mains. Coordonnées
+            de velo-bras.png (dessiné vélo à la verticale : le haut du cycliste
+            est vers la gauche de l'image). */}
+        <Animated.View
+          style={[styles.colis, {
+            left: COLIS.x * k,
+            top: COLIS.y * k,
+            width: COLIS.w * k,
+            height: COLIS.h * k,
+            borderRadius: 3 * k,
+            opacity: bras,
+          }]}
+        >
+          <View style={[styles.orange, { position: 'absolute', left: 0, right: 0, top: (COLIS.h / 2 - 3) * k, height: 6 * k }]} />
+        </Animated.View>
       </Animated.View>
     </Animated.View>
   );
@@ -214,4 +231,5 @@ const styles = StyleSheet.create({
   // Taille donnée en clair : sans elle, une image locale s'affiche à sa taille
   // d'origine (172 points) au lieu de l'échelle du logo.
   veloImage: { position: 'absolute', left: 0, top: 0 },
+  colis: { position: 'absolute', backgroundColor: '#FFFFFF', overflow: 'hidden' },
 });
