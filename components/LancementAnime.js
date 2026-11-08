@@ -128,10 +128,15 @@ export default function LancementAnime({ pret, onFini }) {
   const cacheBarre = trait.interpolate({ inputRange: [0, L_BARRE], outputRange: [0, -(L_BARRE + 8) * k], extrapolate: 'clamp' });
   const cacheHaut = trait.interpolate({ inputRange: [L_BARRE, L_BARRE + L_HAUT], outputRange: ['0deg', '180deg'], extrapolate: 'clamp' });
   const cacheBas = trait.interpolate({ inputRange: [L_BARRE + L_HAUT, L_BARRE + L_HAUT + L_QUART, L_TOTAL], outputRange: ['0deg', '90deg', '180deg'], extrapolate: 'clamp' });
+  // Un cache arrivé au bout de son demi-tour a son bord pile sur la limite de
+  // sa zone, au milieu du P : l'anticrénelage y laissait une fine ligne orange.
+  // Une fois son tour fini, il ne cache plus rien : on le retire.
+  const finHaut = trait.interpolate({ inputRange: [L_BARRE + L_HAUT - 1, L_BARRE + L_HAUT], outputRange: [1, 0], extrapolate: 'clamp' });
+  const finBas = trait.interpolate({ inputRange: [L_TOTAL - 1, L_TOTAL], outputRange: [1, 0], extrapolate: 'clamp' });
 
   // Cache tournant : carré centré sur C, moitié haute (ou basse) orange.
   const D = 320;
-  const cacheTournant = (zone, moitie, rotation) => (
+  const cacheTournant = (zone, moitie, rotation, opacite) => (
     <View style={[styles.zone, { left: X(zone.x), top: Y(zone.y), width: zone.w * k, height: zone.h * k }]}>
       <Animated.View
         style={{
@@ -141,6 +146,7 @@ export default function LancementAnime({ pret, onFini }) {
           width: 2 * D * k,
           height: 2 * D * k,
           transform: [{ rotate: rotation }],
+          opacity: opacite,
         }}
       >
         <View style={[styles.orange, { position: 'absolute', left: 0, width: 2 * D * k, height: D * k, top: moitie === 'haut' ? 0 : D * k }]} />
@@ -161,8 +167,8 @@ export default function LancementAnime({ pret, onFini }) {
       <View style={[styles.zone, { left: X(ZONE_BARRE.x), top: Y(ZONE_BARRE.y), width: ZONE_BARRE.w * k, height: ZONE_BARRE.h * k }]}>
         <Animated.View style={[styles.orange, StyleSheet.absoluteFill, { transform: [{ translateY: cacheBarre }] }]} />
       </View>
-      {cacheTournant(ZONE_HAUT, 'haut', cacheHaut)}
-      {cacheTournant(ZONE_BAS, 'bas', cacheBas)}
+      {cacheTournant(ZONE_HAUT, 'haut', cacheHaut, finHaut)}
+      {cacheTournant(ZONE_BAS, 'bas', cacheBas, finBas)}
       <Animated.Image
         source={require('../assets/lancement/point.png')}
         resizeMode="contain"
