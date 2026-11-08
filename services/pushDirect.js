@@ -46,11 +46,23 @@ async function preparerCanal() {
   } catch {
     // Canal non créé : Android affiche quand même, dans le canal de repli.
   }
-  // Canaux des nouvelles courses, avec le son de l'app ou sans son (réglage
-  // « Son de nouvelle course »). Un canal ne change plus de son une fois
-  // créé : seulement sur un binaire qui contient le son (1.0.9 et plus).
-  // Binaire plus ancien : le serveur vise un canal absent, Android se replie
-  // sur le canal « courses » ci-dessus.
+  // Canal muet des nouvelles courses (réglage « Son de nouvelle course »
+  // coupé) : créé sur toutes les versions, sinon un livreur qui a coupé le
+  // son l'entendrait quand même (Android se replierait sur « courses »).
+  try {
+    await Notifications.setNotificationChannelAsync(CANAL_COURSES_MUET, {
+      name: 'Nouvelles courses sans son',
+      importance: Notifications.AndroidImportance.HIGH,
+      sound: null,
+      vibrationPattern: [0, 400, 200, 400],
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+  } catch {
+    // Canal non créé : repli sur le canal « courses ».
+  }
+  // Canal avec le son de l'app : un canal ne change plus de son une fois
+  // créé, donc seulement sur un binaire qui contient le son (1.0.9 et plus).
+  // Binaire plus ancien : Android se replie sur le canal « courses ».
   if (!binaireAvecSon()) return;
   try {
     await Notifications.setNotificationChannelAsync(CANAL_COURSES_SON, {
@@ -60,15 +72,8 @@ async function preparerCanal() {
       vibrationPattern: [0, 400, 200, 400],
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     });
-    await Notifications.setNotificationChannelAsync(CANAL_COURSES_MUET, {
-      name: 'Nouvelles courses sans son',
-      importance: Notifications.AndroidImportance.HIGH,
-      sound: null,
-      vibrationPattern: [0, 400, 200, 400],
-      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-    });
   } catch {
-    // Canaux non créés : repli sur le canal « courses ».
+    // Canal non créé : repli sur le canal « courses ».
   }
 }
 
