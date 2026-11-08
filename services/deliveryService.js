@@ -88,6 +88,16 @@ export const deliveryService = {
     return liste;
   },
 
+  // Statut serveur d'une course du livreur (historique, plus récentes
+  // d'abord). null si elle n'est pas dans la première page. Rejette si la
+  // lecture échoue.
+  async getAssignmentStatus(assignmentId) {
+    const { data } = await api.get('/api/v1/delivery/history/', { params: { page_size: 50 } });
+    const res = Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : (Array.isArray(data?.data) ? data.data : []));
+    const course = res.find((a) => a && String(a.id) === String(assignmentId));
+    return course && typeof course.status === 'string' ? course.status : null;
+  },
+
   async getPenalties() {
     const { data } = await api.get('/api/v1/delivery/penalties/');
     return data;
