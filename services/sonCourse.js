@@ -89,6 +89,7 @@ async function jouerSon() {
 export function annoncerCourse(cle) {
   try {
     if (dejaAnnoncee(cle ? String(cle) : '')) return;
+    prevenirNouvelleCourse();
     const maintenant = Date.now();
     if (maintenant - _dernierSon < ANTI_REBOND_MS) return;
     _dernierSon = maintenant;
@@ -97,6 +98,20 @@ export function annoncerCourse(cle) {
   } catch {
     // Annonce impossible : la course reste affichée.
   }
+}
+
+// Écrans prévenus d'une nouvelle course (le mini-jeu se met en pause).
+const _ecouteurs = new Set();
+function prevenirNouvelleCourse() {
+  _ecouteurs.forEach((fn) => {
+    try { fn(); } catch { /* Un écouteur en erreur ne bloque pas l'annonce. */ }
+  });
+}
+/** Appelle fn à chaque nouvelle course annoncée ; renvoie la fonction de désabonnement. */
+export function ecouterNouvelleCourse(fn) {
+  if (typeof fn !== 'function') return () => {};
+  _ecouteurs.add(fn);
+  return () => { _ecouteurs.delete(fn); };
 }
 
 /** Course déjà vue par le livreur (notification touchée ou affichée) : plus de son. */
