@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 
 // Animation d'ouverture, même principe que l'app user : le « P » se dessine
-// de bas en haut sous les roues du vélo, qui arrive par le bas de l'écran,
-// monte le long de la barre du P puis fait le tour de la boucle ; une fois le
+// de bas en haut sous les roues du vélo, qui apparaît au pied du P (comme le
+// bonhomme de l'app user), monte le long de la barre du P puis fait le tour de la boucle ; une fois le
 // vélo arrivé en haut, le point tombe au milieu du P.
 //
 // Pas de react-native-svg dans cette app (et une mise à jour OTA ne peut pas
@@ -24,6 +24,7 @@ const C = { x: 552, y: 452 };
 const R = 137;
 const X_BARRE = 415.5;
 const BAS_BARRE = 790;
+const BAS_P = 777; // bas du P sur le logo : les roues du vélo s'y posent
 const L_BARRE = BAS_BARRE - C.y; // 338
 const L_HAUT = Math.PI * R; // demi-boucle du haut (9 h -> 3 h)
 const L_QUART = (Math.PI / 2) * R; // 3 h -> 6 h
@@ -37,9 +38,10 @@ const S_ARRET = L_BARRE + (ANGLE_ARRET * Math.PI / 180) * R;
 const AVANCE_TRAIT = 90; // le trait se dessine juste devant les roues
 
 const DELAI_MS = 100;
+const APPARITION_MS = 300;
 const ROULE_MS = 1150;
 const FIN_TRAIT_MS = 260;
-const DUREE_MIN_MS = 2000;
+const DUREE_MIN_MS = 2300;
 
 // Centre du vélo et inclinaison pour une distance s le long du tracé
 // (s négatif : sur le prolongement de la barre, sous le P).
@@ -59,11 +61,11 @@ export default function LancementAnime({ pret, onFini }) {
   const X = (v) => origineX + v * k;
   const Y = (v) => origineY + v * k;
 
-  // Départ du vélo : entièrement sous le bas de l'écran.
-  const basEcran = (height - origineY) / k;
-  const S_DEPART = Math.min(-120, BAS_BARRE - basEcran - VELO.h);
+  // Départ du vélo : posé au pied du P, à sa place sur le logo.
+  const S_DEPART = BAS_BARRE - (BAS_P - VELO.h / 2);
 
   const roule = useRef(new Animated.Value(S_DEPART)).current;
+  const apparition = useRef(new Animated.Value(0)).current;
   const finTrait = useRef(new Animated.Value(0)).current;
   const saut = useRef(new Animated.Value(0)).current;
   const chute = useRef(new Animated.Value(-(Y(POINT_BOX.y) + POINT_BOX.h * k + 20))).current;
@@ -73,6 +75,8 @@ export default function LancementAnime({ pret, onFini }) {
   useEffect(() => {
     Animated.sequence([
       Animated.delay(DELAI_MS),
+      // Le vélo apparaît au pied du P avec un petit rebond.
+      Animated.timing(apparition, { toValue: 1, duration: APPARITION_MS, easing: Easing.back(1.6), useNativeDriver: true }),
       Animated.timing(roule, { toValue: S_ARRET, duration: ROULE_MS, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
       Animated.parallel([
         // Le trait finit de se dessiner devant le vélo arrêté.
@@ -101,17 +105,17 @@ export default function LancementAnime({ pret, onFini }) {
   }, [animationFinie, pret]);
 
   // Position du vélo : tracé échantillonné, interpolé par le pilote natif.
-  const echantillons = [S_DEPART];
-  for (let i = 0; i <= 48; i++) echantillons.push(-1 + ((S_ARRET + 1) * i) / 48);
+  const echantillons = [];
+  for (let i = 0; i <= 48; i++) echantillons.push(S_DEPART + ((S_ARRET - S_DEPART) * i) / 48);
   const points = echantillons.map(veloA);
   const arrivee = points[points.length - 1];
   const veloX = roule.interpolate({ inputRange: echantillons, outputRange: points.map((p) => (p.x - arrivee.x) * k) });
   const veloY = roule.interpolate({ inputRange: echantillons, outputRange: points.map((p) => (p.y - arrivee.y) * k) });
   const veloRot = roule.interpolate({ inputRange: echantillons, outputRange: points.map((p) => `${p.rot}deg`) });
 
-  // Avancée du trait = un peu devant le vélo, puis jusqu'au bout.
+  // Avancée du trait = sous les roues au départ, un peu devant le vélo ensuite, puis jusqu'au bout.
   const trait = Animated.add(
-    roule.interpolate({ inputRange: [S_DEPART, -AVANCE_TRAIT, S_ARRET], outputRange: [0, 0, S_ARRET + AVANCE_TRAIT], extrapolate: 'clamp' }),
+    roule.interpolate({ inputRange: [S_DEPART, S_ARRET], outputRange: [0, S_ARRET + AVANCE_TRAIT], extrapolate: 'clamp' }),
     finTrait,
   );
   const cacheBarre = trait.interpolate({ inputRange: [0, L_BARRE], outputRange: [0, -(L_BARRE + 8) * k], extrapolate: 'clamp' });
@@ -173,7 +177,8 @@ export default function LancementAnime({ pret, onFini }) {
           top: Y(arrivee.y - VELO.h / 2),
           width: VELO.w * k,
           height: VELO.h * k,
-          transform: [{ translateX: veloX }, { translateY: Animated.add(veloY, saut) }, { rotate: veloRot }],
+          transform: [{ translateX: veloX }, { translateY: Animated.add(veloY, saut) }, { rotate: veloRot }, { scale: apparition.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] }) }],
+          opacity: apparition.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] }),
         }}
       />
     </Animated.View>
