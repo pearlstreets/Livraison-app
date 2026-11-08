@@ -841,12 +841,13 @@ export default function LoginScreen() {
                   points: [['person-outline', t('choixPartPoint1')], ['wallet-outline', t('choixPartPoint2')], ['swap-horizontal-outline', t('choixPartPoint3')]] },
               ].map((opt, i) => (
                 <TouchableOpacity key={i} onPress={() => { setIsPro(opt.pro); setMode('signup'); setStep(1); setError(''); }} style={s.carteChoix}>
-                  <View style={{width:52, height:52, borderRadius:16, backgroundColor: dark ? colors.cardAlt : '#FFF1E8', alignItems:'center', justifyContent:'center', marginRight:16}}>
+                  {/* Icône en haut au centre, titre et sous-titre centrés dessous. */}
+                  <View style={{width:52, height:52, borderRadius:16, backgroundColor: dark ? colors.cardAlt : '#FFF1E8', alignItems:'center', justifyContent:'center', marginBottom:12}}>
                     <Ionicons name={opt.icon} size={26} color={BRAND} />
                   </View>
-                  <View style={{flex:1}}>
-                    <Text style={{fontSize:17, fontWeight:'800', color: dark ? colors.text : '#111'}}>{opt.label}</Text>
-                    <Text style={{fontSize:13, color: dark ? colors.textMuted : '#6B7280', marginTop:4}}>{opt.desc}</Text>
+                  <View style={{alignSelf:'stretch'}}>
+                    <Text style={{fontSize:17, fontWeight:'800', color: dark ? colors.text : '#111', textAlign:'center'}}>{opt.label}</Text>
+                    <Text style={{fontSize:13, color: dark ? colors.textMuted : '#6B7280', marginTop:4, textAlign:'center'}}>{opt.desc}</Text>
                     {/* Ce que chaque statut implique : documents (pro), plafond de revenus (particulier). */}
                     <View style={s.points}>
                       {opt.points.map(([icone, texte], j) => (
@@ -857,7 +858,7 @@ export default function LoginScreen() {
                       ))}
                     </View>
                   </View>
-                  <Ionicons name={dirIcon('chevron-forward')} size={20} color={BRAND} />
+                  <Ionicons name={dirIcon('chevron-forward')} size={20} color={BRAND} style={{position:'absolute', right:14, top:32}} />
                 </TouchableOpacity>
               ))}
             </>
@@ -1184,7 +1185,7 @@ const makeS = (dark, c) => {
   point: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 },
   pointTxt: { flex: 1, fontSize: 13, color: k('#374151', c.textSoft), marginLeft: 8, lineHeight: 18 },
   carteChoix: {
-    flexDirection: 'row', alignItems: 'center', padding: 18, marginBottom: 14,
+    flexDirection: 'column', alignItems: 'center', padding: 18, marginBottom: 14,
     borderRadius: 18, borderWidth: 1, borderColor: k('#E5E7EB', c.border), backgroundColor: k('#fff', c.card), ...ombre,
   },
   });
