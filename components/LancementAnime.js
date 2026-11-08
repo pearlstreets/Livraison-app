@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 
-// Animation d'ouverture, même principe que l'app user : le « P » se dessine
-// de bas en haut sous les roues du vélo, qui arrive par le bas de l'écran,
-// monte le long de la barre du P puis fait le tour de la boucle ; une fois le
-// vélo arrivé en haut, le point tombe au milieu du P.
+// Animation d'ouverture, même principe que l'app user (le bonhomme qui marche
+// sur le P) : le vélo apparaît en bas du P, à sa place du logo, monte le long
+// de la barre en la dessinant sous ses roues, s'arrête en haut de la barre et
+// le cycliste lève les bras ; la boucle du P finit de se dessiner, puis le
+// point tombe au milieu.
 //
 // Pas de react-native-svg dans cette app (et une mise à jour OTA ne peut pas
 // l'ajouter) : le tracé est révélé par des caches orange qu'on retire (la barre
@@ -24,31 +25,23 @@ const C = { x: 552, y: 452 };
 const R = 137;
 const X_BARRE = 415.5;
 const BAS_BARRE = 790;
+const BAS_P = 777;
 const L_BARRE = BAS_BARRE - C.y; // 338
 const L_HAUT = Math.PI * R; // demi-boucle du haut (9 h -> 3 h)
 const L_QUART = (Math.PI / 2) * R; // 3 h -> 6 h
 const L_TOTAL = L_BARRE + L_HAUT + L_QUART + 45;
 
-// Le vélo roule à côté du trait (à gauche de la barre, puis à l'extérieur de
-// la boucle), comme sur le logo.
-const ECART_VELO = 133;
-const ANGLE_ARRET = 119; // degrés depuis 9 h : en haut, un peu passé midi
-const S_ARRET = L_BARRE + (ANGLE_ARRET * Math.PI / 180) * R;
-const AVANCE_TRAIT = 90; // le trait se dessine juste devant les roues
+// Le vélo roule à gauche de la barre, comme sur le logo. s = distance le long
+// de la barre depuis son bas ; le centre du vélo est à BAS_BARRE - s.
+const X_VELO = X_BARRE - 133;
+const S_DEPART = BAS_BARRE - (BAS_P - VELO.h / 2); // roues au bas du P
+const S_ARRET = L_BARRE; // haut de la barre, là où la boucle commence
+const AVANCE_TRAIT = 90; // le trait est dessiné jusqu'à l'avant du vélo
 
-const DELAI_MS = 100;
-const ROULE_MS = 1150;
-const FIN_TRAIT_MS = 260;
-const DUREE_MIN_MS = 2000;
-
-// Centre du vélo et inclinaison pour une distance s le long du tracé
-// (s négatif : sur le prolongement de la barre, sous le P).
-function veloA(s) {
-  if (s <= L_BARRE) return { x: X_BARRE - ECART_VELO, y: BAS_BARRE - s, rot: 0 };
-  const a = (s - L_BARRE) / R;
-  const r = R + ECART_VELO;
-  return { x: C.x - r * Math.cos(a), y: C.y - r * Math.sin(a), rot: (a * 180) / Math.PI };
-}
+const APPARITION_MS = 300;
+const MONTEE_MS = 850;
+const BOUCLE_MS = 450;
+const DUREE_MIN_MS = 2300;
 
 export default function LancementAnime({ pret, onFini }) {
   const { width, height } = useWindowDimensions();
@@ -59,33 +52,38 @@ export default function LancementAnime({ pret, onFini }) {
   const X = (v) => origineX + v * k;
   const Y = (v) => origineY + v * k;
 
-  // Départ du vélo : entièrement sous le bas de l'écran.
-  const basEcran = (height - origineY) / k;
-  const S_DEPART = Math.min(-120, BAS_BARRE - basEcran - VELO.h);
-
+  const apparition = useRef(new Animated.Value(0)).current;
   const roule = useRef(new Animated.Value(S_DEPART)).current;
-  const finTrait = useRef(new Animated.Value(0)).current;
+  const boucle = useRef(new Animated.Value(0)).current;
+  const bras = useRef(new Animated.Value(0)).current;
   const saut = useRef(new Animated.Value(0)).current;
   const chute = useRef(new Animated.Value(-(Y(POINT_BOX.y) + POINT_BOX.h * k + 20))).current;
   const sortie = useRef(new Animated.Value(1)).current;
   const [animationFinie, setAnimationFinie] = useState(false);
 
   useEffect(() => {
+    const natif = { useNativeDriver: true };
     Animated.sequence([
-      Animated.delay(DELAI_MS),
-      Animated.timing(roule, { toValue: S_ARRET, duration: ROULE_MS, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      // 1. Le vélo apparaît en bas du P ; le bas de la barre se dessine sous lui.
+      Animated.timing(apparition, { toValue: 1, duration: APPARITION_MS, easing: Easing.out(Easing.back(1.6)), ...natif }),
+      // 2. Il monte le long de la barre en la dessinant.
+      Animated.timing(roule, { toValue: S_ARRET, duration: MONTEE_MS, easing: Easing.inOut(Easing.quad), ...natif }),
       Animated.parallel([
-        // Le trait finit de se dessiner devant le vélo arrêté.
-        Animated.timing(finTrait, { toValue: L_TOTAL - (S_ARRET + AVANCE_TRAIT), duration: FIN_TRAIT_MS, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-        // Petit saut de joie, comme le bonhomme de l'app user.
+        // 3. Arrivé en haut : il lève les bras et saute de joie...
+        Animated.timing(bras, { toValue: 1, duration: 120, ...natif }),
         Animated.sequence([
-          Animated.timing(saut, { toValue: -16, duration: 130, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(saut, { toValue: 0, duration: 130, easing: Easing.in(Easing.quad), useNativeDriver: true }),
-          Animated.timing(saut, { toValue: -8, duration: 100, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(saut, { toValue: 0, duration: 100, easing: Easing.in(Easing.quad), useNativeDriver: true }),
+          Animated.timing(saut, { toValue: -18, duration: 140, easing: Easing.out(Easing.quad), ...natif }),
+          Animated.timing(saut, { toValue: 0, duration: 140, easing: Easing.in(Easing.quad), ...natif }),
+          Animated.timing(saut, { toValue: -10, duration: 110, easing: Easing.out(Easing.quad), ...natif }),
+          Animated.timing(saut, { toValue: 0, duration: 110, easing: Easing.in(Easing.quad), ...natif }),
         ]),
-        // Le point tombe au milieu du P, avec un rebond.
-        Animated.spring(chute, { toValue: 0, friction: 6, tension: 70, useNativeDriver: true }),
+        // ... pendant que la boucle du P finit de se dessiner,
+        Animated.timing(boucle, { toValue: 1, duration: BOUCLE_MS, easing: Easing.inOut(Easing.quad), ...natif }),
+        // 4. puis le point tombe au milieu du P, avec un rebond.
+        Animated.sequence([
+          Animated.delay(BOUCLE_MS - 100),
+          Animated.spring(chute, { toValue: 0, friction: 6, tension: 70, ...natif }),
+        ]),
       ]),
     ]).start();
 
@@ -100,23 +98,33 @@ export default function LancementAnime({ pret, onFini }) {
       .start(() => onFini && onFini());
   }, [animationFinie, pret]);
 
-  // Position du vélo : tracé échantillonné, interpolé par le pilote natif.
-  const echantillons = [S_DEPART];
-  for (let i = 0; i <= 48; i++) echantillons.push(-1 + ((S_ARRET + 1) * i) / 48);
-  const points = echantillons.map(veloA);
-  const arrivee = points[points.length - 1];
-  const veloX = roule.interpolate({ inputRange: echantillons, outputRange: points.map((p) => (p.x - arrivee.x) * k) });
-  const veloY = roule.interpolate({ inputRange: echantillons, outputRange: points.map((p) => (p.y - arrivee.y) * k) });
-  const veloRot = roule.interpolate({ inputRange: echantillons, outputRange: points.map((p) => `${p.rot}deg`) });
-
-  // Avancée du trait = un peu devant le vélo, puis jusqu'au bout.
+  // Avancée du trait : jusqu'à l'avant du vélo pendant la montée, puis la boucle.
+  const avantVelo = S_DEPART + AVANCE_TRAIT;
   const trait = Animated.add(
-    roule.interpolate({ inputRange: [S_DEPART, -AVANCE_TRAIT, S_ARRET], outputRange: [0, 0, S_ARRET + AVANCE_TRAIT], extrapolate: 'clamp' }),
-    finTrait,
+    Animated.add(
+      apparition.interpolate({ inputRange: [0, 1], outputRange: [0, avantVelo], extrapolate: 'clamp' }),
+      roule.interpolate({ inputRange: [S_DEPART, S_ARRET], outputRange: [0, S_ARRET - S_DEPART], extrapolate: 'clamp' }),
+    ),
+    boucle.interpolate({ inputRange: [0, 1], outputRange: [0, L_TOTAL - (S_ARRET + AVANCE_TRAIT)] }),
   );
   const cacheBarre = trait.interpolate({ inputRange: [0, L_BARRE], outputRange: [0, -(L_BARRE + 8) * k], extrapolate: 'clamp' });
   const cacheHaut = trait.interpolate({ inputRange: [L_BARRE, L_BARRE + L_HAUT], outputRange: ['0deg', '180deg'], extrapolate: 'clamp' });
   const cacheBas = trait.interpolate({ inputRange: [L_BARRE + L_HAUT, L_BARRE + L_HAUT + L_QUART, L_TOTAL], outputRange: ['0deg', '90deg', '180deg'], extrapolate: 'clamp' });
+
+  // Vélo : posé à l'arrivée (haut de la barre), décalé vers le bas avant.
+  const veloY = Animated.add(
+    roule.interpolate({ inputRange: [S_DEPART, S_ARRET], outputRange: [(S_ARRET - S_DEPART) * k, 0], extrapolate: 'clamp' }),
+    saut,
+  );
+  const veloEchelle = apparition.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] });
+  const veloOpacite = apparition.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 1, 1], extrapolate: 'clamp' });
+  const styleVelo = {
+    position: 'absolute',
+    left: X(X_VELO - VELO.w / 2),
+    top: Y(BAS_BARRE - S_ARRET - VELO.h / 2),
+    width: VELO.w * k,
+    height: VELO.h * k,
+  };
 
   // Cache tournant : carré centré sur C, moitié haute (ou basse) orange.
   const D = 320;
@@ -164,18 +172,18 @@ export default function LancementAnime({ pret, onFini }) {
           transform: [{ translateY: chute }],
         }}
       />
-      <Animated.Image
-        source={require('../assets/lancement/velo.png')}
-        resizeMode="contain"
-        style={{
-          position: 'absolute',
-          left: X(arrivee.x - VELO.w / 2),
-          top: Y(arrivee.y - VELO.h / 2),
-          width: VELO.w * k,
-          height: VELO.h * k,
-          transform: [{ translateX: veloX }, { translateY: Animated.add(veloY, saut) }, { rotate: veloRot }],
-        }}
-      />
+      <Animated.View style={[styleVelo, { opacity: veloOpacite, transform: [{ translateY: veloY }, { scale: veloEchelle }] }]}>
+        <Animated.Image
+          source={require('../assets/lancement/velo.png')}
+          resizeMode="contain"
+          style={[StyleSheet.absoluteFill, { opacity: bras.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}
+        />
+        <Animated.Image
+          source={require('../assets/lancement/velo-bras.png')}
+          resizeMode="contain"
+          style={[StyleSheet.absoluteFill, { opacity: bras }]}
+        />
+      </Animated.View>
     </Animated.View>
   );
 }
