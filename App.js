@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react';
-import { View, AppState } from 'react-native';
+import { View, AppState, DeviceEventEmitter } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Security: Disable React DevTools in production
@@ -140,6 +140,7 @@ async function ouvrirDepuisNotification(reponse) {
     const brut = requete && requete.content && requete.content.data;
     const donnees = (brut && Object.keys(brut).length ? brut : requete && requete.trigger && requete.trigger.payload) || {};
     console.log('[push] toucher, route :', donnees.route || '(aucune)');
+    signalerCourseAnnulee(donnees);
     _destinationEnAttente = { route: donnees.route, donnees, pose: Date.now() };
     ouvrirDestinationEnAttente();
     try {
@@ -147,7 +148,16 @@ async function ouvrirDepuisNotification(reponse) {
     } catch (_) {}
   } catch (_) {}
 }
+// Course annulée (push « course_cancelled », DeliveryApp/notifications) :
+// l'écran de livraison relit la course et la quitte si elle est annulée, la
+// liste des courses se relit sur le serveur.
+function signalerCourseAnnulee(donnees) {
+  if (donnees && donnees.action === 'course_cancelled') DeviceEventEmitter.emit('courseAnnulee', donnees);
+}
 try {
+  Notifications.addNotificationReceivedListener((notification) => {
+    try { signalerCourseAnnulee(donneesDe(notification)); } catch (_) {}
+  });
   Notifications.addNotificationResponseReceivedListener(ouvrirDepuisNotification);
   Notifications.getLastNotificationResponseAsync()
     .then((reponse) => { if (reponse) ouvrirDepuisNotification(reponse); })
