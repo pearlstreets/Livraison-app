@@ -20,6 +20,7 @@ import { ouvrirVerification } from '../services/identiteService';
 import BandeauDocumentsSeuil from '../components/BandeauDocumentsSeuil';
 import { chargerDocumentsSeuil, donneesConnues, ecouter, estDocumentsRequis, signalerDocumentsRequis } from '../services/documentsSeuil';
 import { chargerEtapes, cleCourse, enregistrerEtape, garderSeulement, lireEtape, oublierEtape } from '../services/etapesCourses';
+import { annoncerCourses, noterReleve } from '../services/sonCourse';
 
 // Libellé de l'étape en cours d'une course acceptée (index DeliveryFlow).
 const ACTIVE_STEP_KEYS = ['pickup', 'enRoute', 'arrived', 'deliveryCode', 'deliveryDone'];
@@ -256,16 +257,22 @@ export default function OrdersScreen({ navigation, route }) {
   const activeRef = useRef([]);
 
   const fetchAvailableOrders = useCallback(async () => {
+    // Relève notée : la veille globale (App.js) ne la double pas.
+    noterReleve();
     try {
       const res = await deliveryService.getAvailableOrders();
       const data = Array.isArray(res?.data) ? res.data : [];
       const exclues = new Set([...acceptEnCours.current, ...activeRef.current.map(o => orderKey(o))]);
       // Liste des disponibles : coordonnées client masquées tant que la course
       // n'est pas acceptée (zone + distance suffisent pour décider).
-      setAvailable(data
+      const disponibles = data
         .filter(Boolean)
         .map(a => adaptAssignment(a, { revealCustomer: false }))
-        .filter(o => !exclues.has(orderKey(o))));
+        .filter(o => !exclues.has(orderKey(o)));
+      setAvailable(disponibles);
+      // Son d'une nouvelle course, une fois par course, même si l'accueil
+      // n'est pas affiché (services/sonCourse.js).
+      annoncerCourses(disponibles);
     } catch {
       // Silencieux : on garde la liste actuelle plutôt que de crasher
     }

@@ -3,7 +3,7 @@
     "name": "Pearl Delivery",
     "slug": "pearl-delivery",
     "scheme": "pearldelivery",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
@@ -74,7 +74,8 @@
         "expo-notifications",
         {
           "mode": "production",
-          "defaultChannel": "courses"
+          "defaultChannel": "courses",
+          "sounds": ["./assets/sons/nouvelle_commande.wav"]
         }
       ],
       [
