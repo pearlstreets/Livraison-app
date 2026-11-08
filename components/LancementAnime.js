@@ -66,6 +66,7 @@ export default function LancementAnime({ pret, onFini }) {
 
   const roule = useRef(new Animated.Value(S_DEPART)).current;
   const apparition = useRef(new Animated.Value(0)).current;
+  const bras = useRef(new Animated.Value(0)).current;
   const finTrait = useRef(new Animated.Value(0)).current;
   const saut = useRef(new Animated.Value(0)).current;
   const chute = useRef(new Animated.Value(-(Y(POINT_BOX.y) + POINT_BOX.h * k + 20))).current;
@@ -79,6 +80,8 @@ export default function LancementAnime({ pret, onFini }) {
       Animated.timing(apparition, { toValue: 1, duration: APPARITION_MS, easing: Easing.back(1.6), useNativeDriver: true }),
       Animated.timing(roule, { toValue: S_ARRET, duration: ROULE_MS, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
       Animated.parallel([
+        // Arrivé en haut, le cycliste lève les bras.
+        Animated.timing(bras, { toValue: 1, duration: 120, useNativeDriver: true }),
         // Le trait finit de se dessiner devant le vélo arrêté.
         Animated.timing(finTrait, { toValue: L_TOTAL - (S_ARRET + AVANCE_TRAIT), duration: FIN_TRAIT_MS, easing: Easing.out(Easing.quad), useNativeDriver: true }),
         // Petit saut de joie, comme le bonhomme de l'app user.
@@ -115,7 +118,11 @@ export default function LancementAnime({ pret, onFini }) {
 
   // Avancée du trait = sous les roues au départ, un peu devant le vélo ensuite, puis jusqu'au bout.
   const trait = Animated.add(
-    roule.interpolate({ inputRange: [S_DEPART, S_ARRET], outputRange: [0, S_ARRET + AVANCE_TRAIT], extrapolate: 'clamp' }),
+    // La barre est déjà dessinée sous le vélo quand il apparaît, puis elle suit ses roues.
+    Animated.multiply(
+      apparition.interpolate({ inputRange: [0, 1], outputRange: [0, 1], extrapolate: 'clamp' }),
+      roule.interpolate({ inputRange: [S_DEPART, S_ARRET], outputRange: [S_DEPART + AVANCE_TRAIT, S_ARRET + AVANCE_TRAIT], extrapolate: 'clamp' }),
+    ),
     finTrait,
   );
   const cacheBarre = trait.interpolate({ inputRange: [0, L_BARRE], outputRange: [0, -(L_BARRE + 8) * k], extrapolate: 'clamp' });
@@ -168,9 +175,7 @@ export default function LancementAnime({ pret, onFini }) {
           transform: [{ translateY: chute }],
         }}
       />
-      <Animated.Image
-        source={require('../assets/lancement/velo.png')}
-        resizeMode="contain"
+      <Animated.View
         style={{
           position: 'absolute',
           left: X(arrivee.x - VELO.w / 2),
@@ -180,7 +185,18 @@ export default function LancementAnime({ pret, onFini }) {
           transform: [{ translateX: veloX }, { translateY: Animated.add(veloY, saut) }, { rotate: veloRot }, { scale: apparition.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] }) }],
           opacity: apparition.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 1] }),
         }}
-      />
+      >
+        <Animated.Image
+          source={require('../assets/lancement/velo.png')}
+          resizeMode="contain"
+          style={[StyleSheet.absoluteFill, { opacity: bras.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}
+        />
+        <Animated.Image
+          source={require('../assets/lancement/velo-bras.png')}
+          resizeMode="contain"
+          style={[StyleSheet.absoluteFill, { opacity: bras }]}
+        />
+      </Animated.View>
     </Animated.View>
   );
 }
