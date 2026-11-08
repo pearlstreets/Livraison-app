@@ -683,16 +683,17 @@ export default function LoginScreen() {
               ].map((opt, i) => (
                 <TouchableOpacity key={i} onPress={() => { setIsPro(opt.pro); setMode('signup'); setStep(1); setError(''); }} style={{
                   borderWidth:2, borderColor:BRAND, borderRadius:16, padding:20, marginBottom:12,
-                  backgroundColor:'#F0FDF4', flexDirection:'row', alignItems:'center'
+                  backgroundColor:'#F0FDF4', flexDirection:'column', alignItems:'center'
                 }}>
-                  <View style={{width:50, height:50, borderRadius:25, backgroundColor:BRAND, alignItems:'center', justifyContent:'center', marginRight:16}}>
+                  {/* Icône en haut au centre, titre et sous-titre centrés dessous. */}
+                  <View style={{width:50, height:50, borderRadius:25, backgroundColor:BRAND, alignItems:'center', justifyContent:'center', marginBottom:12}}>
                     <Ionicons name={opt.icon} size={26} color="#fff" />
                   </View>
-                  <View style={{flex:1}}>
-                    <Text style={{fontSize:17, fontWeight:'800', color:'#111'}}>{opt.label}</Text>
-                    <Text style={{fontSize:13, color:'#6B7280', marginTop:4}}>{opt.desc}</Text>
+                  <View style={{alignSelf:'stretch'}}>
+                    <Text style={{fontSize:17, fontWeight:'800', color:'#111', textAlign:'center'}}>{opt.label}</Text>
+                    <Text style={{fontSize:13, color:'#6B7280', marginTop:4, textAlign:'center'}}>{opt.desc}</Text>
                   </View>
-                  <Ionicons name={dirIcon('chevron-forward')} size={20} color={BRAND} />
+                  <Ionicons name={dirIcon('chevron-forward')} size={20} color={BRAND} style={{position:'absolute', right:14, top:34}} />
                 </TouchableOpacity>
               ))}
             </>
