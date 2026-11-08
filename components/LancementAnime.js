@@ -189,12 +189,12 @@ export default function LancementAnime({ pret, onFini }) {
         <Animated.Image
           source={require('../assets/lancement/velo.png')}
           resizeMode="contain"
-          style={[StyleSheet.absoluteFill, { opacity: bras.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}
+          style={[styles.veloImage, { width: VELO.w * k, height: VELO.h * k, opacity: bras.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }) }]}
         />
         <Animated.Image
           source={require('../assets/lancement/velo-bras.png')}
           resizeMode="contain"
-          style={[StyleSheet.absoluteFill, { opacity: bras }]}
+          style={[styles.veloImage, { width: VELO.w * k, height: VELO.h * k, opacity: bras }]}
         />
       </Animated.View>
     </Animated.View>
@@ -205,4 +205,7 @@ const styles = StyleSheet.create({
   fond: { zIndex: 1000, elevation: 1000 },
   orange: { backgroundColor: ORANGE },
   zone: { position: 'absolute', overflow: 'hidden' },
+  // Taille donnée en clair : sans elle, une image locale s'affiche à sa taille
+  // d'origine (172 points) au lieu de l'échelle du logo.
+  veloImage: { position: 'absolute', left: 0, top: 0 },
 });
