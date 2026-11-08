@@ -142,8 +142,6 @@ export default function LoginScreen() {
   const { dark, colors } = useTheme();
   const s = useMemo(() => makeS(dark, colors), [dark, colors]);
   const p = useMemo(() => makeP(dark, colors), [dark, colors]);
-  // Mot de passe, pièces d'identité, permis et justificatif IBAN de l'inscription.
-  useSecureScreen('Login');
   const { t, lang, setLang, LANGUAGES } = useLanguage();
   const { login, register } = useAuth();
 
@@ -161,6 +159,12 @@ export default function LoginScreen() {
   const [confirmPwd, setConfirmPwd] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+  // Écran capturable (choix pro ou particulier, formulaire) : seules les infos
+  // sensibles restent cachées. Mots de passe en points ; capture bloquée
+  // seulement quand un mot de passe est affiché en clair (bouton œil).
+  useSecureScreen('Login', showPwd || showConfirmPwd);
+  // IBAN et numéro fiscal : en points dès qu'on quitte la case.
+  const [champActif, setChampActif] = useState(null);
   const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
   const [pseudo, setPseudo] = useState('');
@@ -691,7 +695,7 @@ export default function LoginScreen() {
   // Titre de section de la page 2 (icône + libellé, filet au-dessus).
   const section = (icone, titre, premier = false) => (
     <View style={[p.section, premier && p.sectionPremier]}>
-      <Ionicons name={icone} size={18} color={BRAND} />
+      <Ionicons name={icone} size={18} color={dark ? colors.text : '#111'} />
       <Text style={p.sectionTxt}>{titre}</Text>
     </View>
   );
@@ -1003,7 +1007,7 @@ export default function LoginScreen() {
                   {section('document-text-outline', t('sectionTax'))}
                   <Text style={p.hint}>{t('sectionTaxHint')}</Text>
                   <Text style={p.label}>{t('taxIdLabel')}</Text>
-                  <TextInput style={p.input} value={taxId} onChangeText={setTaxId} placeholder="1234567890123" placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="characters" autoCorrect={false} maxLength={32} />
+                  <TextInput style={p.input} value={taxId} onChangeText={setTaxId} onFocus={() => setChampActif('taxId')} onBlur={() => setChampActif(null)} secureTextEntry={!!taxId && champActif !== 'taxId'} placeholder="1234567890123" placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="characters" autoCorrect={false} maxLength={32} />
                   <Text style={p.hintSous}>{t('taxIdHint')}</Text>
                 </>
               )}
@@ -1024,7 +1028,7 @@ export default function LoginScreen() {
               {section('card-outline', t('sectionPayouts'))}
               <Text style={p.hint}>{t('payoutSetupIntro')}</Text>
               <Text style={p.label}>{t('ibanLabel')}</Text>
-              <TextInput style={p.input} value={iban} onChangeText={setIban} placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX" placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="characters" autoCorrect={false} maxLength={42} />
+              <TextInput style={p.input} value={iban} onChangeText={setIban} onFocus={() => setChampActif('iban')} onBlur={() => setChampActif(null)} secureTextEntry={!!iban && champActif !== 'iban'} placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX" placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="characters" autoCorrect={false} maxLength={42} />
               {legalStatus === 'societe' && <Text style={p.hintSous}>{t('signupPayoutCompanyLater')}</Text>}
 
               {section('folder-open-outline', t('sectionDocuments'))}
