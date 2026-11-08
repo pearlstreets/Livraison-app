@@ -1,9 +1,9 @@
 import React, { useContext, useEffect } from 'react';
-import { Modal, Pressable, StyleSheet, Vibration } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import { Modal, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBarHeightContext } from '@react-navigation/bottom-tabs';
 import OrderCard from './OrderCard';
+import { annoncerCourse, cleAnnonce } from '../services/sonCourse';
 
 // Fenêtre « Nouvelle course » façon Uber Eats (05/11/2026) : la carte de
 // course monte du bas et se pose sur la carte, au même style que les courses
@@ -27,15 +27,12 @@ export default function OffreCoursePopup({ order, onAccept, onDecline, onOpen, o
     return () => clearTimeout(minuteur);
   }, [order, onClose]);
 
+  // Vibration et son de la course (réglage « Son de nouvelle course »
+  // respecté), une seule fois par course : déjà joués si la course a été
+  // annoncée sur une autre page ou par sa push (services/sonCourse.js).
   useEffect(() => {
     if (!order) return;
-    Vibration.vibrate([0, 400, 200, 400]);
-    // Son de la notification locale : le gestionnaire d'App.js le joue sans
-    // afficher de bannière (sonSeul), la fenêtre étant déjà à l'écran.
-    Notifications.scheduleNotificationAsync({
-      content: { title: '', body: '', sound: 'default', data: { status: 'available', sonSeul: true } },
-      trigger: null,
-    }).catch(() => {});
+    annoncerCourse(cleAnnonce(order));
   }, [order]);
 
   return (
