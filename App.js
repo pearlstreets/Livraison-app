@@ -70,6 +70,7 @@ import VersementDetailScreen from './screens/VersementDetailScreen';
 import VerificationIdentiteScreen from './screens/VerificationIdentiteScreen';
 import ReleveComptableScreen from './screens/ReleveComptableScreen';
 import NotificationsReglagesScreen from './screens/NotificationsReglagesScreen';
+import JeuTriScreen from './screens/JeuTriScreen';
 import { ecranDeplie, largeurMoitie } from './utils/deuxEcrans';
 import { createDeuxEcransNavigator, AuMilieu } from './navigation/DeuxEcransStack';
 import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli, noterEtatNavigation } from './utils/repliEcran';
@@ -238,6 +239,7 @@ function HomeStackScreen() {
       <HomeStack.Screen name="RouteMap" component={MapScreen} />
       <HomeStack.Screen name="VerificationIdentite" component={VerificationIdentiteScreen} />
       <HomeStack.Screen name="DocumentsSeuil" component={DocumentsSeuilScreen} />
+      <HomeStack.Screen name="JeuTri" component={JeuTriScreen} />
     </HomeStack.Navigator>
   );
 }
@@ -390,7 +392,7 @@ function Main() {
     >
       <Tab.Screen name="Accueil" component={HomeStackScreen} options={({ route }) => {
           const routeName = getFocusedRouteNameFromRoute(route) ?? 'OrdersMain';
-          return { headerShown: false, tabBarLabel: t('tabHome'), tabBarStyle: routeName === 'DeliveryFlow' ? { display: 'none' } : barre };
+          return { headerShown: false, tabBarLabel: t('tabHome'), tabBarStyle: routeName === 'DeliveryFlow' || routeName === 'JeuTri' ? { display: 'none' } : barre };
         }} />
       <Tab.Screen name="MessagesTab" component={DEPLIE ? InboxStackScreen : InboxScreen} options={{ headerShown: false, tabBarLabel: t('tabMessages') }} />
       <Tab.Screen name="Revenus" component={EarningsStackScreen} options={{ headerShown: false, tabBarLabel: t('tabEarnings') }} />

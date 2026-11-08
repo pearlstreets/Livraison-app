@@ -512,6 +512,12 @@ export default function OrdersScreen({ navigation, route }) {
             <Text style={styles.mockBtnTxt}>{t('simulate')}</Text>
           </TouchableOpacity>
         )}
+        {online && (
+          <TouchableOpacity style={[styles.jeuBtn, { alignSelf: 'flex-start' }]} onPress={() => navigation.navigate('JeuTri')} accessibilityLabel={t('jeuBoutonAccueil')}>
+            <Ionicons name="game-controller-outline" size={16} color="#FF6A13" />
+            <Text style={styles.jeuBtnTxt}>{t('jeuBoutonAccueil')}</Text>
+          </TouchableOpacity>
+        )}
         {online && displayedAvailable.length > 0 && (
           <ScrollView style={{ maxHeight: Dimensions.get('window').height * 0.45 }} showsVerticalScrollIndicator={false}>
             {/* La course de la fenêtre « Nouvelle course » n'est pas répétée derrière elle. */}
@@ -668,6 +674,12 @@ export default function OrdersScreen({ navigation, route }) {
               <Text style={styles.emptyText}>{t('noOrders')}</Text>
             )}
           </View>
+          {active.length === 0 && (
+            <TouchableOpacity style={[styles.jeuBtn, { alignSelf: 'center', marginTop: 4 }]} onPress={() => navigation.navigate('JeuTri')} accessibilityLabel={t('jeuBoutonAccueil')}>
+              <Ionicons name="game-controller-outline" size={16} color="#FF6A13" />
+              <Text style={styles.jeuBtnTxt}>{t('jeuBoutonAccueil')}</Text>
+            </TouchableOpacity>
+          )}
         </>
       )}
       <DetailsSheet visible={detailsVisible} order={detailsOrder} onClose={() => setDetailsVisible(false)} />
@@ -706,6 +718,8 @@ const makeStyles = (c, dark) => StyleSheet.create({
   opensSoonTitle: { fontSize: 17, fontWeight: '700', color: dark ? c.text : '#1c1c1e', marginTop: 10, textAlign: 'center' },
   opensSoonText: { fontSize: 14, color: dark ? c.textMuted : '#6b6b70', marginTop: 6, textAlign: 'center', lineHeight: 20 },
   mockBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  jeuBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.card, borderWidth: 1, borderColor: '#FF6A13', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
+  jeuBtnTxt: { color: '#FF6A13', fontWeight: '700', fontSize: 13 },
   cardsBlock: {  marginBottom: 0  },
   // Box « La livraison ouvre bientôt » centrée verticalement dans l'espace libre.
   cardsBlockCentre: { flex: 1, justifyContent: 'center' },
