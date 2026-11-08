@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity, Pressable, Dimensions, Alert } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, Platform, Switch, TouchableOpacity, Pressable, Dimensions, Alert, AppState } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dirIcon } from '../lib/rtl';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,7 +20,7 @@ import { ouvrirVerification } from '../services/identiteService';
 import BandeauDocumentsSeuil from '../components/BandeauDocumentsSeuil';
 import { chargerDocumentsSeuil, donneesConnues, ecouter, estDocumentsRequis, signalerDocumentsRequis } from '../services/documentsSeuil';
 import { chargerEtapes, cleCourse, enregistrerEtape, garderSeulement, lireEtape, oublierEtape } from '../services/etapesCourses';
-import { annoncerCourses, noterReleve } from '../services/sonCourse';
+import { annoncerCourses, marquerCoursesAnnoncees, noterReleve } from '../services/sonCourse';
 
 // Libellé de l'étape en cours d'une course acceptée (index DeliveryFlow).
 const ACTIVE_STEP_KEYS = ['pickup', 'enRoute', 'arrived', 'deliveryCode', 'deliveryDone'];
@@ -271,8 +271,10 @@ export default function OrdersScreen({ navigation, route }) {
         .filter(o => !exclues.has(orderKey(o)));
       setAvailable(disponibles);
       // Son d'une nouvelle course, une fois par course, même si l'accueil
-      // n'est pas affiché (services/sonCourse.js).
-      annoncerCourses(disponibles);
+      // n'est pas affiché (services/sonCourse.js). App en arrière-plan : la
+      // push a déjà sonné, les courses sont notées sans son au retour.
+      if (AppState.currentState === 'active') annoncerCourses(disponibles);
+      else marquerCoursesAnnoncees(disponibles);
     } catch {
       // Silencieux : on garde la liste actuelle plutôt que de crasher
     }

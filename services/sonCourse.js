@@ -99,6 +99,21 @@ export function annoncerCourse(cle) {
   }
 }
 
+/** Course déjà vue par le livreur (notification touchée ou affichée) : plus de son. */
+export function marquerAnnoncee(cle) {
+  try {
+    if (cle) dejaAnnoncee(String(cle));
+  } catch {
+    // Sans effet.
+  }
+}
+
+/** Courses relevées app en arrière-plan : notées sans son (la push a sonné). */
+export function marquerCoursesAnnoncees(liste) {
+  if (!Array.isArray(liste)) return;
+  liste.filter(Boolean).forEach((course) => marquerAnnoncee(cleAnnonce(course)));
+}
+
 /** Courses relevées sur le serveur : chaque nouvelle est annoncée. */
 export function annoncerCourses(liste) {
   if (!Array.isArray(liste)) return;
