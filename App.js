@@ -31,6 +31,7 @@ import { useLocationTracking } from './hooks/useLocationTracking';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import LoginScreen from './screens/LoginScreen';
+import LancementAnime from './components/LancementAnime';
 import OrdersScreen from './screens/OrdersScreen';
 import EarningsScreen from './screens/EarningsScreen';
 import WeekDetailScreen from './screens/WeekDetailScreen';
@@ -371,6 +372,14 @@ function NavigationTheme() {
   );
 }
 
+// Animation de lancement (P + vélo), effacée quand la session est prête.
+function Lancement() {
+  const { bootstrapping } = useAuth() || {};
+  const [visible, setVisible] = useState(true);
+  if (!visible) return null;
+  return <LancementAnime pret={!bootstrapping} onFini={() => setVisible(false)} />;
+}
+
 export default function App() {
   // Pliable : rechargement au pliage et au depliage (utils/repliEcran.js).
   useEffect(() => surveillerRepliEcran(), []);
@@ -382,6 +391,7 @@ export default function App() {
           <CurrencyGate>
             <View style={{ flex: 1 }} onLayout={signalerTailleRacine}>
               <NavigationTheme />
+              <Lancement />
             </View>
           </CurrencyGate>
           </ThemeProvider>
