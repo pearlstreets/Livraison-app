@@ -1742,6 +1742,7 @@ const translations = {
   },
 
   es: {
+    error: 'Error',
     gainsTabDay: "Día",
     gainsTabWeek: "Semana",
     gainsTabMonth: "Mes",
@@ -2320,6 +2321,7 @@ const translations = {
   },
 
   zh: {
+    error: '错误',
     gainsTabDay: "日",
     gainsTabWeek: "周",
     gainsTabMonth: "月",
@@ -2898,6 +2900,7 @@ const translations = {
   },
 
   ar: {
+    error: 'خطأ',
     gainsTabDay: "يوم",
     gainsTabWeek: "أسبوع",
     gainsTabMonth: "شهر",
@@ -3476,6 +3479,7 @@ const translations = {
   },
 
   de: {
+    error: 'Fehler',
     gainsTabDay: "Tag",
     gainsTabWeek: "Woche",
     gainsTabMonth: "Monat",
@@ -4054,6 +4058,7 @@ const translations = {
   },
 
   nl: {
+    error: 'Fout',
     gainsTabDay: "Dag",
     gainsTabWeek: "Week",
     gainsTabMonth: "Maand",
@@ -4632,6 +4637,7 @@ const translations = {
   },
 
   it: {
+    error: 'Errore',
     gainsTabDay: "Giorno",
     gainsTabWeek: "Settimana",
     gainsTabMonth: "Mese",
@@ -5210,6 +5216,7 @@ const translations = {
   },
 
   pt: {
+    error: 'Erro',
     gainsTabDay: "Dia",
     gainsTabWeek: "Semana",
     gainsTabMonth: "Mês",
@@ -5788,6 +5795,7 @@ const translations = {
   },
 
   ja: {
+    error: 'エラー',
     gainsTabDay: "日",
     gainsTabWeek: "週",
     gainsTabMonth: "月",
@@ -6366,6 +6374,7 @@ const translations = {
   },
 
   th: {
+    error: 'ข้อผิดพลาด',
     gainsTabDay: "วัน",
     gainsTabWeek: "สัปดาห์",
     gainsTabMonth: "เดือน",
@@ -6944,6 +6953,7 @@ const translations = {
   },
 
   sv: {
+    error: 'Fel',
     gainsTabDay: "Dag",
     gainsTabWeek: "Vecka",
     gainsTabMonth: "Månad",
@@ -7522,6 +7532,7 @@ const translations = {
   },
 
   ru: {
+    error: 'Ошибка',
     gainsTabDay: "День",
     gainsTabWeek: "Неделя",
     gainsTabMonth: "Месяц",

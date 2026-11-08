@@ -14,6 +14,9 @@ export const CLES_PREFERENCES = ['son_course', 'messages_clients', 'forte_demand
 
 // Valeur lue en mémoire (null : pas encore lue sur ce lancement).
 let _sonCourse = null;
+// Réponses arrivées dans le désordre : seule la plus récente demande garde
+// le son sur le téléphone.
+let _jeton = 0;
 
 export function normaliserPreferences(brut) {
   const source = brut && typeof brut === 'object' ? brut : {};
@@ -35,17 +38,19 @@ async function garderSonCourse(valeur) {
 
 /** Réglages du serveur, valeurs par défaut remplies. Lève en cas d'échec. */
 export async function lirePreferences() {
+  const jeton = ++_jeton;
   const res = await api.get(ROUTE);
   const prefs = normaliserPreferences(res?.data);
-  await garderSonCourse(prefs.son_course);
+  if (jeton === _jeton) await garderSonCourse(prefs.son_course);
   return prefs;
 }
 
 /** Enregistre un seul réglage. Lève en cas d'échec. */
 export async function modifierPreference(cle, valeur) {
+  const jeton = ++_jeton;
   const res = await api.patch(ROUTE, { [cle]: !!valeur });
   const prefs = normaliserPreferences(res?.data);
-  await garderSonCourse(prefs.son_course);
+  if (jeton === _jeton) await garderSonCourse(prefs.son_course);
   return prefs;
 }
 

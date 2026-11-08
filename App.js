@@ -23,7 +23,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
 import { demanderAutorisation, enregistrerAppareil } from './services/pushDirect';
-import { annoncerCourse } from './services/sonCourse';
+import { annoncerCourse, marquerAnnoncee } from './services/sonCourse';
 import { lirePreferences } from './services/preferencesNotifications';
 import { useVeilleCourses } from './hooks/useVeilleCourses';
 import { navigationRef } from './services/navigationService';
@@ -110,9 +110,24 @@ async function dejaTraite(cle) {
   } catch (_) {}
   return false;
 }
+// Courses déjà présentées en notification (son joué par la push) : pas de
+// second son au retour dans l'app.
+function marquerCourseDeNotification(notification) {
+  try {
+    const d = donneesDe(notification);
+    if (d.status === 'available' && d.order_id != null) marquerAnnoncee(String(d.order_id));
+  } catch (_) {}
+}
+async function marquerCoursesPresentees() {
+  try {
+    const liste = await Notifications.getPresentedNotificationsAsync();
+    (liste || []).forEach(marquerCourseDeNotification);
+  } catch (_) {}
+}
 async function ouvrirDepuisNotification(reponse) {
   try {
     const notification = reponse && reponse.notification;
+    marquerCourseDeNotification(notification);
     const requete = notification && notification.request;
     // Sans identifiant, la date de la notification sert de repère.
     const cle = (requete && requete.identifier) || (notification && notification.date ? `date:${notification.date}` : null);
@@ -320,8 +335,12 @@ function Main() {
   // précédent échoué) : nouvel enregistrement, sans effet s'il est à jour.
   useEffect(() => {
     if (!user) return undefined;
+    marquerCoursesPresentees();
     const abonnement = AppState.addEventListener('change', (etat) => {
-      if (etat === 'active') enregistrerAppareil();
+      if (etat === 'active') {
+        marquerCoursesPresentees();
+        enregistrerAppareil();
+      }
     });
     return () => abonnement.remove();
   }, [user]);
