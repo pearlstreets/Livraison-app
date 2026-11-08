@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, PanResponder, Dimensions, Linking, Alert, TextInput, ScrollView, Modal, FlatList, KeyboardAvoidingView, Platform, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, PanResponder, Dimensions, Linking, Alert, TextInput, ScrollView, Modal, FlatList, KeyboardAvoidingView, Platform, Image, ActivityIndicator, AppState, DeviceEventEmitter } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { Image as ImageReduite } from 'expo-image';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -549,6 +550,19 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   // envoyés un par un depuis le dernier statut connu. Statut refusé parce que
   // le serveur en est ailleurs : on se recale sur lui. Autre échec : l'étape
   // ne change pas et le livreur réessaie.
+  // Course annulée côté serveur : retour à l'accueil, plus d'étape gardée.
+  // Une seule fois, même si plusieurs relectures la constatent.
+  const courseQuittee = useRef(false);
+  const quitterCourseAnnulee = useCallback(() => {
+    if (courseQuittee.current) return;
+    courseQuittee.current = true;
+    oublierEtape(cle);
+    const cancelledOrder = { ...order, status: 'cancelled', priceText: `${formatAmount(0)} €`, priceEur: 0, cancelledAt: new Date().toISOString() };
+    Alert.alert(t('orderCancelled'), undefined, [
+      { text: t('ok'), onPress: () => navigation.navigate('OrdersMain', { cancelledOrder }) },
+    ]);
+  }, [cle, order, t, navigation]);
+
   const nextStep = useCallback(async () => {
     if (stepIndex >= STEPS.length - 1 || avanceEnCours.current) return;
     const cible = STATUT_CIBLE[STEPS[stepIndex]];
@@ -571,11 +585,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             const dejaLa = /from '(\w+)'/.exec(String(e?.serverMessage || ''));
             // Course annulée par le client : retour à l'accueil, plus d'étape gardée.
             if (dejaLa && dejaLa[1] === 'cancelled') {
-              oublierEtape(cle);
-              const cancelledOrder = { ...order, status: 'cancelled', priceText: `${formatAmount(0)} €`, priceEur: 0, cancelledAt: new Date().toISOString() };
-              Alert.alert(t('orderCancelled'), undefined, [
-                { text: t('ok'), onPress: () => navigation.navigate('OrdersMain', { cancelledOrder }) },
-              ]);
+              quitterCourseAnnulee();
               return;
             }
             if (dejaLa && CHAINE_STATUTS.includes(dejaLa[1]) && dejaLa[1] !== statutRef.current) {
@@ -596,7 +606,40 @@ export default function DeliveryFlowScreen({ navigation, route }) {
       }
     }
     setStepIndex(stepIndex + 1);
-  }, [stepIndex, assignmentId, cle, t, order, navigation]);
+  }, [stepIndex, assignmentId, cle, t, quitterCourseAnnulee]);
+
+  // Statut relu sur le serveur au retour au premier plan et à chaque
+  // notification reçue : course annulée, on la quitte ; statut plus avancé
+  // que celui connu, on s'y recale pour la prochaine étape. Lecture
+  // impossible : rien ne change.
+  const relectureEnCours = useRef(false);
+  const relireStatut = useCallback(async () => {
+    if (!assignmentId || relectureEnCours.current || courseQuittee.current) return;
+    relectureEnCours.current = true;
+    try {
+      const statut = await deliveryService.getAssignmentStatus(assignmentId);
+      if (statut === 'cancelled') { quitterCourseAnnulee(); return; }
+      if (CHAINE_STATUTS.indexOf(statut) > CHAINE_STATUTS.indexOf(statutRef.current)) {
+        statutRef.current = statut;
+        enregistrerEtape(cle, { statut });
+      }
+    } catch (_) {
+    } finally {
+      relectureEnCours.current = false;
+    }
+  }, [assignmentId, cle, quitterCourseAnnulee]);
+  useEffect(() => {
+    if (!assignmentId) return undefined;
+    let etat = AppState.currentState;
+    const surEtat = AppState.addEventListener('change', (suivant) => {
+      if (etat.match(/inactive|background/) && suivant === 'active') relireStatut();
+      etat = suivant;
+    });
+    const surNotif = Notifications.addNotificationReceivedListener(() => { relireStatut(); });
+    // Course annulée signalée par App.js (notification course_cancelled).
+    const surAnnulation = DeviceEventEmitter.addListener('courseAnnulee', () => { relireStatut(); });
+    return () => { surEtat.remove(); surNotif.remove(); surAnnulation.remove(); };
+  }, [assignmentId, relireStatut]);
 
   // Étape atteinte gardée sur le téléphone (reprise depuis l'accueil).
   useEffect(() => {
@@ -1505,16 +1548,54 @@ export default function DeliveryFlowScreen({ navigation, route }) {
                 // et la course n'est PAS marquée « signalée », sinon le
                 // livreur croit le support prévenu alors qu'il ne l'est pas.
                 setCodeTicketSending(true);
+                // Client absent, consigne « retour au commerçant » : la course
+                // est close par le serveur (statut returned, accepté depuis
+                // arrived). Refus (409) ou réseau coupé : on reste sur la course
+                // avec l'erreur. Serveur sans cette issue : comportement d'avant.
+                let retourne = false;
+                if (assignmentId && selectedCodeProblem === 'client_absent' && absentPolicy === 'return') {
+                  try {
+                    await deliveryService.updateDeliveryStatus(assignmentId, 'returned');
+                    retourne = true;
+                  } catch (e) {
+                    if (e?.isNetworkError) {
+                      setCodeTicketSending(false);
+                      Alert.alert(t('error'), t('errorNetwork'));
+                      return;
+                    }
+                    if (e?.status === 409) {
+                      // Réponse précédente perdue : la course est déjà close.
+                      const statut = await deliveryService.getAssignmentStatus(assignmentId).catch(() => null);
+                      if (statut === 'cancelled') {
+                        retourne = true;
+                      } else {
+                        setCodeTicketSending(false);
+                        const raison = typeof e?.serverData?.reason === 'string' && e.serverData.reason.trim() ? e.serverData.reason.trim() : e?.serverMessage;
+                        Alert.alert(t('error'), raison || t('statusUpdateError'));
+                        return;
+                      }
+                    }
+                  }
+                }
                 try {
                   await ticketService.createTicket({ problem_type, description, assignment_id: assignmentId });
                 } catch {
-                  setCodeTicketSending(false);
-                  Alert.alert(t('error'), t('ticketCreateError'));
-                  return;
+                  // Course déjà close par le retour : le ticket ne la retient pas.
+                  if (!retourne) {
+                    setCodeTicketSending(false);
+                    Alert.alert(t('error'), t('ticketCreateError'));
+                    return;
+                  }
                 }
                 setCodeTicketSending(false);
                 markOrderReported(order.id);
                 setShowCodeProblem(false);
+                if (retourne) {
+                  courseQuittee.current = true;
+                  const cancelledOrder = { ...order, status: 'cancelled', priceText: `${formatAmount(0)} €`, priceEur: 0, cancelledAt: new Date().toISOString(), reported: true };
+                  navigation.navigate('OrdersMain', { cancelledOrder });
+                  return;
+                }
                 const problemOrder = { ...order, status: 'completed', completedAt: new Date().toISOString(), reported: true };
                 navigation.navigate('OrdersMain', { completedOrder: problemOrder });
               }}
