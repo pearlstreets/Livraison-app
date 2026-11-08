@@ -3,9 +3,9 @@ import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-n
 
 // Animation d'ouverture, même principe que l'app user (le bonhomme qui marche
 // sur le P) : le vélo apparaît en bas du P, à sa place du logo, monte le long
-// de la barre en la dessinant sous ses roues, s'arrête en haut de la barre et
-// le cycliste lève les bras ; la boucle du P finit de se dessiner, puis le
-// point tombe au milieu.
+// de la barre puis suit la boucle en dessinant le P sous ses roues, s'arrête
+// tout en haut au milieu du P et le cycliste lève les bras ; le P finit de se
+// dessiner, puis le point tombe au milieu.
 //
 // Pas de react-native-svg dans cette app (et une mise à jour OTA ne peut pas
 // l'ajouter) : le tracé est révélé par des caches orange qu'on retire (la barre
@@ -31,17 +31,27 @@ const L_HAUT = Math.PI * R; // demi-boucle du haut (9 h -> 3 h)
 const L_QUART = (Math.PI / 2) * R; // 3 h -> 6 h
 const L_TOTAL = L_BARRE + L_HAUT + L_QUART + 45;
 
-// Le vélo roule à gauche de la barre, comme sur le logo. s = distance le long
-// de la barre depuis son bas ; le centre du vélo est à BAS_BARRE - s.
-const X_VELO = X_BARRE - 133;
+// Le vélo roule à côté du trait, roues contre le P comme sur le logo : à gauche
+// de la barre, puis à l'extérieur de la boucle. s = distance le long du tracé
+// depuis le bas de la barre.
+const ECART_VELO = 133;
 const S_DEPART = BAS_BARRE - (BAS_P - VELO.h / 2); // roues au bas du P
-const S_ARRET = L_BARRE; // haut de la barre, là où la boucle commence
+const S_ARRET = L_BARRE + (Math.PI / 2) * R; // tout en haut, au milieu du P
 const AVANCE_TRAIT = 90; // le trait est dessiné jusqu'à l'avant du vélo
 
+// Centre du vélo et inclinaison pour une distance s le long du tracé.
+function veloA(s) {
+  if (s <= L_BARRE) return { x: X_BARRE - ECART_VELO, y: BAS_BARRE - s, rot: 0 };
+  const a = (s - L_BARRE) / R;
+  const r = R + ECART_VELO;
+  return { x: C.x - r * Math.cos(a), y: C.y - r * Math.sin(a), rot: (a * 180) / Math.PI };
+}
+const ARRIVEE = veloA(S_ARRET);
+
 const APPARITION_MS = 300;
-const MONTEE_MS = 850;
+const MONTEE_MS = 1200;
 const BOUCLE_MS = 450;
-const DUREE_MIN_MS = 2300;
+const DUREE_MIN_MS = 2600;
 
 export default function LancementAnime({ pret, onFini }) {
   const { width, height } = useWindowDimensions();
@@ -111,17 +121,24 @@ export default function LancementAnime({ pret, onFini }) {
   const cacheHaut = trait.interpolate({ inputRange: [L_BARRE, L_BARRE + L_HAUT], outputRange: ['0deg', '180deg'], extrapolate: 'clamp' });
   const cacheBas = trait.interpolate({ inputRange: [L_BARRE + L_HAUT, L_BARRE + L_HAUT + L_QUART, L_TOTAL], outputRange: ['0deg', '90deg', '180deg'], extrapolate: 'clamp' });
 
-  // Vélo : posé à l'arrivée (haut de la barre), décalé vers le bas avant.
+  // Vélo : posé à l'arrivée, décalé le long du tracé (échantillonné) avant.
+  const echantillons = [];
+  for (let i = 0; i <= 48; i++) echantillons.push(S_DEPART + ((S_ARRET - S_DEPART) * i) / 48);
+  const points = echantillons.map(veloA);
+  const veloX = roule.interpolate({ inputRange: echantillons, outputRange: points.map((p) => (p.x - ARRIVEE.x) * k), extrapolate: 'clamp' });
   const veloY = Animated.add(
-    roule.interpolate({ inputRange: [S_DEPART, S_ARRET], outputRange: [(S_ARRET - S_DEPART) * k, 0], extrapolate: 'clamp' }),
+    roule.interpolate({ inputRange: echantillons, outputRange: points.map((p) => (p.y - ARRIVEE.y) * k), extrapolate: 'clamp' }),
     saut,
   );
+  const veloRot = roule.interpolate({ inputRange: echantillons, outputRange: points.map((p) => `${p.rot}deg`), extrapolate: 'clamp' });
+  // Une fois le P dessiné, les caches disparaissent : aucune ligne de raccord.
+  const opaciteCaches = boucle.interpolate({ inputRange: [0, 0.97, 1], outputRange: [1, 1, 0] });
   const veloEchelle = apparition.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] });
   const veloOpacite = apparition.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 1, 1], extrapolate: 'clamp' });
   const styleVelo = {
     position: 'absolute',
-    left: X(X_VELO - VELO.w / 2),
-    top: Y(BAS_BARRE - S_ARRET - VELO.h / 2),
+    left: X(ARRIVEE.x - VELO.w / 2),
+    top: Y(ARRIVEE.y - VELO.h / 2),
     width: VELO.w * k,
     height: VELO.h * k,
   };
@@ -155,11 +172,13 @@ export default function LancementAnime({ pret, onFini }) {
         resizeMode="contain"
         style={{ position: 'absolute', left: X(P_BOX.x), top: Y(P_BOX.y), width: P_BOX.w * k, height: P_BOX.h * k }}
       />
-      <View style={[styles.zone, { left: X(ZONE_BARRE.x), top: Y(ZONE_BARRE.y), width: ZONE_BARRE.w * k, height: ZONE_BARRE.h * k }]}>
-        <Animated.View style={[styles.orange, StyleSheet.absoluteFill, { transform: [{ translateY: cacheBarre }] }]} />
-      </View>
-      {cacheTournant(ZONE_HAUT, 'haut', cacheHaut)}
-      {cacheTournant(ZONE_BAS, 'bas', cacheBas)}
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { opacity: opaciteCaches }]}>
+        <View style={[styles.zone, { left: X(ZONE_BARRE.x), top: Y(ZONE_BARRE.y), width: ZONE_BARRE.w * k, height: ZONE_BARRE.h * k }]}>
+          <Animated.View style={[styles.orange, StyleSheet.absoluteFill, { transform: [{ translateY: cacheBarre }] }]} />
+        </View>
+        {cacheTournant(ZONE_HAUT, 'haut', cacheHaut)}
+        {cacheTournant(ZONE_BAS, 'bas', cacheBas)}
+      </Animated.View>
       <Animated.Image
         source={require('../assets/lancement/point.png')}
         resizeMode="contain"
@@ -172,7 +191,7 @@ export default function LancementAnime({ pret, onFini }) {
           transform: [{ translateY: chute }],
         }}
       />
-      <Animated.View style={[styleVelo, { opacity: veloOpacite, transform: [{ translateY: veloY }, { scale: veloEchelle }] }]}>
+      <Animated.View style={[styleVelo, { opacity: veloOpacite, transform: [{ translateX: veloX }, { translateY: veloY }, { rotate: veloRot }, { scale: veloEchelle }] }]}>
         <Animated.Image
           source={require('../assets/lancement/velo.png')}
           resizeMode="contain"
