@@ -8,5 +8,7 @@ import toits from './toits';
 import sommet from './sommet';
 import drone from './drone';
 import rush from './rush';
+import coupe from './coupe';
+import memoire from './memoire';
 
-export default [hub, toits, sommet, drone, rush];
+export default [hub, toits, sommet, drone, rush, coupe, memoire];
