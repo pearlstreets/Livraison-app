@@ -395,6 +395,11 @@ export function AuthProvider({ children }) {
     (async () => {
       try {
         await authService.reduireUserDataStocke();
+        // « Rester connecté » décoché : la session ne survit pas à la
+        // fermeture de l'app, retour à l'écran de connexion.
+        if (!(await authService.chargerResterConnecte()) && (await secureStorage.getSecure('accessToken'))) {
+          await authService.logout().catch(() => {});
+        }
         const token = await secureStorage.getSecure('accessToken');
         if (token) await relireProfil();
       } catch (e) {
