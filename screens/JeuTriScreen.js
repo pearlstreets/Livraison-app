@@ -241,13 +241,13 @@ export default function JeuTriScreen({ navigation }) {
   const quitter = useCallback(() => {
     pause();
     if (navigation.canGoBack()) navigation.goBack();
-    else navigation.navigate('OrdersMain');
+    else navigation.navigate('Accueil', { screen: 'OrdersMain' });
   }, [navigation, pause]);
 
   const voirCourse = useCallback(() => {
     setAlerteCourse(false);
     pause();
-    navigation.navigate('OrdersMain');
+    navigation.navigate('Accueil', { screen: 'OrdersMain' });
   }, [navigation, pause]);
 
   const confirmerNouvellePartie = useCallback(() => {
