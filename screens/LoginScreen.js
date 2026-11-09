@@ -461,6 +461,8 @@ export default function LoginScreen() {
     if (!loginPassword.trim()) { setError(t('errorNoPassword') || 'Veuillez saisir votre mot de passe'); return; }
     if (loading) return;
     setLoading(true);
+    // Choix « Rester connecté » posé avant la connexion : il règle la fin de session.
+    await authService.definirResterConnecte(resterConnecte);
     // Exception imprévue : traitée comme une coupure réseau, le bouton ne reste jamais bloqué.
     let result;
     try { result = await login(loginEmail.trim(), loginPassword); } catch { result = { network: true }; }
