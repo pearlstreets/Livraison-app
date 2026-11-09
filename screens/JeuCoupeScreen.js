@@ -359,7 +359,15 @@ export default function JeuCoupeScreen({ navigation }) {
   }, [arreterBoucle, changerPhase, dessiner, effacerTrace, terminer, traiter]);
   const enJeu = phase === 'jeu' || phase === 'reprise';
   const estEnJeu = useCallback(() => phaseRef.current === 'jeu' || phaseRef.current === 'reprise', []);
-  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, { navigation, enJeu, estEnJeu });
+  // Retour avec le classement ouvert depuis la pause : il se ferme, la partie reste en pause.
+  const fermerPanneau = () => {
+    if (!classementOuvert || phaseRef.current !== 'pause') return false;
+    setClassementOuvert(false);
+    return true;
+  };
+  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, {
+    navigation, enJeu: enJeu || (classementOuvert && phase === 'pause'), estEnJeu, fermerPanneau,
+  });
 
   // Reprise : tout reste figé jusqu'au prochain toucher.
   const reprendre = useCallback(() => {
