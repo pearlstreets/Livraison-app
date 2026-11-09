@@ -1,57 +1,100 @@
 /**
- * Lecteur de son invisible des mini-jeux (musique de fond + bruitages), voir
- * utils/sonJeux.js. À placer une fois dans l'écran du jeu :
+ * Lecteur de son invisible des mini-jeux (musique de fond propre à chaque jeu
+ * + bruitages), voir utils/sonJeux.js. Tout est synthétisé, rien à télécharger.
  *
- *   <SonJeux actif={phase === 'jeu'} />   puis   jouerSon('saut')
+ * Usage dans l'écran d'un jeu (une seule fois) :
  *
- * La musique ne tourne que pendant la partie (actif) ; les réglages
- * « Musique » et « Bruitages » de l'écran Jeux sont suivis en direct.
+ *   <SonJeux jeu="coupe" actif={phase === 'jeu'} />
+ *   bruit('saut');   // ou jouerSon('saut'), même chose
+ *
+ * Props :
+ *   jeu    'coupe' | 'memoire' | 'drone' | 'toits' | 'sommet' | 'rush'
+ *   actif  vrai = la musique joue. Mettre faux à la pause, en fin de partie,
+ *          à l'accueil : elle s'arrête. Elle s'arrête aussi toute seule quand
+ *          l'application passe en arrière-plan et quand l'écran est quitté.
+ *
+ * Fonctions exportées (utilisables hors composant, après le montage) :
+ *   demarrerMusique(jeu)  lance (ou change) la musique du jeu
+ *   arreterMusique()      coupe la musique
+ *   bruit(nom)            bruitage : saut, accroupi, ramasse, booster, choc,
+ *                         record, tranche, carte, vie, sirene, sifflet, niveau,
+ *                         perdu (anciens : piece, bonus, tap, palier, rebond,
+ *                         ok, rate)
+ *   jouerSon(nom)         alias de bruit()
+ *
+ * Les interrupteurs Musique et Bruitages (components/ReglagesSon.js) sont
+ * suivis en direct et gardés sur le téléphone.
  */
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, AppState } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { MOTEUR_AUDIO_JS, chargerReglagesSon, ecouterReglagesSon, reglagesSon } from '../utils/sonJeux';
 
 const PAGE = `<!doctype html><html><head><meta name="viewport" content="width=device-width"></head><body><script>${MOTEUR_AUDIO_JS}</script></body></html>`;
 
 let instance = null;
+const voulu = { jeu: null, on: false };
+const rappels = new Set();
 
-/** Joue un bruitage (saut, piece, bonus, choc, tap, rebond, ok, rate, palier). */
-export function jouerSon(nom) {
-  if (!nom || !instance || !reglagesSon().bruitages) return;
-  try {
-    instance.injectJavaScript(`window.sonJeu&&window.sonJeu.jouer(${JSON.stringify(String(nom))});true;`);
-  } catch {
-    // Sans son.
-  }
+function injecter(code) {
+  if (!instance) return;
+  try { instance.injectJavaScript(`${code};true;`); } catch { /* sans son */ }
 }
 
-export default function SonJeux({ actif }) {
+/** Joue un bruitage. */
+export function bruit(nom) {
+  if (!nom || !instance || !reglagesSon().bruitages) return;
+  injecter(`window.sonJeu&&window.sonJeu.jouer(${JSON.stringify(String(nom))})`);
+}
+export const jouerSon = bruit;
+
+/** Lance la musique du jeu (change de morceau si un autre jouait). */
+export function demarrerMusique(jeu) {
+  voulu.jeu = jeu || voulu.jeu;
+  voulu.on = true;
+  rappels.forEach((f) => f());
+}
+
+/** Coupe la musique. */
+export function arreterMusique() {
+  voulu.on = false;
+  rappels.forEach((f) => f());
+}
+
+export default function SonJeux({ jeu, actif }) {
   const vue = useRef(null);
   const pret = useRef(false);
-  const actifRef = useRef(actif);
-  actifRef.current = actif;
+  const premierPlan = useRef(AppState.currentState === 'active');
 
-  const envoyer = (code) => {
-    if (!pret.current || !vue.current) return;
-    try { vue.current.injectJavaScript(`${code};true;`); } catch { /* sans son */ }
-  };
   const synchroniser = () => {
-    envoyer(`window.sonJeu&&(window.sonJeu.reglages(${JSON.stringify(reglagesSon())}),window.sonJeu.musique(${actifRef.current ? 'true' : 'false'}))`);
+    if (!pret.current || !vue.current) return;
+    const joue = voulu.on && premierPlan.current;
+    injecter(`window.sonJeu&&(window.sonJeu.reglages(${JSON.stringify(reglagesSon())}),window.sonJeu.choisir(${JSON.stringify(voulu.jeu || 'rush')}),window.sonJeu.musique(${joue ? 'true' : 'false'}))`);
   };
 
   useEffect(() => {
+    rappels.add(synchroniser);
     chargerReglagesSon().then(synchroniser);
     const stop = ecouterReglagesSon(synchroniser);
+    const abonnement = AppState.addEventListener('change', (etat) => {
+      premierPlan.current = etat === 'active';
+      synchroniser();
+    });
     return () => {
       stop();
-      envoyer('window.sonJeu&&window.sonJeu.musique(false)');
+      abonnement?.remove?.();
+      rappels.delete(synchroniser);
+      voulu.on = false;
+      injecter('window.sonJeu&&window.sonJeu.musique(false)');
       if (instance === vue.current) instance = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => { synchroniser(); }, [actif]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (jeu) voulu.jeu = jeu;
+    voulu.on = !!actif;
+    synchroniser();
+  }, [jeu, actif]);
 
   return (
     <View style={styles.cache} pointerEvents="none">
