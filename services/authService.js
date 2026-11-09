@@ -17,7 +17,17 @@ function setOnSessionTimeout(rappel) {
   surFinDeSession = typeof rappel === 'function' ? rappel : null;
 }
 
+// « Rester connecté » (case de l'écran de connexion, cochée par défaut) :
+// ni déconnexion d'inactivité ni plafond de rafraîchissements. Décochée :
+// fin de session à 30 min et session effacée au prochain lancement.
+const CLE_RESTER_CONNECTE = 'resterConnecte';
+let resterConnecte = true;
+
 function resetSessionTimer() {
+  if (resterConnecte) {
+    clearSessionTimer();
+    return;
+  }
   if (sessionTimer) clearTimeout(sessionTimer);
   sessionTimer = setTimeout(() => {
     // Livreur en ligne ou en course : sa position part sans qu'il touche
@@ -69,6 +79,24 @@ const MAX_REFRESHES_PER_SESSION = 50;
 // }
 
 export const authService = {
+  async chargerResterConnecte() {
+    try {
+      resterConnecte = (await AsyncStorage.getItem(CLE_RESTER_CONNECTE)) !== '0';
+    } catch {
+      // Stockage illisible : on garde le choix par défaut (connecté).
+    }
+    return resterConnecte;
+  },
+
+  async definirResterConnecte(valeur) {
+    resterConnecte = !!valeur;
+    try {
+      await AsyncStorage.setItem(CLE_RESTER_CONNECTE, resterConnecte ? '1' : '0');
+    } catch {
+      // Choix gardé en mémoire pour cette ouverture.
+    }
+  },
+
   async login(email, password) {
     // Validate email format
     if (!isValidEmail(email)) {
@@ -143,6 +171,8 @@ export const authService = {
     // arrêtée), quel que soit le chemin qui a mené ici.
     arreterSuivi().catch(() => {});
     await secureStorage.clearAll();
+    // clearAll vide AsyncStorage : on garde le choix « Rester connecté ».
+    if (!resterConnecte) await AsyncStorage.setItem(CLE_RESTER_CONNECTE, '0').catch(() => {});
   },
 
   // Suppression de compte in-app (exigence Apple 5.1.1(v)). On appelle
@@ -169,7 +199,7 @@ export const authService = {
 
   async refreshToken() {
     // Token rotation guard
-    if (refreshCount >= MAX_REFRESHES_PER_SESSION) {
+    if (!resterConnecte && refreshCount >= MAX_REFRESHES_PER_SESSION) {
       await this.logout();
       throw new Error('Session expired. Please log in again.');
     }
