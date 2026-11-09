@@ -22,6 +22,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import usePauseJeu from '../hooks/usePauseJeu';
+import SonJeux, { jouerSon } from '../components/SonJeux';
+
+// Bruitage de chaque événement du jeu (utils/jeuSommet.js).
+const SONS_SOMMET = { rebond: 'rebond', store: 'rebond', trampo: 'saut', monte: 'bonus', colis: 'piece', pigeon: 'rate', touche: 'rate', palier: 'palier', fin: 'choc' };
 import ClassementJeu from '../components/ClassementJeu';
 import { chargerRecord, envoyerRecordEnAttente, finDePartie } from '../utils/jeuxRecords';
 import {
@@ -296,6 +300,7 @@ export default function JeuSommetScreen({ navigation }) {
       for (const ev of evts) {
         if (ev === 'colis' || ev === 'trampo' || ev === 'monte' || ev === 'pigeon') vibrer(false);
         else if (ev === 'touche') vibrer(true);
+        jouerSon(SONS_SOMMET[ev]);
       }
       if (e.phase === 'fin') {
         terminer(e);
@@ -347,6 +352,7 @@ export default function JeuSommetScreen({ navigation }) {
 
   return (
     <View style={[styles.ecran, { backgroundColor: dark ? '#14161B' : '#DCEBF7' }]}>
+      <SonJeux actif={ui === 'jeu'} />
       {/* Zone de jeu : façade, plateformes, livreur, gêneurs */}
       <View
         style={StyleSheet.absoluteFill}

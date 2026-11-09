@@ -20,6 +20,7 @@ import { useTheme, BRAND } from '../contexts/ThemeContext';
 import { ecouterNouvelleCourse } from '../services/sonCourse';
 import { deliveryService } from '../services/deliveryService';
 import ClassementJeu from '../components/ClassementJeu';
+import SonJeux, { jouerSon } from '../components/SonJeux';
 import {
   ZONES, VIES_PAR_NIVEAU, reglagesNiveau, pointsColis, nouveauColis, cleSauvegarde,
   chargerPartie, enregistrerPartie, apresBonTri, apresErreur, niveauSuivant,
@@ -138,6 +139,7 @@ export default function JeuTriScreen({ navigation }) {
     if (!e || e.phase !== 'jeu' || !e.colis) return;
     arreterChute();
     vibrer(false);
+    jouerSon('rate');
     montrerRetour(false, t('jeuRate'));
     let n = apresErreur(e);
     if (n.phase === 'jeu') n = { ...n, colis: nouveauColis(n.niveau, e.colis.zone) };
@@ -190,6 +192,7 @@ export default function JeuTriScreen({ navigation }) {
     }
     arreterChute();
     vibrer(true);
+    jouerSon('ok');
     montrerRetour(true, `+${pointsColis(e.niveau, e.colis.express)}`);
     let n = apresBonTri(e, e.colis.express);
     if (n.phase === 'jeu') n = { ...n, colis: nouveauColis(n.niveau, e.colis.zone) };
@@ -282,6 +285,7 @@ export default function JeuTriScreen({ navigation }) {
 
   return (
     <View style={[styles.ecran, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }]}>
+      <SonJeux actif={etat?.phase === 'jeu' && !alerteCourse} />
       {/* Barre du haut : quitter, niveau, score, vies, pause */}
       <View style={styles.haut}>
         <Pressable onPress={quitter} style={styles.rond} hitSlop={10} accessibilityLabel={t('jeuQuitter')}>
