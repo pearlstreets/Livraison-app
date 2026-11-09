@@ -21,6 +21,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
+import SonJeux, { jouerSon } from '../components/SonJeux';
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
   HAUTEUR, SOL, DRONE_DESSIN, TAILLE_BONUS, POINTS_COLIS, POINTS_CLIENT,
@@ -220,19 +221,23 @@ export default function JeuDroneScreen({ navigation }) {
       else if (e.type === 'passage') points = true;
       else if (e.type === 'palier') {
         vibrer(false);
+        jouerSon('palier');
         if (monteRef.current) setNiveau(e.niveau);
         ajouterBulle(t(CLE_MEDAILLE[e.medaille]), COULEUR_MEDAILLE[e.medaille]);
       }
       else if (e.type === 'colis') {
         points = true;
         vibrer(false);
+        jouerSon('piece');
         ajouterBulle(`+${POINTS_COLIS}`, OR);
       } else if (e.type === 'client') {
         points = true;
         vibrer(false);
+        jouerSon('bonus');
         ajouterBulle(`${t('jeuxDroneLivre')} +${POINTS_CLIENT}`, VERT);
       } else if (e.type === 'crash') {
         vibrer(true);
+        jouerSon('choc');
         changerPhase('chute');
         flash.setValue(0.7);
         Animated.timing(flash, { toValue: 0, duration: 380, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
@@ -296,6 +301,7 @@ export default function JeuDroneScreen({ navigation }) {
     const m = mondeRef.current;
     const p = phaseRef.current;
     if (!m) return;
+    if (p === 'pret' || p === 'vol' || p === 'reprise') jouerSon('tap');
     if (p === 'pret') {
       impulsion(m);
       synchroniserListe();
@@ -390,6 +396,7 @@ export default function JeuDroneScreen({ navigation }) {
 
   return (
     <View style={[styles.ecran, { backgroundColor: pal.rue }]}>
+      <SonJeux actif={phase === 'pret' || phase === 'vol' || phase === 'reprise'} />
       {/* Monde : toute la hauteur sauf la zone basse du téléphone */}
       <View
         style={[styles.monde, { backgroundColor: pal.ciel, marginBottom: insets.bottom }]}
