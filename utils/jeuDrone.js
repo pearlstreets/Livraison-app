@@ -23,7 +23,7 @@ export const DRONE_DX = 30;
 export const DRONE_DY = 24;
 export const DRONE_DESSIN = 72; // côté du dessin (drone + colis accroché)
 
-export const LARGEUR_OBSTACLE = 112;
+export const LARGEUR_OBSTACLE = 70;
 export const MARGE = 80; // morceau d'obstacle toujours visible en haut et en bas
 export const TAILLE_BONUS = 52;
 
@@ -83,8 +83,8 @@ export function reglages(passes) {
   const p2 = borner((passes - 60) / 90, 0, 1);
   return {
     vitesse: 330 + 90 * p + 40 * p2,
-    ecart: 200 - 45 * p - 10 * p2, // hauteur du passage libre (200 au départ, 145 au plus dur)
-    espacement: 430 - 80 * p, // distance entre deux obstacles
+    ecart: 290 - 40 * p - 10 * p2, // hauteur du passage libre (290 au départ, 240 au plus dur)
+    espacement: 480 - 60 * p, // distance entre deux obstacles
     probaMouvement: passes < 8 ? 0 : Math.min(0.55, 0.2 + (passes - 8) * 0.01),
     amplitude: passes < 8 ? 0 : Math.min(40, 18 + (passes - 8) * 0.6),
   };

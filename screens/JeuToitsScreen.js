@@ -19,6 +19,10 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
+import SonJeux, { jouerSon } from '../components/SonJeux';
+
+// Bruitage de chaque événement du jeu (utils/jeuToits.js).
+const SONS_TOITS = { touche: 'rate', chute: 'choc', temps: 'rate', ecarte: 'tap', boite: 'tap', colis: 'piece', saut: 'saut' };
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
   LARGEUR, HAUTEUR, SOL_ECRAN, VIES, POINTS, TAILLES,
@@ -434,6 +438,7 @@ export default function JeuToitsScreen({ navigation }) {
       if (type === 'touche' || type === 'chute' || type === 'temps') vibrer('perte');
       else if (type === 'ecarte' || type === 'boite') vibrer('fort');
       else if (type === 'colis') vibrer('leger');
+      jouerSon(SONS_TOITS[type]);
     }
     const e = echelle();
     if (e) {
@@ -443,6 +448,7 @@ export default function JeuToitsScreen({ navigation }) {
     }
     if (m.etat === 'livre') {
       vibrer('livre');
+      jouerSon('palier');
       relacherTout();
       changerPhase('livre');
     } else if (m.etat === 'perdu') {
@@ -537,7 +543,7 @@ export default function JeuToitsScreen({ navigation }) {
     const zones = Object.values(touchesRef.current);
     const cmd = cmdRef.current;
     const saut = zones.includes('s');
-    if (saut && !cmd.sautTenu) cmd.sautAppui = true;
+    if (saut && !cmd.sautTenu) { cmd.sautAppui = true; if (phaseRef.current === 'jeu') jouerSon('saut'); }
     cmd.sautTenu = saut;
     cmd.gauche = zones.includes('g');
     cmd.droite = zones.includes('d');
@@ -631,6 +637,7 @@ export default function JeuToitsScreen({ navigation }) {
 
   return (
     <View style={[sty.ecran, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 10 }]}>
+      <SonJeux actif={phase === 'jeu'} />
       {/* Barre du haut : quitter, niveau, score, vies, pause */}
       <View style={sty.haut}>
         <Pressable onPress={quitter} style={sty.rond} hitSlop={10} accessibilityLabel={t('jeuQuitter')}>
