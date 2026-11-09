@@ -7,9 +7,16 @@
  * livre le colis à la porte du client. Niveaux générés et toujours faisables
  * (utils/jeuToits.js), de plus en plus longs, sans fin. 3 vies par partie.
  *
+ * Commandes au doigt, sans boutons : balayer à gauche ou à droite pour courir,
+ * vers le haut pour sauter, vers le bas pour s'accroupir (on passe sous les
+ * pigeons bas), toucher l'écran pour s'arrêter (utils/gestes.js).
+ *
  * Pause automatique : arrière-plan, écran quitté, flèche retour pendant la
- * partie, nouvelle course (hooks/usePauseJeu.js). Aucun son. Décor : panneaux
- * Pearl Streets sur les toits du fond (components/FondJeu.js).
+ * partie, nouvelle course (hooks/usePauseJeu.js). Partie sauvegardée à chaque
+ * pause et à chaque niveau (24 h, utils/partieSauvegardee.js), jamais après
+ * une partie perdue. Musique propre au jeu et bruitages (components/SonJeux.js).
+ * Décor : ciel dégradé, nuages, trois plans en parallaxe, panneaux Pearl
+ * Streets sur les toits du fond (components/FondJeu.js).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
@@ -21,15 +28,23 @@ import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
 import { EnseignePearl } from '../components/FondJeu';
-import SonJeux, { jouerSon } from '../components/SonJeux';
+import SonJeux, { bruit } from '../components/SonJeux';
+import ReglagesSon from '../components/ReglagesSon';
+import BandeauClassement from '../components/BandeauClassement';
+import HudJeu from '../components/HudJeu';
+import IndiceGestes from '../components/IndiceGestes';
+import ReprisePartie from '../components/ReprisePartie';
+import { useBalayage } from '../utils/gestes';
+import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
 
-// Bruitage de chaque événement du jeu (utils/jeuToits.js).
-const SONS_TOITS = { touche: 'rate', chute: 'choc', temps: 'rate', ecarte: 'tap', boite: 'tap', colis: 'piece', saut: 'saut' };
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
-  LARGEUR, HAUTEUR, SOL_ECRAN, VIES, POINTS, TAILLES,
+  LARGEUR, HAUTEUR, HAUTEUR_ACCROUPI, SOL_ECRAN, VIES, POINTS, TAILLES,
   creerMonde, pas, avancee, visibles, genererFond,
 } from '../utils/jeuToits';
+
+// Bruitage de chaque événement du jeu (utils/jeuToits.js).
+const SONS_TOITS = { touche: 'choc', chute: 'choc', temps: 'sirene', ecarte: 'rebond', boite: 'ramasse', colis: 'ramasse', accroupi: 'accroupi' };
 
 // Vibration légère : module natif facultatif, le jeu marche sans.
 let Haptics = null;
@@ -76,6 +91,18 @@ const TOITS_MOTIF = {
   terrasse: { clair: '#B7AB98', sombre: '#5E564B' },
 };
 
+// Mélange de deux couleurs #RRGGBB (k = 0 donne a, k = 1 donne b).
+function melange(a, b, k) {
+  const pa = parseInt(a.slice(1), 16);
+  const pb = parseInt(b.slice(1), 16);
+  const c = (dec) => {
+    const x = (pa >> dec) & 255;
+    const y = (pb >> dec) & 255;
+    return Math.round(x + (y - x) * k);
+  };
+  return `#${((1 << 24) | (c(16) << 16) | (c(8) << 8) | c(0)).toString(16).slice(1)}`;
+}
+
 // Palette selon le décor du niveau (jour, soir, nuit, pluie), le thème de l'app et le motif des toits.
 function palette(dark, decor, motif) {
   const base = dark ? {
@@ -105,6 +132,14 @@ function palette(dark, decor, motif) {
       ? { ...p, ciel: '#1B252E', fond: '#26343F', fondHaut: '#2F4150', astre: '#9FB0BE', trottoir: '#434B54' }
       : { ...p, ciel: '#8E9EAB', fond: '#6F8190', fondHaut: '#61737F', astre: '#D7E0E6', trottoir: '#7F8A94', bordure: '#A7B1BA', fenetre: '#EBD58A' };
   }
+  // Ciel en dégradé : plus soutenu en haut, clair à l'horizon.
+  const eclat = decor === 'nuit' ? 0.1 : decor === 'soir' ? 0.35 : decor === 'pluie' ? 0.22 : (dark ? 0.15 : 0.55);
+  p.cielHaut = melange(p.ciel, p.fondHaut, 0.55);
+  p.horizon = melange(p.ciel, '#FFFFFF', eclat);
+  p.loin = melange(p.fond, p.horizon, 0.55);
+  p.nuage = decor === 'nuit' ? '#3A4A6B' : decor === 'pluie' ? '#B7C3CD' : decor === 'soir' ? '#FFD9B8' : '#FFFFFF';
+  p.brique = decor === 'nuit' ? '#5A2E26' : '#A8523C';
+  p.metal = decor === 'nuit' ? '#59636E' : '#7E8A96';
   return p;
 }
 
@@ -241,8 +276,59 @@ function Plateforme({ p, s, pal, motif }) {
       <View style={{ position: 'absolute', left: p.w * 0.62 * s, top: 14 * s, width: 2 * s, height: 22 * s, backgroundColor: 'rgba(0,0,0,0.55)', transform: [{ rotate: '-24deg' }] }} />
     </>
   ) : null;
+  const k = Number(p.id) || 0;
+  const accessoires = [];
+  const u = (v) => v * s;
+  if (toit && !p.fragile && p.w >= 60) {
+    if (k % 2 === 0) {
+      const cx = p.w * 0.18;
+      accessoires.push(
+        <View key="chem" style={{ position: 'absolute', left: u(cx), top: u(-18), width: u(10), height: u(18), backgroundColor: pal.brique }}>
+          <View style={{ position: 'absolute', left: u(-2), top: 0, width: u(14), height: u(4), borderRadius: u(1), backgroundColor: pal.toitBord }} />
+          <View style={{ position: 'absolute', left: u(2), top: u(-9), width: u(7), height: u(7), borderRadius: u(4), backgroundColor: 'rgba(255,255,255,0.55)' }} />
+          <View style={{ position: 'absolute', left: u(5), top: u(-16), width: u(5), height: u(5), borderRadius: u(3), backgroundColor: 'rgba(255,255,255,0.32)' }} />
+        </View>,
+      );
+    }
+    if (k % 3 !== 0) {
+      const ax = p.w * 0.74;
+      accessoires.push(
+        <View key="ant" style={{ position: 'absolute', left: u(ax), top: u(-26), width: u(14), height: u(26) }}>
+          <View style={{ position: 'absolute', left: u(6.3), top: 0, width: u(1.4), height: u(26), backgroundColor: pal.metal }} />
+          <View style={{ position: 'absolute', left: 0, top: u(4), width: u(14), height: u(1.4), backgroundColor: pal.metal }} />
+          <View style={{ position: 'absolute', left: u(2), top: u(9), width: u(10), height: u(1.4), backgroundColor: pal.metal }} />
+          <View style={{ position: 'absolute', left: u(4), top: u(14), width: u(6), height: u(1.4), backgroundColor: pal.metal }} />
+        </View>,
+      );
+    }
+    if (k % 5 === 3) {
+      accessoires.push(
+        <View key="cuve" style={{ position: 'absolute', left: u(p.w * 0.44), top: u(-22), width: u(16), height: u(22) }}>
+          <View style={{ position: 'absolute', left: u(1), bottom: 0, width: u(2), height: u(8), backgroundColor: pal.metal }} />
+          <View style={{ position: 'absolute', right: u(1), bottom: 0, width: u(2), height: u(8), backgroundColor: pal.metal }} />
+          <View style={{ position: 'absolute', left: 0, top: 0, width: u(16), height: u(15), borderRadius: u(3), backgroundColor: pal.planche, borderWidth: Math.max(1, s * 0.8), borderColor: pal.toitBord }} />
+        </View>,
+      );
+    }
+    if (k % 5 === 1) {
+      accessoires.push(
+        <View key="para" style={{ position: 'absolute', left: u(p.w * 0.46), top: u(-15) }}>
+          <MaterialCommunityIcons name="satellite-uplink" size={u(16)} color={pal.metal} />
+        </View>,
+      );
+    }
+  } else if (!toit && !p.fragile && p.w >= 90 && k % 2 === 1) {
+    accessoires.push(
+      <View key="lampadaire" style={{ position: 'absolute', left: u(p.w * 0.8), top: u(-34), width: u(14), height: u(34) }}>
+        <View style={{ position: 'absolute', left: u(6), top: u(4), width: u(2), height: u(30), backgroundColor: pal.poteau }} />
+        <View style={{ position: 'absolute', left: 0, top: 0, width: u(14), height: u(6), borderTopLeftRadius: u(7), borderTopRightRadius: u(7), backgroundColor: pal.poteau }} />
+        <View style={{ position: 'absolute', left: u(2), top: u(6), width: u(10), height: u(3), borderRadius: u(1.5), backgroundColor: OR }} />
+      </View>,
+    );
+  }
   return (
     <View style={[pos(p.x, BAS_DESSIN, p.w, p.y - BAS_DESSIN, s), { backgroundColor: toit ? pal.toit : pal.trottoir }]}>
+      {accessoires}
       <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: (toit ? 6 : 5) * s, backgroundColor: p.fragile ? '#C98A2B' : (toit ? pal.toitBord : pal.bordure) }} />
       {motifs}
       {fenetres}
@@ -268,46 +354,175 @@ function Maison({ porte, s, pal }) {
   );
 }
 
-// ---- Fond : immeubles lointains, défilement plus lent ----
-// Un immeuble sur cinq porte un panneau Pearl Streets sur son toit.
+// ---- Fond : trois plans (nuages, silhouettes lointaines, immeubles proches) ----
+// Un immeuble proche sur cinq porte un panneau Pearl Streets sur son toit.
 const LARGEUR_ENSEIGNE = 84;
 const Fond = memo(function Fond({ fond, x1, x2, s, pal }) {
-  return visibles(fond, x1, x2).map((b) => (
-    <View key={b.id} style={[pos(b.x, 0, b.w, b.h, s), { backgroundColor: pal.fond }]}>
-      <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 6 * s, backgroundColor: pal.fondHaut }} />
-      {b.id % 5 === 2 && (
-        <EnseignePearl
-          largeur={LARGEUR_ENSEIGNE * s}
-          compacte
-          pieds={8 * s}
-          couleurSupport={pal.fondHaut}
-          style={{ position: 'absolute', bottom: b.h * s, left: (b.w - LARGEUR_ENSEIGNE) * s / 2 }}
-        />
-      )}
+  return visibles(fond, x1, x2).map((b) => {
+    const cols = Math.max(1, Math.min(4, Math.floor(b.w / 17)));
+    const rangs = Math.max(1, Math.min(4, Math.floor(b.h / 26)));
+    const fen = [];
+    for (let r = 0; r < rangs; r += 1) {
+      for (let c = 0; c < cols; c += 1) {
+        const allumee = (b.id * 7 + r * 3 + c * 5) % 4 === 0;
+        fen.push(
+          <View
+            key={`${r}_${c}`}
+            style={{
+              position: 'absolute', left: ((c + 0.5) * b.w / cols - 3.5) * s, top: (14 + r * 22) * s,
+              width: 7 * s, height: 10 * s, borderRadius: 1.5 * s,
+              backgroundColor: allumee ? pal.fenetre : pal.fondHaut, opacity: allumee ? 0.9 : 0.7,
+            }}
+          />,
+        );
+      }
+    }
+    return (
+      <View key={b.id} style={[pos(b.x, 0, b.w, b.h, s), { backgroundColor: pal.fond, borderTopLeftRadius: 3 * s, borderTopRightRadius: 3 * s }]}>
+        <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 6 * s, backgroundColor: pal.fondHaut }} />
+        {fen}
+        {b.id % 5 === 2 && (
+          <EnseignePearl
+            largeur={LARGEUR_ENSEIGNE * s}
+            compacte
+            pieds={8 * s}
+            couleurSupport={pal.fondHaut}
+            style={{ position: 'absolute', bottom: b.h * s, left: (b.w - LARGEUR_ENSEIGNE) * s / 2 }}
+          />
+        )}
+      </View>
+    );
+  });
+});
+
+// Silhouettes de la ville au loin : bâtiments réguliers et pylônes, tirés d'un motif fixe.
+const CASE_LOIN = 96;
+const Lointain = memo(function Lointain({ x1, x2, s, pal }) {
+  const liste = [];
+  for (let i = Math.floor(x1 / CASE_LOIN); i <= Math.floor(x2 / CASE_LOIN); i += 1) {
+    const h = 58 + (Math.abs(i * 53) % 64);
+    const w = 52 + (Math.abs(i * 29) % 36);
+    liste.push(
+      <View key={i} style={[pos(i * CASE_LOIN, 14, w, h, s), { backgroundColor: pal.loin, borderTopLeftRadius: 2 * s, borderTopRightRadius: 2 * s }]}>
+        {Math.abs(i) % 4 === 1 && (
+          <View style={{ position: 'absolute', left: w / 2 * s - s, top: -16 * s, width: 2 * s, height: 16 * s, backgroundColor: pal.loin }} />
+        )}
+      </View>,
+    );
+  }
+  return liste;
+});
+
+// Nuages : un par case, taille et hauteur variables.
+const CASE_NUAGE = 230;
+const Nuages = memo(function Nuages({ x1, x2, s, pal }) {
+  const liste = [];
+  for (let i = Math.floor(x1 / CASE_NUAGE); i <= Math.floor(x2 / CASE_NUAGE); i += 1) {
+    const w = 64 + (Math.abs(i * 41) % 50);
+    const x = i * CASE_NUAGE + (Math.abs(i * 71) % 80);
+    const haut = 14 + (Math.abs(i * 37) % 90);
+    liste.push(
+      <View key={i} style={{ position: 'absolute', left: x * s, top: haut * s, width: w * s, height: 26 * s, opacity: 0.88 }}>
+        <View style={{ position: 'absolute', left: 0, bottom: 0, width: w * s, height: 14 * s, borderRadius: 7 * s, backgroundColor: pal.nuage }} />
+        <View style={{ position: 'absolute', left: w * 0.18 * s, bottom: 5 * s, width: w * 0.36 * s, height: 20 * s, borderRadius: 10 * s, backgroundColor: pal.nuage }} />
+        <View style={{ position: 'absolute', left: w * 0.46 * s, bottom: 5 * s, width: w * 0.3 * s, height: 16 * s, borderRadius: 8 * s, backgroundColor: pal.nuage }} />
+      </View>,
+    );
+  }
+  return liste;
+});
+
+// Ciel en dégradé (bandes), soleil ou lune avec son halo.
+const BANDES_CIEL = 14;
+const Ciel = memo(function Ciel({ pal, decor }) {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {Array.from({ length: BANDES_CIEL }).map((_, i) => (
+        <View key={i} style={{ flex: 1, backgroundColor: melange(pal.cielHaut, pal.horizon, i / (BANDES_CIEL - 1)) }} />
+      ))}
+      <View style={[styles.halo, { backgroundColor: pal.astre }]} />
+      <View style={[styles.halo2, { backgroundColor: pal.astre }]} />
+      <MaterialCommunityIcons name={ICONE_ASTRE[decor] || ICONE_ASTRE.jour} size={34} color={pal.astre} style={styles.astre} />
     </View>
-  ));
+  );
 });
 
 // ---- Éléments animés ----
-function Livreur({ j, s, clignote }) {
-  const marche = j.sol && Math.abs(j.vx) > 5 ? Math.sin(j.course * 0.28) * 2.2 : 0;
+// Livreur : casquette, veste Pearl, sac de livraison, jambes et bras qui balancent
+// en courant, jambes repliées en l'air, ramassé sur lui-même accroupi.
+function Membre({ x, bas, haut, long, large, angle, couleur, s, bout }) {
+  // Le membre pivote autour de son milieu : la moitié haute reste vide, c'est l'articulation.
+  return (
+    <View style={{ position: 'absolute', left: x * s, bottom: bas * s, width: large * s, height: long * 2 * s, transform: [{ rotate: `${angle}deg` }] }}>
+      <View style={{ position: 'absolute', left: 0, bottom: 0, width: large * s, height: (long + (haut || 0)) * s, borderRadius: large * 0.45 * s, backgroundColor: couleur }} />
+      {bout ? <View style={{ position: 'absolute', left: -0.5 * s, bottom: 0, width: (large + 2) * s, height: 3 * s, borderRadius: 1.5 * s, backgroundColor: bout }} /> : null}
+    </View>
+  );
+}
+
+function Livreur({ j, s, clignote, accroupi }) {
+  const marche = j.sol && Math.abs(j.vx) > 5 ? Math.sin(j.course * 0.3) : 0;
   const enAir = !j.sol;
   const u = (v) => v * s;
+  const montee = enAir && j.vy > 0;
+  // Angles des jambes et des bras selon l'état.
+  const jambeAvant = enAir ? (montee ? -38 : -20) : marche * 42;
+  const jambeArriere = enAir ? (montee ? 18 : 34) : -marche * 42;
+  const brasAvant = enAir ? (montee ? -150 : -110) : -marche * 50;
+  const brasArriere = enAir ? 40 : marche * 50;
+  const k = accroupi ? HAUTEUR_ACCROUPI / HAUTEUR : 1;
+  const ecart = ((HAUTEUR * (1 - k)) / 2) * s;
   return (
-    <View style={[pos(j.x, j.y, LARGEUR, HAUTEUR, s), { opacity: clignote ? 0.3 : 1, transform: [{ scaleX: j.dir < 0 ? -1 : 1 }] }]}>
-      {/* Jambes */}
-      <View style={{ position: 'absolute', left: u(6 + marche), bottom: u(enAir ? 2 : 0), width: u(4), height: u(9), borderRadius: u(1.5), backgroundColor: '#1C2B3A' }} />
-      <View style={{ position: 'absolute', left: u(11 - marche), bottom: 0, width: u(4), height: u(enAir ? 7 : 9), borderRadius: u(1.5), backgroundColor: '#24384D' }} />
-      {/* Sac de livraison */}
-      <View style={{ position: 'absolute', left: u(-3), bottom: u(10), width: u(10), height: u(13), borderRadius: u(2), backgroundColor: '#C8510B', borderWidth: u(1), borderColor: '#8F3A08' }} />
-      {/* Veste */}
-      <View style={{ position: 'absolute', left: u(5), bottom: u(8), width: u(12), height: u(13), borderRadius: u(3), backgroundColor: BRAND }} />
-      {/* Bras */}
-      <View style={{ position: 'absolute', left: u(13), bottom: u(enAir ? 15 : 11), width: u(5), height: u(4), borderRadius: u(2), backgroundColor: '#F0C38E' }} />
-      {/* Tête et casquette */}
-      <View style={{ position: 'absolute', left: u(6), bottom: u(20), width: u(10), height: u(10), borderRadius: u(5), backgroundColor: '#F0C38E' }} />
-      <View style={{ position: 'absolute', left: u(5), bottom: u(26), width: u(11), height: u(4), borderTopLeftRadius: u(3), borderTopRightRadius: u(3), backgroundColor: '#1C2B3A' }} />
-      <View style={{ position: 'absolute', left: u(14), bottom: u(26), width: u(5), height: u(1.6), borderRadius: u(1), backgroundColor: '#1C2B3A' }} />
+    <View
+      style={[
+        pos(j.x, j.y, LARGEUR, HAUTEUR, s),
+        { opacity: clignote ? 0.3 : 1, transform: [{ translateY: ecart }, { scaleX: (j.dir < 0 ? -1 : 1) * (accroupi ? 1.12 : 1) }, { scaleY: k }] },
+      ]}
+    >
+      {/* Ombre au sol */}
+      {j.sol && <View style={{ position: 'absolute', left: u(1), bottom: u(-1.5), width: u(18), height: u(3), borderRadius: u(2), backgroundColor: 'rgba(0,0,0,0.2)' }} />}
+      {/* Jambe arrière et bras arrière */}
+      <Membre x={5.5} bas={0} long={9} large={4.5} angle={jambeArriere} couleur="#1C2B3A" s={s} bout="#F2F2F2" />
+      <Membre x={8} bas={11} long={7} large={3.6} angle={brasArriere} couleur="#0A9A78" s={s} />
+      {/* Sac de livraison : coque orange, rabat, bande Pearl */}
+      <View style={{ position: 'absolute', left: u(-4.5), bottom: u(9), width: u(12), height: u(15), borderRadius: u(2.5), backgroundColor: '#E8650F', borderWidth: u(1), borderColor: '#9C4208' }}>
+        <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: u(5), borderTopLeftRadius: u(2), borderTopRightRadius: u(2), backgroundColor: '#F58634' }} />
+        <View style={{ position: 'absolute', left: u(3.5), top: u(7), width: u(3.5), height: u(3.5), borderRadius: u(1.8), backgroundColor: '#FFF3E0' }} />
+      </View>
+      {/* Veste et col */}
+      <View style={{ position: 'absolute', left: u(4), bottom: u(8), width: u(13), height: u(14), borderRadius: u(4), backgroundColor: BRAND }}>
+        <View style={{ position: 'absolute', left: u(1.5), right: u(1.5), bottom: u(4), height: u(1.6), backgroundColor: '#F2F2F2', opacity: 0.85 }} />
+      </View>
+      {/* Jambe avant */}
+      <Membre x={9} bas={0} long={9} large={4.5} angle={jambeAvant} couleur="#24384D" s={s} bout="#FFFFFF" />
+      {/* Tête, casquette, écharpe */}
+      <View style={{ position: 'absolute', left: u(6.5), bottom: u(21), width: u(10.5), height: u(10), borderRadius: u(5.2), backgroundColor: '#F2C79B' }} />
+      <View style={{ position: 'absolute', left: u(14.2), bottom: u(24.3), width: u(1.5), height: u(1.5), borderRadius: u(0.8), backgroundColor: '#1C2B3A' }} />
+      <View style={{ position: 'absolute', left: u(5.5), bottom: u(26.5), width: u(12), height: u(4.8), borderTopLeftRadius: u(5), borderTopRightRadius: u(5), backgroundColor: '#13335E' }} />
+      <View style={{ position: 'absolute', left: u(14), bottom: u(26), width: u(6), height: u(1.8), borderRadius: u(1), backgroundColor: '#0B2447' }} />
+      <View style={{ position: 'absolute', left: u(8), bottom: u(19.5), width: u(8), height: u(3), borderRadius: u(1.5), backgroundColor: OR }} />
+      {/* Bras avant */}
+      <Membre x={9.5} bas={11} long={7} large={3.6} angle={brasAvant} couleur="#0BB58E" s={s} bout="#F2C79B" />
+    </View>
+  );
+}
+
+// Colis brillant : carton doré avec ruban, halo qui pulse et étincelle.
+function ColisBrillant({ c, m, s }) {
+  const t = TAILLES.colis;
+  const flot = Math.sin(m.horloge * 3 + c.id) * 2;
+  const pouls = 0.5 + 0.5 * Math.sin(m.horloge * 4 + c.id);
+  const u = (v) => v * s;
+  return (
+    <View style={pos(c.x, c.y + flot, t, t, s)}>
+      <View style={{ position: 'absolute', left: u(-5), top: u(-5), width: u(t + 10), height: u(t + 10), borderRadius: u((t + 10) / 2), backgroundColor: '#FFD34D', opacity: 0.18 + pouls * 0.2 }} />
+      <View style={{ position: 'absolute', left: u(1), top: u(2), width: u(t - 2), height: u(t - 3), borderRadius: u(3), backgroundColor: '#E0A24A', borderWidth: Math.max(1, u(1)), borderColor: '#A8691F' }}>
+        <View style={{ position: 'absolute', left: u((t - 2) / 2 - 2), top: 0, bottom: 0, width: u(4), backgroundColor: '#FFE9A8' }} />
+        <View style={{ position: 'absolute', left: 0, right: 0, top: u(3), height: u(3), backgroundColor: 'rgba(255,255,255,0.35)' }} />
+      </View>
+      <View style={{ position: 'absolute', right: u(-3), top: u(-4), opacity: 0.45 + pouls * 0.55, transform: [{ scale: 0.7 + pouls * 0.5 }] }}>
+        <MaterialCommunityIcons name="star-four-points" size={u(10)} color="#FFFFFF" />
+      </View>
     </View>
   );
 }
@@ -363,6 +578,8 @@ export default function JeuToitsScreen({ navigation }) {
   const [meilleur, setMeilleur] = useState(0);
   const [nouveauRecord, setNouveauRecord] = useState(false);
   const [classementOuvert, setClassementOuvert] = useState(false);
+  const [reprise, setReprise] = useState(null); // partie sauvegardée proposée à l'ouverture
+  const [nbParties, setNbParties] = useState(0); // rafraîchit le bandeau de classement
   const [dims, setDims] = useState({ l: 0, h: 0 });
   const dimsRef = useRef({ l: 0, h: 0 });
 
@@ -375,10 +592,7 @@ export default function JeuToitsScreen({ navigation }) {
   const fondRef = useRef(null);
   if (!fondRef.current) fondRef.current = genererFond(1, mondeRef.current.longueur);
   const camRef = useRef({ x: -60, y: 0 });
-  const cmdRef = useRef({ gauche: false, droite: false, sautTenu: false, sautAppui: false });
-  const touchesRef = useRef({});
-  const barreRef = useRef(null);
-  const barreDim = useRef({ x: 0, y: -1, w: 1 });
+  const cmdRef = useRef({ gauche: false, droite: false, sautTenu: false, sautAppui: false, bas: false, tenue: 0, basRestant: 0 });
   const rafRef = useRef(null);
   const dernierRef = useRef(null);
   const monteRef = useRef(true);
@@ -399,10 +613,26 @@ export default function JeuToitsScreen({ navigation }) {
     };
   }, [user?.id]);
 
+  // Partie sauvegardée de moins de 24 h : proposée à l'ouverture.
+  useEffect(() => {
+    let vivant = true;
+    chargerPartie(JEU, user?.id).then((p) => {
+      if (vivant && p && (p.score > 0 || p.niveau > 1)) setReprise(p);
+    }).catch(() => {});
+    return () => { vivant = false; };
+  }, [user?.id]);
+
   const relacherTout = useCallback(() => {
-    touchesRef.current = {};
-    cmdRef.current = { gauche: false, droite: false, sautTenu: false, sautAppui: false };
+    cmdRef.current = { gauche: false, droite: false, sautTenu: false, sautAppui: false, bas: false, tenue: 0, basRestant: 0 };
   }, []);
+
+  // Sauvegarde : niveau à jouer, score et vies.
+  const sauver = useCallback((niveau) => {
+    const m = mondeRef.current;
+    if (!m) return;
+    if (m.score <= 0 && niveau <= 1) return;
+    sauverPartie(JEU, user?.id, { niveau, score: m.score, vies: m.vies });
+  }, [user?.id]);
 
   const echelle = useCallback(() => {
     const { l, h } = dimsRef.current;
@@ -429,10 +659,14 @@ export default function JeuToitsScreen({ navigation }) {
     const m = mondeRef.current;
     changerPhase('perdu');
     setNouveauRecord(false);
+    effacerPartie(JEU, user?.id);
+    bruit('perdu');
     finDePartie(JEU, user?.id, m.score).then((r) => {
       if (!monteRef.current) return;
       setMeilleur(r.meilleur);
       setNouveauRecord(r.nouveauRecord);
+      setNbParties((n) => n + 1);
+      if (r.nouveauRecord) bruit('record');
     }).catch(() => {});
   }, [changerPhase, user?.id]);
 
@@ -444,6 +678,14 @@ export default function JeuToitsScreen({ navigation }) {
     const dt = dernierRef.current == null ? 1 / 60 : Math.min(0.05, Math.max(0, (maintenant - dernierRef.current) / 1000));
     dernierRef.current = maintenant;
     const cmd = cmdRef.current;
+    if (cmd.tenue > 0) {
+      cmd.tenue -= dt;
+      if (cmd.tenue <= 0) cmd.sautTenu = false;
+    }
+    if (cmd.basRestant > 0) {
+      cmd.basRestant -= dt;
+      if (cmd.basRestant <= 0) cmd.bas = false;
+    }
     const evenements = pas(m, dt, cmd);
     cmd.sautAppui = false;
     for (let i = 0; i < evenements.length; i += 1) {
@@ -451,7 +693,7 @@ export default function JeuToitsScreen({ navigation }) {
       if (type === 'touche' || type === 'chute' || type === 'temps') vibrer('perte');
       else if (type === 'ecarte' || type === 'boite') vibrer('fort');
       else if (type === 'colis') vibrer('leger');
-      jouerSon(SONS_TOITS[type]);
+      bruit(SONS_TOITS[type]);
     }
     const e = echelle();
     if (e) {
@@ -461,8 +703,9 @@ export default function JeuToitsScreen({ navigation }) {
     }
     if (m.etat === 'livre') {
       vibrer('livre');
-      jouerSon('palier');
+      bruit('niveau');
       relacherTout();
+      sauver(m.niveau + 1);
       changerPhase('livre');
     } else if (m.etat === 'perdu') {
       relacherTout();
@@ -486,8 +729,9 @@ export default function JeuToitsScreen({ navigation }) {
   const pause = useCallback(() => {
     if (phaseRef.current !== 'jeu') return;
     relacherTout();
+    sauver(mondeRef.current.niveau);
     changerPhase('pause');
-  }, [changerPhase, relacherTout]);
+  }, [changerPhase, relacherTout, sauver]);
   const estEnJeu = useCallback(() => phaseRef.current === 'jeu', []);
   // Retour avec le classement ouvert depuis la pause : il se ferme, la partie reste en pause.
   const fermerPanneau = () => {
@@ -510,8 +754,22 @@ export default function JeuToitsScreen({ navigation }) {
   const nouvellePartie = useCallback(() => {
     graineRef.current = Math.floor(Math.random() * 1e6);
     setNouveauRecord(false);
+    setReprise(null);
+    effacerPartie(JEU, user?.id);
     lancerNiveau(1, {});
-  }, [lancerNiveau]);
+  }, [lancerNiveau, user?.id]);
+
+  const reprendrePartie = useCallback(() => {
+    const p = reprise;
+    setReprise(null);
+    if (!p) return;
+    setNouveauRecord(false);
+    lancerNiveau(Math.max(1, Number(p.niveau) || 1), { score: Number(p.score) || 0, vies: Math.max(1, Math.min(VIES, Number(p.vies) || VIES)) });
+  }, [reprise, lancerNiveau]);
+  const recommencerPartie = useCallback(() => {
+    effacerPartie(JEU, user?.id);
+    setReprise(null);
+  }, [user?.id]);
 
   const niveauSuivant = useCallback(() => {
     const m = mondeRef.current;
@@ -547,55 +805,29 @@ export default function JeuToitsScreen({ navigation }) {
     }
   }, [placerCamera]);
 
-  // ---- Commandes tactiles multi-doigts : une seule zone, 3 parties ----
-  const mesurerBarre = useCallback(() => {
-    barreRef.current?.measureInWindow?.((x, y, w) => {
-      if (w > 0) barreDim.current = { x, y, w };
-    });
-  }, []);
-  const zoneDe = useCallback((toucher) => {
-    const d = barreDim.current;
-    if (d.y >= 0 && toucher.pageY < d.y - 40) return null;
-    const rx = (toucher.pageX - d.x) / d.w;
-    if (rx < 0.25) return 'g';
-    if (rx < 0.5) return 'd';
-    return 's';
-  }, []);
-  const appliquerTouches = useCallback(() => {
-    const zones = Object.values(touchesRef.current);
-    const cmd = cmdRef.current;
-    const saut = zones.includes('s');
-    if (saut && !cmd.sautTenu) { cmd.sautAppui = true; if (phaseRef.current === 'jeu') jouerSon('saut'); }
-    cmd.sautTenu = saut;
-    cmd.gauche = zones.includes('g');
-    cmd.droite = zones.includes('d');
-  }, []);
-  const toucherBouge = useCallback((ev) => {
-    if (phaseRef.current !== 'jeu') return;
-    const ne = ev.nativeEvent;
-    const carte = touchesRef.current;
-    const presents = new Set();
-    const liste = ne.touches && ne.touches.length ? ne.touches : [ne];
-    for (let i = 0; i < liste.length; i += 1) {
-      const tc = liste[i];
-      const id = String(tc.identifier);
-      presents.add(id);
-      const z = zoneDe(tc);
-      if (z) carte[id] = z; else delete carte[id];
-    }
-    Object.keys(carte).forEach((k) => { if (!presents.has(k)) delete carte[k]; });
-    appliquerTouches();
-  }, [appliquerTouches, zoneDe]);
-  const toucherFin = useCallback((ev) => {
-    const ne = ev.nativeEvent;
-    const finis = ne.changedTouches && ne.changedTouches.length ? ne.changedTouches : [ne];
-    for (let i = 0; i < finis.length; i += 1) delete touchesRef.current[String(finis[i].identifier)];
-    appliquerTouches();
-  }, [appliquerTouches]);
-  const toucherAnnule = useCallback(() => {
-    touchesRef.current = {};
-    appliquerTouches();
-  }, [appliquerTouches]);
+  // ---- Commandes au doigt : balayer gauche, droite, haut, bas ; toucher = s'arrêter ----
+  const balayage = useBalayage({
+    actif: phase === 'jeu',
+    seuil: 24,
+    onGauche: () => { const c = cmdRef.current; c.gauche = true; c.droite = false; },
+    onDroite: () => { const c = cmdRef.current; c.droite = true; c.gauche = false; },
+    onHaut: () => {
+      const c = cmdRef.current;
+      c.sautAppui = true;
+      c.sautTenu = true; // une poussée complète : le saut va à sa hauteur normale
+      c.tenue = 0.3;
+      c.bas = false;
+      c.basRestant = 0;
+      if (mondeRef.current.joueur.sol) bruit('saut');
+    },
+    onBas: () => {
+      const c = cmdRef.current;
+      c.bas = true;
+      c.basRestant = 0.75;
+      if (mondeRef.current.joueur.sol) vibrer('leger');
+    },
+    onAppui: () => { const c = cmdRef.current; c.gauche = false; c.droite = false; },
+  });
 
   // ---- Rendu ----
   const m = mondeRef.current;
@@ -614,8 +846,18 @@ export default function JeuToitsScreen({ navigation }) {
     const vx2 = cam.x + visW + 60;
     const j = m.joueur;
     const clignote = m.invul > 0 && Math.floor(m.horloge * 12) % 2 === 0;
+    const nx = cam.x * 0.08;
+    const lx = cam.x * 0.2;
+    const ntr = Math.floor(nx / TRANCHE);
+    const ltr = Math.floor(lx / TRANCHE);
     monde = (
       <>
+        <View style={[StyleSheet.absoluteFill, { transform: [{ translateX: -nx * s }] }]} pointerEvents="none">
+          <Nuages x1={ntr * TRANCHE - 120} x2={ntr * TRANCHE + visW + TRANCHE + 120} s={s} pal={pal} />
+        </View>
+        <View style={[StyleSheet.absoluteFill, { transform: [{ translateX: -lx * s }, { translateY: cam.y * s * 0.12 }] }]} pointerEvents="none">
+          <Lointain x1={ltr * TRANCHE - 120} x2={ltr * TRANCHE + visW + TRANCHE + 120} s={s} pal={pal} />
+        </View>
         <View style={[StyleSheet.absoluteFill, { transform: [{ translateX: -fx * s }, { translateY: cam.y * s * 0.3 }] }]} pointerEvents="none">
           <Fond fond={fondRef.current} x1={ftranche * TRANCHE - 120} x2={ftranche * TRANCHE + visW + TRANCHE + 120} s={s} pal={pal} />
         </View>
@@ -625,11 +867,7 @@ export default function JeuToitsScreen({ navigation }) {
             ? <Dynamique key={`d${p.id}`} p={p} s={s} pal={pal} motif={m.motif} horloge={m.horloge} />
             : null))}
           {visibles(m.boites, vx1, vx2).map((b) => <Boite key={`b${b.id}`} b={b} s={s} pal={pal} />)}
-          {visibles(m.colis, vx1, vx2).map((c) => (c.pris ? null : (
-            <View key={`c${c.id}`} style={[pos(c.x, c.y + Math.sin(m.horloge * 3 + c.id) * 2, TAILLES.colis, TAILLES.colis, s), styles.centre]}>
-              <MaterialCommunityIcons name="package-variant-closed" size={TAILLES.colis * 1.15 * s} color={BRAND} />
-            </View>
-          )))}
+          {visibles(m.colis, vx1, vx2).map((c) => (c.pris ? null : <ColisBrillant key={`c${c.id}`} c={c} m={m} s={s} />))}
           {visibles(m.geneurs, vx1, vx2).map((g) => (g.actif ? (
             <Geneur
               key={`g${g.id}`}
@@ -638,7 +876,7 @@ export default function JeuToitsScreen({ navigation }) {
               aboie={g.type === 'chien' && Math.abs(g.x - j.x) < 150 && Math.floor(g.temps * 2.5) % 3 === 0}
             />
           ) : null))}
-          <Livreur j={j} s={s} clignote={clignote} />
+          <Livreur j={j} s={s} clignote={clignote} accroupi={!!j.accroupi} />
           {m.popups.map((p) => (
             <Text
               key={p.id}
@@ -652,32 +890,26 @@ export default function JeuToitsScreen({ navigation }) {
     );
   }
 
-  const cmd = cmdRef.current;
   const enJeu = phase === 'jeu';
   const progression = avancee(m);
   const urgent = m.reste <= 10 && m.etat === 'jeu';
+  const totalColis = m.colis.length + m.boites.length;
 
   return (
     <View style={[sty.ecran, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 10 }]}>
-      <SonJeux actif={phase === 'jeu'} />
-      {/* Barre du haut : quitter, niveau, score, vies, pause */}
+      <SonJeux jeu={JEU} actif={phase === 'jeu'} />
+      {/* Barre du haut : quitter, niveau et chrono, pause */}
       <View style={sty.haut}>
         <Pressable onPress={quitter} style={sty.rond} hitSlop={10} accessibilityLabel={t('jeuQuitter')}>
           <Ionicons name="close" size={22} color={colors.text} />
         </Pressable>
         <View style={sty.infos}>
           <Text style={sty.niveau}>{t('jeuNiveau', { n: m.niveau })}</Text>
-          <Text style={sty.score}>{t('jeuScore', { n: m.score })}</Text>
           <View style={sty.ligneTemps}>
             <Ionicons name="timer-outline" size={14} color={urgent ? colors.danger : colors.textMuted} />
             <Text style={[sty.chrono, urgent && { color: colors.danger }]}>{Math.max(0, Math.ceil(m.reste))}</Text>
             <Text style={sty.decorNom}>{t(CLE_DECOR[m.decor] || CLE_DECOR.jour)}</Text>
           </View>
-        </View>
-        <View style={sty.vies}>
-          {Array.from({ length: VIES }).map((_, i) => (
-            <Ionicons key={i} name={i < m.vies ? 'heart' : 'heart-outline'} size={18} color={colors.danger} />
-          ))}
         </View>
         <Pressable
           onPress={pause}
@@ -689,18 +921,15 @@ export default function JeuToitsScreen({ navigation }) {
           <Ionicons name="pause" size={22} color="#fff" />
         </Pressable>
       </View>
+      {/* Rang, record et TOP 1, toujours visibles */}
+      <BandeauClassement jeu={JEU} idLivreur={user?.id} score={m.score} rafraichir={nbParties} t={t} colors={colors} style={{ marginTop: 8 }} />
       <View style={sty.jauge}>
         <View style={[sty.jaugePleine, { width: `${progression * 100}%` }]} />
       </View>
 
       {/* Ville */}
-      <View style={[sty.piste, { backgroundColor: pal.ciel }]} onLayout={surMesurePiste}>
-        <MaterialCommunityIcons
-          name={ICONE_ASTRE[m.decor] || ICONE_ASTRE.jour}
-          size={34}
-          color={pal.astre}
-          style={styles.astre}
-        />
+      <View style={[sty.piste, { backgroundColor: pal.horizon }]} onLayout={surMesurePiste}>
+        <Ciel pal={pal} decor={m.decor} />
         {m.decor === 'nuit' && ETOILES.map((e2) => (
           <View key={e2.id} pointerEvents="none" style={[styles.etoile, { left: `${e2.x}%`, top: `${e2.y}%`, opacity: e2.o }]} />
         ))}
@@ -715,36 +944,19 @@ export default function JeuToitsScreen({ navigation }) {
             />
           );
         })}
-      </View>
-
-      {/* Commandes : gauche, droite (moitié gauche), saut (moitié droite) */}
-      <View
-        ref={barreRef}
-        style={sty.commandes}
-        onLayout={mesurerBarre}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
-        onResponderTerminationRequest={() => false}
-        onTouchStart={toucherBouge}
-        onTouchMove={toucherBouge}
-        onTouchEnd={toucherFin}
-        onTouchCancel={toucherAnnule}
-      >
-        <View style={sty.quart} pointerEvents="none">
-          <View style={[sty.touche, cmd.gauche && sty.toucheActive]} accessibilityLabel={t('jeuxToitsGauche')}>
-            <Ionicons name="chevron-back" size={34} color={cmd.gauche ? '#fff' : colors.text} />
-          </View>
+        {/* Score, vies et colis du niveau, en haut de la scène */}
+        <View style={styles.hud} pointerEvents="none">
+          <HudJeu
+            colors={colors}
+            score={m.score}
+            vies={m.vies}
+            viesMax={VIES}
+            objets={{ n: Math.min(m.colisNiveau, totalColis), total: totalColis, icone: 'cube' }}
+          />
         </View>
-        <View style={sty.quart} pointerEvents="none">
-          <View style={[sty.touche, cmd.droite && sty.toucheActive]} accessibilityLabel={t('jeuxToitsDroite')}>
-            <Ionicons name="chevron-forward" size={34} color={cmd.droite ? '#fff' : colors.text} />
-          </View>
-        </View>
-        <View style={sty.moitie} pointerEvents="none">
-          <View style={[sty.touche, sty.toucheSaut, cmd.sautTenu && sty.toucheSautActive]} accessibilityLabel={t('jeuxToitsSauter')}>
-            <MaterialCommunityIcons name="arrow-up-bold" size={38} color="#fff" />
-          </View>
-        </View>
+        <IndiceGestes jeu={JEU} actif={phase === 'jeu'} gestes={['gauche', 'droite', 'haut', 'bas']} t={t} colors={colors} />
+        {/* Couche des gestes : toute la scène */}
+        <View {...balayage.panHandlers} style={StyleSheet.absoluteFill} />
       </View>
 
       {/* Fenêtres : accueil, pause, colis livré, fin de partie */}
@@ -759,6 +971,7 @@ export default function JeuToitsScreen({ navigation }) {
                 <Text style={sty.texteDiscret}>{t('jeuxToitsAstuce')}</Text>
                 <Text style={sty.texteDiscret}>{t('jeuxToitsAstuceDur')}</Text>
                 <Text style={sty.record}>{t('jeuMeilleurScore', { n: meilleur })}</Text>
+                <ReglagesSon t={t} colors={colors} />
                 <Bouton sty={sty} texte={t('jeuJouer')} onPress={nouvellePartie} />
                 <Bouton sty={sty} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton sty={sty} secondaire texte={t('jeuQuitter')} onPress={quitter} />
@@ -769,6 +982,7 @@ export default function JeuToitsScreen({ navigation }) {
                 <Ionicons name="pause-circle" size={44} color={BRAND} />
                 <Text style={sty.titre}>{t('jeuEnPause')}</Text>
                 <Text style={sty.texte}>{t('jeuScore', { n: m.score })}</Text>
+                <ReglagesSon t={t} colors={colors} />
                 <Bouton sty={sty} texte={t('jeuReprendre')} onPress={reprendre} />
                 <Bouton sty={sty} secondaire texte={t('jeuxToitsRejouer')} onPress={nouvellePartie} />
                 <Bouton sty={sty} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
@@ -806,6 +1020,9 @@ export default function JeuToitsScreen({ navigation }) {
             )}
           </View>
         </View>
+      )}
+      {reprise && phase === 'accueil' && !classementOuvert && !alerteCourse && (
+        <ReprisePartie t={t} colors={colors} niveau={reprise.niveau} score={reprise.score} onReprendre={reprendrePartie} onRecommencer={recommencerPartie} />
       )}
       {/* Classement : le jeu reste en pause derrière. */}
       {classementOuvert && !enJeu && (
@@ -848,7 +1065,10 @@ function Bouton({ texte, onPress, secondaire, sty }) {
 
 const styles = StyleSheet.create({
   centre: { alignItems: 'center', justifyContent: 'center' },
-  astre: { position: 'absolute', top: 14, right: 18 },
+  astre: { position: 'absolute', top: 18, right: 22 },
+  halo: { position: 'absolute', top: 2, right: 6, width: 66, height: 66, borderRadius: 33, opacity: 0.16 },
+  halo2: { position: 'absolute', top: 10, right: 14, width: 50, height: 50, borderRadius: 25, opacity: 0.18 },
+  hud: { position: 'absolute', top: 8, left: 8, right: 8 },
   etoile: { position: 'absolute', width: 2, height: 2, borderRadius: 1, backgroundColor: '#FFFFFF' },
   goutte: { position: 'absolute', width: 1.5, height: 14, backgroundColor: '#CFE3F2', transform: [{ rotate: '12deg' }] },
   bulle: { position: 'absolute', alignSelf: 'center', backgroundColor: '#E74C3C', alignItems: 'center', justifyContent: 'center' },
@@ -863,26 +1083,14 @@ const makeStyles = (c, dark) => StyleSheet.create({
     backgroundColor: c.card, borderWidth: 1, borderColor: c.border,
   },
   rondPause: { backgroundColor: BRAND, borderColor: BRAND },
-  infos: { flex: 1 },
+  infos: { flex: 1, alignItems: 'center' },
   niveau: { color: c.text, fontSize: 17, fontWeight: '800' },
-  score: { color: c.textMuted, fontSize: 14, fontWeight: '600', marginTop: 1 },
-  vies: { flexDirection: 'row', gap: 2 },
   ligneTemps: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
   chrono: { color: c.textMuted, fontSize: 13, fontWeight: '800', minWidth: 22 },
   decorNom: { color: c.textMuted, fontSize: 12, fontWeight: '600' },
   jauge: { height: 6, borderRadius: 3, backgroundColor: dark ? c.borderStrong : '#E6E8EB', marginTop: 12, overflow: 'hidden' },
   jaugePleine: { height: 6, borderRadius: 3, backgroundColor: BRAND },
-  piste: { flex: 1, marginTop: 12, marginBottom: 12, borderRadius: 18, borderWidth: 1, borderColor: c.border, overflow: 'hidden' },
-  commandes: { flexDirection: 'row', height: 96, alignItems: 'stretch' },
-  quart: { width: '25%', paddingRight: 8 },
-  moitie: { width: '50%', paddingLeft: 16 },
-  touche: {
-    flex: 1, borderRadius: 18, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: c.card, borderWidth: 1, borderColor: c.borderStrong,
-  },
-  toucheActive: { backgroundColor: BRAND, borderColor: BRAND },
-  toucheSaut: { backgroundColor: BRAND, borderColor: BRAND },
-  toucheSautActive: { backgroundColor: '#D9560A', borderColor: '#D9560A', transform: [{ scale: 0.97 }] },
+  piste: { flex: 1, marginTop: 10, marginBottom: 0, borderRadius: 18, borderWidth: 1, borderColor: c.border, overflow: 'hidden' },
   voile: {
     ...StyleSheet.absoluteFillObject, backgroundColor: c.overlay, alignItems: 'center', justifyContent: 'center', padding: 24,
   },
