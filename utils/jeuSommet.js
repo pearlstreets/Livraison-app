@@ -150,6 +150,7 @@ export function partieNeuve(visibleH = 640, hasard = Math.random) {
     colis: 0,
     score: 0,
     etage: 0,
+    etageBase: 0, // étages déjà gagnés avant une reprise de partie
     plateformes: [],
     colisListe: [],
     pots: [],
@@ -382,7 +383,7 @@ export function avancer(e, dtBrut, dir) {
   e.pigeons = e.pigeons.filter((g) => g.y > bas && g.x > -160 && g.x < MONDE_L + 160);
   genererJusqua(e, e.cam + e.visibleH * 1.6);
 
-  e.etage = Math.floor(e.hautMax / ETAGE);
+  e.etage = Math.floor(e.hautMax / ETAGE) + (e.etageBase || 0);
   e.score = e.etage + e.colis * POINTS_COLIS;
   return evts;
 }

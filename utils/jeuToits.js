@@ -18,6 +18,8 @@
 // ---- Physique (unités par seconde) ----
 export const LARGEUR = 20;
 export const HAUTEUR = 30;
+export const HAUTEUR_ACCROUPI = 16; // accroupi : on passe sous les pigeons bas
+export const FREIN_ACCROUPI = 0.55; // et on avance plus lentement
 export const VITESSE = 165;
 const ACCEL_SOL = 1500;
 const ACCEL_AIR = 1000;
@@ -80,7 +82,7 @@ function borner(v, min, max) {
 export function nouveauJoueur(x, y) {
   return {
     x, y, vx: 0, vy: 0, dir: 1, sol: null, coyote: 0, tampon: 0, tenue: 0,
-    enSaut: false, recul: 0, course: 0,
+    enSaut: false, recul: 0, course: 0, accroupi: false,
   };
 }
 
@@ -104,7 +106,8 @@ export function physiqueJoueur(j, plateformes, boites, cmd, dt) {
     const acc = j.sol ? ACCEL_SOL : ACCEL_AIR;
     // Demi-tour : freinage plus vif, plus nerveux.
     const bonus = Math.sign(j.vx) === -dir ? 1.6 : 1;
-    j.vx = borner(j.vx + dir * acc * bonus * dt, -VITESSE, VITESSE);
+    const vmax = j.accroupi ? VITESSE * FREIN_ACCROUPI : VITESSE;
+    j.vx = borner(j.vx + dir * acc * bonus * dt, -vmax, vmax);
     j.dir = dir;
   } else {
     const frein = (j.sol ? FREIN_SOL : FREIN_AIR) * dt;
@@ -594,8 +597,9 @@ function popup(m, x, y, texte) {
 }
 
 function chevauche(j, e, marge) {
+  const h = j.accroupi ? HAUTEUR_ACCROUPI : HAUTEUR;
   return j.x + LARGEUR - marge > e.x && j.x + marge < e.x + e.w
-    && j.y + HAUTEUR - marge > e.y && j.y + marge < e.y + e.h;
+    && j.y + h - marge > e.y && j.y + marge < e.y + e.h;
 }
 
 function perdreVie(m, evenements, cause) {
@@ -609,7 +613,8 @@ function perdreVie(m, evenements, cause) {
 
 /**
  * Avance le monde de `dt` secondes (borné, découpé en petits pas).
- * `cmd` : { gauche, droite, sautTenu, sautAppui } (sautAppui : appui neuf).
+ * `cmd` : { gauche, droite, sautTenu, sautAppui, bas } (sautAppui : appui neuf,
+ * bas : accroupi demandé).
  * Rend la liste des événements : colis, boite, ecarte, touche, chute, livre.
  */
 export function pas(m, dtBrut, cmd) {
@@ -665,6 +670,10 @@ function sousPas(m, dt, cmd, evenements) {
     if (m.etat !== 'jeu') return;
   }
 
+  // Accroupi : seulement au sol, jamais en plein saut.
+  const etaitAccroupi = j.accroupi;
+  j.accroupi = !!(cmd.bas && j.sol && !(j.tampon > 0));
+  if (j.accroupi && !etaitAccroupi) evenements.push({ type: 'accroupi' });
   const frappee = physiqueJoueur(j, m.plateformes, m.boites, cmd, dt);
   if (frappee && !frappee.frappee) {
     frappee.frappee = true;

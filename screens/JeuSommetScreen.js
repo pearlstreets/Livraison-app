@@ -2,8 +2,9 @@
  * Mini-jeu « Livraison au sommet », pour patienter entre deux courses.
  *
  * Le livreur grimpe la façade d'un immeuble en rebondissant tout seul de
- * balcon en balcon. Le doigt maintenu sur la moitié gauche ou droite de
- * l'écran le dirige ; sortir d'un bord fait revenir par l'autre. Tomber
+ * balcon en balcon. Un balayage vers la gauche ou la droite le dirige (il
+ * garde le cap), un appui le redresse ; sortir d'un bord fait revenir par
+ * l'autre. Aucune flèche à l'écran. Tomber
  * sous le bas de l'écran, un pot de fleurs ou un pigeon (sauf par le
  * dessus) arrête la tournée. Score = étages + 5 points par colis.
  * Difficile : tous les 50 étages un palier annonce un nouveau décor et un
@@ -13,8 +14,11 @@
  * dans des refs, monde dessiné dans un calque déplacé d'un bloc (seuls les
  * éléments qui bougent sont redessinés). Pause automatique : arrière-plan,
  * écran quitté, flèche retour pendant la partie, nouvelle course
- * (hooks/usePauseJeu.js). Aucun son. Décor : enseigne Pearl Streets sur la
- * façade, un étage sur six (components/FondJeu.js).
+ * (hooks/usePauseJeu.js). Sons et musique propres au jeu (components/
+ * SonJeux.js). Partie sauvegardée à la pause et à la sortie (reprise : le
+ * livreur repart du trottoir avec ses étages et ses colis, utils/
+ * partieSauvegardee.js). Décor : façade colorée, balcons fleuris, linge,
+ * auvents, nuages ; enseigne Pearl Streets un étage sur six.
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
@@ -25,14 +29,19 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import usePauseJeu from '../hooks/usePauseJeu';
 import { EnseignePearl, mesuresEnseigne } from '../components/FondJeu';
-import SonJeux, { jouerSon } from '../components/SonJeux';
+import SonJeux, { bruit } from '../components/SonJeux';
+import ReglagesSon from '../components/ReglagesSon';
+import BandeauClassement from '../components/BandeauClassement';
+import { PastilleScore } from '../components/HudJeu';
+import IndiceGestes from '../components/IndiceGestes';
+import ReprisePartie from '../components/ReprisePartie';
+import { useBalayage } from '../utils/gestes';
+import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
 
-// Bruitage de chaque événement du jeu (utils/jeuSommet.js).
-const SONS_SOMMET = { rebond: 'rebond', store: 'rebond', trampo: 'saut', monte: 'bonus', colis: 'piece', pigeon: 'rate', touche: 'rate', palier: 'palier', fin: 'choc' };
 import ClassementJeu from '../components/ClassementJeu';
 import { chargerRecord, envoyerRecordEnAttente, finDePartie } from '../utils/jeuxRecords';
 import {
-  MONDE_L, ETAGE, JOUEUR_L, JOUEUR_H, PLAT_H, VX_MAX, partieNeuve, avancer,
+  MONDE_L, ETAGE, JOUEUR_L, JOUEUR_H, PLAT_H, VX_MAX, POINTS_COLIS, partieNeuve, avancer,
 } from '../utils/jeuSommet';
 
 // Vibration légère : module natif facultatif, le jeu marche sans.
@@ -53,6 +62,9 @@ function vibrer(fort) {
     // Sans vibration.
   }
 }
+
+// Bruitage de chaque événement du jeu (utils/jeuSommet.js).
+const SONS_SOMMET = { rebond: 'saut', store: 'saut', trampo: 'booster', monte: 'booster', colis: 'ramasse', pigeon: 'ramasse', touche: 'choc', palier: 'niveau', fin: 'perdu' };
 
 const JEU = 'sommet';
 const HAUTEUR_MIN = 520; // hauteur de monde toujours visible (grands écrans larges)
@@ -95,17 +107,30 @@ function allumee(rang, col) {
 
 /** Un étage de façade (4 fenêtres), redessiné seulement s'il change. */
 // Un étage sur six porte l'enseigne Pearl Streets sur la façade, à la place
-// des deux fenêtres du milieu.
+// des deux fenêtres du milieu. Les autres reçoivent, selon un tirage fixe par
+// étage, un auvent rayé, des volets, une jardinière fleurie ou du linge.
 const LARGEUR_ENSEIGNE = 108;
+const COULEURS_AUVENT = ['#E8590C', '#2F9E8F', '#D6336C', '#3B82F6'];
+const COULEURS_FLEURS = ['#E0457B', '#F2B705', '#FFFFFF', '#FF7A3D'];
+const COULEURS_LINGE = ['#FFFFFF', '#F2B705', '#2F80ED', '#E0457B', '#2F9E8F'];
+function tirage(rang, col, graine) {
+  const x = Math.sin(rang * 12.9898 + col * 78.233 + graine * 37.719) * 43758.5453;
+  return x - Math.floor(x);
+}
 const Etage = memo(function Etage({ rang, s, dark, p }) {
   const h = ETAGE * s;
   const lf = 44 * s;
   const hf = 34 * s;
   const enseigne = rang % 6 === 1;
   const hEnseigne = mesuresEnseigne(LARGEUR_ENSEIGNE * s, true).hauteur;
+  const bande = rang % 2 === 0;
+  const linge = !enseigne && tirage(rang, 9, 3) < 0.22;
   return (
     <View style={{ position: 'absolute', left: 0, right: 0, top: -(rang + 1) * h, height: h }}>
+      {bande && <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: p.murJoint, opacity: 0.35 }} />}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: Math.max(1, 2 * s), backgroundColor: p.murJoint }} />
+      <View style={{ position: 'absolute', left: 0, width: 5 * s, top: 0, bottom: 0, backgroundColor: p.cadre, opacity: 0.8 }} />
+      <View style={{ position: 'absolute', right: 0, width: 5 * s, top: 0, bottom: 0, backgroundColor: p.cadre, opacity: 0.8 }} />
       {enseigne && (
         <EnseignePearl
           largeur={LARGEUR_ENSEIGNE * s}
@@ -113,30 +138,80 @@ const Etage = memo(function Etage({ rang, s, dark, p }) {
           style={{ position: 'absolute', left: (MONDE_L - LARGEUR_ENSEIGNE) / 2 * s, top: (h - hEnseigne) / 2 }}
         />
       )}
-      {(enseigne ? [0, 3] : [0, 1, 2, 3]).map((c) => (
-        <View
-          key={c}
-          style={{
-            position: 'absolute',
-            left: (22 + c * 86) * s,
-            top: (h - hf) / 2,
-            width: lf,
-            height: hf,
-            borderRadius: 3 * s,
-            borderWidth: Math.max(1, 2 * s),
-            borderColor: p.cadre,
-            backgroundColor: dark && allumee(rang, c) ? p.vitreAllumee : p.vitre,
-          }}
-        >
-          <View style={{ position: 'absolute', left: lf / 2 - 1.5 * s, top: 0, bottom: 0, width: Math.max(1, 2 * s), backgroundColor: p.cadre }} />
+      {(enseigne ? [0, 3] : [0, 1, 2, 3]).map((c) => {
+        const gauche = (22 + c * 86) * s;
+        const fleurs = tirage(rang, c, 1) < 0.3;
+        const auvent = !fleurs && tirage(rang, c, 2) < 0.22;
+        const volets = tirage(rang, c, 4) < 0.35;
+        return (
+          <React.Fragment key={c}>
+            {volets && (
+              <>
+                <View style={{ position: 'absolute', left: gauche - 8 * s, top: (h - hf) / 2, width: 7 * s, height: hf, borderRadius: 1.5 * s, backgroundColor: COULEURS_AUVENT[(rang + c) % 4], opacity: 0.85 }} />
+                <View style={{ position: 'absolute', left: gauche + lf + 1 * s, top: (h - hf) / 2, width: 7 * s, height: hf, borderRadius: 1.5 * s, backgroundColor: COULEURS_AUVENT[(rang + c) % 4], opacity: 0.85 }} />
+              </>
+            )}
+            <View
+              style={{
+                position: 'absolute',
+                left: gauche,
+                top: (h - hf) / 2,
+                width: lf,
+                height: hf,
+                borderRadius: 3 * s,
+                borderWidth: Math.max(1, 2 * s),
+                borderColor: p.cadre,
+                backgroundColor: dark && allumee(rang, c) ? p.vitreAllumee : p.vitre,
+              }}
+            >
+              <View style={{ position: 'absolute', left: lf / 2 - 1.5 * s, top: 0, bottom: 0, width: Math.max(1, 2 * s), backgroundColor: p.cadre }} />
+              <View style={{ position: 'absolute', left: 2 * s, top: 2 * s, width: 9 * s, height: 3 * s, borderRadius: 1.5 * s, backgroundColor: '#FFFFFF', opacity: 0.45 }} />
+            </View>
+            {auvent && (
+              <View style={{ position: 'absolute', left: gauche - 4 * s, top: (h - hf) / 2 - 7 * s, width: lf + 8 * s, height: 8 * s, flexDirection: 'row', borderRadius: 2 * s, overflow: 'hidden' }}>
+                {[0, 1, 2, 3, 4, 5].map((i) => (
+                  <View key={i} style={{ flex: 1, backgroundColor: i % 2 ? '#FFFFFF' : COULEURS_AUVENT[(rang + c) % 4], borderBottomLeftRadius: 3 * s, borderBottomRightRadius: 3 * s }} />
+                ))}
+              </View>
+            )}
+            {fleurs && (
+              <View style={{ position: 'absolute', left: gauche - 2 * s, top: (h - hf) / 2 + hf - 1 * s, width: lf + 4 * s, height: 9 * s }}>
+                <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 5 * s, borderRadius: 1.5 * s, backgroundColor: '#9A5B3A' }} />
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <View
+                    key={i}
+                    style={{
+                      position: 'absolute', left: (4 + i * 8) * s, bottom: 3 * s, width: 6 * s, height: 6 * s,
+                      borderRadius: 3 * s, backgroundColor: COULEURS_FLEURS[(rang + c + i) % 4],
+                    }}
+                  />
+                ))}
+                <View style={{ position: 'absolute', left: 6 * s, right: 6 * s, bottom: 3 * s, height: 2.5 * s, backgroundColor: '#3FA34D', opacity: 0.9 }} />
+              </View>
+            )}
+          </React.Fragment>
+        );
+      })}
+      {linge && (
+        <View style={{ position: 'absolute', left: 14 * s, right: 14 * s, top: 6 * s, height: 14 * s }}>
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 1 * s, height: Math.max(1, 1.2 * s), backgroundColor: p.cable }} />
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <View
+              key={i}
+              style={{
+                position: 'absolute', left: (10 + i * 50) * s, top: 1 * s, width: 9 * s, height: (8 + (i % 3) * 3) * s,
+                borderRadius: 1.5 * s, backgroundColor: COULEURS_LINGE[(rang + i) % 5], transform: [{ rotate: `${i % 2 ? 4 : -4}deg` }],
+              }}
+            />
+          ))}
         </View>
-      ))}
+      )}
     </View>
   );
 });
 
 /** Une plateforme (balcon, nacelle, store, matelas, monte-charge). */
-const Plateforme = memo(function Plateforme({ type, x, y, l, rot, dechire, s, p }) {
+const Plateforme = memo(function Plateforme({ id, type, x, y, l, rot, dechire, s, p }) {
   const left = x * s;
   const top = -y * s;
   const w = l * s;
@@ -191,6 +266,19 @@ const Plateforme = memo(function Plateforme({ type, x, y, l, rot, dechire, s, p 
       {trampo && (
         <View style={{ height: 8 * s, marginHorizontal: 6 * s, borderRadius: 4 * s, backgroundColor: p.matelas }} />
       )}
+      {!trampo && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: 2 * s, right: 2 * s, top: -9 * s, height: 9 * s, borderTopWidth: Math.max(1, 1.5 * s), borderTopColor: p.console, flexDirection: 'row', justifyContent: 'space-between' }}>
+          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+            <View key={i} style={{ width: Math.max(1, 1.2 * s), height: 9 * s, backgroundColor: p.console }} />
+          ))}
+        </View>
+      )}
+      {!trampo && id % 3 === 0 && (
+        <View pointerEvents="none" style={{ position: 'absolute', right: 6 * s, top: -17 * s, width: 12 * s, alignItems: 'center' }}>
+          <View style={{ width: 11 * s, height: 11 * s, borderRadius: 5.5 * s, backgroundColor: '#3FA34D' }} />
+          <View style={{ width: 9 * s, height: 7 * s, marginTop: -2 * s, backgroundColor: p.pot, borderBottomLeftRadius: 3 * s, borderBottomRightRadius: 3 * s }} />
+        </View>
+      )}
       <View style={{ height: hh, borderRadius: 2 * s, backgroundColor: p.dalle, borderTopWidth: Math.max(1, 3 * s), borderTopColor: p.dalleBord }} />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8 * s }}>
         <View style={{ width: 6 * s, height: 10 * s, backgroundColor: p.console, borderBottomLeftRadius: 4 * s, borderBottomRightRadius: 4 * s }} />
@@ -200,34 +288,90 @@ const Plateforme = memo(function Plateforme({ type, x, y, l, rot, dechire, s, p 
   );
 });
 
-const Colis = memo(function Colis({ x, y, s, p }) {
-  const t = 26 * s;
+const Colis = memo(function Colis({ x, y, s, t }) {
+  const l = 24 * s;
+  const flotte = Math.sin(t * 4 + x) * 2 * s;
   return (
-    <View style={{ position: 'absolute', left: x * s - t / 2, top: -y * s - t / 2, width: t, height: t }}>
-      <MaterialCommunityIcons name="package-variant-closed" size={t} color={p.colis} />
+    <View pointerEvents="none" style={{ position: 'absolute', left: x * s - l / 2, top: -y * s - l / 2 + flotte, width: l, height: l, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ position: 'absolute', width: l * 1.7, height: l * 1.7, borderRadius: l, backgroundColor: OR, opacity: 0.2 + 0.1 * Math.sin(t * 5 + x) }} />
+      <View style={{ width: l, height: l * 0.86, borderRadius: 3 * s, backgroundColor: '#E0A64F', borderWidth: Math.max(1, 1.5 * s), borderColor: '#9A6A2B' }}>
+        <View style={{ position: 'absolute', left: l / 2 - 2.5 * s, top: 0, bottom: 0, width: 5 * s, backgroundColor: '#FFF3D1' }} />
+        <View style={{ position: 'absolute', left: 0, right: 0, top: l * 0.3, height: 3 * s, backgroundColor: '#C98A45' }} />
+      </View>
+      <View style={{ position: 'absolute', right: -2 * s, top: -2 * s, width: 5 * s, height: 5 * s, borderRadius: 2.5 * s, backgroundColor: '#FFFFFF', opacity: 0.55 + 0.45 * Math.sin(t * 7 + y) }} />
     </View>
   );
 });
 
-function Livreur({ x, y, rot, vx, s }) {
+// Livreur dessiné en vues : casquette et veste de la marque, sac à dos,
+// bras levés qui tiennent un colis. Il s'étire à la montée, s'écrase à la descente.
+function Livreur({ x, y, rot, vx, vy, regard, s }) {
   const l = JOUEUR_L * s;
   const h = JOUEUR_H * s;
   const penche = rot || (vx / VX_MAX) * 10;
+  const montee = vy > 0;
+  const etire = Math.min(0.12, Math.abs(vy) / 9000);
+  const echelleY = montee ? 1 + etire : 1 - etire * 0.6;
+  const echelleX = montee ? 1 - etire * 0.6 : 1 + etire * 0.5;
+  const pas = Math.sin(y * 0.12) * 14;
   return (
     <View
       pointerEvents="none"
       style={{
         position: 'absolute', left: x * s - l / 2, top: -y * s - h, width: l, height: h,
-        alignItems: 'center', justifyContent: 'flex-end', transform: [{ rotate: `${penche}deg` }],
+        transform: [{ rotate: `${penche}deg` }, { scaleX: echelleX }, { scaleY: echelleY }],
       }}
     >
-      <View style={{ position: 'absolute', top: -4 * s }}>
-        <MaterialCommunityIcons name="package-variant-closed" size={18 * s} color="#B07A3B" />
+      {/* Sac de livraison dans le dos */}
+      <View style={{ position: 'absolute', left: regard >= 0 ? 0 : undefined, right: regard >= 0 ? undefined : 0, top: h * 0.4, width: l * 0.4, height: h * 0.34, borderRadius: 4 * s, backgroundColor: '#E8590C', borderWidth: Math.max(1, 1.2 * s), borderColor: '#B8430A' }} />
+      {/* Jambes */}
+      <View style={{ position: 'absolute', left: l * 0.3, top: h * 0.74, width: 5.5 * s, height: h * 0.26, borderRadius: 2.5 * s, backgroundColor: '#2C3E57', transform: [{ rotate: `${pas}deg` }] }} />
+      <View style={{ position: 'absolute', left: l * 0.52, top: h * 0.74, width: 5.5 * s, height: h * 0.26, borderRadius: 2.5 * s, backgroundColor: '#2C3E57', transform: [{ rotate: `${-pas}deg` }] }} />
+      {/* Bras levés */}
+      <View style={{ position: 'absolute', left: l * 0.02, top: h * 0.12, width: 5 * s, height: h * 0.4, borderRadius: 2.5 * s, backgroundColor: BRAND, transform: [{ rotate: '-18deg' }] }} />
+      <View style={{ position: 'absolute', right: l * 0.02, top: h * 0.12, width: 5 * s, height: h * 0.4, borderRadius: 2.5 * s, backgroundColor: BRAND, transform: [{ rotate: '18deg' }] }} />
+      {/* Veste */}
+      <View style={{ position: 'absolute', left: l * 0.2, top: h * 0.36, width: l * 0.6, height: h * 0.42, borderRadius: 7 * s, backgroundColor: BRAND }}>
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: h * 0.09, height: Math.max(1, 2 * s), backgroundColor: '#FFFFFF', opacity: 0.8 }} />
       </View>
-      <MaterialCommunityIcons name="human-handsup" size={h * 0.82} color={BRAND} />
+      {/* Tête et casquette */}
+      <View style={{ position: 'absolute', left: l * 0.3, top: h * 0.2, width: l * 0.4, height: l * 0.4, borderRadius: l * 0.2, backgroundColor: '#F2C9A0' }}>
+        <View style={{ position: 'absolute', left: l * 0.09, top: l * 0.17, width: 2.4 * s, height: 2.4 * s, borderRadius: 1.2 * s, backgroundColor: '#2C3E57' }} />
+        <View style={{ position: 'absolute', right: l * 0.09, top: l * 0.17, width: 2.4 * s, height: 2.4 * s, borderRadius: 1.2 * s, backgroundColor: '#2C3E57' }} />
+        <View style={{ position: 'absolute', left: l * 0.14, bottom: l * 0.07, width: l * 0.12, height: 1.6 * s, borderRadius: 1 * s, backgroundColor: '#B55A3C' }} />
+      </View>
+      <View style={{ position: 'absolute', left: l * 0.26, top: h * 0.13, width: l * 0.48, height: h * 0.12, borderTopLeftRadius: l * 0.24, borderTopRightRadius: l * 0.24, backgroundColor: BRAND }} />
+      <View style={{ position: 'absolute', left: regard >= 0 ? l * 0.5 : l * 0.12, top: h * 0.22, width: l * 0.38, height: 2.5 * s, borderRadius: 1.2 * s, backgroundColor: '#D9560A' }} />
+      {/* Colis tenu au-dessus de la tête */}
+      <View style={{ position: 'absolute', left: l * 0.24, top: -3 * s, width: l * 0.52, height: h * 0.2, borderRadius: 2.5 * s, backgroundColor: '#E0A64F', borderWidth: Math.max(1, 1.2 * s), borderColor: '#9A6A2B' }}>
+        <View style={{ position: 'absolute', left: l * 0.26 - 2 * s, top: 0, bottom: 0, width: 4 * s, backgroundColor: '#FFF3D1' }} />
+      </View>
     </View>
   );
 }
+
+// Nuages qui défilent plus lentement que la façade : effet d'altitude.
+const NUAGES = Array.from({ length: 8 }, (_, i) => ({
+  id: i, x: (i * 97 + 20) % 300, y: 380 + i * 520 + (i % 3) * 90, l: 70 + (i % 3) * 26,
+}));
+const Nuages = memo(function Nuages({ cam, s, dark }) {
+  const periode = 8 * 520;
+  return (
+    <>
+      {NUAGES.map((n) => {
+        const ecran = (((n.y - cam * 0.4) % periode) + periode) % periode; // hauteur à l'écran
+        if (ecran > 1400) return null;
+        return (
+          <View key={n.id} pointerEvents="none" style={{ position: 'absolute', left: n.x * s, top: -(ecran + cam) * s, width: n.l * s, height: 26 * s, opacity: dark ? 0.2 : 0.6 }}>
+            <View style={{ position: 'absolute', left: 0, bottom: 0, right: 0, height: 14 * s, borderRadius: 7 * s, backgroundColor: '#FFFFFF' }} />
+            <View style={{ position: 'absolute', left: n.l * 0.18 * s, bottom: 5 * s, width: 28 * s, height: 20 * s, borderRadius: 10 * s, backgroundColor: '#FFFFFF' }} />
+            <View style={{ position: 'absolute', left: n.l * 0.5 * s, bottom: 5 * s, width: 22 * s, height: 16 * s, borderRadius: 8 * s, backgroundColor: '#FFFFFF' }} />
+          </View>
+        );
+      })}
+    </>
+  );
+});
 
 export default function JeuSommetScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -243,6 +387,8 @@ export default function JeuSommetScreen({ navigation }) {
   const [meilleur, setMeilleur] = useState(0);
   const [resultat, setResultat] = useState(null); // { score, etage, colis, cause, nouveauRecord }
   const [classementOuvert, setClassementOuvert] = useState(false);
+  const [reprise, setReprise] = useState(null); // partie sauvegardée { score, etage, colis }
+  const [nbParties, setNbParties] = useState(0);
   const partieRef = useRef(null);
   const dirRef = useRef(0);
   const monteRef = useRef(true);
@@ -258,6 +404,9 @@ export default function JeuSommetScreen({ navigation }) {
     monteRef.current = true;
     let vivant = true;
     chargerRecord(JEU, user?.id).then((r) => { if (vivant) setMeilleur(r.meilleur); });
+    chargerPartie(JEU, user?.id).then((sauvee) => {
+      if (vivant && sauvee && sauvee.score > 0 && uiRef.current === 'accueil') setReprise(sauvee);
+    }).catch(() => {});
     return () => { vivant = false; monteRef.current = false; };
   }, [user?.id]);
 
@@ -273,11 +422,18 @@ export default function JeuSommetScreen({ navigation }) {
     if (partieRef.current) partieRef.current.visibleH = visibleH;
   }, [visibleH]);
 
+  // Sauvegarde : étages, colis et score gagnés (jamais après une partie perdue).
+  const sauver = useCallback(() => {
+    const e = partieRef.current;
+    if (!e || e.phase !== 'jeu' || e.score <= 0) return;
+    sauverPartie(JEU, user?.id, { score: e.score, etage: e.etage, colis: e.colis }).catch(() => {});
+  }, [user?.id]);
   const pause = useCallback(() => {
     if (uiRef.current !== 'jeu') return;
     dirRef.current = 0;
+    sauver();
     changerUi('pause');
-  }, [changerUi]);
+  }, [changerUi, sauver]);
   const estEnJeu = useCallback(() => uiRef.current === 'jeu', []);
   // Retour avec le classement ouvert depuis la pause : il se ferme, la partie reste en pause.
   const fermerPanneau = () => {
@@ -293,11 +449,16 @@ export default function JeuSommetScreen({ navigation }) {
     dirRef.current = 0;
     const base = { score: e.score, etage: e.etage, colis: e.colis, cause: e.cause, nouveauRecord: false };
     setResultat(base);
+    setReprise(null);
+    effacerPartie(JEU, user?.id).catch(() => {});
     changerUi('fin');
     vibrer(true);
+    bruit('perdu');
     finDePartie(JEU, user?.id, e.score).then((r) => {
       if (!monteRef.current) return;
       setMeilleur(r.meilleur);
+      setNbParties((n) => n + 1);
+      if (r.nouveauRecord) bruit('record');
       setResultat((x) => (x === base ? { ...base, nouveauRecord: r.nouveauRecord } : x));
     }).catch(() => {});
   }, [changerUi, user?.id]);
@@ -306,9 +467,29 @@ export default function JeuSommetScreen({ navigation }) {
     partieRef.current = partieNeuve(visibleRef.current);
     dirRef.current = 0;
     setResultat(null);
+    setReprise(null);
+    effacerPartie(JEU, user?.id).catch(() => {});
     setClassementOuvert(false);
     changerUi('jeu');
-  }, [changerUi]);
+  }, [changerUi, user?.id]);
+
+  // Reprise : le livreur repart du trottoir en gardant étages et colis.
+  const reprendrePartie = useCallback(() => {
+    const sauvee = reprise;
+    const e = partieNeuve(visibleRef.current);
+    if (sauvee) {
+      e.etageBase = Math.max(0, Math.floor(sauvee.etage || 0));
+      e.colis = Math.max(0, Math.floor(sauvee.colis || 0));
+      e.etage = e.etageBase;
+      e.score = e.etageBase + e.colis * POINTS_COLIS;
+    }
+    partieRef.current = e;
+    dirRef.current = 0;
+    setReprise(null);
+    setResultat(null);
+    changerUi('jeu');
+  }, [reprise, changerUi]);
+  const recommencerPartie = useCallback(() => { jouer(); }, [jouer]);
 
   // Boucle de jeu : tourne seulement en phase « jeu ».
   useEffect(() => {
@@ -324,7 +505,7 @@ export default function JeuSommetScreen({ navigation }) {
       for (const ev of evts) {
         if (ev === 'colis' || ev === 'trampo' || ev === 'monte' || ev === 'pigeon') vibrer(false);
         else if (ev === 'touche') vibrer(true);
-        jouerSon(SONS_SOMMET[ev]);
+        bruit(SONS_SOMMET[ev]);
       }
       if (e.phase === 'fin') {
         terminer(e);
@@ -353,16 +534,15 @@ export default function JeuSommetScreen({ navigation }) {
     setTaille((x) => (Math.round(x.l) === Math.round(width) && Math.round(x.h) === Math.round(height) ? x : { l: width, h: height }));
   }, []);
 
-  // Commande : doigt maintenu à gauche ou à droite (le dernier doigt posé
-  // compte). Doigt levé : on lit les doigts restants, aucun = tout droit.
-  const largeurRef = useRef(0);
-  largeurRef.current = taille.l;
-  const toucher = useCallback((ev) => {
-    const touches = ev.nativeEvent.touches || [];
-    if (!touches.length) { dirRef.current = 0; return; }
-    const dernier = touches[touches.length - 1];
-    dirRef.current = dernier.pageX < largeurRef.current / 2 ? -1 : 1;
-  }, []);
+  // Commande au doigt : un balayage gauche ou droite fixe le cap (le livreur
+  // le garde), un appui le redresse. Aucune flèche à l'écran.
+  const balayage = useBalayage({
+    seuil: 22,
+    actif: ui === 'jeu',
+    onGauche: () => { dirRef.current = -1; },
+    onDroite: () => { dirRef.current = 1; },
+    onAppui: () => { dirRef.current = 0; },
+  });
 
   const e = partieRef.current;
   const cam = e && ui !== 'accueil' ? e.cam : 0;
@@ -370,21 +550,17 @@ export default function JeuSommetScreen({ navigation }) {
   const dernierRang = Math.floor((cam + visibleH) / ETAGE) + 1;
   const rangs = [];
   for (let r = premierRang; r <= dernierRang; r += 1) rangs.push(r);
-  const joueur = e && ui !== 'accueil' ? e.joueur : { x: MONDE_L / 2, y: 0, vx: 0, rot: 0 };
+  const joueur = e && ui !== 'accueil' ? e.joueur : { x: MONDE_L / 2, y: 0, vx: 0, vy: 0, rot: 0, regard: 1 };
   const enJeu = ui === 'jeu';
-  const hautHud = insets.top + 58;
+  const hautHud = insets.top + 118;
 
   return (
     <View style={[styles.ecran, { backgroundColor: dark ? '#14161B' : '#DCEBF7' }]}>
-      <SonJeux actif={ui === 'jeu'} />
+      <SonJeux jeu={JEU} actif={ui === 'jeu'} />
       {/* Zone de jeu : façade, plateformes, livreur, gêneurs */}
       <View
         style={StyleSheet.absoluteFill}
         onLayout={surMesure}
-        onTouchStart={enJeu ? toucher : undefined}
-        onTouchMove={enJeu ? toucher : undefined}
-        onTouchEnd={toucher}
-        onTouchCancel={toucher}
       >
         {taille.l > 0 && (
           <View pointerEvents="none" style={{ position: 'absolute', left: decalage, top: 0, width: largeurMonde, height: taille.h, overflow: 'hidden', backgroundColor: p.mur }}>
@@ -394,9 +570,10 @@ export default function JeuSommetScreen({ navigation }) {
               <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 24 * s, backgroundColor: p.trottoir }} />
               <View style={{ position: 'absolute', left: 0, right: 0, top: 24 * s, height: 400 * s, backgroundColor: p.route }} />
               {e && ui !== 'accueil' && e.plateformes.map((pl) => (
-                <Plateforme key={pl.id} type={pl.type} x={pl.x} y={pl.y} l={pl.l} rot={pl.rot} dechire={pl.dechire} s={s} p={p} />
+                <Plateforme key={pl.id} id={pl.id} type={pl.type} x={pl.x} y={pl.y} l={pl.l} rot={pl.rot} dechire={pl.dechire} s={s} p={p} />
               ))}
-              {e && ui !== 'accueil' && e.colisListe.map((c) => <Colis key={c.id} x={c.x} y={c.y} s={s} p={p} />)}
+              {e && ui !== 'accueil' && <Nuages cam={cam} s={s} dark={dark} />}
+              {e && ui !== 'accueil' && e.colisListe.map((c) => <Colis key={c.id} x={c.x} y={c.y} s={s} t={e.t} />)}
               {e && ui !== 'accueil' && e.pots.filter((pot) => pot.alerte <= 0).map((pot) => (
                 <View key={pot.id} style={{ position: 'absolute', left: (pot.x - 12) * s, top: -(pot.y + 22) * s, width: 24 * s, alignItems: 'center' }}>
                   <MaterialCommunityIcons name="flower-tulip" size={18 * s} color="#E0457B" />
@@ -411,10 +588,10 @@ export default function JeuSommetScreen({ navigation }) {
                   <MaterialCommunityIcons name="bird" size={34 * s} color={p.pigeon} />
                 </View>
               ))}
-              <Livreur x={joueur.x} y={joueur.y} rot={joueur.rot} vx={joueur.vx} s={s} />
+              <Livreur x={joueur.x} y={joueur.y} rot={joueur.rot} vx={joueur.vx} vy={joueur.vy || 0} regard={joueur.regard || 1} s={s} />
               {/* Copie du livreur au passage d'un bord */}
-              {joueur.x < JOUEUR_L && <Livreur x={joueur.x + MONDE_L} y={joueur.y} rot={joueur.rot} vx={joueur.vx} s={s} />}
-              {joueur.x > MONDE_L - JOUEUR_L && <Livreur x={joueur.x - MONDE_L} y={joueur.y} rot={joueur.rot} vx={joueur.vx} s={s} />}
+              {joueur.x < JOUEUR_L && <Livreur x={joueur.x + MONDE_L} y={joueur.y} rot={joueur.rot} vx={joueur.vx} vy={joueur.vy || 0} regard={joueur.regard || 1} s={s} />}
+              {joueur.x > MONDE_L - JOUEUR_L && <Livreur x={joueur.x - MONDE_L} y={joueur.y} rot={joueur.rot} vx={joueur.vx} vy={joueur.vy || 0} regard={joueur.regard || 1} s={s} />}
             </View>
             {/* Alerte : un pot va tomber ici */}
             {e && ui !== 'accueil' && e.pots.filter((pot) => pot.alerte > 0).map((pot) => (
@@ -431,13 +608,9 @@ export default function JeuSommetScreen({ navigation }) {
             <Text style={styles.annonceTexte}>{t(`jeuxSommetPiege${Math.min(e.palier, 4)}`)}</Text>
           </View>
         )}
-        {/* Repères de commande */}
-        {enJeu && (
-          <View pointerEvents="none" style={[styles.reperes, { bottom: insets.bottom + 14 }]}>
-            <Ionicons name="chevron-back-circle" size={38} color="rgba(255,255,255,0.55)" />
-            <Ionicons name="chevron-forward-circle" size={38} color="rgba(255,255,255,0.55)" />
-          </View>
-        )}
+        <IndiceGestes jeu={JEU} actif={enJeu} gestes={['gauche', 'droite', 'appui']} t={t} colors={colors} />
+        {/* Couche des gestes : tout l'écran */}
+        <View {...balayage.panHandlers} style={StyleSheet.absoluteFill} />
       </View>
 
       {/* Barre du haut : quitter, étage et score, pause */}
@@ -448,11 +621,6 @@ export default function JeuSommetScreen({ navigation }) {
         {ui !== 'accueil' && e ? (
           <View style={styles.infos} pointerEvents="none">
             <Text style={styles.etage}>{t('jeuxSommetEtage', { n: e.etage })}</Text>
-            <View style={styles.ligneScore}>
-              <Text style={styles.score}>{t('jeuScore', { n: e.score })}</Text>
-              <MaterialCommunityIcons name="package-variant-closed" size={15} color={colors.textMuted} style={{ marginLeft: 8 }} />
-              <Text style={styles.score}> {e.colis}</Text>
-            </View>
           </View>
         ) : <View style={{ flex: 1 }} />}
         <Pressable
@@ -466,6 +634,17 @@ export default function JeuSommetScreen({ navigation }) {
         </Pressable>
       </View>
 
+      {/* Rang, record et TOP 1, puis score et colis ramassés */}
+      <View style={[styles.bandeau, { top: insets.top + 58 }]} pointerEvents="none">
+        <BandeauClassement jeu={JEU} idLivreur={user?.id} score={e && ui !== 'accueil' ? e.score : 0} rafraichir={nbParties} t={t} colors={colors} />
+        {ui !== 'accueil' && e && (
+          <View style={styles.pastilles}>
+            <PastilleScore valeur={e.score} colors={colors} />
+            <PastilleScore valeur={e.colis} icone="cube" couleur="#C98A45" colors={colors} />
+          </View>
+        )}
+      </View>
+
       {/* Fenêtres : accueil, pause, fin de partie */}
       {ui !== 'jeu' && !alerteCourse && !classementOuvert && (
         <View style={styles.voile}>
@@ -477,6 +656,7 @@ export default function JeuSommetScreen({ navigation }) {
                 <Text style={styles.texte}>{t('jeuxSommetRegle')}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuxSommetRegle2')}</Text>
                 <Text style={styles.record}>{t('jeuMeilleurScore', { n: meilleur })}</Text>
+                <ReglagesSon t={t} colors={colors} />
                 <Bouton styles={styles} texte={t('jeuJouer')} onPress={jouer} />
                 <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton styles={styles} secondaire texte={t('jeuQuitter')} onPress={quitter} />
@@ -488,6 +668,7 @@ export default function JeuSommetScreen({ navigation }) {
                 <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                 {e && <Text style={styles.texte}>{t('jeuScore', { n: e.score })}</Text>}
                 <Text style={styles.texteDiscret}>{t('jeuMeilleurScore', { n: meilleur })}</Text>
+                <ReglagesSon t={t} colors={colors} />
                 <Bouton styles={styles} texte={t('jeuReprendre')} onPress={() => changerUi('jeu')} />
                 <Bouton styles={styles} secondaire texte={t('jeuxSommetRejouer')} onPress={jouer} />
                 <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
@@ -512,6 +693,9 @@ export default function JeuSommetScreen({ navigation }) {
             )}
           </View>
         </View>
+      )}
+      {reprise && ui === 'accueil' && !classementOuvert && !alerteCourse && (
+        <ReprisePartie t={t} colors={colors} score={reprise.score} onReprendre={reprendrePartie} onRecommencer={recommencerPartie} />
       )}
       {/* Classement : le jeu reste arrêté derrière. */}
       {classementOuvert && ui !== 'jeu' && !alerteCourse && (
@@ -562,18 +746,17 @@ const makeStyles = (c) => StyleSheet.create({
   rondPause: { backgroundColor: BRAND, borderColor: BRAND },
   infos: {
     flex: 1, alignSelf: 'center', alignItems: 'center', backgroundColor: c.card, borderRadius: 14,
-    paddingVertical: 4, paddingHorizontal: 12, borderWidth: 1, borderColor: c.border,
+    paddingVertical: 6, paddingHorizontal: 12, borderWidth: 1, borderColor: c.border,
   },
   etage: { color: c.text, fontSize: 17, fontWeight: '800' },
-  ligneScore: { flexDirection: 'row', alignItems: 'center', marginTop: 1 },
-  score: { color: c.textMuted, fontSize: 14, fontWeight: '600' },
+  bandeau: { position: 'absolute', left: 16, right: 16 },
+  pastilles: { flexDirection: 'row', gap: 8, marginTop: 8 },
   annonce: {
     position: 'absolute', left: 24, right: 24, alignItems: 'center', backgroundColor: c.card, borderRadius: 14,
     paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: OR,
   },
   annonceTitre: { color: c.text, fontSize: 17, fontWeight: '800' },
   annonceTexte: { color: c.textSoft, fontSize: 13, marginTop: 2, textAlign: 'center', lineHeight: 18 },
-  reperes: { position: 'absolute', left: 18, right: 18, flexDirection: 'row', justifyContent: 'space-between' },
   voile: {
     ...StyleSheet.absoluteFillObject, backgroundColor: c.overlay, alignItems: 'center', justifyContent: 'center', padding: 24,
   },
