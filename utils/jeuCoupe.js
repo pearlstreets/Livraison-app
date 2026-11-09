@@ -11,6 +11,11 @@
  * les téléphones. Le monde est muté sur place (boucle requestAnimationFrame
  * et gestes du doigt), aucun React ici.
  *
+ * Cœur doré : de temps en temps un cœur passe parmi les fruits ; le trancher
+ * rend une vie (3 au plus), le rater ne coûte rien. Rare au début, plus
+ * fréquent quand la difficulté monte et surtout quand il ne reste qu'une vie.
+ * Jamais proposé à pleine vie (il ne servirait à rien).
+ *
  * Phases : 'jeu', 'casse' (colis fragile tranché, tout se fige), 'perdu'
  * (dernière vie perdue, courte attente), 'fini'.
  *
@@ -27,9 +32,12 @@ export const VIES = 3;
 
 export const RAYON_FRUIT = 62; // fruits bien visibles (46 avant le 09/11)
 export const RAYON_FRAGILE = 56; // demi-côté du carton
+export const RAYON_COEUR = 58; // cœur doré
+export const VAGUES_ENTRE_COEURS = 3; // au moins 3 vagues entre deux cœurs
 // Tolérance de la lame : un peu généreuse sur les fruits, indulgente sur les colis.
 const MARGE_FRUIT = 1.12;
 const MARGE_FRAGILE = 0.8;
+const MARGE_COEUR = 1.2; // généreuse : le cœur est une récompense
 
 export const POINTS_FRUIT = 1;
 export const FENETRE_COMBO = 0.3; // s entre deux fruits tranchés d'un même geste
@@ -86,6 +94,19 @@ export function reglagesVague(v) {
   };
 }
 
+/**
+ * Chance qu'un cœur doré se joigne à la vague `v` quand il reste `vies` vies.
+ * 0 avant la vague 4 et à pleine vie ; ensuite 6 % qui montent avec la
+ * difficulté (jusqu'à 18 %), +5 % à 2 vies, +30 % à 1 vie.
+ */
+export function probaCoeur(v, vies) {
+  const n = Math.max(1, Math.floor(v));
+  if (n < 4 || vies >= VIES) return 0;
+  const p = borner((n - 1) / 30, 0, 1);
+  const urgence = vies <= 1 ? 0.3 : 0.05;
+  return Math.min(0.6, 0.06 + 0.12 * p + urgence);
+}
+
 export function creerMonde(largeur, graine = Date.now()) {
   return {
     largeur: Math.max(300, largeur || 500),
@@ -97,11 +118,13 @@ export function creerMonde(largeur, graine = Date.now()) {
     vague: 0,
     tranches: 0, // fruits tranchés
     rates: 0, // fruits retombés
+    coeurs: 0, // cœurs dorés tranchés
     meilleurCombo: 0,
     objets: [], // fruits et colis fragiles entiers
     morceaux: [], // moitiés de fruits qui retombent
     file: [], // départs prévus de la vague en cours { delai, type }
     tVague: 0,
+    vagueCoeur: -99, // dernière vague où un cœur est parti
     attente: 0.8, // avant la première vague
     gravite: 0,
     combo: { n: 0, dernier: 0, x: 0, y: 0 },
@@ -125,6 +148,14 @@ export function nouvelleVague(m, ev) {
     const nb = 1 + Math.floor(aleatoire(m) * r.maxFragiles);
     for (let i = 0; i < nb; i += 1) types.push('fragile');
   }
+  if (
+    m.vague - m.vagueCoeur > VAGUES_ENTRE_COEURS
+    && !m.objets.some((o) => o.type === 'coeur')
+    && aleatoire(m) < probaCoeur(m.vague, m.vies)
+  ) {
+    types.push('coeur');
+    m.vagueCoeur = m.vague;
+  }
   // Mélange (le colis peut partir avant, pendant ou après les fruits).
   for (let i = types.length - 1; i > 0; i -= 1) {
     const j = Math.floor(aleatoire(m) * (i + 1));
@@ -145,7 +176,7 @@ export function lancer(m, type) {
   const r = reglagesVague(m.vague);
   const l = m.largeur;
   const debutant = m.vague <= 2;
-  const rayon = type === 'fragile' ? RAYON_FRAGILE : RAYON_FRUIT;
+  const rayon = type === 'fragile' ? RAYON_FRAGILE : type === 'coeur' ? RAYON_COEUR : RAYON_FRUIT;
   // Départ et arrivée bornés : l'objet entier reste dans la largeur de l'écran.
   const bord = Math.min(rayon + 6, l / 2);
   const x0 = borner(l * (debutant ? 0.3 + aleatoire(m) * 0.4 : 0.12 + aleatoire(m) * 0.76), bord, l - bord);
@@ -165,8 +196,8 @@ export function lancer(m, type) {
     vx: (xFin - x0) / duree,
     vy: -g * demi,
     g,
-    rot: aleatoire(m) * 360,
-    vr: (aleatoire(m) - 0.5) * (type === 'fragile' ? 160 : 320),
+    rot: type === 'coeur' ? (aleatoire(m) - 0.5) * 30 : aleatoire(m) * 360,
+    vr: (aleatoire(m) - 0.5) * (type === 'fragile' ? 160 : type === 'coeur' ? 90 : 320),
   };
   m.prochainId += 1;
   m.gravite = g;
@@ -245,7 +276,7 @@ export function lame(m, ax, ay, bx, by) {
   const restants = [];
   let changement = false;
   for (const o of m.objets) {
-    const marge = o.type === 'fragile' ? MARGE_FRAGILE : MARGE_FRUIT;
+    const marge = o.type === 'fragile' ? MARGE_FRAGILE : o.type === 'coeur' ? MARGE_COEUR : MARGE_FRUIT;
     if (m.phase === 'jeu' && segmentTouche(ax, ay, bx, by, o.x, o.y, o.r * marge)) {
       changement = true;
       if (o.type === 'fragile') {
@@ -255,6 +286,11 @@ export function lame(m, ax, ay, bx, by) {
         ev.push({ type: 'casse', x: o.x, y: o.y, id: o.id });
         restants.push(o); // le carton reste affiché, fendu
         o.casse = true;
+      } else if (o.type === 'coeur') {
+        // Cœur doré tranché : une vie de plus (3 au plus), il disparaît.
+        m.vies = Math.min(VIES, m.vies + 1);
+        m.coeurs += 1;
+        ev.push({ type: 'vie', x: o.x, y: o.y, vies: m.vies });
       } else {
         couper(m, o, angle, ev);
       }
@@ -265,6 +301,22 @@ export function lame(m, ax, ay, bx, by) {
   m.objets = restants;
   if (changement) ev.push({ type: 'liste' });
   return ev;
+}
+
+/** État à sauvegarder (partie en cours, à la pause) : on repart au début de la vague. */
+export function etatSauvegarde(m) {
+  return { vague: Math.max(1, m.vague, m.vagueReprise || 0), score: m.score, vies: m.vies };
+}
+
+/** Monde repris d'une sauvegarde : même score, mêmes vies, la vague recommence. */
+export function mondeRepris(largeur, etat, graine = Date.now()) {
+  const m = creerMonde(largeur, graine);
+  const e = etat || {};
+  m.vagueReprise = Math.max(1, Math.floor(Number(e.vague) || 1));
+  m.vague = m.vagueReprise - 1;
+  m.score = Math.max(0, Math.floor(Number(e.score) || 0));
+  m.vies = borner(Math.floor(Number(e.vies) || VIES), 1, VIES);
+  return m;
 }
 
 /** Doigt levé : le combo du geste est clos. */

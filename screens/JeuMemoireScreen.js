@@ -12,8 +12,10 @@
  * (hooks/usePauseJeu.js) : arrière-plan, écran quitté, flèche retour pendant
  * la partie, nouvelle course ; le chrono s'arrête et les cartes sont masquées
  * pendant la pause. Son : musique propre au jeu et bruitages (components/SonJeux.js),
- * bandeau de classement en haut, reprise de la partie sauvegardée (24 h). Décor : la ville et le panneau Pearl Streets
- * (components/FondJeu.js).
+ * bandeau de classement en haut, reprise de la partie sauvegardée (24 h). En haut :
+ * niveau, score et paires trouvées (components/HudJeu.js). Cartes dessinées en
+ * code (components/FacesMemoire.js : dos Pearl Streets, faces thème livraison).
+ * Décor lumineux : ville et panneau Pearl Streets (components/DecorMemoire.js).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, Easing, useWindowDimensions } from 'react-native';
@@ -24,7 +26,10 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
-import FondJeu, { reserveBasVille } from '../components/FondJeu';
+import { reserveBasVille } from '../components/FondJeu';
+import DecorMemoire from '../components/DecorMemoire';
+import { Dessin, DosCarte } from '../components/FacesMemoire';
+import HudJeu from '../components/HudJeu';
 import SonJeux, { bruit } from '../components/SonJeux';
 import ReglagesSon from '../components/ReglagesSon';
 import BandeauClassement from '../components/BandeauClassement';
@@ -60,7 +65,9 @@ const VERT = '#2ecc71';
 const ROUGE = '#e74c3c';
 const ECART = 10;
 const PAS_CHRONO = 100; // ms entre deux mises à jour du chrono
-const DUREE_RETOURNEMENT = 280;
+const DUREE_RETOURNEMENT = 340;
+const TEXTE_CLAIR = '#16324A';
+const PIEDS_ENSEIGNE = 10;
 
 export default function JeuMemoireScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -79,6 +86,7 @@ export default function JeuMemoireScreen({ navigation }) {
   const [meilleur, setMeilleur] = useState(0);
   const [secondes, setSecondes] = useState(() => parametresNiveau(1).duree);
   const [zone, setZone] = useState({ l: 0, h: 0 });
+  const [ecran, setEcran] = useState({ l: 0, h: 0 });
   const [palier, setPalier] = useState(null); // { niveau, paires, points, temps, sansErreur, suivant }
   const [resultat, setResultat] = useState(null); // { score, niveau, paires, nouveauRecord }
   const [bulles, setBulles] = useState([]);
@@ -394,6 +402,13 @@ export default function JeuMemoireScreen({ navigation }) {
     setZone((z) => (z.l === l && z.h === h ? z : { l, h }));
   }, []);
 
+  const surEcran = useCallback((ev) => {
+    const { width, height } = ev.nativeEvent.layout;
+    const l = Math.round(width);
+    const h = Math.round(height);
+    setEcran((z) => (z.l === l && z.h === h ? z : { l, h }));
+  }, []);
+
   // Quitter en cours de partie : le score déjà gagné compte pour le record.
   const quitter = useCallback(() => {
     const p = phaseRef.current;
@@ -427,6 +442,8 @@ export default function JeuMemoireScreen({ navigation }) {
   const avantClassement = useCallback(() => envoyerRecordEnAttente(JEU, user?.id), [user?.id]);
 
   const enJeu = phase === 'jeu';
+  const pairesTrouvees = cartes.filter((c) => c.trouvee).length / 2;
+  const pairesTotal = cartes.length / 2;
   const grilleVisible = phase === 'jeu' || phase === 'palier';
   const grille = useMemo(() => dispositionGrille(cartes.length || 4, zone.l, Math.max(0, zone.h - ECART), ECART), [cartes.length, zone]);
   const largeurGrille = grille.colonnes * grille.largeur + (grille.colonnes - 1) * ECART;
@@ -434,21 +451,21 @@ export default function JeuMemoireScreen({ navigation }) {
   const largeurBarre = progression.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'], extrapolate: 'clamp' });
 
   return (
-    <View style={[styles.ecran, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }]}>
-      {/* Décor : la ville et le panneau Pearl Streets, sous la grille */}
-      <FondJeu variante="ville" dark={dark} bas={insets.bottom} />
+    <View style={[styles.ecran, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }]} onLayout={surEcran}>
+      {/* Décor lumineux : la ville et le panneau Pearl Streets, sous la grille */}
+      <DecorMemoire l={ecran.l} h={ecran.h} bas={insets.bottom} largeurEnseigne={Math.min(170, ecran.l * 0.44)} piedsEnseigne={PIEDS_ENSEIGNE} />
       <SonJeux jeu={JEU} actif={phase === 'jeu'} />
       {/* Barre du haut : quitter, niveau et score, pause */}
       <View style={styles.haut}>
         <Pressable onPress={quitter} style={styles.rond} hitSlop={10} accessibilityLabel={t('jeuQuitter')}>
           <Ionicons name="close" size={22} color={colors.text} />
         </Pressable>
-        <View style={styles.pastille}>
-          <Text style={styles.pastilleNiveau}>{t('jeuNiveauCourt', { n: niveau })}</Text>
-          <View style={styles.pastilleSeparateur} />
-          <Ionicons name="star" size={14} color={OR} />
-          <Text style={styles.pastilleTexte}>{score}</Text>
-        </View>
+        <HudJeu
+          colors={colors}
+          score={score}
+          niveauLibelle={t('jeuNiveauCourt', { n: niveau })}
+          objets={{ n: pairesTrouvees, total: pairesTotal, icone: 'copy' }}
+        />
         <Pressable
           onPress={pause}
           disabled={!enJeu}
@@ -465,7 +482,7 @@ export default function JeuMemoireScreen({ navigation }) {
 
       {/* Chrono du niveau */}
       <View style={styles.chrono}>
-        <Ionicons name="time" size={18} color={pressee && enJeu ? ROUGE : colors.textSoft} />
+        <Ionicons name="time" size={18} color={pressee && enJeu ? ROUGE : TEXTE_CLAIR} />
         <View style={styles.barreFond}>
           <Animated.View style={[styles.barre, { width: largeurBarre, backgroundColor: pressee ? ROUGE : BRAND }]} />
         </View>
@@ -492,7 +509,7 @@ export default function JeuMemoireScreen({ navigation }) {
         )}
         {phase === 'pause' && (
           <View style={styles.cache}>
-            <Ionicons name="eye-off" size={40} color={colors.textMuted} />
+            <Ionicons name="eye-off" size={40} color={TEXTE_CLAIR} />
           </View>
         )}
         <View pointerEvents="none" style={styles.bulles}>
@@ -628,7 +645,7 @@ const Carte = memo(function Carte({ carte, visible, largeur, hauteur, marge, onR
     opacity: rot.interpolate({ inputRange: [0, 0.5, 0.501, 1], outputRange: [0, 0, 1, 1] }),
     transform: [{ perspective: 900 }, { rotateY: rot.interpolate({ inputRange: [0, 1], outputRange: ['180deg', '360deg'] }) }],
   };
-  const icone = Math.min(largeur, hauteur) * 0.5;
+  const illustration = Math.min(largeur, hauteur) * 0.74;
 
   return (
     <Pressable
@@ -637,18 +654,16 @@ const Carte = memo(function Carte({ carte, visible, largeur, hauteur, marge, onR
       accessibilityRole="button"
     >
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ scale: pop }] }]}>
-        <Animated.View style={[styles.faceCarte, styles.dos, dos]}>
-          <View style={styles.dosCadre}>
-            <Ionicons name="cube" size={icone * 0.7} color="rgba(255,255,255,0.9)" />
-          </View>
+        <Animated.View style={[styles.faceCarte, dos]}>
+          <DosCarte largeur={largeur} hauteur={hauteur} />
         </Animated.View>
         <Animated.View
-          style={[styles.faceCarte, styles.face, carte.trouvee && { borderColor: VERT, borderWidth: 2 }, face]}
+          style={[styles.faceCarte, styles.face, carte.trouvee && { borderColor: VERT, borderWidth: 3 }, face]}
         >
-          <Ionicons name={carte.icone} size={icone} color={carte.couleur} />
+          <Dessin icone={carte.icone} couleur={carte.couleur} taille={illustration} />
           {carte.trouvee && (
             <View style={styles.coche}>
-              <Ionicons name="checkmark-circle" size={Math.max(14, icone * 0.32)} color={VERT} />
+              <Ionicons name="checkmark-circle" size={Math.max(16, illustration * 0.28)} color={VERT} />
             </View>
           )}
         </Animated.View>
@@ -716,17 +731,10 @@ const makeStyles = (c, dark) => StyleSheet.create({
     backgroundColor: c.card, borderWidth: 1, borderColor: c.border,
   },
   rondPause: { backgroundColor: BRAND, borderColor: BRAND },
-  pastille: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.card, borderRadius: 16,
-    paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: c.border,
-  },
-  pastilleNiveau: { color: BRAND, fontWeight: '800', fontSize: 15 },
-  pastilleSeparateur: { width: 1, height: 14, backgroundColor: c.border, marginHorizontal: 2 },
-  pastilleTexte: { color: c.text, fontWeight: '800', fontSize: 15 },
   chrono: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
   barreFond: { flex: 1, height: 10, borderRadius: 5, backgroundColor: dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)', overflow: 'hidden' },
   barre: { height: '100%', borderRadius: 5 },
-  chronoTexte: { color: c.text, fontWeight: '800', fontSize: 15, minWidth: 26, textAlign: 'right' },
+  chronoTexte: { color: TEXTE_CLAIR, fontWeight: '800', fontSize: 15, minWidth: 26, textAlign: 'right' },
   zone: { flex: 1, marginTop: 16, alignItems: 'center', justifyContent: 'center' },
   grille: { flexDirection: 'row', flexWrap: 'wrap' },
   cache: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
@@ -736,12 +744,7 @@ const makeStyles = (c, dark) => StyleSheet.create({
     backfaceVisibility: 'hidden',
     shadowColor: '#000', shadowOpacity: dark ? 0.4 : 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 3,
   },
-  dos: { backgroundColor: BRAND, padding: 6 },
-  dosCadre: {
-    flex: 1, alignSelf: 'stretch', borderRadius: 10, borderWidth: 2, borderColor: 'rgba(255,255,255,0.55)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  face: { backgroundColor: c.card, borderWidth: 1, borderColor: c.border },
+  face: { backgroundColor: '#FFFFFF', borderWidth: 2, borderColor: '#D5DEE9' },
   coche: { position: 'absolute', top: 6, right: 6 },
   voile: {
     ...StyleSheet.absoluteFillObject, backgroundColor: c.overlay, alignItems: 'center', justifyContent: 'center', padding: 24,

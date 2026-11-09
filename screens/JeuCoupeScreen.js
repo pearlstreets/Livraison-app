@@ -12,8 +12,14 @@
  * Logique pure dans utils/jeuCoupe.js. Boucle requestAnimationFrame, état
  * dans des refs, dessin par Animated.Value.setValue (aucun rendu React à
  * chaque image). Pause automatique (hooks/usePauseJeu.js) : arrière-plan,
- * écran quitté, flèche retour pendant la partie, nouvelle course. Aucun son.
- * Décor : étal du primeur avec l'enseigne Pearl Streets (components/FondJeu.js).
+ * écran quitté, flèche retour pendant la partie, nouvelle course.
+ * Cœur doré : un cœur passe parfois parmi les fruits, le trancher rend une vie
+ * (3 au plus), le rater ne coûte rien.
+ * Son : musique propre au jeu et bruitages (components/SonJeux.js). Partie
+ * sauvegardée à la pause et reprise possible pendant 24 h. En haut : score,
+ * vague, vies (components/HudJeu.js), rang, record et TOP 1.
+ * Décor lumineux : ciel, rue et scooter de livraison, étal du primeur avec
+ * l'enseigne Pearl Streets (components/DecorCoupe.js).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, Easing } from 'react-native';
@@ -24,11 +30,17 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
-import FondJeu from '../components/FondJeu';
+import DecorCoupe from '../components/DecorCoupe';
+import SonJeux, { bruit } from '../components/SonJeux';
+import ReglagesSon from '../components/ReglagesSon';
+import BandeauClassement from '../components/BandeauClassement';
+import ReprisePartie from '../components/ReprisePartie';
+import HudJeu from '../components/HudJeu';
+import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
   HAUTEUR, VIES, FRUITS, POINTS_FRUIT,
-  creerMonde, changerLargeur, avancer, lame, finGeste,
+  creerMonde, changerLargeur, avancer, lame, finGeste, etatSauvegarde, mondeRepris,
 } from '../utils/jeuCoupe';
 
 // Vibration légère : module natif facultatif, le jeu marche sans.
@@ -52,14 +64,15 @@ function vibrer(fort) {
 
 const OR = '#F2B705';
 const ROUGE = '#E74C3C';
+const JEU = 'coupe';
+const FOND_ECRAN = '#BFE8FF'; // ciel, avant que le décor ne soit mesuré
+const TEXTE_CLAIR = '#16324A'; // texte posé sur le décor lumineux
+const OR_COEUR = '#FFC83D';
 const NB_SEGMENTS = 12; // morceaux de la trace de lame
 const DUREE_TRACE = 150; // ms de trace visible derrière le doigt
 
-// Fond : planche à découper (étal du primeur).
-const PALETTE = {
-  clair: { fond: '#F1DEC0', latte: '#E6CDA6', trace: '#FFFFFF', halo: 'rgba(255,255,255,0.45)' },
-  sombre: { fond: '#2A2018', latte: '#33271D', trace: '#FFF6D6', halo: 'rgba(255,246,214,0.35)' },
-};
+// Trace de lame : cœur blanc, lisere orange et halo doré, lisible sur le ciel clair.
+const TRACE = { coeur: '#FFFFFF', lisere: '#FF8A00', halo: '#FFB300' };
 
 function instantane(o, genre) {
   return { id: o.id, genre, sorte: o.sorte, cote: o.cote || 0, r: o.r, casse: !!o.casse };
@@ -71,7 +84,6 @@ export default function JeuCoupeScreen({ navigation }) {
   const { colors, dark } = useTheme();
   const { user } = useAuth();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const pal = dark ? PALETTE.sombre : PALETTE.clair;
 
   const [phase, setPhase] = useState('accueil'); // accueil, jeu, pause, reprise, fin
   const phaseRef = useRef('accueil');
@@ -86,6 +98,8 @@ export default function JeuCoupeScreen({ navigation }) {
   const [jus, setJus] = useState([]);
   const [eclats, setEclats] = useState(null);
   const [classementOuvert, setClassementOuvert] = useState(false);
+  const [reprise, setReprise] = useState(null); // partie sauvegardée proposée à l'ouverture
+  const [nbParties, setNbParties] = useState(0); // fait recharger le bandeau de classement
 
   const mondeRef = useRef(null);
   const kRef = useRef(1);
@@ -198,12 +212,12 @@ export default function JeuCoupeScreen({ navigation }) {
   const retirerBulle = useCallback((id) => {
     if (monteRef.current) setBulles((b) => b.filter((x) => x.id !== id));
   }, []);
-  const ajouterJus = useCallback((xU, yU, couleur) => {
+  const ajouterJus = useCallback((xU, yU, couleur, angle = 0, gros = false) => {
     if (!monteRef.current) return;
     idEffetRef.current += 1;
     const id = idEffetRef.current;
     const k = kRef.current;
-    setJus((j) => [...j.slice(-9), { id, couleur, x: xU * k, y: yU * k }]);
+    setJus((j) => [...j.slice(-5), { id, couleur, angle, gros, x: xU * k, y: yU * k }]);
   }, []);
   const retirerJus = useCallback((id) => {
     if (monteRef.current) setJus((j) => j.filter((x) => x.id !== id));
@@ -221,9 +235,13 @@ export default function JeuCoupeScreen({ navigation }) {
     };
     if (monteRef.current) setResultat(res);
     changerPhase('fin');
-    finDePartie('coupe', user?.id, res.score).then((r) => {
+    effacerPartie(JEU, user?.id); // jamais de reprise après une partie perdue
+    bruit('perdu');
+    finDePartie(JEU, user?.id, res.score).then((r) => {
       if (!monteRef.current) return;
       setMeilleur(r.meilleur);
+      setNbParties((n) => n + 1);
+      if (r.nouveauRecord) bruit('record');
       setResultat((x) => (x ? { ...x, nouveauRecord: r.nouveauRecord } : x));
     }).catch(() => {});
   }, [arreterBoucle, changerPhase, effacerTrace, user?.id]);
@@ -237,19 +255,30 @@ export default function JeuCoupeScreen({ navigation }) {
       if (e.type === 'liste') changementListe = true;
       else if (e.type === 'tranche') {
         points = true;
-        ajouterJus(e.x, e.y, FRUITS[e.sorte]?.jus || ROUGE);
+        bruit('tranche');
+        ajouterJus(e.x, e.y, FRUITS[e.sorte]?.jus || ROUGE, e.angle);
+      } else if (e.type === 'vie') {
+        vibrer(false);
+        bruit('vie');
+        if (monteRef.current) setVies(e.vies);
+        ajouterJus(e.x, e.y, OR_COEUR, 0, true);
+        ajouterBulle('+1', OR_COEUR, e.x, e.y - 100, 'heart');
       } else if (e.type === 'combo') {
         points = true;
         vibrer(false);
+        bruit('bonus');
         ajouterBulle(t('jeuxCoupeCombo', { n: e.n, bonus: e.bonus }), OR, e.x, e.y - 90);
       } else if (e.type === 'rate') {
         vibrer(false);
+        bruit('rate');
         if (monteRef.current) setVies(e.vies);
         ajouterBulle('', ROUGE, e.x, HAUTEUR - 130, 'heart-dislike');
       } else if (e.type === 'vague') {
         if (monteRef.current) setVague(e.n);
+        sauverPartie(JEU, user?.id, etatSauvegarde(m));
       } else if (e.type === 'casse') {
         vibrer(true);
+        bruit('choc');
         const k = kRef.current;
         if (monteRef.current) setEclats({ x: e.x * k, y: e.y * k, n: Date.now() });
         flash.setValue(0.75);
@@ -260,7 +289,7 @@ export default function JeuCoupeScreen({ navigation }) {
     }
     if (changementListe) synchroniserListe();
     if (points && monteRef.current) setScore(m.score);
-  }, [ajouterBulle, ajouterJus, flash, synchroniserListe, t, terminer]);
+  }, [ajouterBulle, ajouterJus, flash, synchroniserListe, t, terminer, user?.id]);
 
   const boucleRef = useRef(null);
   boucleRef.current = (ts) => {
@@ -281,31 +310,51 @@ export default function JeuCoupeScreen({ navigation }) {
     rafRef.current = requestAnimationFrame((x) => boucleRef.current(x));
   }, []);
 
-  const nouveauMonde = useCallback(() => {
+  const nouveauMonde = useCallback((etat) => {
     const k = kRef.current;
-    mondeRef.current = creerMonde(tailleRef.current.l / k, Date.now());
+    mondeRef.current = etat
+      ? mondeRepris(tailleRef.current.l / k, etat, Date.now())
+      : creerMonde(tailleRef.current.l / k, Date.now());
     animsRef.current = new Map();
     synchroniserListe();
     dessiner();
   }, [dessiner, synchroniserListe]);
 
-  const jouer = useCallback(() => {
+  // Nouvelle partie (etat nul) ou partie reprise (etat sauvegardé : on attend un toucher).
+  const demarrer = useCallback((etat) => {
     if (!tailleRef.current.h) return;
     arreterBoucle();
     effacerTrace();
     termineRef.current = false;
-    nouveauMonde();
-    setScore(0);
-    setVies(VIES);
-    setVague(0);
+    if (!etat) effacerPartie(JEU, user?.id);
+    nouveauMonde(etat);
+    const m = mondeRef.current;
+    setScore(m.score);
+    setVies(m.vies);
+    setVague(m.vague);
     setResultat(null);
     setBulles([]);
     setJus([]);
     setEclats(null);
     setClassementOuvert(false);
-    changerPhase('jeu');
-    demarrerBoucle();
-  }, [arreterBoucle, changerPhase, demarrerBoucle, effacerTrace, nouveauMonde]);
+    if (etat) {
+      changerPhase('reprise');
+    } else {
+      changerPhase('jeu');
+      demarrerBoucle();
+    }
+  }, [arreterBoucle, changerPhase, demarrerBoucle, effacerTrace, nouveauMonde, user?.id]);
+  const jouer = useCallback(() => demarrer(null), [demarrer]);
+
+  const reprendrePartie = useCallback(() => {
+    const p = reprise;
+    setReprise(null);
+    if (p) demarrer(p);
+  }, [demarrer, reprise]);
+  const recommencerPartie = useCallback(() => {
+    effacerPartie(JEU, user?.id);
+    setReprise(null);
+  }, [user?.id]);
 
   // Doigt : la lame tranche dès le mouvement, sans attendre la boucle.
   const pointDoigt = useCallback((ev) => {
@@ -351,12 +400,13 @@ export default function JeuCoupeScreen({ navigation }) {
       terminer();
     } else if (p === 'jeu' || p === 'reprise') {
       arreterBoucle();
+      if (m) sauverPartie(JEU, user?.id, etatSauvegarde(m));
       if (m) traiter(finGeste(m));
       effacerTrace();
       dessiner();
       changerPhase('pause');
     }
-  }, [arreterBoucle, changerPhase, dessiner, effacerTrace, terminer, traiter]);
+  }, [arreterBoucle, changerPhase, dessiner, effacerTrace, terminer, traiter, user?.id]);
   const enJeu = phase === 'jeu' || phase === 'reprise';
   const estEnJeu = useCallback(() => phaseRef.current === 'jeu' || phaseRef.current === 'reprise', []);
   // Retour avec le classement ouvert depuis la pause : il se ferme, la partie reste en pause.
@@ -376,7 +426,15 @@ export default function JeuCoupeScreen({ navigation }) {
 
   useEffect(() => {
     let vivant = true;
-    chargerRecord('coupe', user?.id).then((r) => { if (vivant) setMeilleur(r.meilleur); }).catch(() => {});
+    chargerRecord(JEU, user?.id).then((r) => { if (vivant) setMeilleur(r.meilleur); }).catch(() => {});
+    return () => { vivant = false; };
+  }, [user?.id]);
+
+  useEffect(() => {
+    let vivant = true;
+    chargerPartie(JEU, user?.id).then((p) => {
+      if (vivant && p && (p.score > 0 || p.vague > 1)) setReprise(p);
+    }).catch(() => {});
     return () => { vivant = false; };
   }, [user?.id]);
 
@@ -419,16 +477,16 @@ export default function JeuCoupeScreen({ navigation }) {
     navigation.navigate('Accueil', { screen: 'OrdersMain' });
   }, [fermerAlerte, navigation, pause]);
 
-  const avantClassement = useCallback(() => envoyerRecordEnAttente('coupe', user?.id), [user?.id]);
+  const avantClassement = useCallback(() => envoyerRecordEnAttente(JEU, user?.id), [user?.id]);
 
   const k = kRef.current;
-  const lattes = taille.h ? Math.ceil(taille.h / 90) : 0;
 
   return (
-    <View style={[styles.ecran, { backgroundColor: pal.fond }]}>
+    <View style={[styles.ecran, { backgroundColor: FOND_ECRAN }]}>
+      <SonJeux jeu={JEU} actif={phase === 'jeu'} />
       {/* Monde : toute la hauteur sauf la zone basse du téléphone */}
       <View
-        style={[styles.monde, { backgroundColor: pal.fond, marginBottom: insets.bottom }]}
+        style={[styles.monde, { backgroundColor: FOND_ECRAN, marginBottom: insets.bottom }]}
         onLayout={surMesure}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
@@ -440,15 +498,11 @@ export default function JeuCoupeScreen({ navigation }) {
       >
         {taille.h > 0 && (
           <>
-            {/* Planche à découper */}
-            {Array.from({ length: lattes }).map((_, i) => (
-              <View key={i} pointerEvents="none" style={[styles.latte, { top: i * 90 + 88, backgroundColor: pal.latte }]} />
-            ))}
-            {/* Étal du primeur : banne, enseigne Pearl Streets, cagettes */}
-            <FondJeu variante="marche" dark={dark} haut={insets.top} />
+            {/* Décor lumineux : ciel, rue et scooter, étal du primeur et enseigne Pearl Streets */}
+            <DecorCoupe l={taille.l} h={taille.h} haut={insets.top} />
 
             {jus.map((j) => (
-              <Eclaboussure key={j.id} id={j.id} x={j.x} y={j.y} couleur={j.couleur} taille={124 * k} onFin={retirerJus} />
+              <Eclaboussure key={j.id} id={j.id} x={j.x} y={j.y} couleur={j.couleur} angle={j.angle} gros={j.gros} taille={(j.gros ? 190 : 150) * k} onFin={retirerJus} />
             ))}
 
             {liste.map((o) => {
@@ -456,6 +510,7 @@ export default function JeuCoupeScreen({ navigation }) {
               if (!a) return null;
               if (o.genre === 'moitie') return <Moitie key={o.id} o={o} a={a} k={k} />;
               if (o.genre === 'fragile') return <ColisFragile key={o.id} o={o} a={a} k={k} />;
+              if (o.genre === 'coeur') return <Coeur key={o.id} o={o} a={a} k={k} />;
               return <Fruit key={o.id} o={o} a={a} k={k} />;
             })}
 
@@ -468,8 +523,8 @@ export default function JeuCoupeScreen({ navigation }) {
                   key={i}
                   pointerEvents="none"
                   style={[styles.segment, {
-                    height: ep, marginTop: -ep / 2, borderRadius: ep / 2, backgroundColor: pal.trace,
-                    shadowColor: pal.trace, opacity: s.op,
+                    height: ep, marginTop: -ep / 2, borderRadius: ep / 2, backgroundColor: TRACE.coeur,
+                    borderWidth: 1.5, borderColor: TRACE.lisere, shadowColor: TRACE.halo, opacity: s.op,
                     transform: [{ translateX: s.x }, { translateY: s.y }, { rotate: rotation }, { scaleX: s.sx }],
                   }]}
                 />
@@ -486,40 +541,40 @@ export default function JeuCoupeScreen({ navigation }) {
 
             {phase === 'reprise' && (
               <View pointerEvents="none" style={[styles.consigne, { top: taille.h * 0.6 }]}>
-                <MaterialCommunityIcons name="gesture-swipe" size={34} color={dark ? '#fff' : colors.text} />
-                <Text style={[styles.consigneTexte, { color: dark ? '#fff' : colors.text }]}>{t('jeuxCoupeToucherReprendre')}</Text>
+                <MaterialCommunityIcons name="gesture-swipe" size={34} color={TEXTE_CLAIR} />
+                <Text style={[styles.consigneTexte, { color: TEXTE_CLAIR }]}>{t('jeuxCoupeToucherReprendre')}</Text>
               </View>
             )}
           </>
         )}
       </View>
 
-      {/* Barre du haut : quitter, score, vies, pause (au-dessus du monde, hors zone de geste) */}
+      {/* Haut : quitter, vague, score et vies, pause, puis rang, record et TOP 1 (au-dessus du monde, hors zone de geste) */}
       <View pointerEvents="box-none" style={[styles.haut, { top: insets.top + 8 }]}>
-        <Pressable onPress={quitter} style={styles.rond} hitSlop={10} accessibilityLabel={t('jeuQuitter')}>
-          <Ionicons name="close" size={22} color={colors.text} />
-        </Pressable>
-        <View pointerEvents="none" style={styles.centreHaut}>
-          <View style={styles.pastille}>
-            <Ionicons name="nutrition" size={15} color={ROUGE} />
-            <Text style={styles.pastilleTexte}>{score}</Text>
+        <View pointerEvents="box-none" style={styles.rangeeHaut}>
+          <Pressable onPress={quitter} style={styles.rond} hitSlop={10} accessibilityLabel={t('jeuQuitter')}>
+            <Ionicons name="close" size={22} color={colors.text} />
+          </Pressable>
+          <View pointerEvents="none" style={styles.centreHaut}>
+            <HudJeu
+              colors={colors}
+              score={score}
+              niveauLibelle={vague > 0 ? t('jeuxCoupeVague', { n: vague }) : undefined}
+              vies={vies}
+              viesMax={VIES}
+            />
           </View>
-          {vague > 0 && <Text style={styles.vague}>{t('jeuxCoupeVague', { n: vague })}</Text>}
+          <Pressable
+            onPress={pause}
+            disabled={!enJeu}
+            style={[styles.rond, styles.rondPause, !enJeu && { opacity: 0.4 }]}
+            hitSlop={10}
+            accessibilityLabel={t('jeuPause')}
+          >
+            <Ionicons name="pause" size={22} color="#fff" />
+          </Pressable>
         </View>
-        <View pointerEvents="none" style={styles.vies}>
-          {Array.from({ length: VIES }).map((_, i) => (
-            <Ionicons key={i} name={i < vies ? 'heart' : 'heart-outline'} size={19} color={colors.danger} />
-          ))}
-        </View>
-        <Pressable
-          onPress={pause}
-          disabled={!enJeu}
-          style={[styles.rond, styles.rondPause, !enJeu && { opacity: 0.4 }]}
-          hitSlop={10}
-          accessibilityLabel={t('jeuPause')}
-        >
-          <Ionicons name="pause" size={22} color="#fff" />
-        </Pressable>
+        <BandeauClassement jeu={JEU} idLivreur={user?.id} score={score} rafraichir={nbParties} t={t} colors={colors} style={{ marginTop: 8 }} />
       </View>
 
       {/* Fenêtres : accueil, pause, fin */}
@@ -538,7 +593,12 @@ export default function JeuCoupeScreen({ navigation }) {
                   <Text style={[styles.texteDiscret, styles.texteFragile]}>{t('jeuxCoupeFragile')}</Text>
                 </View>
                 <Text style={styles.texteDiscret}>{t('jeuxCoupeBonus', { n: POINTS_FRUIT })}</Text>
+                <View style={styles.ligneFragile}>
+                  <Ionicons name="heart" size={20} color={OR_COEUR} />
+                  <Text style={[styles.texteDiscret, styles.texteFragile]}>{t('jeuxCoupeCoeur')}</Text>
+                </View>
                 <Text style={styles.texteDiscret}>{t('jeuMeilleurScore', { n: meilleur })}</Text>
+                <ReglagesSon t={t} colors={colors} compact />
                 <Bouton styles={styles} texte={t('jeuJouer')} onPress={jouer} desactive={!taille.h} />
                 <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton styles={styles} secondaire texte={t('jeuQuitter')} onPress={quitter} />
@@ -550,6 +610,7 @@ export default function JeuCoupeScreen({ navigation }) {
                 <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                 <Text style={styles.texte}>{t('jeuScore', { n: score })}</Text>
                 {vague > 0 && <Text style={styles.texteDiscret}>{t('jeuxCoupeVague', { n: vague })}</Text>}
+                <ReglagesSon t={t} colors={colors} compact />
                 <Bouton styles={styles} texte={t('jeuReprendre')} onPress={reprendre} />
                 <Bouton styles={styles} secondaire texte={t('jeuxCoupeRejouer')} onPress={jouer} />
                 <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
@@ -592,6 +653,9 @@ export default function JeuCoupeScreen({ navigation }) {
           />
         </View>
       )}
+      {phase === 'accueil' && reprise && !classementOuvert && !alerteCourse && (
+        <ReprisePartie t={t} colors={colors} niveau={reprise.vague} score={reprise.score} onReprendre={reprendrePartie} onRecommencer={recommencerPartie} />
+      )}
       {alerteCourse && (
         <View style={styles.voile}>
           <View style={styles.carte}>
@@ -620,6 +684,7 @@ const Fruit = memo(function Fruit({ o, a, k }) {
       pointerEvents="none"
       style={[styles2.objet, { left: -d / 2, top: -d / 2, width: d, height: d, transform: [{ translateX: a.x }, { translateY: a.y }, { rotate }] }]}
     >
+      <View style={[styles2.halo, { width: d * 0.92, height: d * 0.92, borderRadius: d * 0.46 }]} />
       <Text style={[styles2.emoji, { fontSize: d * 0.8, lineHeight: d }]}>{FRUITS[o.sorte]?.emoji}</Text>
     </Animated.View>
   );
@@ -640,8 +705,14 @@ const Moitie = memo(function Moitie({ o, a, k }) {
       </View>
       <View
         style={[styles2.chair, {
-          [gauche ? 'right' : 'left']: 0, top: d * 0.18, bottom: d * 0.18, width: Math.max(2, 4 * k),
-          backgroundColor: FRUITS[o.sorte]?.jus || ROUGE,
+          [gauche ? 'right' : 'left']: 0, top: d * 0.14, bottom: d * 0.14, width: Math.max(3, 7 * k),
+          backgroundColor: '#FFF6E0',
+        }]}
+      />
+      <View
+        style={[styles2.chair, {
+          [gauche ? 'right' : 'left']: Math.max(1, 1.5 * k), top: d * 0.2, bottom: d * 0.2, width: Math.max(2, 4 * k),
+          backgroundColor: FRUITS[o.sorte]?.jus || ROUGE, opacity: 1,
         }]}
       />
     </Animated.View>
@@ -670,21 +741,56 @@ const ColisFragile = memo(function ColisFragile({ o, a, k }) {
   );
 });
 
-// Éclaboussure de jus : tache qui s'estompe et gouttes projetées.
-const GOUTTES = Array.from({ length: 8 }, (_, i) => {
-  const angle = (i / 8) * Math.PI * 2 + (i % 2 ? 0.3 : -0.2);
-  return { dx: Math.cos(angle), dy: Math.sin(angle), loin: 0.6 + ((i * 37) % 10) / 20, taille: 0.11 + (i % 3) * 0.035 };
+// Cœur doré : liseré brun, cœur or, reflet blanc, halo qui pulse et petites étoiles.
+const Coeur = memo(function Coeur({ o, a, k }) {
+  const d = o.r * 2 * k;
+  const rotate = useRotation(a);
+  const pouls = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const boucle = Animated.loop(Animated.sequence([
+      Animated.timing(pouls, { toValue: 1, duration: 520, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(pouls, { toValue: 0, duration: 520, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    boucle.start();
+    return () => boucle.stop();
+  }, [pouls]);
+  const echelle = pouls.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.18] });
+  const opacite = pouls.interpolate({ inputRange: [0, 1], outputRange: [0.75, 0.3] });
+  const coeur = pouls.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] });
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles2.objet, { left: -d / 2, top: -d / 2, width: d, height: d, transform: [{ translateX: a.x }, { translateY: a.y }, { rotate }] }]}
+    >
+      <Animated.View style={[styles2.haloCoeur, { width: d * 1.15, height: d * 1.15, borderRadius: d * 0.58, opacity: opacite, transform: [{ scale: echelle }] }]} />
+      <Animated.View style={{ alignItems: 'center', justifyContent: 'center', transform: [{ scale: coeur }] }}>
+        <Ionicons name="heart" size={d * 0.98} color="#9A5B12" />
+        <Ionicons name="heart" size={d * 0.82} color={OR_COEUR} style={styles2.surcouche} />
+        <View style={[styles2.reflet, { left: d * 0.27, top: d * 0.26, width: d * 0.2, height: d * 0.11, borderRadius: d * 0.06 }]} />
+      </Animated.View>
+      <MaterialCommunityIcons name="star-four-points" size={d * 0.26} color="#FFFFFF" style={{ position: 'absolute', right: -d * 0.02, top: -d * 0.04 }} />
+      <MaterialCommunityIcons name="star-four-points" size={d * 0.18} color="#FFF3B0" style={{ position: 'absolute', left: d * 0.02, bottom: d * 0.04 }} />
+    </Animated.View>
+  );
 });
-function Eclaboussure({ id, x, y, couleur, taille, onFin }) {
+
+// Éclaboussure de jus : tache, balafre le long de la lame et gouttes projetées.
+const GOUTTES = Array.from({ length: 14 }, (_, i) => {
+  const angle = (i / 14) * Math.PI * 2 + (i % 2 ? 0.25 : -0.18);
+  return { dx: Math.cos(angle), dy: Math.sin(angle), loin: 0.55 + ((i * 37) % 10) / 16, taille: 0.06 + ((i * 5) % 4) * 0.032 };
+});
+function Eclaboussure({ id, x, y, couleur, angle = 0, gros = false, taille, onFin }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const anim = Animated.timing(v, { toValue: 1, duration: 650, easing: Easing.out(Easing.quad), useNativeDriver: true });
+    const anim = Animated.timing(v, { toValue: 1, duration: gros ? 900 : 700, easing: Easing.out(Easing.quad), useNativeDriver: true });
     anim.start(() => onFin(id));
     return () => anim.stop();
-  }, [id, onFin, v]);
-  const tache = v.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 0.35, 0] });
-  const echelle = v.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.15] });
-  const opaciteGoutte = v.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 0.9, 0] });
+  }, [id, gros, onFin, v]);
+  const tache = v.interpolate({ inputRange: [0, 0.18, 1], outputRange: [0, 0.5, 0] });
+  const echelle = v.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1.2] });
+  const opaciteGoutte = v.interpolate({ inputRange: [0, 0.65, 1], outputRange: [1, 0.9, 0] });
+  const balafre = v.interpolate({ inputRange: [0, 0.12, 0.45], outputRange: [0, 1, 0], extrapolate: 'clamp' });
+  const longueur = v.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.3] });
   return (
     <View pointerEvents="none" style={[styles2.jus, { left: x, top: y }]}>
       <Animated.View
@@ -693,17 +799,31 @@ function Eclaboussure({ id, x, y, couleur, taille, onFin }) {
           backgroundColor: couleur, opacity: tache, transform: [{ scale: echelle }],
         }}
       />
+      <Animated.View
+        style={{
+          position: 'absolute', left: -taille * 0.2, top: -taille * 0.46, width: taille * 0.62, height: taille * 0.62, borderRadius: taille * 0.31,
+          backgroundColor: couleur, opacity: tache, transform: [{ scale: echelle }],
+        }}
+      />
+      <Animated.View
+        style={{
+          position: 'absolute', left: -taille * 0.5, top: -taille * 0.03, width: taille, height: taille * 0.06, borderRadius: taille * 0.03,
+          backgroundColor: '#FFFFFF', opacity: balafre, transform: [{ rotate: `${angle}deg` }, { scaleX: longueur }],
+        }}
+      />
       {GOUTTES.map((g, i) => {
-        const s = taille * g.taille;
+        const s = taille * g.taille * (gros ? 0.9 : 1);
         return (
           <Animated.View
             key={i}
             style={{
-              position: 'absolute', left: -s / 2, top: -s / 2, width: s, height: s, borderRadius: s / 2, backgroundColor: couleur,
+              position: 'absolute', left: -s / 2, top: -s / 2, width: s, height: s, borderRadius: s / 2,
+              backgroundColor: gros && i % 3 === 0 ? '#FFF3B0' : couleur,
               opacity: opaciteGoutte,
               transform: [
                 { translateX: v.interpolate({ inputRange: [0, 1], outputRange: [0, g.dx * taille * g.loin] }) },
-                { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, g.dy * taille * g.loin + taille * 0.25] }) },
+                { translateY: v.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, g.dy * taille * g.loin * 0.8, g.dy * taille * g.loin + taille * 0.35] }) },
+                { scale: v.interpolate({ inputRange: [0, 1], outputRange: [1, 0.55] }) },
               ],
             }}
           />
@@ -816,20 +936,23 @@ const styles2 = StyleSheet.create({
   fente: { position: 'absolute', alignSelf: 'center', top: '5%' },
   jus: { position: 'absolute', width: 0, height: 0 },
   bandeau: {
-    position: 'absolute', left: 0, right: 0, textAlign: 'center', color: '#fff', fontSize: 34, fontWeight: '900',
-    textShadowColor: 'rgba(0,0,0,0.45)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 2 },
+    position: 'absolute', left: 0, right: 0, textAlign: 'center', color: '#0E7C66', fontSize: 36, fontWeight: '900',
+    textShadowColor: 'rgba(255,255,255,0.95)', textShadowRadius: 8, textShadowOffset: { width: 0, height: 1 },
   },
   bulle: { position: 'absolute', width: 180, alignItems: 'center' },
   bulleTexte: {
-    textAlign: 'center', fontSize: 22, fontWeight: '900',
-    textShadowColor: 'rgba(0,0,0,0.45)', textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 },
+    textAlign: 'center', fontSize: 24, fontWeight: '900',
+    textShadowColor: 'rgba(60,35,0,0.75)', textShadowRadius: 5, textShadowOffset: { width: 0, height: 1 },
   },
+  halo: { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.3)' },
+  haloCoeur: { position: 'absolute', backgroundColor: '#FFE27A' },
+  surcouche: { position: 'absolute' },
+  reflet: { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.75)', transform: [{ rotate: '-35deg' }] },
 });
 
 const makeStyles = (c) => StyleSheet.create({
   ecran: { flex: 1 },
   monde: { flex: 1, overflow: 'hidden' },
-  latte: { position: 'absolute', left: 0, right: 0, height: 2 },
   segment: {
     position: 'absolute', left: 0, top: 0, width: 100,
     shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 }, elevation: 4,
@@ -837,23 +960,14 @@ const makeStyles = (c) => StyleSheet.create({
   flash: { backgroundColor: '#ff4d3d' },
   consigne: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   consigneTexte: { fontSize: 18, fontWeight: '800', marginTop: 6, textAlign: 'center', paddingHorizontal: 24 },
-  haut: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  centreHaut: { flex: 1, alignItems: 'center' },
+  haut: { position: 'absolute', left: 16, right: 16 },
+  rangeeHaut: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  centreHaut: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
   rond: {
     width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center',
     backgroundColor: c.card, borderWidth: 1, borderColor: c.border,
   },
-  rondPause: { backgroundColor: BRAND, borderColor: BRAND, marginLeft: 10 },
-  pastille: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.card, borderRadius: 16,
-    paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: c.border, marginTop: 2,
-  },
-  pastilleTexte: { color: c.text, fontWeight: '900', fontSize: 18 },
-  vague: { color: c.textSoft, fontWeight: '800', fontSize: 13, marginTop: 4 },
-  vies: {
-    flexDirection: 'row', gap: 2, alignItems: 'center', height: 42, paddingHorizontal: 8,
-    backgroundColor: c.card, borderRadius: 21, borderWidth: 1, borderColor: c.border,
-  },
+  rondPause: { backgroundColor: BRAND, borderColor: BRAND },
   voile: {
     ...StyleSheet.absoluteFillObject, backgroundColor: c.overlay, alignItems: 'center', justifyContent: 'center', padding: 24,
   },
