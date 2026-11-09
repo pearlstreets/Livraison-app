@@ -11,7 +11,8 @@
  * Logique pure dans utils/jeuMemoire.js. Pause automatique
  * (hooks/usePauseJeu.js) : arrière-plan, écran quitté, flèche retour pendant
  * la partie, nouvelle course ; le chrono s'arrête et les cartes sont masquées
- * pendant la pause. Aucun son. Décor : la ville et le panneau Pearl Streets
+ * pendant la pause. Son : musique propre au jeu et bruitages (components/SonJeux.js),
+ * bandeau de classement en haut, reprise de la partie sauvegardée (24 h). Décor : la ville et le panneau Pearl Streets
  * (components/FondJeu.js).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -24,6 +25,11 @@ import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
 import FondJeu, { reserveBasVille } from '../components/FondJeu';
+import SonJeux, { bruit } from '../components/SonJeux';
+import ReglagesSon from '../components/ReglagesSon';
+import BandeauClassement from '../components/BandeauClassement';
+import ReprisePartie from '../components/ReprisePartie';
+import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
   parametresNiveau, creerDonne, creerAlea, estPaire, melangerCachees, pointsPaire, bonusNiveau, dispositionGrille,
@@ -77,6 +83,8 @@ export default function JeuMemoireScreen({ navigation }) {
   const [resultat, setResultat] = useState(null); // { score, niveau, paires, nouveauRecord }
   const [bulles, setBulles] = useState([]);
   const [classementOuvert, setClassementOuvert] = useState(false);
+  const [reprise, setReprise] = useState(null); // partie sauvegardée proposée à l'ouverture
+  const [nbParties, setNbParties] = useState(0); // fait recharger le bandeau de classement
 
   const monteRef = useRef(true);
   const cartesRef = useRef([]);
@@ -163,9 +171,13 @@ export default function JeuMemoireScreen({ navigation }) {
     const res = { score: scoreRef.current, niveau: niveauRef.current, paires: pairesTotalRef.current, nouveauRecord: false };
     if (monteRef.current) setResultat(res);
     changerPhase('fin');
+    effacerPartie(JEU, user?.id);
+    bruit(scoreRef.current > 0 ? 'perdu' : 'choc');
     finDePartie(JEU, user?.id, res.score).then((r) => {
       if (!monteRef.current) return;
       setMeilleur(r.meilleur);
+      setNbParties((n) => n + 1);
+      if (r.nouveauRecord) bruit('record');
       setResultat((x) => (x ? { ...x, nouveauRecord: r.nouveauRecord } : x));
     }).catch(() => {});
   }, [afficherChrono, annulerErreurEnCours, arreterChrono, changerPhase, user?.id]);
@@ -211,6 +223,7 @@ export default function JeuMemoireScreen({ navigation }) {
   }, [afficherChrono, annulerErreurEnCours, arreterChrono, changerPhase, demarrerChrono, majCartes, majRetournees]);
 
   const jouer = useCallback(() => {
+    effacerPartie(JEU, user?.id);
     termineRef.current = false;
     aleaRef.current = creerAlea(Date.now());
     pairesTotalRef.current = 0;
@@ -220,7 +233,7 @@ export default function JeuMemoireScreen({ navigation }) {
       setClassementOuvert(false);
     }
     demarrerNiveau(1);
-  }, [demarrerNiveau, majScore]);
+  }, [demarrerNiveau, majScore, user?.id]);
 
   const finirNiveau = useCallback(() => {
     arreterChrono();
@@ -229,6 +242,8 @@ export default function JeuMemoireScreen({ navigation }) {
     const bonus = bonusNiveau(n, restantRef.current / 1000, erreursRef.current);
     majScore(scoreRef.current + bonus.total);
     vibrer(false);
+    bruit('niveau');
+    sauverPartie(JEU, user?.id, { niveau: n + 1, score: scoreRef.current, paires: pairesTotalRef.current });
     const suivant = parametresNiveau(n + 1);
     if (monteRef.current) {
       setPalier({
@@ -241,7 +256,7 @@ export default function JeuMemoireScreen({ navigation }) {
       });
     }
     changerPhase('palier');
-  }, [arreterChrono, changerPhase, majScore]);
+  }, [arreterChrono, changerPhase, majScore, user?.id]);
 
   // Mauvaise paire : les deux cartes se recachent, puis mélange éventuel.
   const recacher = useCallback(() => {
@@ -271,6 +286,7 @@ export default function JeuMemoireScreen({ navigation }) {
     majRetournees(liste);
     if (liste.length < 2) {
       vibrer(false);
+      bruit('carte');
       return;
     }
     const premiere = cartesRef.current.find((c) => c.id === liste[0]);
@@ -284,6 +300,7 @@ export default function JeuMemoireScreen({ navigation }) {
       majCartes(nouvelles);
       majRetournees([]);
       vibrer(false);
+      bruit('ramasse');
       ajouterBulle(`+${gain}`, VERT);
       if (nouvelles.every((c) => c.trouvee)) finirNiveau();
       return;
@@ -291,11 +308,13 @@ export default function JeuMemoireScreen({ navigation }) {
     erreursRef.current += 1;
     verrouRef.current = true;
     vibrer(true);
+    bruit('rate');
     minuteurErreurRef.current = setTimeout(recacher, paramsRef.current.delaiErreur);
   }, [ajouterBulle, finirNiveau, majCartes, majRetournees, majScore, recacher]);
 
   const pause = useCallback(() => {
     if (phaseRef.current !== 'jeu') return;
+    sauverPartie(JEU, user?.id, { niveau: niveauRef.current, score: scoreRef.current, paires: pairesTotalRef.current });
     arreterChrono();
     afficherChrono();
     // Une mauvaise paire en cours d'affichage est recachée tout de suite.
@@ -306,7 +325,7 @@ export default function JeuMemoireScreen({ navigation }) {
       majRetournees([]);
     }
     changerPhase('pause');
-  }, [afficherChrono, arreterChrono, changerPhase, majRetournees, recacher]);
+  }, [afficherChrono, arreterChrono, changerPhase, majRetournees, recacher, user?.id]);
   const estEnJeu = useCallback(() => phaseRef.current === 'jeu', []);
   // Retour avec le classement ouvert depuis la pause : il se ferme, la partie reste en pause.
   const fermerPanneau = () => {
@@ -336,6 +355,30 @@ export default function JeuMemoireScreen({ navigation }) {
   }, [user?.id]);
 
   useEffect(() => {
+    let vivant = true;
+    chargerPartie(JEU, user?.id).then((p) => {
+      if (vivant && p && (p.score > 0 || p.niveau > 1)) setReprise(p);
+    }).catch(() => {});
+    return () => { vivant = false; };
+  }, [user?.id]);
+
+  const reprendrePartie = useCallback(() => {
+    const p = reprise;
+    setReprise(null);
+    if (!p) return;
+    termineRef.current = false;
+    aleaRef.current = creerAlea(Date.now());
+    pairesTotalRef.current = Number(p.paires) || 0;
+    majScore(Number(p.score) || 0);
+    setResultat(null);
+    demarrerNiveau(Math.max(1, Number(p.niveau) || 1));
+  }, [reprise, demarrerNiveau, majScore]);
+  const recommencerPartie = useCallback(() => {
+    effacerPartie(JEU, user?.id);
+    setReprise(null);
+  }, [user?.id]);
+
+  useEffect(() => {
     monteRef.current = true;
     return () => {
       monteRef.current = false;
@@ -355,6 +398,9 @@ export default function JeuMemoireScreen({ navigation }) {
   const quitter = useCallback(() => {
     const p = phaseRef.current;
     pause();
+    if ((p === 'pause' || p === 'palier') && !termineRef.current) {
+      sauverPartie(JEU, user?.id, { niveau: p === 'palier' ? niveauRef.current + 1 : niveauRef.current, score: scoreRef.current, paires: pairesTotalRef.current });
+    }
     if ((p === 'jeu' || p === 'pause' || p === 'palier') && !termineRef.current && scoreRef.current > 0) {
       termineRef.current = true;
       finDePartie(JEU, user?.id, scoreRef.current).catch(() => {});
@@ -391,6 +437,7 @@ export default function JeuMemoireScreen({ navigation }) {
     <View style={[styles.ecran, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }]}>
       {/* Décor : la ville et le panneau Pearl Streets, sous la grille */}
       <FondJeu variante="ville" dark={dark} bas={insets.bottom} />
+      <SonJeux jeu={JEU} actif={phase === 'jeu'} />
       {/* Barre du haut : quitter, niveau et score, pause */}
       <View style={styles.haut}>
         <Pressable onPress={quitter} style={styles.rond} hitSlop={10} accessibilityLabel={t('jeuQuitter')}>
@@ -412,6 +459,9 @@ export default function JeuMemoireScreen({ navigation }) {
           <Ionicons name="pause" size={22} color="#fff" />
         </Pressable>
       </View>
+
+      {/* Rang, record et TOP 1, toujours visibles */}
+      <BandeauClassement jeu={JEU} idLivreur={user?.id} score={score} rafraichir={nbParties} t={t} colors={colors} style={{ marginTop: 8 }} />
 
       {/* Chrono du niveau */}
       <View style={styles.chrono}>
@@ -463,6 +513,7 @@ export default function JeuMemoireScreen({ navigation }) {
                 <Text style={styles.texte}>{t('jeuxMemoireRegle')}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuxMemoireBonus')}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuMeilleurScore', { n: meilleur })}</Text>
+                <ReglagesSon t={t} colors={colors} />
                 <Bouton styles={styles} texte={t('jeuJouer')} onPress={jouer} />
                 <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton styles={styles} secondaire texte={t('jeuQuitter')} onPress={quitter} />
@@ -490,6 +541,7 @@ export default function JeuMemoireScreen({ navigation }) {
                 <Ionicons name="pause-circle" size={44} color={BRAND} />
                 <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                 <Text style={styles.texte}>{t('jeuScore', { n: score })}</Text>
+                <ReglagesSon t={t} colors={colors} />
                 <Bouton styles={styles} texte={t('jeuReprendre')} onPress={reprendre} />
                 <Bouton styles={styles} secondaire texte={t('jeuxMemoireRejouer')} onPress={rejouerPause} />
                 <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
@@ -526,6 +578,9 @@ export default function JeuMemoireScreen({ navigation }) {
             onFermer={() => setClassementOuvert(false)}
           />
         </View>
+      )}
+      {phase === 'accueil' && reprise && !classementOuvert && !alerteCourse && (
+        <ReprisePartie t={t} colors={colors} niveau={reprise.niveau} score={reprise.score} onReprendre={reprendrePartie} onRecommencer={recommencerPartie} />
       )}
       {alerteCourse && (
         <View style={styles.voile}>
