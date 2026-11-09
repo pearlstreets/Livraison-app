@@ -489,7 +489,15 @@ export default function JeuToitsScreen({ navigation }) {
     changerPhase('pause');
   }, [changerPhase, relacherTout]);
   const estEnJeu = useCallback(() => phaseRef.current === 'jeu', []);
-  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, { navigation, enJeu: phase === 'jeu', estEnJeu });
+  // Retour avec le classement ouvert depuis la pause : il se ferme, la partie reste en pause.
+  const fermerPanneau = () => {
+    if (!classementOuvert || phaseRef.current !== 'pause') return false;
+    setClassementOuvert(false);
+    return true;
+  };
+  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, {
+    navigation, enJeu: phase === 'jeu' || (classementOuvert && phase === 'pause'), estEnJeu, fermerPanneau,
+  });
 
   const lancerNiveau = useCallback((niveau, report) => {
     mondeRef.current = creerMonde(niveau, report, graineRef.current + niveau);
