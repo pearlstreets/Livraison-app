@@ -308,7 +308,15 @@ export default function JeuMemoireScreen({ navigation }) {
     changerPhase('pause');
   }, [afficherChrono, arreterChrono, changerPhase, majRetournees, recacher]);
   const estEnJeu = useCallback(() => phaseRef.current === 'jeu', []);
-  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, { navigation, enJeu: phase === 'jeu', estEnJeu });
+  // Retour avec le classement ouvert depuis la pause : il se ferme, la partie reste en pause.
+  const fermerPanneau = () => {
+    if (!classementOuvert || phaseRef.current !== 'pause') return false;
+    setClassementOuvert(false);
+    return true;
+  };
+  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, {
+    navigation, enJeu: phase === 'jeu' || (classementOuvert && phase === 'pause'), estEnJeu, fermerPanneau,
+  });
 
   const reprendre = useCallback(() => {
     if (phaseRef.current !== 'pause') return;
