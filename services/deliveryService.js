@@ -178,4 +178,17 @@ export const deliveryService = {
     const { data } = await api.get('/api/v1/delivery/driver/jeu/classement/', { timeout: 10000 });
     return data;
   },
+
+  // Écran « Jeux » (Tournée des toits, Livraison au sommet, Drone express, Rush en ville) :
+  // record par jeu, le serveur garde le max. Réponse : { status, moi: { rang, score } }.
+  async envoyerRecordJeux(jeu, score) {
+    const { data } = await api.post(`/api/v1/delivery/driver/jeux/${encodeURIComponent(jeu)}/score/`, { score }, { timeout: 10000 });
+    return data;
+  },
+
+  // Classement d'un jeu : { classement: [{ rang, nom, score, moi }], moi }.
+  async getClassementJeux(jeu) {
+    const { data } = await api.get(`/api/v1/delivery/driver/jeux/${encodeURIComponent(jeu)}/classement/`, { timeout: 10000 });
+    return data;
+  },
 };
