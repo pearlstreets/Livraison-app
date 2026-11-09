@@ -19,7 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BRAND } from '../contexts/ThemeContext';
 
 const CLE = 'pearl_jeux_gestes_vus_v1';
-const ICONES = { gauche: 'arrow-back', droite: 'arrow-forward', haut: 'arrow-up', bas: 'arrow-down', appui: 'hand-left' };
+const ICONES = { gauche: 'hand-left', droite: 'hand-right', haut: 'rocket', bas: 'body', appui: 'finger-print' };
 const TEXTES = {
   gauche: 'jeuxGesteGauche', droite: 'jeuxGesteDroite', haut: 'jeuxGesteHaut', bas: 'jeuxGesteBas', appui: 'jeuxGesteAppui',
 };
