@@ -11,7 +11,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
-import { chargerPartie, cleSauvegarde } from '../utils/jeuTri';
 import { chargerRecord } from '../utils/jeuxRecords';
 
 const LISTE = [
@@ -19,7 +18,8 @@ const LISTE = [
   { id: 'toits', route: 'JeuToits', icone: 'bicycle', couleur: '#2E86DE', titre: 'jeuxToitsTitre', texte: 'jeuxToitsTexte' },
   { id: 'sommet', route: 'JeuSommet', icone: 'business', couleur: '#8E44AD', titre: 'jeuxSommetTitre', texte: 'jeuxSommetTexte' },
   { id: 'drone', route: 'JeuDrone', icone: 'airplane', couleur: '#16A085', titre: 'jeuxDroneTitre', texte: 'jeuxDroneTexte' },
-  { id: 'tri', route: 'JeuTri', icone: 'cube', couleur: '#E67E22', titre: 'jeuTitre', texte: 'jeuxTriTexte' },
+  { id: 'coupe', route: 'JeuCoupe', icone: 'nutrition', couleur: '#E74C3C', titre: 'jeuxCoupeTitre', texte: 'jeuxCoupeTexte' },
+  { id: 'memoire', route: 'JeuMemoire', icone: 'albums', couleur: '#F2B705', titre: 'jeuxMemoireTitre', texte: 'jeuxMemoireTexte' },
 ];
 
 export default function JeuxScreen({ navigation }) {
@@ -34,10 +34,7 @@ export default function JeuxScreen({ navigation }) {
     let vivant = true;
     (async () => {
       const r = {};
-      const tri = await chargerPartie(cleSauvegarde(user?.id)).catch(() => null);
-      r.tri = Number(tri?.meilleurScore) || 0;
       for (const j of LISTE) {
-        if (j.id === 'tri') continue;
         r[j.id] = (await chargerRecord(j.id, user?.id)).meilleur;
       }
       if (vivant) setRecords(r);
