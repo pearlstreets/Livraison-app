@@ -262,7 +262,7 @@ export default function MenuScreen({ navigation }) {
         <MenuItem icon="flash-outline" label={t('opportunities')} onPress={() => navigation.navigate('Opportunities')} badge={nbOpportunites > 0 ? String(nbOpportunites) : null} />
         <MenuItem icon="wallet-outline" label={t('wallet')} onPress={() => navigation.navigate('Wallet')} />
         <MenuItem icon="person-outline" label={t('account')} onPress={() => navigation.navigate('EditProfile')} />
-        <MenuItem icon="game-controller-outline" label={t('jeuTitre')} onPress={() => navigation.navigate('JeuTri')} />
+        <MenuItem icon="game-controller-outline" label={t('jeuxTitre')} onPress={() => navigation.navigate('Jeux')} />
       </View>
 
       <View style={s.divider} />

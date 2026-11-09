@@ -14,7 +14,7 @@ import { BRAND } from '../contexts/ThemeContext';
 
 const MEDAILLES = { 1: '#F2B705', 2: '#A7B1BC', 3: '#CD7F32' };
 
-export default function ClassementJeu({ t, colors, dark, onFermer, avantChargement }) {
+export default function ClassementJeu({ t, colors, dark, onFermer, avantChargement, jeu }) {
   const styles = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const [etat, setEtat] = useState({ charge: true, erreur: false, liste: [], moi: null });
   const monte = useRef(true);
@@ -24,7 +24,7 @@ export default function ClassementJeu({ t, colors, dark, onFermer, avantChargeme
     setEtat((e) => ({ ...e, charge: true, erreur: false }));
     try {
       if (avantChargement) await avantChargement().catch(() => {});
-      const data = await deliveryService.getClassementJeu();
+      const data = jeu ? await deliveryService.getClassementJeux(jeu) : await deliveryService.getClassementJeu();
       if (!monte.current) return;
       setEtat({
         charge: false,
@@ -35,7 +35,7 @@ export default function ClassementJeu({ t, colors, dark, onFermer, avantChargeme
     } catch {
       if (monte.current) setEtat((e) => ({ ...e, charge: false, erreur: true }));
     }
-  }, [avantChargement]);
+  }, [avantChargement, jeu]);
 
   useEffect(() => { charger(); }, [charger]);
 
@@ -87,7 +87,7 @@ export default function ClassementJeu({ t, colors, dark, onFermer, avantChargeme
             <View style={styles.votreRang}>
               <Text style={styles.votreRangTexte}>{t('jeuVotreRang', { n: etat.moi.rang })}</Text>
               <Text style={styles.texteDiscret}>
-                {t('jeuNiveauCourt', { n: etat.moi.niveau })} · {t('jeuScore', { n: etat.moi.score })}
+                {etat.moi.niveau != null ? `${t('jeuNiveauCourt', { n: etat.moi.niveau })} · ` : ''}{t('jeuScore', { n: etat.moi.score })}
               </Text>
             </View>
           )}
@@ -119,7 +119,7 @@ function Ligne({ l, t, styles }) {
             </View>
           )}
         </View>
-        <Text style={styles.texteDiscretGauche}>{t('jeuNiveauCourt', { n: l.niveau })}</Text>
+        {l.niveau != null && <Text style={styles.texteDiscretGauche}>{t('jeuNiveauCourt', { n: l.niveau })}</Text>}
       </View>
       <Text style={styles.score}>{l.score}</Text>
     </View>
