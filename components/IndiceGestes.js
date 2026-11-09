@@ -77,7 +77,7 @@ export default function IndiceGestes({ jeu, actif, gestes = ['gauche', 'droite',
                   <Ionicons name={ICONES[g] || 'hand-left'} size={24} color="#fff" />
                 </Animated.View>
               </View>
-              <Text style={[styles.legende, { color: colors.text }]} numberOfLines={2}>{t(TEXTES[g])}</Text>
+              <Text style={[styles.legende, { color: colors.text }]} numberOfLines={3}>{t(TEXTES[g])}</Text>
             </View>
           );
         })}
