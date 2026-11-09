@@ -10,7 +10,8 @@
  * Logique pure dans utils/jeuDrone.js. Boucle requestAnimationFrame, état
  * dans des refs, dessin par Animated.Value.setValue (aucun rendu React à
  * chaque image). Pause automatique (hooks/usePauseJeu.js) : arrière-plan,
- * écran quitté, nouvelle course. Aucun son.
+ * écran quitté, flèche retour pendant la partie, nouvelle course. Aucun son.
+ * Décor : panneau Pearl Streets sur les toits de la ville (components/FondJeu.js).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, Easing } from 'react-native';
@@ -21,6 +22,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
+import { EnseignePearl, mesuresEnseigne } from '../components/FondJeu';
 import SonJeux, { jouerSon } from '../components/SonJeux';
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
@@ -325,7 +327,10 @@ export default function JeuDroneScreen({ navigation }) {
       terminer();
     }
   }, [arreterBoucle, changerPhase, dessiner, terminer]);
-  const { alerteCourse, fermerAlerte } = usePauseJeu(pause);
+  const estEnJeu = useCallback(() => ['pret', 'vol', 'reprise', 'chute'].includes(phaseRef.current), []);
+  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, {
+    navigation, enJeu: phase === 'pret' || phase === 'vol' || phase === 'chute' || phase === 'reprise', estEnJeu,
+  });
 
   // Reprise : le drone reste figé jusqu'au prochain toucher.
   const reprendre = useCallback(() => {
@@ -406,7 +411,7 @@ export default function JeuDroneScreen({ navigation }) {
         {taille.h > 0 && (
           <>
             <Couche liste={loin} decalage={decorLoin} couleur={pal.loin} largeur={taille.l} bas={solPx} />
-            <Couche liste={proche} decalage={decorProche} couleur={pal.proche} largeur={taille.l} bas={solPx} />
+            <Couche liste={proche} decalage={decorProche} couleur={pal.proche} largeur={taille.l} bas={solPx} enseigne={LARGEUR_ENSEIGNE} />
 
             {liste.map((o) => {
               const a = animsRef.current.get(o.id);
@@ -504,6 +509,8 @@ export default function JeuDroneScreen({ navigation }) {
                 <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                 <Text style={styles.texte}>{t('jeuScore', { n: score })}</Text>
                 <Bouton styles={styles} texte={t('jeuReprendre')} onPress={reprendre} />
+                <Bouton styles={styles} secondaire texte={t('jeuxDroneRejouer')} onPress={jouer} />
+                <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton styles={styles} secondaire texte={t('jeuQuitter')} onPress={quitter} />
               </>
             )}
@@ -558,14 +565,40 @@ export default function JeuDroneScreen({ navigation }) {
 }
 
 // Couche de décor : deux copies de la même bande qui défilent en boucle.
-const Couche = memo(function Couche({ liste, decalage, couleur, largeur, bas }) {
+// `enseigne` (largeur) : panneau Pearl Streets sur pieds, posé sur le toit de
+// l'immeuble le plus proche du milieu de chaque bande.
+const LARGEUR_ENSEIGNE = 110;
+const PIEDS_ENSEIGNE = 12;
+const Couche = memo(function Couche({ liste, decalage, couleur, largeur, bas, enseigne = 0 }) {
+  const porteur = useMemo(() => {
+    if (!enseigne || !liste.length) return -1;
+    let meilleur = 0;
+    liste.forEach((b, i) => {
+      const ecart = Math.abs(b.x + b.l / 2 - largeur / 2);
+      if (ecart < Math.abs(liste[meilleur].x + liste[meilleur].l / 2 - largeur / 2)) meilleur = i;
+    });
+    return meilleur;
+  }, [enseigne, liste, largeur]);
+  const hEnseigne = enseigne ? mesuresEnseigne(enseigne, true).hauteur + PIEDS_ENSEIGNE : 0;
   const bande = (cle) => (
     <View key={cle} style={{ width: largeur, height: '100%' }}>
       {liste.map((b, i) => (
         <View key={i} style={{ position: 'absolute', left: b.x, bottom: bas, width: b.l, height: b.h, backgroundColor: couleur }}>
-          {b.antenne && <View style={{ position: 'absolute', top: -14, left: b.l / 2 - 1, width: 2, height: 14, backgroundColor: couleur }} />}
+          {b.antenne && i !== porteur && <View style={{ position: 'absolute', top: -14, left: b.l / 2 - 1, width: 2, height: 14, backgroundColor: couleur }} />}
         </View>
       ))}
+      {porteur >= 0 && (
+        <EnseignePearl
+          largeur={enseigne}
+          compacte
+          pieds={PIEDS_ENSEIGNE}
+          couleurSupport={couleur}
+          style={{
+            position: 'absolute', left: liste[porteur].x + liste[porteur].l / 2 - enseigne / 2,
+            bottom: bas + liste[porteur].h, height: hEnseigne,
+          }}
+        />
+      )}
     </View>
   );
   return (

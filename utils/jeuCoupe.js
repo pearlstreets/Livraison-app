@@ -25,8 +25,8 @@ export const HAUTEUR = 1000;
 export const DT_MAX = 1 / 30; // dt borné : physique identique quel que soit le nombre d'images
 export const VIES = 3;
 
-export const RAYON_FRUIT = 46;
-export const RAYON_FRAGILE = 46; // demi-côté du carton
+export const RAYON_FRUIT = 62; // fruits bien visibles (46 avant le 09/11)
+export const RAYON_FRAGILE = 56; // demi-côté du carton
 // Tolérance de la lame : un peu généreuse sur les fruits, indulgente sur les colis.
 const MARGE_FRUIT = 1.12;
 const MARGE_FRAGILE = 0.8;
@@ -145,14 +145,16 @@ export function lancer(m, type) {
   const r = reglagesVague(m.vague);
   const l = m.largeur;
   const debutant = m.vague <= 2;
-  const x0 = l * (debutant ? 0.3 + aleatoire(m) * 0.4 : 0.12 + aleatoire(m) * 0.76);
-  const xFin = l * (debutant ? 0.35 + aleatoire(m) * 0.3 : 0.1 + aleatoire(m) * 0.8);
+  const rayon = type === 'fragile' ? RAYON_FRAGILE : RAYON_FRUIT;
+  // Départ et arrivée bornés : l'objet entier reste dans la largeur de l'écran.
+  const bord = Math.min(rayon + 6, l / 2);
+  const x0 = borner(l * (debutant ? 0.3 + aleatoire(m) * 0.4 : 0.12 + aleatoire(m) * 0.76), bord, l - bord);
+  const xFin = borner(l * (debutant ? 0.35 + aleatoire(m) * 0.3 : 0.1 + aleatoire(m) * 0.8), bord, l - bord);
   // Sommet entre 52 % et 85 % de la hauteur (mesuré depuis le bas).
   const sommet = HAUTEUR * (0.52 + aleatoire(m) * 0.33);
   const duree = r.duree * (0.92 + aleatoire(m) * 0.16);
   const demi = duree / 2;
   const g = (2 * sommet) / (demi * demi);
-  const rayon = type === 'fragile' ? RAYON_FRAGILE : RAYON_FRUIT;
   const o = {
     id: m.prochainId,
     type,
