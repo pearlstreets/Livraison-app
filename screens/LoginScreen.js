@@ -158,6 +158,9 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
   const [showPwd, setShowPwd] = useState(false);
+  // « Rester connecté » : coché par défaut, dernier choix relu au montage.
+  const [resterConnecte, setResterConnecte] = useState(true);
+  useEffect(() => { authService.chargerResterConnecte().then(setResterConnecte).catch(() => {}); }, []);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
   // Écran capturable (choix pro ou particulier, formulaire) : seules les infos
   // sensibles restent cachées. Mots de passe en points ; capture bloquée
@@ -754,16 +757,22 @@ export default function LoginScreen() {
               <Text style={s.label}>{t('emailLabel')}</Text>
               <View style={s.champ}>
                 <Ionicons name="mail-outline" size={20} color="#9CA3AF" />
-                <TextInput style={s.champInput} value={loginEmail} onChangeText={setLoginEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="email-address" autoCapitalize="none" autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <TextInput style={s.champInput} value={loginEmail} onChangeText={setLoginEmail} placeholder={t('loginEmail') || 'email@exemple.com'} placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="username" importantForAutofill="yes" />
               </View>
               <Text style={s.label}>{t('password') || 'Mot de passe'}</Text>
               <View style={s.champ}>
                 <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" />
-                <TextInput style={s.champInput} value={loginPassword} onChangeText={setLoginPassword} placeholder="••••••••" placeholderTextColor={dark ? colors.textFaint : '#aaa'} secureTextEntry={!showPwd} autoComplete="off" textContentType="oneTimeCode" inputAccessoryViewID="noSuggest" />
+                <TextInput style={s.champInput} value={loginPassword} onChangeText={setLoginPassword} placeholder="••••••••" placeholderTextColor={dark ? colors.textFaint : '#aaa'} secureTextEntry={!showPwd} autoCapitalize="none" autoCorrect={false} autoComplete="password" textContentType="password" importantForAutofill="yes" />
                 <Pressable onPress={() => setShowPwd(v => !v)} hitSlop={10} style={{padding:4}}>
                   <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={22} color="#9CA3AF" />
                 </Pressable>
               </View>
+              <Pressable onPress={() => setResterConnecte(v => !v)} hitSlop={8} style={s.resterLigne} accessibilityRole="checkbox" accessibilityState={{ checked: resterConnecte }}>
+                <View style={[s.resterCase, resterConnecte && s.resterCaseCochee]}>
+                  {resterConnecte && <Ionicons name="checkmark" size={15} color="#fff" />}
+                </View>
+                <Text style={[s.resterTxt, dark && { color: colors.textSoft }]}>{t('resterConnecte') || 'Rester connecté'}</Text>
+              </Pressable>
               <Pressable style={[s.btn, loginDisabled && { opacity: 0.5 }]} onPress={handleLogin} disabled={loginDisabled || loading}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnTxt}>{t('loginButton') || 'Se connecter'}</Text>}
               </Pressable>
@@ -1078,7 +1087,7 @@ export default function LoginScreen() {
         {/* Language button — fixed bottom */}
         <TouchableOpacity onPress={() => setLangPickerVisible(true)} style={{
           flexDirection:'row', alignItems:'center', justifyContent:'center', alignSelf:'center',
-          marginBottom:12 + (Platform.OS === 'android' ? insets.bottom : 0), paddingVertical:9, paddingHorizontal:16,
+          marginTop:12, marginBottom:12 + (Platform.OS === 'android' ? insets.bottom : 0), paddingVertical:9, paddingHorizontal:16,
           borderRadius:999, borderWidth:1, borderColor: dark ? colors.borderStrong : '#E5E7EB', backgroundColor: dark ? colors.card : '#fff'
         }}>
           <Ionicons name="globe-outline" size={17} color="#6B7280" style={{marginRight:8}} />
@@ -1171,6 +1180,10 @@ const makeS = (dark, c) => {
   logoImg: { width: '100%', height: '100%' },
   label: { fontWeight: '600', fontSize: 13, color: k('#374151', c.textSoft), marginBottom: 7, marginTop: 16 },
   // Case de saisie : fond blanc, bord gris fin, icone a gauche.
+  resterLigne: { flexDirection: 'row', alignItems: 'center', marginTop: 14, alignSelf: 'flex-start' },
+  resterCase: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: '#D1D5DB', backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+  resterCaseCochee: { backgroundColor: BRAND, borderColor: BRAND },
+  resterTxt: { fontSize: 14, color: '#374151', fontWeight: '500' },
   champ: {
     flexDirection: 'row', alignItems: 'center', height: 54, backgroundColor: k('#fff', c.input),
     borderRadius: 14, borderWidth: 1, borderColor: k('#E5E7EB', c.inputBorder), paddingHorizontal: 14,
