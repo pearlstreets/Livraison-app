@@ -3,8 +3,8 @@
  * entre deux courses, avec le meilleur score de chacun sur ce téléphone.
  * Chaque jeu se met en pause tout seul à l'annonce d'une nouvelle course.
  */
-import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, ScrollView, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -13,6 +13,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import { chargerPartie, cleSauvegarde } from '../utils/jeuTri';
 import { chargerRecord } from '../utils/jeuxRecords';
+import { chargerReglagesSon, changerReglageSon, reglagesSon } from '../utils/sonJeux';
 
 const LISTE = [
   { id: 'rush', route: 'JeuRush', icone: 'walk', couleur: '#FF6A13', titre: 'jeuxRushTitre', texte: 'jeuxRushTexte' },
@@ -29,6 +30,13 @@ export default function JeuxScreen({ navigation }) {
   const { user } = useAuth();
   const s = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const [records, setRecords] = useState({});
+  const [son, setSon] = useState(reglagesSon());
+
+  useEffect(() => { chargerReglagesSon().then((r) => setSon(r)); }, []);
+  const basculer = useCallback((cle, v) => {
+    changerReglageSon(cle, v);
+    setSon(reglagesSon());
+  }, []);
 
   useFocusEffect(useCallback(() => {
     let vivant = true;
@@ -76,6 +84,21 @@ export default function JeuxScreen({ navigation }) {
             <Ionicons name="play-circle" size={34} color={BRAND} />
           </Pressable>
         ))}
+
+        {/* Réglages du son de tous les jeux */}
+        <Text style={s.titreSection}>{t('jeuxSon')}</Text>
+        <View style={s.reglages}>
+          <View style={s.ligneReglage}>
+            <Ionicons name="musical-notes" size={20} color={BRAND} />
+            <Text style={s.libelle}>{t('jeuxSonMusique')}</Text>
+            <Switch value={son.musique} onValueChange={(v) => basculer('musique', v)} trackColor={{ true: BRAND }} accessibilityLabel={t('jeuxSonMusique')} />
+          </View>
+          <View style={[s.ligneReglage, s.separateur]}>
+            <Ionicons name="volume-high" size={20} color={BRAND} />
+            <Text style={s.libelle}>{t('jeuxSonBruitages')}</Text>
+            <Switch value={son.bruitages} onValueChange={(v) => basculer('bruitages', v)} trackColor={{ true: BRAND }} accessibilityLabel={t('jeuxSonBruitages')} />
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -92,5 +115,10 @@ function makeStyles(c, dark) {
     nom: { fontSize: 16, fontWeight: '800', color: c.text },
     texte: { fontSize: 13, color: c.textMuted, marginTop: 2 },
     record: { fontSize: 12, fontWeight: '700', color: BRAND, marginTop: 4 },
+    titreSection: { fontSize: 16, fontWeight: '800', color: c.text, marginTop: 10, marginBottom: 8 },
+    reglages: { backgroundColor: dark ? c.card : '#fff', borderRadius: 16, paddingHorizontal: 14, borderWidth: 1, borderColor: dark ? c.border : '#E6E8EC' },
+    ligneReglage: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+    separateur: { borderTopWidth: 1, borderTopColor: dark ? c.border : '#E6E8EC' },
+    libelle: { flex: 1, fontSize: 15, fontWeight: '600', color: c.text },
   });
 }

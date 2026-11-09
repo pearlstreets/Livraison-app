@@ -31,6 +31,7 @@ export const JOUEUR_H = 46;
 export const PIED = 13; // demi-largeur des pieds pour les rebonds
 export const PLAT_H = 12;
 export const DT_MAX = 1 / 30;
+export const RALENTI = 0.7;
 const PAS = 1 / 120;
 
 export const LARGEURS = { sol: MONDE_L, balcon: 74, nacelle: 70, store: 80, trampo: 74, monte: 84 };
@@ -223,7 +224,8 @@ function toucheCorps(j, cx, cy, demiL, demiH) {
 export function avancer(e, dtBrut, dir) {
   const evts = [];
   if (e.phase === 'fin') return evts;
-  let dt = Math.min(DT_MAX, Math.max(0, dtBrut || 0));
+  // Jeu ralenti : tout le monde avance à 70 % du temps réel.
+  let dt = Math.min(DT_MAX, Math.max(0, dtBrut || 0)) * RALENTI;
   const r = e.hasard;
   const j = e.joueur;
   while (dt > 1e-6) {
