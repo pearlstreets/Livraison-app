@@ -328,8 +328,17 @@ export default function JeuDroneScreen({ navigation }) {
     }
   }, [arreterBoucle, changerPhase, dessiner, terminer]);
   const estEnJeu = useCallback(() => ['pret', 'vol', 'reprise', 'chute'].includes(phaseRef.current), []);
+  // Retour avec le classement ouvert depuis la pause : il se ferme, la partie reste en pause.
+  const fermerPanneau = () => {
+    if (!classementOuvert || phaseRef.current !== 'pause') return false;
+    setClassementOuvert(false);
+    return true;
+  };
   const { alerteCourse, fermerAlerte } = usePauseJeu(pause, {
-    navigation, enJeu: phase === 'pret' || phase === 'vol' || phase === 'chute' || phase === 'reprise', estEnJeu,
+    navigation,
+    enJeu: phase === 'pret' || phase === 'vol' || phase === 'chute' || phase === 'reprise' || (classementOuvert && phase === 'pause'),
+    estEnJeu,
+    fermerPanneau,
   });
 
   // Reprise : le drone reste figé jusqu'au prochain toucher.

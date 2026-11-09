@@ -279,7 +279,15 @@ export default function JeuSommetScreen({ navigation }) {
     changerUi('pause');
   }, [changerUi]);
   const estEnJeu = useCallback(() => uiRef.current === 'jeu', []);
-  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, { navigation, enJeu: ui === 'jeu', estEnJeu });
+  // Retour avec le classement ouvert depuis la pause : il se ferme, la partie reste en pause.
+  const fermerPanneau = () => {
+    if (!classementOuvert || uiRef.current !== 'pause') return false;
+    setClassementOuvert(false);
+    return true;
+  };
+  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, {
+    navigation, enJeu: ui === 'jeu' || (classementOuvert && ui === 'pause'), estEnJeu, fermerPanneau,
+  });
 
   const terminer = useCallback((e) => {
     dirRef.current = 0;
