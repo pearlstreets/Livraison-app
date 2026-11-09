@@ -12,7 +12,9 @@
  * Logique pure dans utils/jeuSommet.js. Boucle requestAnimationFrame, état
  * dans des refs, monde dessiné dans un calque déplacé d'un bloc (seuls les
  * éléments qui bougent sont redessinés). Pause automatique : arrière-plan,
- * écran quitté, nouvelle course (hooks/usePauseJeu.js). Aucun son.
+ * écran quitté, flèche retour pendant la partie, nouvelle course
+ * (hooks/usePauseJeu.js). Aucun son. Décor : enseigne Pearl Streets sur la
+ * façade, un étage sur six (components/FondJeu.js).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
@@ -22,6 +24,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import usePauseJeu from '../hooks/usePauseJeu';
+import { EnseignePearl, mesuresEnseigne } from '../components/FondJeu';
 import SonJeux, { jouerSon } from '../components/SonJeux';
 
 // Bruitage de chaque événement du jeu (utils/jeuSommet.js).
@@ -91,14 +94,26 @@ function allumee(rang, col) {
 }
 
 /** Un étage de façade (4 fenêtres), redessiné seulement s'il change. */
+// Un étage sur six porte l'enseigne Pearl Streets sur la façade, à la place
+// des deux fenêtres du milieu.
+const LARGEUR_ENSEIGNE = 108;
 const Etage = memo(function Etage({ rang, s, dark, p }) {
   const h = ETAGE * s;
   const lf = 44 * s;
   const hf = 34 * s;
+  const enseigne = rang % 6 === 1;
+  const hEnseigne = mesuresEnseigne(LARGEUR_ENSEIGNE * s, true).hauteur;
   return (
     <View style={{ position: 'absolute', left: 0, right: 0, top: -(rang + 1) * h, height: h }}>
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: Math.max(1, 2 * s), backgroundColor: p.murJoint }} />
-      {[0, 1, 2, 3].map((c) => (
+      {enseigne && (
+        <EnseignePearl
+          largeur={LARGEUR_ENSEIGNE * s}
+          compacte
+          style={{ position: 'absolute', left: (MONDE_L - LARGEUR_ENSEIGNE) / 2 * s, top: (h - hEnseigne) / 2 }}
+        />
+      )}
+      {(enseigne ? [0, 3] : [0, 1, 2, 3]).map((c) => (
         <View
           key={c}
           style={{
@@ -263,7 +278,8 @@ export default function JeuSommetScreen({ navigation }) {
     dirRef.current = 0;
     changerUi('pause');
   }, [changerUi]);
-  const { alerteCourse, fermerAlerte } = usePauseJeu(pause);
+  const estEnJeu = useCallback(() => uiRef.current === 'jeu', []);
+  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, { navigation, enJeu: ui === 'jeu', estEnJeu });
 
   const terminer = useCallback((e) => {
     dirRef.current = 0;
@@ -465,6 +481,8 @@ export default function JeuSommetScreen({ navigation }) {
                 {e && <Text style={styles.texte}>{t('jeuScore', { n: e.score })}</Text>}
                 <Text style={styles.texteDiscret}>{t('jeuMeilleurScore', { n: meilleur })}</Text>
                 <Bouton styles={styles} texte={t('jeuReprendre')} onPress={() => changerUi('jeu')} />
+                <Bouton styles={styles} secondaire texte={t('jeuxSommetRejouer')} onPress={jouer} />
+                <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton styles={styles} secondaire texte={t('jeuQuitter')} onPress={quitter} />
               </>
             )}
