@@ -7,8 +7,9 @@
  * livre le colis à la porte du client. Niveaux générés et toujours faisables
  * (utils/jeuToits.js), de plus en plus longs, sans fin. 3 vies par partie.
  *
- * Pause automatique : arrière-plan, écran quitté, nouvelle course
- * (hooks/usePauseJeu.js). Aucun son.
+ * Pause automatique : arrière-plan, écran quitté, flèche retour pendant la
+ * partie, nouvelle course (hooks/usePauseJeu.js). Aucun son. Décor : panneaux
+ * Pearl Streets sur les toits du fond (components/FondJeu.js).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
@@ -19,6 +20,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
+import { EnseignePearl } from '../components/FondJeu';
 import SonJeux, { jouerSon } from '../components/SonJeux';
 
 // Bruitage de chaque événement du jeu (utils/jeuToits.js).
@@ -267,10 +269,21 @@ function Maison({ porte, s, pal }) {
 }
 
 // ---- Fond : immeubles lointains, défilement plus lent ----
+// Un immeuble sur cinq porte un panneau Pearl Streets sur son toit.
+const LARGEUR_ENSEIGNE = 84;
 const Fond = memo(function Fond({ fond, x1, x2, s, pal }) {
   return visibles(fond, x1, x2).map((b) => (
     <View key={b.id} style={[pos(b.x, 0, b.w, b.h, s), { backgroundColor: pal.fond }]}>
       <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 6 * s, backgroundColor: pal.fondHaut }} />
+      {b.id % 5 === 2 && (
+        <EnseignePearl
+          largeur={LARGEUR_ENSEIGNE * s}
+          compacte
+          pieds={8 * s}
+          couleurSupport={pal.fondHaut}
+          style={{ position: 'absolute', bottom: b.h * s, left: (b.w - LARGEUR_ENSEIGNE) * s / 2 }}
+        />
+      )}
     </View>
   ));
 });
@@ -475,7 +488,8 @@ export default function JeuToitsScreen({ navigation }) {
     relacherTout();
     changerPhase('pause');
   }, [changerPhase, relacherTout]);
-  const { alerteCourse, fermerAlerte } = usePauseJeu(pause);
+  const estEnJeu = useCallback(() => phaseRef.current === 'jeu', []);
+  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, { navigation, enJeu: phase === 'jeu', estEnJeu });
 
   const lancerNiveau = useCallback((niveau, report) => {
     mondeRef.current = creerMonde(niveau, report, graineRef.current + niveau);
@@ -748,6 +762,8 @@ export default function JeuToitsScreen({ navigation }) {
                 <Text style={sty.titre}>{t('jeuEnPause')}</Text>
                 <Text style={sty.texte}>{t('jeuScore', { n: m.score })}</Text>
                 <Bouton sty={sty} texte={t('jeuReprendre')} onPress={reprendre} />
+                <Bouton sty={sty} secondaire texte={t('jeuxToitsRejouer')} onPress={nouvellePartie} />
+                <Bouton sty={sty} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton sty={sty} secondaire texte={t('jeuQuitter')} onPress={quitter} />
               </>
             )}

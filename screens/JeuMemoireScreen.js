@@ -9,11 +9,13 @@
  * ressemblent. Chrono à zéro = fin de partie.
  *
  * Logique pure dans utils/jeuMemoire.js. Pause automatique
- * (hooks/usePauseJeu.js) : arrière-plan, écran quitté, nouvelle course ; le
- * chrono s'arrête et les cartes sont masquées pendant la pause. Aucun son.
+ * (hooks/usePauseJeu.js) : arrière-plan, écran quitté, flèche retour pendant
+ * la partie, nouvelle course ; le chrono s'arrête et les cartes sont masquées
+ * pendant la pause. Aucun son. Décor : la ville et le panneau Pearl Streets
+ * (components/FondJeu.js).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Animated, Easing } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated, Easing, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +23,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
+import FondJeu, { reserveBasVille } from '../components/FondJeu';
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
   parametresNiveau, creerDonne, creerAlea, estPaire, melangerCachees, pointsPaire, bonusNiveau, dispositionGrille,
@@ -55,6 +58,7 @@ const DUREE_RETOURNEMENT = 280;
 
 export default function JeuMemoireScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { width: largeurEcran } = useWindowDimensions();
   const { t } = useLanguage();
   const { colors, dark } = useTheme();
   const { user } = useAuth();
@@ -303,7 +307,8 @@ export default function JeuMemoireScreen({ navigation }) {
     }
     changerPhase('pause');
   }, [afficherChrono, arreterChrono, changerPhase, majRetournees, recacher]);
-  const { alerteCourse, fermerAlerte } = usePauseJeu(pause);
+  const estEnJeu = useCallback(() => phaseRef.current === 'jeu', []);
+  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, { navigation, enJeu: phase === 'jeu', estEnJeu });
 
   const reprendre = useCallback(() => {
     if (phaseRef.current !== 'pause') return;
@@ -350,6 +355,15 @@ export default function JeuMemoireScreen({ navigation }) {
     else navigation.navigate('Accueil', { screen: 'OrdersMain' });
   }, [navigation, pause, user?.id]);
 
+  // Rejouer depuis la pause : comme Quitter, le score déjà gagné compte.
+  const rejouerPause = useCallback(() => {
+    if (!termineRef.current && scoreRef.current > 0) {
+      termineRef.current = true;
+      finDePartie(JEU, user?.id, scoreRef.current).catch(() => {});
+    }
+    jouer();
+  }, [jouer, user?.id]);
+
   const voirCourse = useCallback(() => {
     fermerAlerte();
     pause();
@@ -367,6 +381,8 @@ export default function JeuMemoireScreen({ navigation }) {
 
   return (
     <View style={[styles.ecran, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }]}>
+      {/* Décor : la ville et le panneau Pearl Streets, sous la grille */}
+      <FondJeu variante="ville" dark={dark} bas={insets.bottom} />
       {/* Barre du haut : quitter, niveau et score, pause */}
       <View style={styles.haut}>
         <Pressable onPress={quitter} style={styles.rond} hitSlop={10} accessibilityLabel={t('jeuQuitter')}>
@@ -399,7 +415,7 @@ export default function JeuMemoireScreen({ navigation }) {
       </View>
 
       {/* Cartes (masquées pendant la pause : pas de triche) */}
-      <View style={styles.zone} onLayout={surMesure}>
+      <View style={[styles.zone, { marginBottom: Math.max(0, reserveBasVille(largeurEcran) - 4) }]} onLayout={surMesure}>
         {grilleVisible && zone.h > 0 && grille.largeur > 0 && (
           <Animated.View style={[styles.grille, { width: largeurGrille, transform: [{ scale: secousse }] }]}>
             {cartes.map((c, i) => (
@@ -467,6 +483,8 @@ export default function JeuMemoireScreen({ navigation }) {
                 <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                 <Text style={styles.texte}>{t('jeuScore', { n: score })}</Text>
                 <Bouton styles={styles} texte={t('jeuReprendre')} onPress={reprendre} />
+                <Bouton styles={styles} secondaire texte={t('jeuxMemoireRejouer')} onPress={rejouerPause} />
+                <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton styles={styles} secondaire texte={t('jeuQuitter')} onPress={quitter} />
               </>
             )}

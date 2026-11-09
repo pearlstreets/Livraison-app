@@ -8,7 +8,9 @@
  *
  * Cet écran garde le cadre : score, pause, accueil, fin, record et
  * classement. Musique de fond et bruitages joués dans la page, réglables
- * dans l'écran Jeux (utils/sonJeux.js). Pause automatique (hooks/usePauseJeu.js).
+ * dans l'écran Jeux (utils/sonJeux.js). Pause automatique (hooks/usePauseJeu.js),
+ * flèche retour comprise pendant la partie. Panneaux Pearl Streets le long de
+ * la piste (utils/jeuRush3dPage.js).
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, ActivityIndicator } from 'react-native';
@@ -159,7 +161,8 @@ export default function JeuRushScreen({ navigation }) {
     injecter('window.jeu&&window.jeu.reprendre()');
   }, [changerPhase, injecter]);
 
-  const { alerteCourse, fermerAlerte } = usePauseJeu(pause);
+  const estEnJeu = useCallback(() => phaseRef.current === 'jeu', []);
+  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, { navigation, enJeu: phase === 'jeu', estEnJeu });
 
   const quitter = useCallback(() => {
     pause();
@@ -267,6 +270,8 @@ export default function JeuRushScreen({ navigation }) {
                 <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                 <Text style={styles.texte}>{t('jeuScore', { n: affiche.score })}</Text>
                 <Bouton styles={styles} texte={t('jeuReprendre')} onPress={reprendre} />
+                <Bouton styles={styles} secondaire texte={t('jeuxRushRejouer')} onPress={jouer} />
+                <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton styles={styles} secondaire texte={t('jeuQuitter')} onPress={quitter} />
               </>
             )}
