@@ -2,6 +2,7 @@
 export default {
   fr: {
     jeuxCoupeTitre: 'Fruits express',
+    jeuxCoupeCoeur: 'Un cœur doré passe parfois : tranchez-le pour regagner une vie.',
     jeuxCoupeTexte: 'Tranchez les fruits de la commande, évitez les colis fragiles.',
     jeuxCoupeRegle: 'Glissez le doigt pour trancher les fruits de la commande avant qu\'ils ne retombent. Un fruit raté coûte une vie.',
     jeuxCoupeFragile: 'Ne tranchez jamais un colis fragile : la partie s\'arrête.',
@@ -16,6 +17,7 @@ export default {
   },
   en: {
     jeuxCoupeTitre: 'Fruit express',
+    jeuxCoupeCoeur: 'A golden heart sometimes appears: slice it to win a life back.',
     jeuxCoupeTexte: 'Slice the fruit in the order and avoid fragile parcels.',
     jeuxCoupeRegle: 'Swipe your finger to slice the fruit in the order before it falls back down. Each missed fruit costs a life.',
     jeuxCoupeFragile: 'Never slice a fragile parcel: the game ends.',
@@ -30,6 +32,7 @@ export default {
   },
   es: {
     jeuxCoupeTitre: 'Fruta exprés',
+    jeuxCoupeCoeur: 'A veces pasa un corazón dorado: córtelo para recuperar una vida.',
     jeuxCoupeTexte: 'Corte la fruta del pedido y evite los paquetes frágiles.',
     jeuxCoupeRegle: 'Deslice el dedo para cortar la fruta del pedido antes de que vuelva a caer. Cada fruta perdida le cuesta una vida.',
     jeuxCoupeFragile: 'No corte nunca un paquete frágil: la partida termina.',
@@ -44,6 +47,7 @@ export default {
   },
   zh: {
     jeuxCoupeTitre: '水果快递',
+    jeuxCoupeCoeur: '有时会出现一颗金色的心：切开它可以恢复一条命。',
     jeuxCoupeTexte: '切开订单里的水果，避开易碎包裹。',
     jeuxCoupeRegle: '滑动手指，在水果落下之前把订单里的水果切开。每漏掉一个水果就失去一条命。',
     jeuxCoupeFragile: '请勿切到易碎包裹，否则游戏结束。',
@@ -58,6 +62,7 @@ export default {
   },
   ar: {
     jeuxCoupeTitre: 'فواكه إكسبرس',
+    jeuxCoupeCoeur: 'يمرّ أحيانًا قلب ذهبي: اقطعوه لاستعادة حياة.',
     jeuxCoupeTexte: 'اقطعوا فواكه الطلب وتجنّبوا الطرود الهشّة.',
     jeuxCoupeRegle: 'اسحبوا إصبعكم لقطع فواكه الطلب قبل أن تسقط. كل فاكهة تفوتكم تكلّفكم حياة.',
     jeuxCoupeFragile: 'لا تقطعوا أبدًا طردًا هشًّا: تنتهي اللعبة.',
@@ -72,6 +77,7 @@ export default {
   },
   de: {
     jeuxCoupeTitre: 'Obst-Express',
+    jeuxCoupeCoeur: 'Manchmal fliegt ein goldenes Herz vorbei: Schneiden Sie es, um ein Leben zurückzugewinnen.',
     jeuxCoupeTexte: 'Schneiden Sie das Obst der Bestellung und meiden Sie zerbrechliche Pakete.',
     jeuxCoupeRegle: 'Wischen Sie mit dem Finger, um das Obst der Bestellung zu schneiden, bevor es herunterfällt. Jedes verpasste Obst kostet ein Leben.',
     jeuxCoupeFragile: 'Schneiden Sie nie ein zerbrechliches Paket: Das Spiel ist dann vorbei.',
@@ -86,6 +92,7 @@ export default {
   },
   nl: {
     jeuxCoupeTitre: 'Fruit express',
+    jeuxCoupeCoeur: 'Soms vliegt er een gouden hart voorbij: snijd het om een leven terug te winnen.',
     jeuxCoupeTexte: 'Snijd het fruit van de bestelling en vermijd breekbare pakketten.',
     jeuxCoupeRegle: 'Veeg met uw vinger om het fruit van de bestelling te snijden voordat het terugvalt. Elk gemist stuk fruit kost een leven.',
     jeuxCoupeFragile: 'Snijd nooit een breekbaar pakket: dan is het spel voorbij.',
@@ -100,6 +107,7 @@ export default {
   },
   it: {
     jeuxCoupeTitre: 'Frutta express',
+    jeuxCoupeCoeur: 'A volte passa un cuore dorato: lo tagli per recuperare una vita.',
     jeuxCoupeTexte: 'Tagli la frutta dell\'ordine ed eviti i pacchi fragili.',
     jeuxCoupeRegle: 'Faccia scorrere il dito per tagliare la frutta dell\'ordine prima che ricada. Ogni frutto mancato costa una vita.',
     jeuxCoupeFragile: 'Non tagli mai un pacco fragile: la partita finisce.',
@@ -114,6 +122,7 @@ export default {
   },
   pt: {
     jeuxCoupeTitre: 'Fruta expressa',
+    jeuxCoupeCoeur: 'Por vezes passa um coração dourado: corte-o para recuperar uma vida.',
     jeuxCoupeTexte: 'Corte a fruta da encomenda e evite as encomendas frágeis.',
     jeuxCoupeRegle: 'Deslize o dedo para cortar a fruta da encomenda antes que volte a cair. Cada fruta falhada custa uma vida.',
     jeuxCoupeFragile: 'Nunca corte uma encomenda frágil: o jogo termina.',
@@ -128,6 +137,7 @@ export default {
   },
   ja: {
     jeuxCoupeTitre: 'フルーツ速達',
+    jeuxCoupeCoeur: '金色のハートが時々現れます。切ると命が1つ戻ります。',
     jeuxCoupeTexte: '注文のフルーツを切り、割れ物の荷物は避けましょう。',
     jeuxCoupeRegle: '指をスライドして、注文のフルーツが落ちる前に切ってください。フルーツを逃すとライフが1つ減ります。',
     jeuxCoupeFragile: '割れ物の荷物は絶対に切らないでください。ゲーム終了になります。',
@@ -142,6 +152,7 @@ export default {
   },
   th: {
     jeuxCoupeTitre: 'ผลไม้ด่วน',
+    jeuxCoupeCoeur: 'บางครั้งจะมีหัวใจสีทองผ่านมา ฟันให้ขาดเพื่อได้ชีวิตคืนหนึ่งดวง',
     jeuxCoupeTexte: 'หั่นผลไม้ตามคำสั่งซื้อ และหลีกเลี่ยงพัสดุแตกง่าย',
     jeuxCoupeRegle: 'ลากนิ้วเพื่อหั่นผลไม้ตามคำสั่งซื้อก่อนที่จะตกลงมา ผลไม้ที่พลาดแต่ละลูกจะเสียหนึ่งชีวิต',
     jeuxCoupeFragile: 'ห้ามหั่นพัสดุแตกง่ายเด็ดขาด ไม่เช่นนั้นเกมจะจบ',
@@ -156,6 +167,7 @@ export default {
   },
   sv: {
     jeuxCoupeTitre: 'Fruktexpress',
+    jeuxCoupeCoeur: 'Ibland dyker ett gyllene hjärta upp: skär det för att få tillbaka ett liv.',
     jeuxCoupeTexte: 'Skär frukten i beställningen och undvik ömtåliga paket.',
     jeuxCoupeRegle: 'Dra med fingret för att skära frukten i beställningen innan den faller ner. Varje missad frukt kostar ett liv.',
     jeuxCoupeFragile: 'Skär aldrig ett ömtåligt paket: då är spelet slut.',
@@ -170,6 +182,7 @@ export default {
   },
   ru: {
     jeuxCoupeTitre: 'Фрукты-экспресс',
+    jeuxCoupeCoeur: 'Иногда пролетает золотое сердце: разрежьте его, чтобы вернуть одну жизнь.',
     jeuxCoupeTexte: 'Разрезайте фрукты из заказа и избегайте хрупких посылок.',
     jeuxCoupeRegle: 'Проводите пальцем, чтобы разрезать фрукты из заказа, пока они не упали. Каждый пропущенный фрукт стоит одной жизни.',
     jeuxCoupeFragile: 'Никогда не разрезайте хрупкую посылку: игра закончится.',

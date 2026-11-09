@@ -10,8 +10,14 @@
  * Logique pure dans utils/jeuDrone.js. Boucle requestAnimationFrame, état
  * dans des refs, dessin par Animated.Value.setValue (aucun rendu React à
  * chaque image). Pause automatique (hooks/usePauseJeu.js) : arrière-plan,
- * écran quitté, flèche retour pendant la partie, nouvelle course. Aucun son.
- * Décor : panneau Pearl Streets sur les toits de la ville (components/FondJeu.js).
+ * écran quitté, flèche retour pendant la partie, nouvelle course.
+ * Sons : musique et bruitages du jeu « drone » (components/SonJeux.js).
+ * Sauvegarde : le monde entier est mémorisé en pause, « Reprendre ou
+ * Recommencer » à la réouverture dans les 24 h, jamais après une partie perdue.
+ * Haut d'écran : barre, bandeau classement, HUD commun (components/HudJeu.js).
+ * Décor : ciel en dégradé, astre, nuages, ville en parallaxe, immeubles,
+ * grues, lampadaires, drone (components/DroneDessins.js), panneau Pearl Streets
+ * sur les toits (components/FondJeu.js).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, Easing } from 'react-native';
@@ -24,6 +30,16 @@ import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
 import { EnseignePearl, mesuresEnseigne } from '../components/FondJeu';
 import SonJeux, { jouerSon } from '../components/SonJeux';
+import ReglagesSon from '../components/ReglagesSon';
+import ReprisePartie from '../components/ReprisePartie';
+import BandeauClassement from '../components/BandeauClassement';
+import HudJeu from '../components/HudJeu';
+import IndiceGestes from '../components/IndiceGestes';
+import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
+import {
+  OR, Ciel, Astre, CoucheNuages, listeNuages, silhouettes, SilhouetteImmeuble, Lampadaires, PERIODE_LAMPE,
+  Immeuble, HautGrue, HautEnseigne, HautCables, ColisBonus, ClientBalcon, DroneDessin, melange,
+} from '../components/DroneDessins';
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
   HAUTEUR, SOL, DRONE_DESSIN, TAILLE_BONUS, POINTS_COLIS, POINTS_CLIENT,
@@ -49,46 +65,28 @@ function vibrer(fort) {
   }
 }
 
-const OR = '#F2B705';
 const VERT = '#2ecc71';
 const COULEUR_MEDAILLE = { bronze: '#CD7F32', argent: '#C0C6CE', or: OR };
 const CLE_MEDAILLE = { bronze: 'jeuxDroneBronze', argent: 'jeuxDroneArgent', or: 'jeuxDroneOr' };
 // Décors successifs (un nouveau tous les 10 passages) : ciel et silhouettes.
 const DECORS = {
-  clair: [{}, { ciel: '#F7D9B5', loin: '#D9B49A', proche: '#B98C7A' }, { ciel: '#BFE9D6', loin: '#9CC7B4', proche: '#7BA896' }, { ciel: '#D7C8EE', loin: '#B5A4D2', proche: '#9484B8' }],
-  sombre: [{}, { ciel: '#2A1A22', loin: '#3A2530', proche: '#4A303D' }, { ciel: '#0D2220', loin: '#173432', proche: '#1F4542' }, { ciel: '#1A1530', loin: '#271F45', proche: '#33295A' }],
+  clair: [{}, { ciel: '#F7D9B5', cielHaut: '#E58E6E', loin: '#D9B49A', proche: '#B98C7A' }, { ciel: '#BFE9D6', cielHaut: '#5FB59A', loin: '#9CC7B4', proche: '#7BA896' }, { ciel: '#D7C8EE', cielHaut: '#8D79C4', loin: '#B5A4D2', proche: '#9484B8' }],
+  sombre: [{}, { ciel: '#3A2230', cielHaut: '#120A10', loin: '#3A2530', proche: '#4A303D' }, { ciel: '#123530', cielHaut: '#050E0D', loin: '#173432', proche: '#1F4542' }, { ciel: '#2A2050', cielHaut: '#0A0716', loin: '#271F45', proche: '#33295A' }],
 };
 const PERIODE_RUE = 90; // unités entre deux traits de la chaussée
 
 const PALETTE = {
   clair: {
-    ciel: '#CFE6FA', loin: '#B3C9DE', proche: '#93ADC7', rue: '#5B6470', trottoir: '#9AA3AD', trait: '#ECECEC',
+    ciel: '#CFE6FA', cielHaut: '#6FA8DC', nuage: 'rgba(255,255,255,0.9)', fenLoin: '#FFF3C2', lampe: '#4A525C', loin: '#B3C9DE', proche: '#93ADC7', rue: '#5B6470', trottoir: '#9AA3AD', trait: '#ECECEC',
     immeubles: ['#C8553D', '#3D5A80', '#2A9D8F', '#6D597A'], toit: 'rgba(0,0,0,0.22)',
     fenetre: '#FFF6D6', fenetreEteinte: '#E3E8EE', cable: '#2B2F36', poteau: '#5E6670',
   },
   sombre: {
-    ciel: '#0E1622', loin: '#1A2636', proche: '#243246', rue: '#2A2F36', trottoir: '#3A4048', trait: '#8A8F96',
+    ciel: '#1B2A44', cielHaut: '#070B14', nuage: 'rgba(60,78,112,0.55)', fenLoin: '#F6C453', lampe: '#2F353D', loin: '#1A2636', proche: '#243246', rue: '#2A2F36', trottoir: '#3A4048', trait: '#8A8F96',
     immeubles: ['#9E3F2C', '#2E4663', '#1F786D', '#54445F'], toit: 'rgba(0,0,0,0.35)',
     fenetre: '#F6C453', fenetreEteinte: '#1B2430', cable: '#0B0D10', poteau: '#3F4650',
   },
 };
-
-// Silhouettes du décor (parallaxe), tirées une fois par largeur d'écran.
-function silhouettes(largeurPx, hauteurMin, hauteurMax, graine) {
-  const liste = [];
-  let x = 0;
-  let g = graine;
-  const alea = () => {
-    g = (g * 9301 + 49297) % 233280;
-    return g / 233280;
-  };
-  while (x < largeurPx) {
-    const l = 28 + alea() * 46;
-    liste.push({ x, l: Math.min(l, largeurPx - x), h: hauteurMin + alea() * (hauteurMax - hauteurMin), antenne: alea() < 0.25 });
-    x += l + 2;
-  }
-  return liste;
-}
 
 function instantane(o) {
   return {
@@ -117,6 +115,8 @@ export default function JeuDroneScreen({ navigation }) {
   const [bulles, setBulles] = useState([]);
   const [impact, setImpact] = useState(null);
   const [classementOuvert, setClassementOuvert] = useState(false);
+  const [reprise, setReprise] = useState(null); // partie sauvegardée proposée à l'ouverture
+  const [rafraichir, setRafraichir] = useState(0);
 
   const mondeRef = useRef(null);
   const kRef = useRef(1);
@@ -135,6 +135,8 @@ export default function JeuDroneScreen({ navigation }) {
   const decorLoin = useRef(new Animated.Value(0)).current;
   const decorProche = useRef(new Animated.Value(0)).current;
   const rue = useRef(new Animated.Value(0)).current;
+  const decorNuage = useRef(new Animated.Value(0)).current;
+  const decorLampe = useRef(new Animated.Value(0)).current;
   const flash = useRef(new Animated.Value(0)).current;
 
   const changerPhase = useCallback((p) => {
@@ -176,7 +178,9 @@ export default function JeuDroneScreen({ navigation }) {
     decorLoin.setValue(-((m.decor * k * 0.15) % lPx));
     decorProche.setValue(-((m.decor * k * 0.4) % lPx));
     rue.setValue(-((m.decor * k) % (PERIODE_RUE * k)));
-  }, [decorLoin, decorProche, droneRot, droneY, rue]);
+    decorNuage.setValue(-((m.decor * k * 0.05) % lPx));
+    decorLampe.setValue(-((m.decor * k) % (PERIODE_LAMPE * k)));
+  }, [decorLoin, decorLampe, decorNuage, decorProche, droneRot, droneY, rue]);
 
   const arreterBoucle = useCallback(() => {
     actifRef.current = false;
@@ -184,6 +188,13 @@ export default function JeuDroneScreen({ navigation }) {
     rafRef.current = null;
     dernierTsRef.current = null;
   }, []);
+
+  // Sauvegarde du monde entier (données simples) : seulement en plein vol.
+  const sauverEtat = useCallback(() => {
+    const m = mondeRef.current;
+    if (!m || m.phase !== 'vol' || termineRef.current) return;
+    sauverPartie('drone', user?.id, { monde: m, niveau: niveauPalier(m.passes), score: m.score });
+  }, [user?.id]);
 
   const ajouterBulle = useCallback((texte, couleur) => {
     const m = mondeRef.current;
@@ -203,6 +214,8 @@ export default function JeuDroneScreen({ navigation }) {
     if (minuteurFinRef.current) clearTimeout(minuteurFinRef.current);
     minuteurFinRef.current = null;
     arreterBoucle();
+    effacerPartie('drone', user?.id);
+    jouerSon('perdu');
     const m = mondeRef.current;
     const res = { score: m?.score || 0, passes: m?.passes || 0, colis: m?.colis || 0, clients: m?.clients || 0, nouveauRecord: false };
     if (monteRef.current) setResultat(res);
@@ -210,6 +223,8 @@ export default function JeuDroneScreen({ navigation }) {
     finDePartie('drone', user?.id, res.score).then((r) => {
       if (!monteRef.current) return;
       setMeilleur(r.meilleur);
+      setRafraichir((n) => n + 1);
+      if (r.nouveauRecord) jouerSon('record');
       setResultat((x) => (x ? { ...x, nouveauRecord: r.nouveauRecord } : x));
     }).catch(() => {});
   }, [arreterBoucle, changerPhase, user?.id]);
@@ -223,23 +238,25 @@ export default function JeuDroneScreen({ navigation }) {
       else if (e.type === 'passage') points = true;
       else if (e.type === 'palier') {
         vibrer(false);
-        jouerSon('palier');
+        jouerSon('niveau');
+        sauverEtat();
         if (monteRef.current) setNiveau(e.niveau);
         ajouterBulle(t(CLE_MEDAILLE[e.medaille]), COULEUR_MEDAILLE[e.medaille]);
       }
       else if (e.type === 'colis') {
         points = true;
         vibrer(false);
-        jouerSon('piece');
+        jouerSon('ramasse');
         ajouterBulle(`+${POINTS_COLIS}`, OR);
       } else if (e.type === 'client') {
         points = true;
         vibrer(false);
-        jouerSon('bonus');
+        jouerSon('vie');
         ajouterBulle(`${t('jeuxDroneLivre')} +${POINTS_CLIENT}`, VERT);
       } else if (e.type === 'crash') {
         vibrer(true);
         jouerSon('choc');
+        effacerPartie('drone', user?.id);
         changerPhase('chute');
         flash.setValue(0.7);
         Animated.timing(flash, { toValue: 0, duration: 380, easing: Easing.out(Easing.quad), useNativeDriver: true }).start();
@@ -252,7 +269,7 @@ export default function JeuDroneScreen({ navigation }) {
     }
     if (changementListe) synchroniserListe();
     if (points && monteRef.current) setScore(m.score);
-  }, [ajouterBulle, changerPhase, flash, synchroniserListe, t, terminer]);
+  }, [ajouterBulle, changerPhase, flash, sauverEtat, synchroniserListe, t, terminer, user?.id]);
 
   const boucleRef = useRef(null);
   boucleRef.current = (ts) => {
@@ -287,6 +304,8 @@ export default function JeuDroneScreen({ navigation }) {
     if (minuteurFinRef.current) clearTimeout(minuteurFinRef.current);
     minuteurFinRef.current = null;
     termineRef.current = false;
+    effacerPartie('drone', user?.id);
+    setReprise(null);
     nouveauMonde();
     setScore(0);
     setNiveau(0);
@@ -296,7 +315,7 @@ export default function JeuDroneScreen({ navigation }) {
     setClassementOuvert(false);
     changerPhase('pret');
     demarrerBoucle();
-  }, [arreterBoucle, changerPhase, demarrerBoucle, nouveauMonde]);
+  }, [arreterBoucle, changerPhase, demarrerBoucle, nouveauMonde, user?.id]);
 
   // Toucher : réaction immédiate (onTouchStart), aucune attente de rendu.
   const toucher = useCallback(() => {
@@ -322,11 +341,12 @@ export default function JeuDroneScreen({ navigation }) {
     if (p === 'pret' || p === 'vol' || p === 'reprise') {
       arreterBoucle();
       dessiner();
+      sauverEtat();
       changerPhase('pause');
     } else if (p === 'chute') {
       terminer();
     }
-  }, [arreterBoucle, changerPhase, dessiner, terminer]);
+  }, [arreterBoucle, changerPhase, dessiner, sauverEtat, terminer]);
   const estEnJeu = useCallback(() => ['pret', 'vol', 'reprise', 'chute'].includes(phaseRef.current), []);
   // Retour avec le classement ouvert depuis la pause : il se ferme, la partie reste en pause.
   const fermerPanneau = () => {
@@ -347,6 +367,40 @@ export default function JeuDroneScreen({ navigation }) {
     changerPhase(m && m.phase === 'pret' ? 'pret' : 'reprise');
     if (m && m.phase === 'pret') demarrerBoucle();
   }, [changerPhase, demarrerBoucle]);
+
+  // Reprise d'une partie sauvegardée : le drone reste figé jusqu'au prochain toucher.
+  const reprendreSauvegarde = useCallback(() => {
+    const d = reprise;
+    setReprise(null);
+    if (!d?.monde || !tailleRef.current.h) return;
+    arreterBoucle();
+    termineRef.current = false;
+    const m = d.monde;
+    changerLargeur(m, tailleRef.current.l / kRef.current);
+    mondeRef.current = m;
+    animsRef.current = new Map();
+    synchroniserListe();
+    dessiner();
+    setScore(m.score || 0);
+    setNiveau(d.niveau || 0);
+    setResultat(null);
+    setBulles([]);
+    setImpact(null);
+    changerPhase('reprise');
+  }, [arreterBoucle, changerPhase, dessiner, reprise, synchroniserListe]);
+  const recommencerSauvegarde = useCallback(() => {
+    effacerPartie('drone', user?.id);
+    setReprise(null);
+    jouer();
+  }, [jouer, user?.id]);
+
+  useEffect(() => {
+    let vivant = true;
+    chargerPartie('drone', user?.id).then((d) => {
+      if (vivant && d?.monde && phaseRef.current === 'accueil') setReprise(d);
+    }).catch(() => {});
+    return () => { vivant = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     let vivant = true;
@@ -405,12 +459,13 @@ export default function JeuDroneScreen({ navigation }) {
   const enJeu = phase === 'pret' || phase === 'vol' || phase === 'chute' || phase === 'reprise';
   const rotation = droneRot.interpolate({ inputRange: [-180, 180], outputRange: ['-180deg', '180deg'] });
 
-  const loin = useMemo(() => (taille.l ? silhouettes(taille.l, taille.h * 0.22, taille.h * 0.42, 17) : []), [taille]);
-  const proche = useMemo(() => (taille.l ? silhouettes(taille.l, taille.h * 0.12, taille.h * 0.28, 71) : []), [taille]);
+  const loin = useMemo(() => (taille.l ? silhouettes(taille.l, taille.h * 0.22, taille.h * 0.42, 17, true) : []), [taille]);
+  const proche = useMemo(() => (taille.l ? silhouettes(taille.l, taille.h * 0.12, taille.h * 0.28, 71, false) : []), [taille]);
+  const nuages = useMemo(() => (taille.l ? listeNuages(taille.l, taille.h * 0.5, 5) : []), [taille]);
 
   return (
     <View style={[styles.ecran, { backgroundColor: pal.rue }]}>
-      <SonJeux actif={phase === 'pret' || phase === 'vol' || phase === 'reprise'} />
+      <SonJeux jeu="drone" actif={phase === 'pret' || phase === 'vol' || phase === 'reprise'} />
       {/* Monde : toute la hauteur sauf la zone basse du téléphone */}
       <View
         style={[styles.monde, { backgroundColor: pal.ciel, marginBottom: insets.bottom }]}
@@ -419,8 +474,12 @@ export default function JeuDroneScreen({ navigation }) {
       >
         {taille.h > 0 && (
           <>
-            <Couche liste={loin} decalage={decorLoin} couleur={pal.loin} largeur={taille.l} bas={solPx} />
-            <Couche liste={proche} decalage={decorProche} couleur={pal.proche} largeur={taille.l} bas={solPx} enseigne={LARGEUR_ENSEIGNE} />
+            <Ciel haut={pal.cielHaut} bas={pal.ciel} />
+            <Astre dark={dark} largeur={taille.l} hauteur={taille.h} couleurCiel={melange(pal.cielHaut, pal.ciel, 0.15)} />
+            <CoucheNuages liste={nuages} decalage={decorNuage} largeur={taille.l} couleur={pal.nuage} />
+            <Couche liste={loin} decalage={decorLoin} couleur={pal.loin} largeur={taille.l} bas={solPx} fenetre={pal.fenLoin} />
+            <Couche liste={proche} decalage={decorProche} couleur={pal.proche} largeur={taille.l} bas={solPx} enseigne={LARGEUR_ENSEIGNE} fenetre={pal.fenLoin} />
+            <Lampadaires decalage={decorLampe} largeur={taille.l} k={k} bas={solPx} dark={dark} couleur={pal.lampe} />
 
             {liste.map((o) => {
               const a = animsRef.current.get(o.id);
@@ -442,11 +501,7 @@ export default function JeuDroneScreen({ navigation }) {
               pointerEvents="none"
               style={[styles.drone, { left: droneGauche, width: D, height: D, transform: [{ translateY: droneY }, { rotate: rotation }] }]}
             >
-              <MaterialCommunityIcons name="quadcopter" size={D * 0.62} color={BRAND} />
-              <View style={[styles.fil, { height: D * 0.1, backgroundColor: dark ? '#C9CED6' : '#444' }]} />
-              <View style={[styles.colisDrone, { width: D * 0.3, height: D * 0.24, borderRadius: D * 0.04 }]}>
-                <MaterialCommunityIcons name="package-variant-closed" size={D * 0.2} color="#fff" />
-              </View>
+              <DroneDessin D={D} />
             </Animated.View>
 
             {impact && <Impact key={impact.n} x={impact.x} y={impact.y} taille={D} />}
@@ -456,14 +511,6 @@ export default function JeuDroneScreen({ navigation }) {
 
             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.flash, { opacity: flash }]} />
 
-            {enJeu && (
-              <Text pointerEvents="none" style={[styles.scoreGros, { top: insets.top + 58 }]}>{score}</Text>
-            )}
-            {enJeu && niveau > 0 && (
-              <View pointerEvents="none" style={[styles.medailleHud, { top: insets.top + 122 }]}>
-                <MaterialCommunityIcons name="medal" size={26} color={COULEUR_MEDAILLE[medaille(niveau)]} />
-              </View>
-            )}
             {(phase === 'pret' || phase === 'reprise') && (
               <View pointerEvents="none" style={[styles.consigne, { top: taille.h * 0.62 }]}>
                 <MaterialCommunityIcons name="gesture-tap" size={34} color="#fff" />
@@ -476,15 +523,33 @@ export default function JeuDroneScreen({ navigation }) {
         )}
       </View>
 
+      {/* Classement (rang, record, TOP 1) puis HUD commun, sous la barre du haut */}
+      {taille.h > 0 && (
+        <BandeauClassement
+          jeu="drone"
+          idLivreur={user?.id}
+          score={score}
+          rafraichir={rafraichir}
+          t={t}
+          colors={colors}
+          style={[styles.bandeau, { top: insets.top + 58 }]}
+        />
+      )}
+      {enJeu && (
+        <View pointerEvents="none" style={[styles.hudLigne, { top: insets.top + 96 }]}>
+          <HudJeu colors={colors} score={score} />
+          {niveau > 0 && (
+            <MaterialCommunityIcons name="medal" size={28} color={COULEUR_MEDAILLE[medaille(niveau)]} />
+          )}
+        </View>
+      )}
+      <IndiceGestes jeu="drone" actif={phase === 'pret'} gestes={['appui']} t={t} colors={colors} />
+
       {/* Barre du haut : quitter, meilleur score, pause (au-dessus du monde, hors zone de toucher) */}
       <View pointerEvents="box-none" style={[styles.haut, { top: insets.top + 8 }]}>
         <Pressable onPress={quitter} style={styles.rond} hitSlop={10} accessibilityLabel={t('jeuQuitter')}>
           <Ionicons name="close" size={22} color={colors.text} />
         </Pressable>
-        <View pointerEvents="none" style={styles.pastille}>
-          <Ionicons name="trophy" size={14} color={OR} />
-          <Text style={styles.pastilleTexte}>{meilleur}</Text>
-        </View>
         <Pressable
           onPress={pause}
           disabled={!enJeu || phase === 'chute'}
@@ -497,7 +562,17 @@ export default function JeuDroneScreen({ navigation }) {
       </View>
 
       {/* Fenêtres : accueil, pause, fin */}
-      {(phase === 'accueil' || phase === 'pause' || phase === 'fin') && !classementOuvert && (
+      {phase === 'accueil' && reprise && !classementOuvert && (
+        <ReprisePartie
+          t={t}
+          colors={colors}
+          niveau={reprise.niveau > 0 ? reprise.niveau : null}
+          score={reprise.score}
+          onReprendre={reprendreSauvegarde}
+          onRecommencer={recommencerSauvegarde}
+        />
+      )}
+      {(phase === 'accueil' || phase === 'pause' || phase === 'fin') && !classementOuvert && !(phase === 'accueil' && reprise) && (
         <View style={styles.voile}>
           <View style={styles.carte}>
             {phase === 'accueil' && (
@@ -507,6 +582,7 @@ export default function JeuDroneScreen({ navigation }) {
                 <Text style={styles.texte}>{t('jeuxDroneRegle')}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuxDroneBonus')}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuMeilleurScore', { n: meilleur })}</Text>
+                <ReglagesSon t={t} colors={colors} compact />
                 <Bouton styles={styles} texte={t('jeuJouer')} onPress={jouer} desactive={!taille.h} />
                 <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton styles={styles} secondaire texte={t('jeuQuitter')} onPress={quitter} />
@@ -517,6 +593,7 @@ export default function JeuDroneScreen({ navigation }) {
                 <Ionicons name="pause-circle" size={44} color={BRAND} />
                 <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                 <Text style={styles.texte}>{t('jeuScore', { n: score })}</Text>
+                <ReglagesSon t={t} colors={colors} compact />
                 <Bouton styles={styles} texte={t('jeuReprendre')} onPress={reprendre} />
                 <Bouton styles={styles} secondaire texte={t('jeuxDroneRejouer')} onPress={jouer} />
                 <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
@@ -578,7 +655,7 @@ export default function JeuDroneScreen({ navigation }) {
 // l'immeuble le plus proche du milieu de chaque bande.
 const LARGEUR_ENSEIGNE = 110;
 const PIEDS_ENSEIGNE = 12;
-const Couche = memo(function Couche({ liste, decalage, couleur, largeur, bas, enseigne = 0 }) {
+const Couche = memo(function Couche({ liste, decalage, couleur, largeur, bas, enseigne = 0, fenetre }) {
   const porteur = useMemo(() => {
     if (!enseigne || !liste.length) return -1;
     let meilleur = 0;
@@ -592,9 +669,7 @@ const Couche = memo(function Couche({ liste, decalage, couleur, largeur, bas, en
   const bande = (cle) => (
     <View key={cle} style={{ width: largeur, height: '100%' }}>
       {liste.map((b, i) => (
-        <View key={i} style={{ position: 'absolute', left: b.x, bottom: bas, width: b.l, height: b.h, backgroundColor: couleur }}>
-          {b.antenne && i !== porteur && <View style={{ position: 'absolute', top: -14, left: b.l / 2 - 1, width: 2, height: 14, backgroundColor: couleur }} />}
-        </View>
+        <SilhouetteImmeuble key={i} b={b} couleur={couleur} couleurFenetre={fenetre} bas={bas} porteur={i === porteur} />
       ))}
       {porteur >= 0 && (
         <EnseignePearl
@@ -630,38 +705,9 @@ const Obstacle = memo(function Obstacle({ o, a, k, hPx, pal, dark }) {
   const b = TAILLE_BONUS * k;
 
   let haut;
-  if (o.haut === 'grue') {
-    const barres = Math.max(1, Math.min(12, Math.floor(hautVisible / (44 * k))));
-    haut = (
-      <View style={[styles2.morceau, { height: hPx - ep / 2, width: w, backgroundColor: OR, borderColor: '#8A6A00', borderWidth: Math.max(1, 3 * k) }]}>
-        {Array.from({ length: barres }).map((_, i) => (
-          <View key={i} style={{ position: 'absolute', left: 0, right: 0, bottom: 34 * k + i * 44 * k, height: Math.max(2, 6 * k), backgroundColor: '#8A6A00' }} />
-        ))}
-        <View style={[styles2.crochet, { height: 28 * k, backgroundColor: '#3B3F46' }]}>
-          <MaterialCommunityIcons name="hook" size={24 * k} color={OR} />
-        </View>
-      </View>
-    );
-  } else if (o.haut === 'enseigne') {
-    haut = (
-      <View style={[styles2.morceau, { height: hPx - ep / 2, width: w, backgroundColor: pal.poteau }]}>
-        <View style={[styles2.enseigne, { height: 74 * k, borderRadius: 10 * k }]}>
-          <MaterialCommunityIcons name="storefront-outline" size={40 * k} color="#fff" />
-        </View>
-      </View>
-    );
-  } else {
-    haut = (
-      <View style={[styles2.morceau, { height: hPx - ep / 2, width: w, flexDirection: 'row', justifyContent: 'space-between' }]}>
-        {[0, 1, 2, 3].map((i) => (
-          <View key={i} style={{ width: w * 0.21, height: '100%', backgroundColor: pal.cable, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 }} />
-        ))}
-        <View style={[styles2.boitier, { height: 40 * k, backgroundColor: dark ? '#4A515B' : '#7D8794', borderColor: pal.cable }]}>
-          <MaterialCommunityIcons name="flash" size={22 * k} color={OR} />
-        </View>
-      </View>
-    );
-  }
+  if (o.haut === 'grue') haut = <HautGrue w={w} hFull={hPx - ep / 2} hautVisible={hautVisible} k={k} />;
+  else if (o.haut === 'enseigne') haut = <HautEnseigne w={w} hFull={hPx - ep / 2} k={k} pal={pal} />;
+  else haut = <HautCables w={w} hFull={hPx - ep / 2} k={k} pal={pal} dark={dark} />;
 
   return (
     <Animated.View
@@ -669,34 +715,15 @@ const Obstacle = memo(function Obstacle({ o, a, k, hPx, pal, dark }) {
       style={{ position: 'absolute', left: 0, top: -hPx, width: w, height: 2 * hPx + ep, transform: [{ translateX: a.x }, { translateY: a.y }] }}
     >
       {haut}
-      <View style={[styles2.immeuble, { top: hPx + ep / 2, height: hPx, width: w, backgroundColor: couleur }]}>
-        <View style={{ height: Math.max(4, 12 * k), backgroundColor: pal.toit }} />
-        <View style={[styles2.fenetres, { paddingTop: 14 * k, paddingHorizontal: w * 0.16 }]}>
-          {Array.from({ length: rangees * 2 }).map((_, i) => (
-            <View
-              key={i}
-              style={{
-                width: w * 0.26, height: 34 * k, marginBottom: 30 * k, borderRadius: 3,
-                backgroundColor: (i + o.id) % 3 === 0 ? pal.fenetreEteinte : pal.fenetre,
-              }}
-            />
-          ))}
-        </View>
-      </View>
+      <Immeuble w={w} h={hPx} top={hPx + ep / 2} couleur={couleur} k={k} rangees={rangees} id={o.id} pal={pal} sansAccessoire={o.client || (o.colis && !o.colisPris)} />
       {o.client && (
-        <View style={[styles2.client, { top: hPx + ep / 2 - 44 * k, width: w, height: 44 * k }]}>
-          {!o.livre && (
-            <View style={[styles2.demande, { top: -26 * k, width: 26 * k, height: 22 * k, borderRadius: 6 * k }]}>
-              <MaterialCommunityIcons name="package-variant" size={16 * k} color="#fff" />
-            </View>
-          )}
-          <MaterialCommunityIcons name={o.livre ? 'account-check' : 'human-greeting-variant'} size={40 * k} color={o.livre ? VERT : '#fff'} />
-          <View style={{ position: 'absolute', bottom: 0, left: w * 0.12, right: w * 0.12, height: Math.max(3, 6 * k), backgroundColor: '#E8E8E8', borderRadius: 2 }} />
+        <View style={{ position: 'absolute', left: 0, top: hPx + ep / 2 - 44 * k }}>
+          <ClientBalcon w={w} k={k} livre={o.livre} pal={pal} />
         </View>
       )}
       {o.colis && !o.colisPris && (
-        <View style={[styles2.bonus, { top: hPx - b / 2, left: w / 2 - b / 2, width: b, height: b, borderRadius: b * 0.22 }]}>
-          <MaterialCommunityIcons name="package-variant-closed" size={b * 0.68} color="#fff" />
+        <View style={{ position: 'absolute', top: hPx - b / 2, left: w / 2 - b / 2 }}>
+          <ColisBonus b={b} />
         </View>
       )}
     </Animated.View>
@@ -756,17 +783,6 @@ function Bouton({ texte, onPress, secondaire, styles, desactive }) {
 }
 
 const styles2 = StyleSheet.create({
-  morceau: { position: 'absolute', left: 0, top: 0, overflow: 'hidden' },
-  crochet: { position: 'absolute', left: '22%', right: '22%', bottom: 0, alignItems: 'center', justifyContent: 'center', borderTopLeftRadius: 4, borderTopRightRadius: 4 },
-  enseigne: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#fff' },
-  boitier: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 6, borderWidth: 2 },
-  immeuble: { position: 'absolute', left: 0, borderTopLeftRadius: 4, borderTopRightRadius: 4, overflow: 'hidden' },
-  fenetres: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  client: { position: 'absolute', left: 0, alignItems: 'center', justifyContent: 'flex-end' },
-  demande: { position: 'absolute', backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
-  bonus: {
-    position: 'absolute', backgroundColor: OR, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff',
-  },
   bulle: {
     position: 'absolute', width: 160, textAlign: 'center', fontSize: 22, fontWeight: '900',
     textShadowColor: 'rgba(0,0,0,0.45)', textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 },
@@ -780,14 +796,9 @@ const makeStyles = (c) => StyleSheet.create({
   trottoir: { position: 'absolute', left: 0, right: 0, top: 0 },
   traits: { position: 'absolute', left: 0, flexDirection: 'row' },
   drone: { position: 'absolute', top: 0, alignItems: 'center' },
-  fil: { width: 2 },
-  colisDrone: { backgroundColor: '#B07A45', alignItems: 'center', justifyContent: 'center' },
   flash: { backgroundColor: '#fff' },
-  scoreGros: {
-    position: 'absolute', left: 0, right: 0, textAlign: 'center', color: '#fff', fontSize: 52, fontWeight: '900',
-    textShadowColor: 'rgba(0,0,0,0.4)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 2 },
-  },
-  medailleHud: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  bandeau: { position: 'absolute', left: 16, right: 16 },
+  hudLigne: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
   consigne: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   consigneTexte: {
     color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 6, textAlign: 'center', paddingHorizontal: 24,
@@ -799,11 +810,6 @@ const makeStyles = (c) => StyleSheet.create({
     backgroundColor: c.card, borderWidth: 1, borderColor: c.border,
   },
   rondPause: { backgroundColor: BRAND, borderColor: BRAND },
-  pastille: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.card, borderRadius: 16,
-    paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: c.border,
-  },
-  pastilleTexte: { color: c.text, fontWeight: '800', fontSize: 15 },
   voile: {
     ...StyleSheet.absoluteFillObject, backgroundColor: c.overlay, alignItems: 'center', justifyContent: 'center', padding: 24,
   },
