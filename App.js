@@ -71,6 +71,11 @@ import VerificationIdentiteScreen from './screens/VerificationIdentiteScreen';
 import ReleveComptableScreen from './screens/ReleveComptableScreen';
 import NotificationsReglagesScreen from './screens/NotificationsReglagesScreen';
 import JeuTriScreen from './screens/JeuTriScreen';
+import JeuxScreen from './screens/JeuxScreen';
+import JeuToitsScreen from './screens/JeuToitsScreen';
+import JeuSommetScreen from './screens/JeuSommetScreen';
+import JeuDroneScreen from './screens/JeuDroneScreen';
+import JeuRushScreen from './screens/JeuRushScreen';
 import { ecranDeplie, largeurMoitie } from './utils/deuxEcrans';
 import { createDeuxEcransNavigator, AuMilieu } from './navigation/DeuxEcransStack';
 import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli, noterEtatNavigation } from './utils/repliEcran';
@@ -288,6 +293,11 @@ function MenuStackScreen() {
       <MenuStack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="NotificationsReglages" component={NotificationsReglagesScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="JeuTri" component={JeuTriScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="Jeux" component={JeuxScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="JeuToits" component={JeuToitsScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="JeuSommet" component={JeuSommetScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="JeuDrone" component={JeuDroneScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="JeuRush" component={JeuRushScreen} options={{ headerShown: false }} />
     </MenuStack.Navigator>
   );
 }
@@ -397,7 +407,7 @@ function Main() {
         }} />
       <Tab.Screen name="MessagesTab" component={DEPLIE ? InboxStackScreen : InboxScreen} options={{ headerShown: false, tabBarLabel: t('tabMessages') }} />
       <Tab.Screen name="Revenus" component={EarningsStackScreen} options={{ headerShown: false, tabBarLabel: t('tabEarnings') }} />
-      <Tab.Screen name="Profil" component={MenuStackScreen} options={({ route }) => ({ headerShown: false, tabBarLabel: t('tabProfile'), tabBarBadge: totalProfileNotifs > 0 ? totalProfileNotifs : undefined, tabBarBadgeStyle: { backgroundColor: '#e74c3c', fontSize: 10 }, ...(getFocusedRouteNameFromRoute(route) === 'JeuTri' ? { tabBarStyle: { display: 'none' } } : {}) })}
+      <Tab.Screen name="Profil" component={MenuStackScreen} options={({ route }) => ({ headerShown: false, tabBarLabel: t('tabProfile'), tabBarBadge: totalProfileNotifs > 0 ? totalProfileNotifs : undefined, tabBarBadgeStyle: { backgroundColor: '#e74c3c', fontSize: 10 }, ...(['JeuTri', 'JeuToits', 'JeuSommet', 'JeuDrone', 'JeuRush'].includes(getFocusedRouteNameFromRoute(route)) ? { tabBarStyle: { display: 'none' } } : {}) })}
         listeners={({ navigation }) => ({
           tabPress: () => { navigation.navigate('Profil', { screen: 'MenuMain' }); },
         })}
