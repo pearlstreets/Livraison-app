@@ -14,6 +14,9 @@
  * estEnJeu() est alors faux et la sortie passe.
  * Au retour au premier plan, rien ne reprend tout seul : la fenêtre de pause
  * reste affichée.
+ * `fermerPanneau()` (facultatif) : appelé d'abord à chaque retour ; s'il rend
+ * vrai (classement ouvert depuis la pause, par exemple), il a fermé ce
+ * panneau et le retour s'arrête là, la partie reste en pause.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, BackHandler } from 'react-native';
@@ -23,11 +26,13 @@ import { ecouterNouvelleCourse } from '../services/sonCourse';
 const RETOURS = new Set(['GO_BACK', 'POP', 'POP_TO_TOP']);
 
 export default function usePauseJeu(pause, options = {}) {
-  const { navigation, enJeu = false, estEnJeu } = options;
+  const { navigation, enJeu = false, estEnJeu, fermerPanneau } = options;
   const pauseRef = useRef(pause);
   pauseRef.current = pause;
   const estEnJeuRef = useRef(estEnJeu);
   estEnJeuRef.current = estEnJeu;
+  const fermerPanneauRef = useRef(fermerPanneau);
+  fermerPanneauRef.current = fermerPanneau;
   const monte = useRef(true);
   const [alerteCourse, setAlerteCourse] = useState(false);
 
@@ -52,6 +57,7 @@ export default function usePauseJeu(pause, options = {}) {
   // Retour Android : pause au lieu de quitter pendant une partie.
   useFocusEffect(useCallback(() => {
     const abonnement = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (fermerPanneauRef.current?.()) return true;
       if (!estEnJeuRef.current?.()) return false;
       pauseRef.current?.();
       return true;
@@ -64,8 +70,12 @@ export default function usePauseJeu(pause, options = {}) {
   useEffect(() => {
     if (!navigation?.addListener) return undefined;
     return navigation.addListener('beforeRemove', (e) => {
-      if (!estEnJeuRef.current?.()) return;
       const type = e?.data?.action?.type;
+      if ((!type || RETOURS.has(type)) && fermerPanneauRef.current?.()) {
+        e.preventDefault();
+        return;
+      }
+      if (!estEnJeuRef.current?.()) return;
       if (type && !RETOURS.has(type)) {
         pauseRef.current?.();
         return;
