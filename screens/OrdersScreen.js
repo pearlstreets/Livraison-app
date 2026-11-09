@@ -512,12 +512,6 @@ export default function OrdersScreen({ navigation, route }) {
             <Text style={styles.mockBtnTxt}>{t('simulate')}</Text>
           </TouchableOpacity>
         )}
-        {online && (
-          <TouchableOpacity style={[styles.jeuBtn, { alignSelf: 'flex-start' }]} onPress={() => navigation.navigate('JeuTri')} accessibilityLabel={t('jeuBoutonAccueil')}>
-            <Ionicons name="game-controller-outline" size={16} color="#FF6A13" />
-            <Text style={styles.jeuBtnTxt}>{t('jeuBoutonAccueil')}</Text>
-          </TouchableOpacity>
-        )}
         {online && displayedAvailable.length > 0 && (
           <ScrollView style={{ maxHeight: Dimensions.get('window').height * 0.45 }} showsVerticalScrollIndicator={false}>
             {/* La course de la fenêtre « Nouvelle course » n'est pas répétée derrière elle. */}
@@ -674,12 +668,6 @@ export default function OrdersScreen({ navigation, route }) {
               <Text style={styles.emptyText}>{t('noOrders')}</Text>
             )}
           </View>
-          {active.length === 0 && (
-            <TouchableOpacity style={[styles.jeuBtn, { alignSelf: 'center', marginTop: 4 }]} onPress={() => navigation.navigate('JeuTri')} accessibilityLabel={t('jeuBoutonAccueil')}>
-              <Ionicons name="game-controller-outline" size={16} color="#FF6A13" />
-              <Text style={styles.jeuBtnTxt}>{t('jeuBoutonAccueil')}</Text>
-            </TouchableOpacity>
-          )}
         </>
       )}
       <DetailsSheet visible={detailsVisible} order={detailsOrder} onClose={() => setDetailsVisible(false)} />

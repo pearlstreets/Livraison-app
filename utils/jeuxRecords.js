@@ -1,6 +1,5 @@
 /**
- * Records des mini-jeux de l'écran « Jeux » (hors Tri express, qui garde
- * utils/jeuTri.js) : meilleur score par jeu, gardé sur le téléphone, et
+ * Records des mini-jeux de l'écran « Jeux » : meilleur score par jeu, gardé sur le téléphone, et
  * envoi au serveur du record pas encore transmis (le serveur garde le max).
  *
  * Identifiants de jeu : voir JEUX ci-dessous, mêmes valeurs côté serveur
@@ -9,7 +8,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { deliveryService } from '../services/deliveryService';
 
-export const JEUX = ['toits', 'sommet', 'drone', 'rush'];
+export const JEUX = ['toits', 'sommet', 'drone', 'rush', 'coupe', 'memoire'];
 
 const PREFIXE = 'pearl_jeux_record';
 
