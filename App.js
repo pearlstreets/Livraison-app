@@ -287,6 +287,7 @@ function MenuStackScreen() {
       <MenuStack.Screen name="Warnings" component={WarningsScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="NotificationsReglages" component={NotificationsReglagesScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="JeuTri" component={JeuTriScreen} options={{ headerShown: false }} />
     </MenuStack.Navigator>
   );
 }
@@ -396,7 +397,7 @@ function Main() {
         }} />
       <Tab.Screen name="MessagesTab" component={DEPLIE ? InboxStackScreen : InboxScreen} options={{ headerShown: false, tabBarLabel: t('tabMessages') }} />
       <Tab.Screen name="Revenus" component={EarningsStackScreen} options={{ headerShown: false, tabBarLabel: t('tabEarnings') }} />
-      <Tab.Screen name="Profil" component={MenuStackScreen} options={{ headerShown: false, tabBarLabel: t('tabProfile'), tabBarBadge: totalProfileNotifs > 0 ? totalProfileNotifs : undefined, tabBarBadgeStyle: { backgroundColor: '#e74c3c', fontSize: 10 } }}
+      <Tab.Screen name="Profil" component={MenuStackScreen} options={({ route }) => ({ headerShown: false, tabBarLabel: t('tabProfile'), tabBarBadge: totalProfileNotifs > 0 ? totalProfileNotifs : undefined, tabBarBadgeStyle: { backgroundColor: '#e74c3c', fontSize: 10 }, ...(getFocusedRouteNameFromRoute(route) === 'JeuTri' ? { tabBarStyle: { display: 'none' } } : {}) })}
         listeners={({ navigation }) => ({
           tabPress: () => { navigation.navigate('Profil', { screen: 'MenuMain' }); },
         })}
