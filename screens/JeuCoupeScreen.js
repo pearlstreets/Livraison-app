@@ -12,7 +12,8 @@
  * Logique pure dans utils/jeuCoupe.js. Boucle requestAnimationFrame, état
  * dans des refs, dessin par Animated.Value.setValue (aucun rendu React à
  * chaque image). Pause automatique (hooks/usePauseJeu.js) : arrière-plan,
- * écran quitté, nouvelle course. Aucun son.
+ * écran quitté, flèche retour pendant la partie, nouvelle course. Aucun son.
+ * Décor : étal du primeur avec l'enseigne Pearl Streets (components/FondJeu.js).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, Easing } from 'react-native';
@@ -23,6 +24,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
+import FondJeu from '../components/FondJeu';
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
   HAUTEUR, VIES, FRUITS, POINTS_FRUIT,
@@ -239,11 +241,11 @@ export default function JeuCoupeScreen({ navigation }) {
       } else if (e.type === 'combo') {
         points = true;
         vibrer(false);
-        ajouterBulle(t('jeuxCoupeCombo', { n: e.n, bonus: e.bonus }), OR, e.x, e.y - 70);
+        ajouterBulle(t('jeuxCoupeCombo', { n: e.n, bonus: e.bonus }), OR, e.x, e.y - 90);
       } else if (e.type === 'rate') {
         vibrer(false);
         if (monteRef.current) setVies(e.vies);
-        ajouterBulle('', ROUGE, e.x, HAUTEUR - 110, 'heart-dislike');
+        ajouterBulle('', ROUGE, e.x, HAUTEUR - 130, 'heart-dislike');
       } else if (e.type === 'vague') {
         if (monteRef.current) setVague(e.n);
       } else if (e.type === 'casse') {
@@ -355,7 +357,9 @@ export default function JeuCoupeScreen({ navigation }) {
       changerPhase('pause');
     }
   }, [arreterBoucle, changerPhase, dessiner, effacerTrace, terminer, traiter]);
-  const { alerteCourse, fermerAlerte } = usePauseJeu(pause);
+  const enJeu = phase === 'jeu' || phase === 'reprise';
+  const estEnJeu = useCallback(() => phaseRef.current === 'jeu' || phaseRef.current === 'reprise', []);
+  const { alerteCourse, fermerAlerte } = usePauseJeu(pause, { navigation, enJeu, estEnJeu });
 
   // Reprise : tout reste figé jusqu'au prochain toucher.
   const reprendre = useCallback(() => {
@@ -410,7 +414,6 @@ export default function JeuCoupeScreen({ navigation }) {
   const avantClassement = useCallback(() => envoyerRecordEnAttente('coupe', user?.id), [user?.id]);
 
   const k = kRef.current;
-  const enJeu = phase === 'jeu' || phase === 'reprise';
   const lattes = taille.h ? Math.ceil(taille.h / 90) : 0;
 
   return (
@@ -433,9 +436,11 @@ export default function JeuCoupeScreen({ navigation }) {
             {Array.from({ length: lattes }).map((_, i) => (
               <View key={i} pointerEvents="none" style={[styles.latte, { top: i * 90 + 88, backgroundColor: pal.latte }]} />
             ))}
+            {/* Étal du primeur : banne, enseigne Pearl Streets, cagettes */}
+            <FondJeu variante="marche" dark={dark} haut={insets.top} />
 
             {jus.map((j) => (
-              <Eclaboussure key={j.id} id={j.id} x={j.x} y={j.y} couleur={j.couleur} taille={92 * k} onFin={retirerJus} />
+              <Eclaboussure key={j.id} id={j.id} x={j.x} y={j.y} couleur={j.couleur} taille={124 * k} onFin={retirerJus} />
             ))}
 
             {liste.map((o) => {
@@ -463,7 +468,7 @@ export default function JeuCoupeScreen({ navigation }) {
               );
             })}
 
-            {eclats && <Eclats key={eclats.n} x={eclats.x} y={eclats.y} taille={120 * k} />}
+            {eclats && <Eclats key={eclats.n} x={eclats.x} y={eclats.y} taille={146 * k} />}
             {bulles.map((b) => (
               <Bulle key={b.id} id={b.id} x={b.x} y={b.y} texte={b.texte} icone={b.icone} couleur={b.couleur} onFin={retirerBulle} />
             ))}
@@ -538,6 +543,8 @@ export default function JeuCoupeScreen({ navigation }) {
                 <Text style={styles.texte}>{t('jeuScore', { n: score })}</Text>
                 {vague > 0 && <Text style={styles.texteDiscret}>{t('jeuxCoupeVague', { n: vague })}</Text>}
                 <Bouton styles={styles} texte={t('jeuReprendre')} onPress={reprendre} />
+                <Bouton styles={styles} secondaire texte={t('jeuxCoupeRejouer')} onPress={jouer} />
+                <Bouton styles={styles} secondaire texte={t('jeuClassement')} onPress={() => setClassementOuvert(true)} />
                 <Bouton styles={styles} secondaire texte={t('jeuQuitter')} onPress={quitter} />
               </>
             )}

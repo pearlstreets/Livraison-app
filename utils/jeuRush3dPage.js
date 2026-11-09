@@ -7,7 +7,8 @@
  * glisser vers le haut pour sauter. Murs de briques à éviter, rondins à
  * sauter, boules à piques qui roulent d'un bord à l'autre. Pièce = 10 points,
  * étoile = 50 points. Un palier plus rapide (et une nouvelle lumière) tous
- * les 1000 m.
+ * les 1000 m. Panneaux Pearl Streets au bord de la piste (logo en data URL,
+ * utils/logoPearlBase64.js).
  *
  * Messages vers l'app : { t: 'pret' | 'erreur' | 'score' | 'palier' | 'fin' }.
  * Commandes depuis l'app : window.jeu.demarrer() / pause() / reprendre(),
@@ -15,6 +16,7 @@
  * Aucun accent grave (`) ni ${ dans ce code : il vit dans une chaîne.
  */
 import { MOTEUR_AUDIO_JS } from './sonJeux';
+import { LOGO_PEARL_DATA_URL } from './logoPearlBase64';
 
 const THREE_URLS = [
   'https://cdn.jsdelivr.net/npm/three@0.149.0/build/three.min.js',
@@ -78,6 +80,11 @@ const JEU_JS = `
   var texHerbe=toile(256,256,function(g,l,h){ g.fillStyle='#5cbf49'; g.fillRect(0,0,l,h);
     for(var i=0;i<2200;i++){ g.fillStyle='rgba('+(40+Math.random()*60|0)+','+(150+Math.random()*80|0)+',40,0.5)'; g.fillRect(Math.random()*l,Math.random()*h,2,3); } });
   texHerbe.wrapS=texHerbe.wrapT=T.RepeatWrapping; texHerbe.repeat.set(20,8);
+  // Panneau Pearl Streets : plaque verte, cadre bleu nuit, logo blanc (window.__LOGO_PEARL).
+  var texLogo=toile(512,256,function(g,l,h){ g.fillStyle='#0BB58E'; g.fillRect(0,0,l,h); g.fillStyle='#16223F'; g.fillRect(12,12,l-24,h-24); });
+  (function(){ if(!window.__LOGO_PEARL) return; var im=new Image(); im.onload=function(){ var c=texLogo.image, g=c.getContext('2d');
+    var lw=c.width-80, lh=lw*im.height/im.width; if(lh>c.height-60){ lh=c.height-60; lw=lh*im.width/im.height; }
+    g.drawImage(im,(c.width-lw)/2,(c.height-lh)/2,lw,lh); texLogo.needsUpdate=true; }; im.src=window.__LOGO_PEARL; })();
 
   // ---------- Matériaux partagés ----------
   function std(c,o){ o=o||{}; o.color=c; if(o.roughness==null) o.roughness=0.6; return new T.MeshStandardMaterial(o); }
@@ -96,7 +103,8 @@ const JEU_JS = `
     nuage:new T.MeshLambertMaterial({color:0xffffff}), montagne:std(0x7aa6c8,{roughness:1}), neige:std(0xffffff,{roughness:0.8}),
     veste:std(0xff6a13,{roughness:0.55}), peau:std(0xf1c19b,{roughness:0.7}), pantalon:std(0x2d3a5a,{roughness:0.8}),
     sac:std(0x111827,{roughness:0.6}), casquette:std(0xff6a13,{roughness:0.5}), chaussure:std(0xffffff,{roughness:0.6}),
-    fleurR:std(0xff4f6d), fleurJ:std(0xffd23f), ombre:new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.25,depthWrite:false})
+    fleurR:std(0xff4f6d), fleurJ:std(0xffd23f),
+    logo:std(0xffffff,{map:texLogo,emissive:0xffffff,emissiveMap:texLogo,emissiveIntensity:0.45,roughness:0.6}), cadreLogo:std(0x16223f,{roughness:0.6}), poteau:std(0x8d96a3,{metalness:0.5,roughness:0.4}), ombre:new T.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0.25,depthWrite:false})
   };
   function maille(g,m,ombre,recoit){ var x=new T.Mesh(g,m); x.castShadow=!!ombre; x.receiveShadow=recoit!==false; return x; }
 
@@ -127,11 +135,17 @@ const JEU_JS = `
   var geoFleur=new T.SphereGeometry(0.22,8,6), geoTigeF=new T.CylinderGeometry(0.04,0.04,0.5,5);
   function fleurs(){ var g=new T.Group(); for(var i=0;i<5;i++){ var tg=maille(geoTigeF,M.feuille); tg.position.set(Math.random()*2-1,0.25,Math.random()*2-1); g.add(tg);
     var f=maille(geoFleur,Math.random()<0.5?M.fleurR:M.fleurJ); f.position.set(tg.position.x,0.55,tg.position.z); g.add(f); } return g; }
+  var geoPoteau=new T.CylinderGeometry(0.12,0.12,3.2,8), geoPanneau=new T.BoxGeometry(4.2,2.1,0.15);
+  function panneau(){ var g=new T.Group(); [-1,1].forEach(function(c){ var t=maille(geoPoteau,M.poteau,true); t.position.set(c*1.5,1.6,-0.1); g.add(t); });
+    var b=maille(geoPanneau,[M.cadreLogo,M.cadreLogo,M.cadreLogo,M.cadreLogo,M.logo,M.cadreLogo],true); b.position.y=4.25; g.add(b); return g; }
   var FABRIQUES=[champignon,champignon,arbre,arbre,colline,fleurs,fleurs,blocsVolants];
   var LONG_DECOR=SEG*NSEG;
   function placerDecor(o,z){ var cote=Math.random()<0.5?-1:1; var loin=o.userData.type==='colline'?14+Math.random()*30:(o.userData.type==='blocs'?LARGEUR_PISTE/2+1+Math.random()*4:LARGEUR_PISTE/2+2.5+Math.random()*16);
+    if(o.userData.type==='panneau'){ o.position.set(cote*(LARGEUR_PISTE/2+3+Math.random()*5),0,z); o.rotation.y=-cote*0.45; o.scale.setScalar(1); return; }
     o.position.x=cote*loin+(o.userData.type==='blocs'&&cote<0?-4:0); o.position.z=z; o.rotation.y=Math.random()*Math.PI*2; var k=0.8+Math.random()*0.6; o.scale.setScalar(o.userData.type==='colline'?1:k); }
   for(var d=0;d<70;d++){ var f=FABRIQUES[d%FABRIQUES.length]; var o=f(); o.userData.type=f===colline?'colline':(f===blocsVolants?'blocs':'autre'); placerDecor(o,-Math.random()*LONG_DECOR); if(o.userData.type==='blocs') o.rotation.y=0; scene.add(o); decor.push(o); }
+  // Panneaux Pearl Streets au bord de la piste, un tous les 50 m environ.
+  for(var q=0;q<6;q++){ var pn=panneau(); pn.userData.type='panneau'; placerDecor(pn,-(q+0.5)*LONG_DECOR/6); scene.add(pn); decor.push(pn); }
 
   // Nuages et montagnes lointaines (suivent le livreur).
   var lointain=new T.Group(); scene.add(lointain);
@@ -291,6 +305,7 @@ export const PAGE_RUSH_3D = `<!doctype html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <style>html,body{margin:0;padding:0;overflow:hidden;background:#7ec8ff;touch-action:none;-webkit-user-select:none;user-select:none;height:100%}canvas{display:block}</style>
 </head><body>
+<script>window.__LOGO_PEARL=${JSON.stringify(LOGO_PEARL_DATA_URL)};</script>
 <script>${MOTEUR_AUDIO_JS}</script>
 <script>window.__lancerJeu=function(){${JEU_JS}};</script>
 <script>${chargeur()}</script>
