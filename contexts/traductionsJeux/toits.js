@@ -3,7 +3,7 @@ export default {
   fr: {
     jeuxToitsTitre: 'Tournée des toits',
     jeuxToitsTexte: 'Sautez de toit en toit et livrez le colis au client.',
-    jeuxToitsRegle: 'Courez, sautez et livrez le colis à la porte du client. Maintenez le saut pour aller plus haut.',
+    jeuxToitsRegle: 'Glissez le doigt vers la droite ou la gauche pour courir, vers le haut pour sauter, vers le bas pour vous accroupir. Touchez l\'écran pour vous arrêter.',
     jeuxToitsAstuce: 'Sautez sur les chiens, pigeons et trottinettes pour les écarter. Frappez les boîtes aux lettres par-dessous.',
     jeuxToitsAstuceDur: 'Des plateformes bougent, certains toits s\'effondrent peu après votre arrivée et le chrono est serré : à zéro, vous perdez une vie.',
     jeuxToitsDecorJour: 'Jour',
@@ -25,7 +25,7 @@ export default {
   en: {
     jeuxToitsTitre: 'Rooftop round',
     jeuxToitsTexte: 'Jump from roof to roof and deliver the parcel to the customer.',
-    jeuxToitsRegle: 'Run, jump and deliver the parcel to the customer\'s door. Hold jump to go higher.',
+    jeuxToitsRegle: 'Swipe right or left to run, up to jump, down to crouch. Tap the screen to stop.',
     jeuxToitsAstuce: 'Jump on dogs, pigeons and scooters to move them away. Hit the mailboxes from below.',
     jeuxToitsAstuceDur: 'Some platforms move, some roofs collapse soon after you land and the clock is tight: at zero, you lose a life.',
     jeuxToitsDecorJour: 'Day',
@@ -47,7 +47,7 @@ export default {
   es: {
     jeuxToitsTitre: 'Ruta de los tejados',
     jeuxToitsTexte: 'Salte de tejado en tejado y entregue el paquete al cliente.',
-    jeuxToitsRegle: 'Corra, salte y entregue el paquete en la puerta del cliente. Mantenga el salto para subir más.',
+    jeuxToitsRegle: 'Deslice el dedo a la derecha o a la izquierda para correr, hacia arriba para saltar y hacia abajo para agacharse. Toque la pantalla para detenerse.',
     jeuxToitsAstuce: 'Salte sobre perros, palomas y patinetes para apartarlos. Golpee los buzones desde abajo.',
     jeuxToitsAstuceDur: 'Algunas plataformas se mueven, algunos tejados se derrumban poco después de que aterrice y el tiempo apremia: al llegar a cero, pierde una vida.',
     jeuxToitsDecorJour: 'Día',
@@ -69,7 +69,7 @@ export default {
   zh: {
     jeuxToitsTitre: '屋顶配送',
     jeuxToitsTexte: '在屋顶间跳跃，把包裹送到客户手中。',
-    jeuxToitsRegle: '奔跑、跳跃，把包裹送到客户门口。按住跳跃键可跳得更高。',
+    jeuxToitsRegle: '向右或向左滑动来奔跑，向上滑动跳跃，向下滑动蹲下。轻触屏幕即可停下。',
     jeuxToitsAstuce: '跳到狗、鸽子和滑板车上把它们赶走。从下方撞击信箱。',
     jeuxToitsAstuceDur: '部分平台会移动，部分屋顶在您落上去不久后就会坍塌，而且时间很紧：倒计时归零，您就会失去一条生命。',
     jeuxToitsDecorJour: '白天',
@@ -91,7 +91,7 @@ export default {
   ar: {
     jeuxToitsTitre: 'جولة الأسطح',
     jeuxToitsTexte: 'اقفزوا من سطح إلى سطح وسلّموا الطرد للعميل.',
-    jeuxToitsRegle: 'اركضوا واقفزوا وسلّموا الطرد عند باب العميل. اضغطوا مطولًا على القفز للارتفاع أكثر.',
+    jeuxToitsRegle: 'اسحبوا إلى اليمين أو اليسار للركض، وإلى الأعلى للقفز، وإلى الأسفل للانحناء. المسوا الشاشة للتوقف.',
     jeuxToitsAstuce: 'اقفزوا على الكلاب والحمام والسكوترات لإبعادها. اضربوا صناديق البريد من الأسفل.',
     jeuxToitsAstuceDur: 'بعض المنصات تتحرك، وبعض الأسطح تنهار بعد وقت قصير من وصولكم إليها، والوقت ضيق: عند الصفر تفقدون حياة واحدة.',
     jeuxToitsDecorJour: 'النهار',
@@ -113,7 +113,7 @@ export default {
   de: {
     jeuxToitsTitre: 'Dächertour',
     jeuxToitsTexte: 'Springen Sie von Dach zu Dach und liefern Sie das Paket aus.',
-    jeuxToitsRegle: 'Laufen, springen und liefern Sie das Paket an die Tür des Kunden. Halten Sie Springen gedrückt, um höher zu kommen.',
+    jeuxToitsRegle: 'Wischen Sie nach rechts oder links, um zu laufen, nach oben, um zu springen, und nach unten, um sich zu ducken. Tippen Sie auf den Bildschirm, um anzuhalten.',
     jeuxToitsAstuce: 'Springen Sie auf Hunde, Tauben und Roller, um sie zu verscheuchen. Stoßen Sie die Briefkästen von unten an.',
     jeuxToitsAstuceDur: 'Manche Plattformen bewegen sich, manche Dächer stürzen kurz nach Ihrer Landung ein und die Zeit ist knapp: Bei null verlieren Sie ein Leben.',
     jeuxToitsDecorJour: 'Tag',
@@ -135,7 +135,7 @@ export default {
   nl: {
     jeuxToitsTitre: 'Dakenronde',
     jeuxToitsTexte: 'Spring van dak naar dak en bezorg het pakket bij de klant.',
-    jeuxToitsRegle: 'Ren, spring en bezorg het pakket aan de deur van de klant. Houd springen ingedrukt om hoger te komen.',
+    jeuxToitsRegle: 'Veeg naar rechts of links om te rennen, omhoog om te springen en omlaag om te bukken. Tik op het scherm om te stoppen.',
     jeuxToitsAstuce: 'Spring op honden, duiven en steps om ze weg te jagen. Stoot de brievenbussen van onderen aan.',
     jeuxToitsAstuceDur: 'Sommige platforms bewegen, sommige daken storten kort nadat u erop landt in en de tijd is krap: bij nul verliest u een leven.',
     jeuxToitsDecorJour: 'Dag',
@@ -157,7 +157,7 @@ export default {
   it: {
     jeuxToitsTitre: 'Giro dei tetti',
     jeuxToitsTexte: 'Salti da un tetto all\'altro e consegni il pacco al cliente.',
-    jeuxToitsRegle: 'Corra, salti e consegni il pacco alla porta del cliente. Tenga premuto il salto per andare più in alto.',
+    jeuxToitsRegle: 'Scorra il dito a destra o a sinistra per correre, verso l\'alto per saltare, verso il basso per abbassarsi. Tocchi lo schermo per fermarsi.',
     jeuxToitsAstuce: 'Salti su cani, piccioni e monopattini per allontanarli. Colpisca le cassette della posta da sotto.',
     jeuxToitsAstuceDur: 'Alcune piattaforme si muovono, alcuni tetti crollano poco dopo il Suo atterraggio e il tempo è poco: a zero perde una vita.',
     jeuxToitsDecorJour: 'Giorno',
@@ -179,7 +179,7 @@ export default {
   pt: {
     jeuxToitsTitre: 'Rota dos telhados',
     jeuxToitsTexte: 'Salte de telhado em telhado e entregue a encomenda ao cliente.',
-    jeuxToitsRegle: 'Corra, salte e entregue a encomenda à porta do cliente. Mantenha o salto premido para subir mais.',
+    jeuxToitsRegle: 'Deslize o dedo para a direita ou para a esquerda para correr, para cima para saltar e para baixo para se agachar. Toque no ecrã para parar.',
     jeuxToitsAstuce: 'Salte sobre cães, pombos e trotinetes para os afastar. Bata nas caixas de correio por baixo.',
     jeuxToitsAstuceDur: 'Algumas plataformas movem-se, alguns telhados desabam pouco depois de aterrar e o tempo é curto: a zero, perde uma vida.',
     jeuxToitsDecorJour: 'Dia',
@@ -201,7 +201,7 @@ export default {
   ja: {
     jeuxToitsTitre: '屋根の上の配達',
     jeuxToitsTexte: '屋根から屋根へ跳んで、お客様に荷物を届けましょう。',
-    jeuxToitsRegle: '走って跳んで、お客様のドアまで荷物を届けましょう。ジャンプを長押しすると高く跳べます。',
+    jeuxToitsRegle: '右か左にスワイプして走り、上にスワイプしてジャンプ、下にスワイプしてしゃがみます。画面をタップすると止まります。',
     jeuxToitsAstuce: '犬、ハト、キックボードの上に跳び乗ってどかしましょう。郵便受けは下から叩きます。',
     jeuxToitsAstuceDur: '動く足場があり、着地して間もなく崩れる屋根もあります。制限時間は厳しく、ゼロになるとライフを1つ失います。',
     jeuxToitsDecorJour: '昼',
@@ -223,7 +223,7 @@ export default {
   th: {
     jeuxToitsTitre: 'ส่งของบนหลังคา',
     jeuxToitsTexte: 'กระโดดข้ามหลังคาและส่งพัสดุให้ลูกค้า',
-    jeuxToitsRegle: 'วิ่ง กระโดด และส่งพัสดุถึงประตูลูกค้า กดกระโดดค้างไว้เพื่อกระโดดให้สูงขึ้น',
+    jeuxToitsRegle: 'ปัดไปทางขวาหรือซ้ายเพื่อวิ่ง ปัดขึ้นเพื่อกระโดด ปัดลงเพื่อก้มตัว แตะหน้าจอเพื่อหยุด',
     jeuxToitsAstuce: 'กระโดดเหยียบสุนัข นกพิราบ และสกู๊ตเตอร์เพื่อไล่ไป ชนตู้จดหมายจากด้านล่าง',
     jeuxToitsAstuceDur: 'แพลตฟอร์มบางอันเคลื่อนที่ หลังคาบางหลังจะถล่มไม่นานหลังจากที่คุณลงจอด และเวลามีน้อย เมื่อเหลือศูนย์ คุณจะเสียหนึ่งชีวิต',
     jeuxToitsDecorJour: 'กลางวัน',
@@ -245,7 +245,7 @@ export default {
   sv: {
     jeuxToitsTitre: 'Taktur',
     jeuxToitsTexte: 'Hoppa från tak till tak och leverera paketet till kunden.',
-    jeuxToitsRegle: 'Spring, hoppa och leverera paketet till kundens dörr. Håll in hopp för att komma högre.',
+    jeuxToitsRegle: 'Svep åt höger eller vänster för att springa, uppåt för att hoppa och nedåt för att huka dig. Tryck på skärmen för att stanna.',
     jeuxToitsAstuce: 'Hoppa på hundar, duvor och sparkcyklar för att få bort dem. Slå i brevlådorna underifrån.',
     jeuxToitsAstuceDur: 'Vissa plattformar rör sig, vissa tak rasar strax efter att du landat och tiden är knapp: vid noll förlorar du ett liv.',
     jeuxToitsDecorJour: 'Dag',
@@ -267,7 +267,7 @@ export default {
   ru: {
     jeuxToitsTitre: 'Доставка по крышам',
     jeuxToitsTexte: 'Прыгайте с крыши на крышу и доставьте посылку клиенту.',
-    jeuxToitsRegle: 'Бегите, прыгайте и доставьте посылку к двери клиента. Удерживайте прыжок, чтобы прыгнуть выше.',
+    jeuxToitsRegle: 'Проведите пальцем вправо или влево, чтобы бежать, вверх, чтобы прыгнуть, вниз, чтобы пригнуться. Коснитесь экрана, чтобы остановиться.',
     jeuxToitsAstuce: 'Прыгайте на собак, голубей и самокаты, чтобы прогнать их. Бейте по почтовым ящикам снизу.',
     jeuxToitsAstuceDur: 'Некоторые платформы движутся, некоторые крыши обрушиваются вскоре после вашего приземления, а времени мало: при нуле вы теряете жизнь.',
     jeuxToitsDecorJour: 'День',
