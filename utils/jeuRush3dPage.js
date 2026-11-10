@@ -434,12 +434,12 @@ export const JEU_JS = `
   function changerVoie(d){ if(phase!=='jeu') return; var n=Math.max(-1,Math.min(1,voie+d)); if(n!==voie){ voie=n; cibleX=VOIES[voie+1]; } }
   var t0=null;
   window.addEventListener('touchstart',function(e){ var t=e.touches[0]; t0={x:t.clientX,y:t.clientY}; },{passive:true});
-  window.addEventListener('touchmove',function(e){ if(!t0) return; var t=e.touches[0], dx=t.clientX-t0.x, dy=t.clientY-t0.y, ax=Math.abs(dx), ay=Math.abs(dy), fait=false;
+  window.addEventListener('touchmove',function(e){ if(!t0||t0.fait){ if(e.cancelable) e.preventDefault(); return; } var t=e.touches[0], dx=t.clientX-t0.x, dy=t.clientY-t0.y, ax=Math.abs(dx), ay=Math.abs(dy), fait=false;
     if(phase==='jeu'){
       if(ax>=SEUIL&&ax>ay*0.8){ changerVoie(dx>0?1:-1); fait=true; }
       else if(dy<=-SEUIL&&ay>ax*0.8){ sauter(); fait=true; }
       else if(dy>=SEUIL&&ay>ax*0.8){ glisser(); fait=true; }
-      if(fait){ t0.x=t.clientX; t0.y=t.clientY; }
+      if(fait){ t0.fait=true; }
     }
     if(e.cancelable) e.preventDefault(); },{passive:false});
   window.addEventListener('touchend',function(){ t0=null; },{passive:true});
@@ -473,7 +473,7 @@ export const JEU_JS = `
     var base=Math.min(V_MAX,V_DEPART+Math.sqrt(E.dist)*0.32+E.palier*0.8);
     E.v=base*(tb?1.5:1);
     var dz=E.v*dt; E.z-=dz; E.dist+=dz; E.ptsDist+=dz*(b.x2>0?2:1);
-    E.x+=(cibleX-E.x)*Math.min(1,dt*12);
+    E.x+=(cibleX-E.x)*Math.min(1,dt*9);
     if(E.y>0||E.vy>0){ E.vy-=GRAV*dt; E.y+=E.vy*dt; if(E.y<=0){ E.y=0; E.vy=0; if(E.glisseAuSol){ E.glisseAuSol=false; E.glisse=0.6; } } }
     var pal=Math.floor(E.dist/PALIER); if(pal>E.palier){ E.palier=pal; appliquerCiel(pal); son('palier'); envoyer({t:'palier',palier:pal}); envoyerEtat(); }
     // Livreur : pose et effets.
