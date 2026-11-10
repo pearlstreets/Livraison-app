@@ -33,6 +33,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
+import AlerteCourseJeu from '../components/AlerteCourseJeu';
 import { EnseignePearl } from '../components/FondJeu';
 import SonJeux, { bruit } from '../components/SonJeux';
 import ReglagesSon from '../components/ReglagesSon';
@@ -1227,16 +1228,8 @@ export default function JeuToitsScreen({ navigation }) {
           />
         </View>
       )}
-      {alerteCourse && (
-        <View style={sty.voile}>
-          <View style={sty.carte}>
-            <Ionicons name="bicycle" size={44} color={BRAND} />
-            <Text style={sty.titre}>{t('jeuNouvelleCourse')}</Text>
-            <Text style={sty.texte}>{t('jeuNouvelleCourseTexte')}</Text>
-            <Bouton sty={sty} texte={t('jeuVoirCourse')} onPress={voirCourse} />
-            <Bouton sty={sty} secondaire texte={t('jeuResterIci')} onPress={fermerAlerte} />
-          </View>
-        </View>
+      {!!alerteCourse && (
+        <AlerteCourseJeu alerte={alerteCourse} t={t} navigation={navigation} onVoir={voirCourse} onRester={fermerAlerte} />
       )}
     </View>
   );

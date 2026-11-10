@@ -30,6 +30,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
+import AlerteCourseJeu from '../components/AlerteCourseJeu';
 import FondJeu from '../components/FondJeu';
 import {
   BanniereRecompense, EtoilesFin, creerSuivi, suivreScore, etoilesPour, formaterNombre,
@@ -704,16 +705,8 @@ export default function JeuCoupeScreen({ navigation }) {
       {phase === 'accueil' && reprise && !classementOuvert && !alerteCourse && (
         <ReprisePartie t={t} colors={colors} niveau={reprise.vague} score={reprise.score} onReprendre={reprendrePartie} onRecommencer={recommencerPartie} />
       )}
-      {alerteCourse && (
-        <View style={styles.voile}>
-          <View style={styles.carte}>
-            <Ionicons name="bicycle" size={44} color={BRAND} />
-            <Text style={styles.titre}>{t('jeuNouvelleCourse')}</Text>
-            <Text style={styles.texte}>{t('jeuNouvelleCourseTexte')}</Text>
-            <Bouton styles={styles} texte={t('jeuVoirCourse')} onPress={voirCourse} />
-            <Bouton styles={styles} secondaire texte={t('jeuResterIci')} onPress={fermerAlerte} />
-          </View>
-        </View>
+      {!!alerteCourse && (
+        <AlerteCourseJeu alerte={alerteCourse} t={t} navigation={navigation} onVoir={voirCourse} onRester={fermerAlerte} />
       )}
     </View>
   );

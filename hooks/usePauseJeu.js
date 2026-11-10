@@ -34,16 +34,18 @@ export default function usePauseJeu(pause, options = {}) {
   const fermerPanneauRef = useRef(fermerPanneau);
   fermerPanneauRef.current = fermerPanneau;
   const monte = useRef(true);
-  const [alerteCourse, setAlerteCourse] = useState(false);
+  const [alerteCourse, setAlerteCourse] = useState(null);
 
   useEffect(() => {
     monte.current = true;
     const abonnement = AppState.addEventListener('change', (prochain) => {
       if (prochain !== 'active') pauseRef.current?.();
     });
-    const desabonner = ecouterNouvelleCourse(() => {
+    // alerteCourse vaut { cle, course } : la fenêtre du jeu montre la vraie
+    // fiche de la course (components/AlerteCourseJeu.js).
+    const desabonner = ecouterNouvelleCourse((info) => {
       pauseRef.current?.();
-      if (monte.current) setAlerteCourse(true);
+      if (monte.current) setAlerteCourse(info || { cle: '', course: null });
     });
     return () => {
       monte.current = false;
@@ -91,6 +93,6 @@ export default function usePauseJeu(pause, options = {}) {
     navigation.setOptions({ gestureEnabled: !enJeu });
   }, [navigation, enJeu]);
 
-  const fermerAlerte = useCallback(() => setAlerteCourse(false), []);
+  const fermerAlerte = useCallback(() => setAlerteCourse(null), []);
   return { alerteCourse, fermerAlerte };
 }
