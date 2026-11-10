@@ -11,6 +11,15 @@
  * jamais plus espacées que ECART_MAX_RATIO x la hauteur d'un saut normal, et
  * la vitesse latérale permet d'atteindre n'importe quelle abscisse pendant
  * ce saut (vérifiable avec peutAtteindre).
+ *
+ * Difficulté (demande du 10/11) : elle monte avec la hauteur (écarts,
+ * pièges plus fréquents et plus rapides, vent dès le palier 1 et un peu plus
+ * fort à chaque palier), puis au-delà du palier 4 une « surcharge » accélère
+ * encore pots, pigeons et nacelles, plafonnée pour rester jouable.
+ * Bonus ramassables (un tous les 13 à 22 étages environ, posés au-dessus
+ * d'un balcon de la chaîne, donc toujours atteignables) : aimant à colis,
+ * casque (protège d'un pot ou d'un pigeon) et filet de sécurité (rattrape
+ * une chute). Les anciens bonus restent : matelas, monte-charge, colis.
  */
 
 export const MONDE_L = 360;
@@ -34,6 +43,21 @@ export const DT_MAX = 1 / 30;
 export const RALENTI = 0.7;
 const PAS = 1 / 120;
 
+/** Bonus ramassables : durée (secondes de jeu) et hauteur d'apparition. */
+export const BONUS = {
+  aimant: { duree: 8, des: 600 },
+  casque: { duree: 15, des: 900 },
+  filet: { duree: 15, des: 1200 },
+};
+export const TYPES_BONUS = Object.keys(BONUS);
+export const RAYON_AIMANT = 150;
+export const V_AIMANT = 520;
+export const BONUS_ECART_MIN = 800;
+export const BONUS_ECART_MAX = 1300;
+export const INVULNERABLE = 0.8; // secondes protégées après un coup paré par le casque
+export const SURCHARGE_MAX = 0.35;
+export const VENT_BONUS_MAX = 0.3;
+
 export const LARGEURS = { sol: MONDE_L, balcon: 74, nacelle: 70, store: 80, trampo: 74, monte: 84 };
 
 export function hauteurSaut(v = V_SAUT) {
@@ -43,7 +67,37 @@ const H_SAUT = hauteurSaut(V_SAUT);
 
 /** Difficulté 0 (début) vers 1 (très haut), progressive. */
 export function difficulte(hauteur) {
-  return 1 - Math.exp(-Math.max(0, hauteur) / 3000);
+  return 1 - Math.exp(-Math.max(0, hauteur) / 2600);
+}
+
+/** Accélération des pièges au-delà du palier 4 : 0 puis +7 % par palier, plafonnée. */
+export function surcharge(palier) {
+  return Math.min(SURCHARGE_MAX, Math.max(0, palier - 4) * 0.07);
+}
+
+/** Force maximale du vent selon le palier : nulle au palier 0, +6 % par palier, plafonnée. */
+export function ventMax(palier) {
+  if (palier < 1) return 0;
+  return VENT_MAX * (1 + Math.min(VENT_BONUS_MAX, (palier - 1) * 0.06));
+}
+
+/** Réglages des pièges à une hauteur donnée (sert au jeu et aux tests). */
+export function reglagesPieges(hauteur) {
+  const d = difficulte(hauteur);
+  const pal = palierDe(hauteur);
+  const k = surcharge(pal);
+  return {
+    d,
+    palier: pal,
+    ecarts: ecarts(d),
+    intervallePot: lerp(6, 2, d) / (1 + k),
+    vitessePot: lerp(300, 520, d) * (1 + k * 0.5),
+    alertePot: lerp(0.9, 0.6, d),
+    intervallePigeon: lerp(8, 2.8, d) / (1 + k),
+    vitessePigeon: lerp(130, 250, d) * (1 + k * 0.5),
+    vitesseNacelle: lerp(70, 190, d) * (pal >= 4 ? 1.25 : 1) * (1 + k * 0.5),
+    vent: ventMax(pal),
+  };
 }
 
 /** Palier atteint (tous les ETAGES_PALIER étages) : 0, 1, 2... */
@@ -102,7 +156,7 @@ function creerPlateforme(e, type, x, y, chaine) {
     const amplitude = lerp(60, 130, d) + e.hasard() * 30;
     p.xMin = Math.max(0, x - amplitude);
     p.xMax = Math.min(MONDE_L - l, x + amplitude);
-    p.vx = (e.hasard() < 0.5 ? -1 : 1) * lerp(70, 190, d) * (palierDe(y) >= 4 ? 1.25 : 1);
+    p.vx = (e.hasard() < 0.5 ? -1 : 1) * reglagesPieges(y).vitesseNacelle;
   }
   e.plateformes.push(p);
   return p;
@@ -118,7 +172,16 @@ export function genererJusqua(e, yMax) {
     const l = LARGEURS[type];
     const x = r() * (MONDE_L - l);
     const p = creerPlateforme(e, type, x, y, true);
-    if ((type === 'balcon' || type === 'nacelle') && r() < 0.12) {
+    const dispo = type === 'balcon' && y >= e.prochainBonus
+      ? TYPES_BONUS.filter((k) => y >= BONUS[k].des && k !== e.dernierBonus)
+      : [];
+    if (dispo.length) {
+      // Bonus posé au-dessus d'un balcon fixe de la chaîne : toujours atteignable.
+      const genre = dispo[Math.floor(r() * dispo.length)];
+      e.bonusListe.push({ id: e.idSuivant++, type: genre, x: p.x + l / 2, y: y + 40, pris: false });
+      e.dernierBonus = genre;
+      e.prochainBonus = y + lerp(BONUS_ECART_MIN, BONUS_ECART_MAX, r());
+    } else if ((type === 'balcon' || type === 'nacelle') && r() < 0.12) {
       e.colisListe.push({ id: e.idSuivant++, x: p.x + l / 2, y: y + 34, pris: false });
     }
     const { min, max } = ecarts(d);
@@ -155,6 +218,13 @@ export function partieNeuve(visibleH = 640, hasard = Math.random) {
     colisListe: [],
     pots: [],
     pigeons: [],
+    bonusListe: [],
+    prochainBonus: 650,
+    dernierBonus: null,
+    aimant: 0, // secondes restantes de chaque bonus
+    casque: 0,
+    filet: 0,
+    invuln: 0,
     hasard,
     idSuivant: 1,
     prochainY: 70,
@@ -208,6 +278,44 @@ export function peutAtteindre(ecart, dx, l = LARGEURS.nacelle, vent = 0) {
   return false;
 }
 
+/** Casque : pare un coup (pot ou pigeon) puis laisse un court répit. */
+function proteger(e, evts) {
+  if (e.invuln > 0) return true;
+  if (e.casque <= 0) return false;
+  e.casque = 0;
+  e.invuln = INVULNERABLE;
+  evts.push('protege');
+  return true;
+}
+
+/** Aimant : un colis proche glisse vers le livreur (passage de bord compris). */
+function attirer(c, j, h) {
+  const dx = ((j.x - c.x + 1.5 * MONDE_L) % MONDE_L) - MONDE_L / 2;
+  const dy = j.y + JOUEUR_H / 2 - c.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist > RAYON_AIMANT || dist < 1) return;
+  const pas = Math.min(dist, V_AIMANT * h);
+  c.x += (dx / dist) * pas;
+  c.y += (dy / dist) * pas;
+  if (c.x < 0) c.x += MONDE_L;
+  if (c.x >= MONDE_L) c.x -= MONDE_L;
+}
+
+/** Bonus restants à sauvegarder (pause, sortie) et à restaurer (reprise). */
+export function bonusActifs(e) {
+  const out = {};
+  for (const k of TYPES_BONUS) out[k] = Math.max(0, Math.round((e[k] || 0) * 10) / 10);
+  return out;
+}
+export function restaurerBonus(e, sauves) {
+  if (!sauves || typeof sauves !== 'object') return e;
+  for (const k of TYPES_BONUS) {
+    const v = Number(sauves[k]);
+    e[k] = Number.isFinite(v) ? Math.max(0, Math.min(BONUS[k].duree, v)) : 0;
+  }
+  return e;
+}
+
 function rebondir(e, v) {
   e.joueur.vy = v;
 }
@@ -220,7 +328,9 @@ function toucheCorps(j, cx, cy, demiL, demiH) {
 /**
  * Avance la partie de dt secondes (borné). `dir` : -1 gauche, 0, 1 droite.
  * Rend la liste des événements de l'image : 'rebond', 'trampo', 'monte',
- * 'store', 'colis', 'pigeon', 'palier', 'touche', 'fin'.
+ * 'store', 'colis', 'pigeon', 'palier', 'touche', 'fin', plus les bonus
+ * 'aimant', 'casque', 'filet' (ramassés), 'protege' (coup paré par le
+ * casque) et 'sauve' (chute rattrapée par le filet).
  */
 export function avancer(e, dtBrut, dir) {
   const evts = [];
@@ -233,7 +343,6 @@ export function avancer(e, dtBrut, dir) {
     const h = Math.min(PAS, dt);
     dt -= h;
     e.t += h;
-    const d = difficulte(e.hautMax);
 
     // Plateformes mobiles et stores déchirés.
     for (const p of e.plateformes) {
@@ -250,7 +359,11 @@ export function avancer(e, dtBrut, dir) {
     }
 
     const piedsAvant = j.y;
-    e.vent = e.palier >= 1 ? Math.sin(e.t * 0.7) * VENT_MAX : 0;
+    e.vent = Math.sin(e.t * 0.7) * ventMax(e.palier);
+    if (e.aimant > 0) e.aimant = Math.max(0, e.aimant - h);
+    if (e.casque > 0) e.casque = Math.max(0, e.casque - h);
+    if (e.filet > 0) e.filet = Math.max(0, e.filet - h);
+    if (e.invuln > 0) e.invuln = Math.max(0, e.invuln - h);
     pasJoueur(j, e.phase === 'jeu' ? dir : 0, h, e.phase === 'jeu' ? e.vent : 0);
     if (e.annonce > 0) e.annonce -= h;
     if (e.phase === 'chute') j.rot += 500 * h;
@@ -271,8 +384,9 @@ export function avancer(e, dtBrut, dir) {
         }
       }
 
-      // Colis.
+      // Colis (attirés par l'aimant quand il est actif).
       for (const c of e.colisListe) {
+        if (!c.pris && e.aimant > 0) attirer(c, j, h);
         if (!c.pris && dxBoucle(j.x, c.x) < JOUEUR_L / 2 + 12 && j.y < c.y + 14 && j.y + JOUEUR_H > c.y - 14) {
           c.pris = true;
           e.colis += 1;
@@ -280,7 +394,16 @@ export function avancer(e, dtBrut, dir) {
         }
       }
 
-      // Pigeons : rebond par le dessus, sinon fin.
+      // Bonus.
+      for (const b of e.bonusListe) {
+        if (!b.pris && dxBoucle(j.x, b.x) < JOUEUR_L / 2 + 14 && j.y < b.y + 16 && j.y + JOUEUR_H > b.y - 16) {
+          b.pris = true;
+          e[b.type] = BONUS[b.type].duree;
+          evts.push(b.type);
+        }
+      }
+
+      // Pigeons : rebond par le dessus, sinon fin (sauf casque).
       for (const g of e.pigeons) {
         if (g.mort) continue;
         if (j.vy < 0 && piedsAvant >= g.y && j.y <= g.y + 10 && Math.abs(j.x - g.x) < 17 + PIED) {
@@ -289,6 +412,7 @@ export function avancer(e, dtBrut, dir) {
           rebondir(e, V_SAUT);
           evts.push('pigeon');
         } else if (toucheCorps(j, g.x, g.y, 16, 9)) {
+          if (proteger(e, evts)) { g.mort = true; g.vyMort = 0; continue; }
           e.phase = 'chute';
           e.cause = 'pigeon';
           j.vy = Math.min(j.vy, 200);
@@ -299,6 +423,7 @@ export function avancer(e, dtBrut, dir) {
       // Pots de fleurs.
       for (const pot of e.pots) {
         if (pot.alerte <= 0 && !pot.casse && toucheCorps(j, pot.x, pot.y, 12, 13)) {
+          if (proteger(e, evts)) { pot.casse = true; continue; }
           e.phase = 'chute';
           e.cause = 'pot';
           j.vy = Math.min(j.vy, 0);
@@ -335,20 +460,21 @@ export function avancer(e, dtBrut, dir) {
       else g.x += g.vx * h;
     }
     if (e.phase === 'jeu') {
+      const reg = reglagesPieges(e.hautMax);
       if (e.hautMax > 900) {
         e.minPot -= h;
         if (e.minPot <= 0) {
-          e.minPot = lerp(6, 2, d) * (0.7 + r() * 0.6);
+          e.minPot = reg.intervallePot * (0.7 + r() * 0.6);
           const nb = e.palier >= 3 ? 2 : 1; // palier 3 : rafales de pots
           for (let k = 0; k < nb; k += 1) {
-            e.pots.push({ id: e.idSuivant++, x: 24 + r() * (MONDE_L - 48), y: haut + 30, vy: -lerp(300, 520, d), alerte: lerp(0.9, 0.6, d), casse: false });
+            e.pots.push({ id: e.idSuivant++, x: 24 + r() * (MONDE_L - 48), y: haut + 30, vy: -reg.vitessePot, alerte: reg.alertePot, casse: false });
           }
         }
       }
       if (e.hautMax > 1400) {
         e.minPigeon -= h;
         if (e.minPigeon <= 0) {
-          e.minPigeon = lerp(8, 2.8, d) * (0.7 + r() * 0.6);
+          e.minPigeon = reg.intervallePigeon * (0.7 + r() * 0.6);
           const gauche = r() < 0.5;
           const nb = e.palier >= 2 ? 2 : 1; // palier 2 : escadrilles de pigeons
           for (let k = 0; k < nb; k += 1) {
@@ -356,7 +482,7 @@ export function avancer(e, dtBrut, dir) {
               id: e.idSuivant++,
               x: (gauche ? -30 : MONDE_L + 30) + (gauche ? -1 : 1) * k * 70,
               y: e.cam + e.visibleH * lerp(0.5, 0.85, r()),
-              vx: (gauche ? 1 : -1) * lerp(130, 250, d),
+              vx: (gauche ? 1 : -1) * reg.vitessePigeon,
               regard: gauche ? 1 : -1,
               mort: false,
               vyMort: 0,
@@ -368,6 +494,14 @@ export function avancer(e, dtBrut, dir) {
 
     // Fin : sous le bas de l'écran.
     if (j.y + JOUEUR_H < e.cam - 20) {
+      if (e.phase === 'jeu' && e.filet > 0) {
+        // Filet de sécurité : il rattrape le livreur une fois et le relance très haut.
+        e.filet = 0;
+        j.y = e.cam - 10;
+        j.vy = V_MONTE;
+        evts.push('sauve');
+        continue;
+      }
       e.phase = 'fin';
       if (!e.cause) e.cause = 'chute';
       evts.push('fin');
@@ -380,6 +514,7 @@ export function avancer(e, dtBrut, dir) {
   e.plateformes = e.plateformes.filter((p) => p.y > bas);
   e.colisListe = e.colisListe.filter((c) => !c.pris && c.y > bas);
   e.pots = e.pots.filter((p) => p.y > bas);
+  e.bonusListe = e.bonusListe.filter((b) => !b.pris && b.y > bas);
   e.pigeons = e.pigeons.filter((g) => g.y > bas && g.x > -160 && g.x < MONDE_L + 160);
   genererJusqua(e, e.cam + e.visibleH * 1.6);
 

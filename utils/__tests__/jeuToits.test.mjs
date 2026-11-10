@@ -5,6 +5,7 @@ import {
   SAUT_MESURE, ECART_MAX, MONTEE_MAX, LARGEUR, VIES, PALIER_PIECES, DISTANCE_SURE, BORD_SUR,
   DEGAGEMENT_ATTERRISSAGE, genererNiveau, creerMonde, pas, etatsEntree, etatsSortie, hautDe,
   peutSauter, simulerSaut, MARGE_SAUT, pointDeReprise, reapparaitre, zoneGeneur, reglagesNiveau,
+  BONUS_CAISSE, BONUS_CHRONO, DUREES, POINTS, ECART_MAX as ECART,
 } from '../jeuToits.js';
 
 const NIVEAUX = Array.from({ length: 15 }, (_, i) => i + 1);
@@ -165,6 +166,111 @@ test('caisse bonus frappée par-dessous : amélioration donnée et annoncée', (
 
 test('score d\'un niveau loin du plafond serveur (2 000 000)', () => {
   const m = creerMonde(15, {}, 9);
-  const max = m.colis.length * 10 + m.boites.length * 100 + m.geneurs.length * 150 + 500 + m.limite * 20;
-  assert.ok(max < 20000, `max ${max}`);
+  // Points doublés partout (bonus « double ») et chrono rallongé par toutes les caisses : borne haute.
+  const max = 2 * (m.colis.length * 10 + m.boites.length * 50 + m.geneurs.length * 150)
+    + m.boites.length * 100 + 500 + (m.limite + m.boites.length * BONUS_CHRONO) * 20;
+  assert.ok(max < 40000, `max ${max}`);
+});
+
+test('seconde vague de difficulté après le niveau 10, début inchangé', () => {
+  const r1 = reglagesNiveau(1);
+  assert.equal(r1.limite, Math.round((1600 / 165) * 3 + 15));
+  assert.equal(r1.dur, 0);
+  assert.equal(r1.vitesseGeneurs, 1);
+  const r10 = reglagesNiveau(10);
+  const r16 = reglagesNiveau(16);
+  const r22 = reglagesNiveau(22);
+  const parUnite = (r) => r.limite / r.longueur;
+  assert.ok(parUnite(r22) < parUnite(r16) && parUnite(r16) < parUnite(r10), 'chrono de plus en plus serré');
+  assert.ok(r22.probGeneur > r16.probGeneur && r16.probGeneur > r10.probGeneur);
+  assert.ok(r22.vitesseGeneurs > r16.vitesseGeneurs && r16.vitesseGeneurs > 1);
+  assert.ok(r22.probMobile > r10.probMobile && r22.probFragile > r10.probFragile);
+  // Chrono jamais intenable : au moins 1,75 fois le temps de course sans faute.
+  [10, 16, 22, 40].forEach((n) => {
+    const r = reglagesNiveau(n);
+    assert.ok(r.limite >= (r.longueur / 165) * 1.75, `niveau ${n} : chrono ${r.limite}`);
+  });
+  // Pente très douce après le niveau 22, plafonnée au niveau 40.
+  const r30 = reglagesNiveau(30);
+  const r40 = reglagesNiveau(40);
+  assert.ok(r30.probGeneur > r22.probGeneur && r40.probGeneur > r30.probGeneur && r40.probGeneur <= 0.8 + 1e-9);
+  assert.ok(r40.vitesseGeneurs > r30.vitesseGeneurs && r40.vitesseGeneurs <= 1.5 + 1e-9);
+  assert.ok(r40.limite < r22.limite);
+  assert.deepEqual(reglagesNiveau(60), { ...r40, n: 60 });
+});
+
+test('niveaux 16 à 24 : toujours faisables, gêneurs hors atterrissage', () => {
+  [16, 19, 22, 24].forEach((n) => [3, 77, 2026].forEach((g) => {
+    const niv = genererNiveau(n, g * 97 + n);
+    const P = niv.plateformes;
+    for (let i = 0; i + 1 < P.length; i += 1) {
+      etatsSortie(P[i]).forEach((a) => etatsEntree(P[i + 1]).forEach((b) => {
+        const ctx = `niveau ${n} graine ${g} plateforme ${i}`;
+        assert.ok(b.x - (a.x + a.w) <= ECART + 0.5, `${ctx} : trou`);
+        assert.ok(Math.abs(b.y - hautDe(a)) <= MONTEE_MAX + 0.5, `${ctx} : marche`);
+        assert.ok(peutSauter(a, b), `${ctx} : saut impossible`);
+      }));
+    }
+    niv.geneurs.forEach((e) => {
+      const p = P.find((q) => !q.flottante && e.y >= q.y - 0.5 && e.x >= q.x && e.x <= q.x + q.w);
+      assert.ok(p && p.id !== 0 && !p.fragile && !p.arrivee, `niveau ${n} graine ${g} : gêneur mal placé`);
+      assert.ok(zoneGeneur(e)[0] >= p.x + DEGAGEMENT_ATTERRISSAGE - 0.5);
+    });
+  }));
+});
+
+function frapperCaisse(m, caisse) {
+  m.joueur = { ...m.joueur, x: caisse.x, y: caisse.y - 32, vy: 300, sol: null };
+  for (let k = 0; k < 10 && !caisse.frappee; k += 1) pas(m, 1 / 60, {});
+  assert.ok(caisse.frappee);
+}
+
+test('nouveaux bonus : drone, chrono et points doublés', () => {
+  assert.deepEqual(BONUS_CAISSE, ['taille', 'vol', 'etoile', 'chrono', 'double']);
+  // Drone (ancien parapluie) : le livreur vole et l'annonce montre un drone.
+  let m = creerMonde(1, {}, 3);
+  let caisse = m.boites.find((b) => b.bonus);
+  caisse.bonus = 'vol';
+  frapperCaisse(m, caisse);
+  assert.ok(m.vol > 0 && m.joueur.vol);
+  assert.equal(m.annonce.icone, 'quadcopter');
+  assert.equal(m.annonce.cle, 'jeuxToitsBonusVol');
+  // Chrono : +10 s.
+  m = creerMonde(1, {}, 3);
+  caisse = m.boites.find((b) => b.bonus);
+  caisse.bonus = 'chrono';
+  const avant = m.reste;
+  frapperCaisse(m, caisse);
+  assert.ok(m.reste > avant + BONUS_CHRONO - 1, `chrono ${avant} puis ${m.reste}`);
+  assert.equal(m.annonce.cle, 'jeuxToitsBonusChrono');
+  // Points doublés : un colis vaut 20 pendant DUREES.double secondes.
+  m = creerMonde(1, {}, 3);
+  caisse = m.boites.find((b) => b.bonus);
+  caisse.bonus = 'double';
+  frapperCaisse(m, caisse);
+  assert.ok(m.double > DUREES.double - 1);
+  assert.equal(m.annonce.cle, 'jeuxToitsBonusDouble');
+  const s0 = m.score;
+  m.colis.push({ id: 5000, x: m.joueur.x, y: m.joueur.y + 4, pris: false });
+  pas(m, 1 / 60, {});
+  assert.equal(m.score - s0, POINTS.colis * 2);
+  // Le bonus s'éteint seul.
+  for (let k = 0; k < 60 * (DUREES.double + 1) && m.etat === 'jeu'; k += 1) pas(m, 1 / 60, {});
+  assert.equal(m.double, 0);
+  // Pendant l'attente après une chute, les points doublés ne s'écoulent pas.
+  m = creerMonde(1, {}, 3);
+  caisse = m.boites.find((b) => b.bonus);
+  caisse.bonus = 'double';
+  frapperCaisse(m, caisse);
+  reapparaitre(m, m.joueur.x);
+  assert.ok(m.attente);
+  const restant = m.double;
+  for (let k = 0; k < 60 * 4; k += 1) pas(m, 1 / 60, {});
+  assert.equal(m.double, restant);
+});
+
+test('caisses bonus : les 5 bonus tournent au fil des niveaux', () => {
+  const vus = new Set();
+  for (let n = 1; n <= 6; n += 1) creerMonde(n, {}, 11 * n).boites.filter((b) => b.bonus).forEach((b) => vus.add(b.bonus));
+  assert.equal(vus.size, BONUS_CAISSE.length);
 });

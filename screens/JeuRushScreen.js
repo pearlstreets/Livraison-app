@@ -4,13 +4,18 @@
  * Course sans fin en 3D dans une rue de ville (Three.js dans une WebView,
  * page : utils/jeuRush3dPage.js). Gestes : glisser à gauche ou à droite pour
  * changer de voie, vers le haut pour sauter, vers le bas pour glisser. Colis
- * (10 points, doré 50), cinq bonus (turbo, super saut, points x2, aimant,
- * casque), vitesse qui monte, fin au premier obstacle sans casque.
+ * (10 points, doré 50), sept bonus (turbo, super saut, points x2, aimant,
+ * casque, ralenti, colis en or), difficulté qui monte tout au long de la
+ * course (utils/jeuRushDifficulte.js). Voitures et passants à éviter : un
+ * choc lance une poursuite de police de 10 s (jauge discrète en haut à
+ * gauche), un deuxième choc pendant la poursuite fait arrêter le livreur et
+ * finit la partie (utils/jeuRushPolice.js). Le casque encaisse un choc.
  *
  * Cet écran garde le cadre : pause, accueil, fin, record et classement.
  * Haut d'écran : barre, bandeau classement (rang et record à gauche, TOP 1 à
  * droite), HUD commun avec compteur de colis « ramassés / vus » et jauges des
- * bonus (components/HudJeu.js). Musique du jeu « rush » et bruitages joués
+ * bonus (components/HudJeu.js). Annonces (palier, bonus, séries, points) :
+ * toujours en haut de la piste, jamais au milieu. Musique du jeu « rush » et bruitages joués
  * dans la page, réglables dans l'écran Jeux (utils/sonJeux.js).
  * Sauvegarde : l'état de la course est mémorisé en pause, « Reprendre ou
  * Recommencer » à la réouverture dans les 24 h, jamais après une partie perdue.
@@ -56,6 +61,7 @@ function vibrer() {
 }
 
 const JEU = 'rush';
+const SCORE_MAX = 2000000; // Plafond serveur du score Rush (DeliveryApp/views_jeux.py)
 const OR = '#F2B705';
 // Bonus de la page : icône et couleur de la jauge dans le HUD.
 const BONUS_HUD = {
@@ -64,10 +70,19 @@ const BONUS_HUD = {
   x2: { icone: 'star', couleur: '#E0A800' },
   aimant: { icone: 'magnet', couleur: '#E5383B' },
   casque: { icone: 'shield-checkmark', couleur: '#2D7FF9' },
+  ralenti: { icone: 'hourglass', couleur: '#22B8CF' },
+  or: { icone: 'cube', couleur: '#F2B705' },
 };
 // Scores annoncés en grand pendant la course.
 const PALIERS = [500, 1000, 2500, 5000, 10000, 25000, 50000];
-const CLE_BONUS = { turbo: 'jeuRecompTurbo', saut: 'jeuRecompSaut', x2: 'jeuRecompX2', aimant: 'jeuRecompAimant', casque: 'jeuRecompCasque' };
+const CLE_BONUS = {
+  turbo: 'jeuRecompTurbo', saut: 'jeuRecompSaut', x2: 'jeuRecompX2', aimant: 'jeuRecompAimant', casque: 'jeuRecompCasque',
+  ralenti: 'jeuxRushBonusRalenti', or: 'jeuxRushBonusOr',
+};
+// Annonces en haut de la piste : palier tout en haut, bonus et séries juste dessous.
+const HAUT_BANNIERE = 6;
+const HAUT_RECOMPENSE = 50;
+const BLEU_POLICE = '#2D7FF9';
 
 export default function JeuRushScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -79,7 +94,7 @@ export default function JeuRushScreen({ navigation }) {
 
   const [phase, setPhase] = useState('accueil'); // accueil | jeu | pause | choc | fin
   const phaseRef = useRef('accueil');
-  const [affiche, setAffiche] = useState({ score: 0, colis: 0, total: 0, palier: 0, boosters: [] });
+  const [affiche, setAffiche] = useState({ score: 0, colis: 0, total: 0, palier: 0, boosters: [], police: 0, policeS: 0 });
   const [reprise, setReprise] = useState(null); // sauvegarde trouvée à l'ouverture
   const [rafraichir, setRafraichir] = useState(0); // relance le bandeau classement
   const [meilleur, setMeilleur] = useState(0);
@@ -139,12 +154,12 @@ export default function JeuRushScreen({ navigation }) {
   const terminer = useCallback((m) => {
     vibrer();
     changerPhase('choc');
-    const s = Math.max(0, Math.floor(Number(m.score) || 0));
+    const s = Math.min(SCORE_MAX, Math.max(0, Math.floor(Number(m.score) || 0)));
     const base = { score: s, distance: Math.floor(Number(m.distance) || 0), colis: Number(m.pieces) || 0, total: Number(m.total) || 0, palier: Number(m.palier) || 1, nouveauRecord: false, etoiles: etoilesPour(s, meilleurRef.current, PALIERS) };
     suiviRef.current = null;
     recompRef.current?.cacher();
     setResultat(base);
-    setAffiche((p) => ({ ...p, score: s, boosters: [] }));
+    setAffiche((p) => ({ ...p, score: s, boosters: [], police: 0, policeS: 0 }));
     effacerPartie(JEU, idLivreur);
     jouerSon('perdu');
     finDePartie(JEU, idLivreur, s).then((r) => {
@@ -170,6 +185,8 @@ export default function JeuRushScreen({ navigation }) {
       const n = Number(m.pieces) || 0;
       const tot = Number(m.total) || 0;
       const pal = Number(m.palier) || 0;
+      const pol = Math.max(0, Math.min(1, Number(m.police) || 0));
+      const polS = Math.max(0, Math.floor(Number(m.policeS) || 0));
       const annonce = suivreScore(suiviRef.current, s);
       if (annonce?.type === 'record') {
         recompRef.current?.montrer({ texte: t('jeuRecompRecord'), icone: 'trophy', couleur: OR });
@@ -182,8 +199,8 @@ export default function JeuRushScreen({ navigation }) {
       })) : [];
       setAffiche((p) => {
         const memeBonus = p.boosters.length === bon.length && p.boosters.every((b, i) => b.id === bon[i].id && Math.abs(b.ratio - bon[i].ratio) < 0.03);
-        return p.score === s && p.colis === n && p.total === tot && p.palier === pal && memeBonus
-          ? p : { score: s, colis: n, total: tot, palier: pal, boosters: memeBonus ? p.boosters : bon };
+        return p.score === s && p.colis === n && p.total === tot && p.palier === pal && memeBonus && p.police === pol && p.policeS === polS
+          ? p : { score: s, colis: n, total: tot, palier: pal, boosters: memeBonus ? p.boosters : bon, police: pol, policeS: polS };
       });
     } else if (m.t === 'etat' && (phaseRef.current === 'pause' || phaseRef.current === 'jeu')) {
       // Course mémorisée (pause, nouveau palier) : reprise possible pendant 24 h.
@@ -194,6 +211,19 @@ export default function JeuRushScreen({ navigation }) {
       recompRef.current?.montrer({ texte: t('jeuRecompSerie', { n: Number(m.n) || 0 }), icone: 'flame', couleur: '#FF7A1A' });
     } else if (m.t === 'bonus' && phaseRef.current === 'jeu' && CLE_BONUS[m.id]) {
       recompRef.current?.montrer({ texte: t(CLE_BONUS[m.id]), icone: BONUS_HUD[m.id].icone, couleur: BONUS_HUD[m.id].couleur });
+    } else if (m.t === 'police' && phaseRef.current === 'jeu') {
+      // Poursuite de police : annonces en haut de la piste.
+      if (m.etat === 'poursuite') {
+        vibrer();
+        recompRef.current?.montrer({ texte: t('jeuxRushPolice'), icone: 'car-sport', couleur: BLEU_POLICE });
+      } else if (m.etat === 'abandon') {
+        recompRef.current?.montrer({ texte: t('jeuxRushPoliceAbandon'), icone: 'happy', couleur: '#0BB58E' });
+      } else if (m.etat === 'arrete') {
+        // Arrêté : la sauvegarde est effacée tout de suite, fermer le jeu pendant la scène n'annule rien.
+        effacerPartie(JEU, idLivreur);
+        vibrer();
+        recompRef.current?.montrer({ texte: t('jeuxRushArrete'), icone: 'hand-left', couleur: '#E8433A' });
+      }
     } else if (m.t === 'palier') {
       montrerBanniere(Number(m.palier) || 0);
       jouerSon('niveau');
@@ -213,7 +243,7 @@ export default function JeuRushScreen({ navigation }) {
     const depart = reprend ? Math.floor((Number(etat.points) || 0) + (Number(etat.ptsDist) || 0)) : 0;
     suiviRef.current = creerSuivi(PALIERS, meilleurRef.current, depart);
     recompRef.current?.cacher();
-    setAffiche({ score: reprend ? Math.floor((Number(etat.points) || 0) + (Number(etat.ptsDist) || 0)) : 0, colis: 0, total: 0, palier: reprend ? Number(etat.palier) || 0 : 0, boosters: [] });
+    setAffiche({ score: reprend ? Math.floor((Number(etat.points) || 0) + (Number(etat.ptsDist) || 0)) : 0, colis: 0, total: 0, palier: reprend ? Number(etat.palier) || 0 : 0, boosters: [], police: 0, policeS: 0 });
     montrerBanniere(reprend ? Number(etat.palier) || 0 : 0);
     changerPhase('jeu');
     injecter(`window.sonJeu&&window.sonJeu.reveil();window.jeu&&window.jeu.demarrer(${reprend ? JSON.stringify(etat) : ''})`);
@@ -337,7 +367,16 @@ export default function JeuRushScreen({ navigation }) {
             <Text style={styles.banniereTitre}>{t('jeuxRushPalier', { n: banniere + 1 })}</Text>
           </Animated.View>
         )}
-        <BanniereRecompense ref={recompRef} haut="36%" />
+        {phase === 'jeu' && affiche.police > 0 && (
+          <View pointerEvents="none" style={styles.police}>
+            <Ionicons name="car-sport" size={14} color="#fff" />
+            <View style={styles.policeBarre}>
+              <View style={[styles.policeReste, { width: `${Math.round(affiche.police * 100)}%` }]} />
+            </View>
+            <Text style={styles.policeTexte}>{t('jeuxRushPoliceSecondes', { n: affiche.policeS })}</Text>
+          </View>
+        )}
+        <BanniereRecompense ref={recompRef} haut={HAUT_RECOMPENSE} />
         {phase === 'choc' && <View pointerEvents="none" style={styles.flash} />}
         <IndiceGestes jeu={JEU} actif={phase === 'jeu'} gestes={['gauche', 'droite', 'haut', 'bas']} t={t} colors={colors} />
       </View>
@@ -453,13 +492,21 @@ const makeStyles = (c, dark) => StyleSheet.create({
   bandeau: { marginTop: 10 },
   hudLigne: { marginTop: 8, flexDirection: 'row', alignItems: 'center' },
   banniere: {
-    position: 'absolute', alignSelf: 'center', top: '22%', paddingHorizontal: 22, paddingVertical: 12, borderRadius: 16,
-    backgroundColor: 'rgba(12,28,56,0.78)', borderWidth: 2, alignItems: 'center', maxWidth: '90%',
+    position: 'absolute', alignSelf: 'center', top: HAUT_BANNIERE, paddingHorizontal: 18, paddingVertical: 6, borderRadius: 14,
+    backgroundColor: 'rgba(12,28,56,0.78)', borderWidth: 2, alignItems: 'center', maxWidth: '70%',
   },
-  banniereTitre: { color: '#fff', fontSize: 24, fontWeight: '900' },
+  banniereTitre: { color: '#fff', fontSize: 18, fontWeight: '900' },
   vue: { flex: 1, backgroundColor: '#7EC8FF' },
   chargement: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(12,28,56,0.35)' },
   flash: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(231,76,60,0.35)' },
+  // Jauge discrète de la poursuite, en haut à gauche de la piste.
+  police: {
+    position: 'absolute', top: 6, left: 8, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 12, backgroundColor: 'rgba(31,60,143,0.82)',
+  },
+  policeBarre: { width: 46, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.3)', marginHorizontal: 6, overflow: 'hidden' },
+  policeReste: { height: 5, borderRadius: 3, backgroundColor: '#4DA3FF' },
+  policeTexte: { color: '#fff', fontSize: 12, fontWeight: '800' },
   piste: {
     flex: 1, marginTop: 14, borderRadius: 18, overflow: 'hidden', direction: 'ltr',
     borderWidth: 1, borderColor: c.border,

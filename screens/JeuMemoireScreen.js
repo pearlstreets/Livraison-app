@@ -16,8 +16,10 @@
  * niveau, score et paires trouvées (components/HudJeu.js). Cartes dessinées en
  * illustrées (components/FacesMemoire.js : dos au logo Pearl Streets en
  * filigrane, faces illustrées thème livraison).
- * Récompenses : « +N » sur la carte, combo de paires d'affilée (points et
- * secondes en plus), étoiles et confettis au niveau gagné.
+ * Récompenses : « +N », combo de paires d'affilée (points et secondes en
+ * plus), paires bonus au cadre doré (loupe, sablier, aimant), étoiles et
+ * confettis au niveau gagné. Toutes les annonces s'affichent en haut, dans la
+ * bande juste sous le chrono, jamais sur les cartes.
  * Batterie : chrono à une mise à jour par seconde dans son propre composant
  * (la grille ne se redessine pas), barre animée par le pilote natif, tout
  * arrêté en pause et en arrière-plan (usePauseJeu).
@@ -45,7 +47,7 @@ import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauve
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
   parametresNiveau, creerDonne, creerAlea, estPaire, melangerCachees, pointsPaire, bonusNiveau, dispositionGrille,
-  bonusCombo, secondesCombo, etoilesNiveau,
+  bonusCombo, secondesCombo, etoilesNiveau, paireAimant, BONUS, SECONDES_SABLIER, SCORE_MAX_SERVEUR,
 } from '../utils/jeuMemoire';
 
 // Vibration légère : module natif facultatif, le jeu marche sans.
@@ -73,6 +75,8 @@ const VERT = '#2ecc71';
 const ROUGE = '#e74c3c';
 const ECART = 10;
 const BLEU_TEMPS = '#1E88E5';
+const VIOLET_LOUPE = '#8E44AD';
+const ROSE_AIMANT = '#D81B60';
 const DUREE_RETOURNEMENT = 340;
 const TEXTE_CLAIR = '#16324A';
 const PIEDS_ENSEIGNE = 10;
@@ -97,6 +101,7 @@ export default function JeuMemoireScreen({ navigation }) {
   const [palier, setPalier] = useState(null); // { niveau, paires, points, combo, temps, sansErreur, etoiles, suivant }
   const [resultat, setResultat] = useState(null); // { score, niveau, paires, nouveauRecord }
   const [bulles, setBulles] = useState([]);
+  const [apercu, setApercu] = useState(false); // loupe : toutes les cartes visibles un instant
   const [classementOuvert, setClassementOuvert] = useState(false);
   const [reprise, setReprise] = useState(null); // partie sauvegardée proposée à l'ouverture
   const [nbParties, setNbParties] = useState(0); // fait recharger le bandeau de classement
@@ -121,7 +126,9 @@ export default function JeuMemoireScreen({ navigation }) {
   const comboRef = useRef(0); // paires d'affilée sans erreur
   const pointsComboRef = useRef(0); // points de combo du niveau
   const afficheSecondesRef = useRef(null); // setter du composant Chrono
-  const grilleRef = useRef(null);
+  const minuteurLoupeRef = useRef(null);
+  const finLoupeRef = useRef(0); // heure de fin de la loupe en cours
+  const resteLoupeRef = useRef(0); // ms de loupe restantes après une pause
 
   const progression = useRef(new Animated.Value(1)).current;
   const secousse = useRef(new Animated.Value(1)).current;
@@ -141,27 +148,18 @@ export default function JeuMemoireScreen({ navigation }) {
     if (monteRef.current) setRetournees(liste);
   }, []);
 
-  const majScore = useCallback((s) => {
+  const majScore = useCallback((valeur) => {
+    const s = Math.min(SCORE_MAX_SERVEUR, valeur);
     scoreRef.current = s;
     if (monteRef.current) setScore(s);
   }, []);
 
-  // Bulle de récompense ; `carteId` la place sur la carte, sinon en haut de la grille.
-  const ajouterBulle = useCallback((texte, couleur, carteId, decalage = 0, gros = false) => {
+  // Annonce (points, combo, bonus) : toujours en haut, dans la bande sous le chrono.
+  const ajouterBulle = useCallback((texte, couleur, gros = false) => {
     if (!monteRef.current) return;
     idBulleRef.current += 1;
     const id = idBulleRef.current;
-    const g = grilleRef.current;
-    let x = null;
-    let y = null;
-    if (g && carteId != null) {
-      const i = cartesRef.current.findIndex((c) => c.id === carteId);
-      if (i >= 0) {
-        x = (i % g.colonnes) * (g.largeur + ECART) + g.largeur / 2;
-        y = Math.floor(i / g.colonnes) * (g.hauteur + ECART) + g.hauteur / 2;
-      }
-    }
-    setBulles((b) => [...b.slice(-4), { id, texte, couleur, x, y: y == null ? null : y + decalage, gros }]);
+    setBulles((b) => [...b.slice(-2), { id, texte, couleur, gros }]);
   }, []);
   const retirerBulle = useCallback((id) => {
     if (monteRef.current) setBulles((b) => b.filter((x) => x.id !== id));
@@ -189,7 +187,11 @@ export default function JeuMemoireScreen({ navigation }) {
   const annulerErreurEnCours = useCallback(() => {
     if (minuteurErreurRef.current) clearTimeout(minuteurErreurRef.current);
     minuteurErreurRef.current = null;
+    if (minuteurLoupeRef.current) clearTimeout(minuteurLoupeRef.current);
+    minuteurLoupeRef.current = null;
+    resteLoupeRef.current = 0;
     verrouRef.current = false;
+    if (monteRef.current) setApercu(false);
   }, []);
 
   const terminer = useCallback(() => {
@@ -316,15 +318,27 @@ export default function JeuMemoireScreen({ navigation }) {
     const mode = paramsRef.current.melange;
     if (mode !== 'aucun') {
       const avant = cartesRef.current;
-      const apres = melangerCachees(avant, mode, aleaRef.current);
+      const apres = melangerCachees(avant, mode, aleaRef.current, paramsRef.current.echanges);
       if (apres !== avant) {
         majCartes(apres);
-        ajouterBulle(t('jeuxMemoireMelange'), BRAND);
+        ajouterBulle(t('jeuxMemoireMelange'), BRAND, true);
         secousse.setValue(0.94);
         Animated.spring(secousse, { toValue: 1, friction: 4, tension: 120, useNativeDriver: true }).start();
       }
     }
   }, [ajouterBulle, majCartes, majRetournees, secousse, t]);
+
+  // Loupe : toutes les cartes visibles `duree` ms, le toucher bloqué pendant ce temps.
+  const lancerLoupe = useCallback((duree) => {
+    verrouRef.current = true;
+    if (monteRef.current) setApercu(true);
+    finLoupeRef.current = Date.now() + duree;
+    minuteurLoupeRef.current = setTimeout(() => {
+      minuteurLoupeRef.current = null;
+      verrouRef.current = false;
+      if (monteRef.current) setApercu(false);
+    }, duree);
+  }, []);
 
   const retourner = useCallback((id) => {
     if (phaseRef.current !== 'jeu' || verrouRef.current) return;
@@ -355,20 +369,44 @@ export default function JeuMemoireScreen({ navigation }) {
       majRetournees([]);
       vibrer(false);
       bruit(combo >= 2 ? 'booster' : 'ramasse');
-      ajouterBulle(`+${gain}`, VERT, carte.id, 0, combo >= 2);
-      if (combo >= 2) ajouterBulle(t('jeuxMemoireCombo', { n: combo }), OR, null, 0, true);
+      ajouterBulle(`+${gain}`, VERT, combo >= 2);
+      const offert = secondesCombo(combo);
+      // Une seule annonce pour le combo et ses secondes offertes (la bande n'en garde que 3).
+      if (combo >= 2) ajouterBulle(offert > 0 ? `${t('jeuxMemoireCombo', { n: combo })} +${offert} s` : t('jeuxMemoireCombo', { n: combo }), OR, true);
       if (nouvelles.every((c) => c.trouvee)) {
         finirNiveau();
         return;
       }
-      const offert = secondesCombo(combo);
-      if (offert > 0) {
-        // Secondes offertes : le chrono repart du nouveau temps, plafonné à la durée du niveau.
+      // Secondes offertes (combo, sablier) : le chrono repart du nouveau temps, plafonné à la durée du niveau.
+      const ajouterSecondes = (s) => {
         arreterChrono();
-        restantRef.current = Math.min(paramsRef.current.duree * 1000, restantRef.current + offert * 1000);
+        restantRef.current = Math.min(paramsRef.current.duree * 1000, restantRef.current + s * 1000);
         afficherChrono();
         demarrerChrono();
-        ajouterBulle(`+${offert} s`, BLEU_TEMPS, premiere.id, 0, true);
+      };
+      if (offert > 0) ajouterSecondes(offert);
+      if (carte.bonus === 'sablier') {
+        ajouterSecondes(SECONDES_SABLIER);
+        bruit('vie');
+        ajouterBulle(t('jeuxMemoireSablier', { n: SECONDES_SABLIER }), BLEU_TEMPS, true);
+      } else if (carte.bonus === 'loupe') {
+        bruit('bonus');
+        ajouterBulle(t('jeuxMemoireLoupe'), VIOLET_LOUPE, true);
+        lancerLoupe(paramsRef.current.loupe);
+      } else if (carte.bonus === 'aimant') {
+        // Une autre paire encore cachée trouvée d'office (points d'une paire, sans combo).
+        const cible = paireAimant(nouvelles, aleaRef.current);
+        if (cible != null) {
+          const points = pointsPaire(n);
+          pointsNiveauRef.current += points;
+          pairesTotalRef.current += 1;
+          majScore(scoreRef.current + points);
+          const apres = nouvelles.map((c) => (c.paire === cible ? { ...c, trouvee: true } : c));
+          majCartes(apres);
+          bruit('booster');
+          ajouterBulle(`${t('jeuxMemoireAimant')} +${points}`, ROSE_AIMANT, true);
+          if (apres.every((c) => c.trouvee)) finirNiveau();
+        }
       }
       return;
     }
@@ -378,13 +416,21 @@ export default function JeuMemoireScreen({ navigation }) {
     vibrer(true);
     bruit('rate');
     minuteurErreurRef.current = setTimeout(recacher, paramsRef.current.delaiErreur);
-  }, [afficherChrono, ajouterBulle, arreterChrono, demarrerChrono, finirNiveau, majCartes, majRetournees, majScore, recacher, t]);
+  }, [afficherChrono, ajouterBulle, arreterChrono, demarrerChrono, finirNiveau, lancerLoupe, majCartes, majRetournees, majScore, recacher, t]);
 
   const pause = useCallback(() => {
     if (phaseRef.current !== 'jeu') return;
     sauverPartie(JEU, user?.id, { niveau: niveauRef.current, score: scoreRef.current, paires: pairesTotalRef.current });
     arreterChrono();
     afficherChrono();
+    // Loupe en cours : arrêtée (les cartes sont masquées pendant la pause), le reste repart à la reprise.
+    if (minuteurLoupeRef.current) {
+      clearTimeout(minuteurLoupeRef.current);
+      minuteurLoupeRef.current = null;
+      resteLoupeRef.current = Math.max(0, finLoupeRef.current - Date.now());
+      verrouRef.current = false;
+      if (monteRef.current) setApercu(false);
+    }
     // Une mauvaise paire en cours d'affichage est recachée tout de suite.
     if (minuteurErreurRef.current) {
       clearTimeout(minuteurErreurRef.current);
@@ -409,8 +455,13 @@ export default function JeuMemoireScreen({ navigation }) {
   const reprendre = useCallback(() => {
     if (phaseRef.current !== 'pause') return;
     changerPhase('jeu');
+    if (resteLoupeRef.current > 0) {
+      const reste = resteLoupeRef.current;
+      resteLoupeRef.current = 0;
+      lancerLoupe(reste);
+    }
     demarrerChrono();
-  }, [changerPhase, demarrerChrono]);
+  }, [changerPhase, demarrerChrono, lancerLoupe]);
 
   const niveauSuivant = useCallback(() => {
     if (phaseRef.current !== 'palier') return;
@@ -454,6 +505,7 @@ export default function JeuMemoireScreen({ navigation }) {
       if (chronoRef.current) clearTimeout(chronoRef.current);
       progression.stopAnimation();
       if (minuteurErreurRef.current) clearTimeout(minuteurErreurRef.current);
+      if (minuteurLoupeRef.current) clearTimeout(minuteurLoupeRef.current);
     };
   }, [progression]);
 
@@ -508,7 +560,6 @@ export default function JeuMemoireScreen({ navigation }) {
   const pairesTotal = cartes.length / 2;
   const grilleVisible = phase === 'jeu' || phase === 'palier';
   const grille = useMemo(() => dispositionGrille(cartes.length || 4, zone.l, Math.max(0, zone.h - ECART), ECART), [cartes.length, zone]);
-  grilleRef.current = grille;
   const largeurGrille = grille.colonnes * grille.largeur + (grille.colonnes - 1) * ECART;
 
   return (
@@ -550,6 +601,13 @@ export default function JeuMemoireScreen({ navigation }) {
         enJeu={enJeu}
       />
 
+      {/* Annonces (points, combo, bonus) : en haut, sous le chrono, jamais sur les cartes */}
+      <View pointerEvents="none" style={styles.bulles}>
+        {bulles.map((b) => (
+          <Bulle key={b.id} id={b.id} texte={b.texte} couleur={b.couleur} gros={b.gros} onFin={retirerBulle} />
+        ))}
+      </View>
+
       {/* Cartes (masquées pendant la pause : pas de triche) */}
       <View style={[styles.zone, { marginBottom: Math.max(0, reserveBasVille(largeurEcran) - 4) }]} onLayout={surMesure}>
         {grilleVisible && zone.h > 0 && grille.largeur > 0 && (
@@ -558,7 +616,7 @@ export default function JeuMemoireScreen({ navigation }) {
               <Carte
                 key={c.id}
                 carte={c}
-                visible={c.trouvee || retournees.includes(c.id)}
+                visible={c.trouvee || apercu || retournees.includes(c.id)}
                 largeur={grille.largeur}
                 hauteur={grille.hauteur}
                 marge={(i + 1) % grille.colonnes === 0 ? 0 : ECART}
@@ -566,11 +624,6 @@ export default function JeuMemoireScreen({ navigation }) {
                 styles={styles}
               />
             ))}
-            <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-              {bulles.filter((b) => b.x != null).map((b) => (
-                <Bulle key={b.id} id={b.id} texte={b.texte} couleur={b.couleur} x={b.x} y={b.y} gros={b.gros} onFin={retirerBulle} />
-              ))}
-            </View>
           </Animated.View>
         )}
         {phase === 'pause' && (
@@ -578,11 +631,6 @@ export default function JeuMemoireScreen({ navigation }) {
             <Ionicons name="eye-off" size={40} color={TEXTE_CLAIR} />
           </View>
         )}
-        <View pointerEvents="none" style={styles.bulles}>
-          {bulles.filter((b) => b.x == null).map((b) => (
-            <Bulle key={b.id} id={b.id} texte={b.texte} couleur={b.couleur} gros={b.gros} onFin={retirerBulle} />
-          ))}
-        </View>
       </View>
 
       {phase === 'palier' && palier && !classementOuvert && !alerteCourse && <Confettis cle={palier.niveau} l={ecran.l} h={ecran.h} />}
@@ -597,6 +645,7 @@ export default function JeuMemoireScreen({ navigation }) {
                 <Text style={styles.texte}>{t('jeuxMemoireRegle')}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuxMemoireBonus')}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuxMemoireComboRegle')}</Text>
+                <Text style={styles.texteDiscret}>{t('jeuxMemoireBonusCartes')}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuMeilleurScore', { n: meilleur })}</Text>
                 <ReglagesSon t={t} colors={colors} />
                 <Bouton styles={styles} texte={t('jeuJouer')} onPress={jouer} />
@@ -722,6 +771,14 @@ const Carte = memo(function Carte({ carte, visible, largeur, hauteur, marge, onR
         </Animated.View>
         <Animated.View style={[styles.faceCarte, { borderRadius: rayon, backgroundColor: carte.couleur }, face]}>
           <FaceCarte icone={carte.icone} couleur={carte.couleur} largeur={largeur} hauteur={hauteur} />
+          {!!carte.bonus && (
+            <View pointerEvents="none" style={[styles.cadreBonus, { borderRadius: rayon }]} />
+          )}
+          {!!carte.bonus && BONUS[carte.bonus] && (
+            <View style={[styles.badgeBonus, { width: coche + 6, height: coche + 6, borderRadius: (coche + 6) / 2 }]}>
+              <Ionicons name={BONUS[carte.bonus].icone} size={coche * 0.7} color="#fff" />
+            </View>
+          )}
           {carte.trouvee && (
             <View style={styles.coche}>
               <Ionicons name="checkmark-circle" size={coche} color={VERT} />
@@ -752,18 +809,21 @@ const Chrono = memo(function Chrono({ styles, progression, enregistrer, duree, e
   );
 });
 
-// Bulle de récompense : jaillit, grossit puis monte et s'efface (pilote natif).
-function Bulle({ id, texte, couleur, x, y, gros, onFin }) {
+// Annonce de la bande du haut : jaillit, grossit puis s'efface sur place (pilote natif).
+function Bulle({ id, texte, couleur, gros, onFin }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(v, { toValue: 1, duration: gros ? 1100 : 900, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(() => onFin(id));
+    Animated.timing(v, { toValue: 1, duration: gros ? 1400 : 1000, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(() => onFin(id));
   }, [gros, id, onFin, v]);
-  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [6, gros ? -56 : -44] });
-  const scale = v.interpolate({ inputRange: [0, 0.18, 0.32, 1], outputRange: [0.4, gros ? 1.35 : 1.2, 1, 1] });
-  const opacity = v.interpolate({ inputRange: [0, 0.12, 0.72, 1], outputRange: [0, 1, 1, 0] });
-  const place = x == null ? null : { position: 'absolute', left: x - 80, top: y - 18, width: 160 };
+  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [4, -3] });
+  const scale = v.interpolate({ inputRange: [0, 0.18, 0.32, 1], outputRange: [0.5, gros ? 1.2 : 1.12, 1, 1] });
+  const opacity = v.interpolate({ inputRange: [0, 0.12, 0.75, 1], outputRange: [0, 1, 1, 0] });
   return (
-    <Animated.Text style={[styles2.bulle, gros && styles2.bulleGrosse, place, { color: couleur, opacity, transform: [{ translateY }, { scale }] }]}>
+    <Animated.Text
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      style={[styles2.bulle, gros && styles2.bulleGrosse, { color: couleur, opacity, transform: [{ translateY }, { scale }] }]}
+    >
       {texte}
     </Animated.Text>
   );
@@ -864,10 +924,10 @@ function Bouton({ texte, onPress, secondaire, styles, desactive }) {
 
 const styles2 = StyleSheet.create({
   bulle: {
-    position: 'absolute', alignSelf: 'center', textAlign: 'center', fontSize: 24, fontWeight: '900',
+    flexShrink: 1, textAlign: 'center', fontSize: 17, fontWeight: '900',
     textShadowColor: 'rgba(0,0,0,0.35)', textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 },
   },
-  bulleGrosse: { fontSize: 28 },
+  bulleGrosse: { fontSize: 19 },
   etoiles: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   confetti: { position: 'absolute', width: 10, height: 14, borderRadius: 2 },
   confettiRond: { width: 10, height: 10, borderRadius: 5 },
@@ -885,10 +945,10 @@ const makeStyles = (c, dark) => StyleSheet.create({
   barreFond: { flex: 1, height: 10, borderRadius: 5, backgroundColor: dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)', overflow: 'hidden' },
   barre: { width: '100%', height: '100%', borderRadius: 5, transformOrigin: 'left' },
   chronoTexte: { color: TEXTE_CLAIR, fontWeight: '800', fontSize: 15, minWidth: 26, textAlign: 'right' },
-  zone: { flex: 1, marginTop: 16, alignItems: 'center', justifyContent: 'center' },
+  zone: { flex: 1, marginTop: 4, alignItems: 'center', justifyContent: 'center' },
   grille: { flexDirection: 'row', flexWrap: 'wrap' },
   cache: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-  bulles: { position: 'absolute', top: 8, left: 0, right: 0, alignItems: 'center' },
+  bulles: { height: 30, marginTop: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, overflow: 'hidden' },
   faceCarte: {
     ...StyleSheet.absoluteFillObject, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
     backfaceVisibility: 'hidden',
@@ -896,6 +956,11 @@ const makeStyles = (c, dark) => StyleSheet.create({
   },
   dosCarte: { backgroundColor: '#16223F' },
   coche: { position: 'absolute', top: 6, right: 6 },
+  cadreBonus: { ...StyleSheet.absoluteFillObject, borderWidth: 3, borderColor: OR },
+  badgeBonus: {
+    position: 'absolute', top: 5, left: 5, backgroundColor: OR, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: '#fff',
+  },
   voile: {
     ...StyleSheet.absoluteFillObject, backgroundColor: c.overlay, alignItems: 'center', justifyContent: 'center', padding: 24,
   },

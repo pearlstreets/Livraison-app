@@ -19,11 +19,22 @@
  * Phases : 'jeu', 'casse' (colis fragile tranché, tout se fige), 'perdu'
  * (dernière vie perdue, courte attente), 'fini'.
  *
- * Difficulté : au début facile, après difficile. Vagues 1 à 3 : un seul
- * fruit, très lent, aucun colis fragile. Ensuite, un fruit de plus toutes
- * les 3 vagues (7 au plus), vols de plus en plus courts, départs plus
- * serrés, colis fragiles à partir de la vague 6, de plus en plus fréquents
- * et nombreux.
+ * Bonus à trancher (10/11), rater un bonus ne coûte rien, un seul à la
+ * fois à l'écran, au moins 2 vagues d'écart, à partir de la vague 4 :
+ *   glaçon   : tout ralentit de moitié pendant DUREE_RALENTI secondes ;
+ *   étoile   : fruits à 2 points pendant DUREE_DOUBLE secondes ;
+ *   bouclier : gardé jusqu'au prochain colis fragile tranché, qui est alors
+ *              pardonné (la partie continue).
+ * Les minuteurs n'avancent qu'en jeu (pause = figés) et sont sauvegardés.
+ *
+ * Difficulté : au début facile, après de plus en plus difficile, sans fin.
+ * Vagues 1 à 3 : un seul fruit, très lent, aucun colis fragile. Ensuite, un
+ * fruit de plus toutes les 3 vagues (8 au plus), vols de plus en plus
+ * courts (3,4 s, 1,9 s à la vague 25, 1,55 s à la 60, 1,4 s à la 120),
+ * départs plus serrés, salves plus fréquentes, colis fragiles à partir de la
+ * vague 6, de plus en plus fréquents et nombreux (4 au plus).
+ *
+ * Score borné à SCORE_MAX (plafond du serveur pour 'coupe').
  */
 
 export const HAUTEUR = 1000;
@@ -34,10 +45,23 @@ export const RAYON_FRUIT = 62; // fruits bien visibles (46 avant le 09/11)
 export const RAYON_FRAGILE = 56; // demi-côté du carton
 export const RAYON_COEUR = 58; // cœur doré
 export const VAGUES_ENTRE_COEURS = 3; // au moins 3 vagues entre deux cœurs
+export const RAYON_BONUS = 56; // glaçon, étoile, bouclier
+export const BONUS = ['glacon', 'etoile', 'bouclier'];
+export const VAGUE_PREMIER_BONUS = 4;
+export const VAGUES_ENTRE_BONUS = 2; // au moins 2 vagues entre deux bonus
+export const DUREE_RALENTI = 5; // s de jeu
+export const FACTEUR_RALENTI = 0.5;
+export const DUREE_DOUBLE = 7; // s de jeu
+export const SCORE_MAX = 50000; // plafond du serveur (DeliveryApp/views_jeux.py)
 // Tolérance de la lame : un peu généreuse sur les fruits, indulgente sur les colis.
 const MARGE_FRUIT = 1.12;
 const MARGE_FRAGILE = 0.8;
 const MARGE_COEUR = 1.2; // généreuse : le cœur est une récompense
+const MARGE_BONUS = 1.2;
+
+export function estBonus(type) {
+  return BONUS.includes(type);
+}
 
 export const POINTS_FRUIT = 1;
 export const FENETRE_COMBO = 0.3; // s entre deux fruits tranchés d'un même geste
@@ -82,16 +106,43 @@ function borner(v, min, max) {
  */
 export function reglagesVague(v) {
   const n = Math.max(1, Math.floor(v));
-  const p = borner((n - 1) / 30, 0, 1);
-  const p2 = borner((n - 31) / 40, 0, 1);
+  const p = borner((n - 1) / 24, 0, 1);
+  const p2 = borner((n - 25) / 35, 0, 1);
+  const p3 = borner((n - 60) / 60, 0, 1);
   return {
-    duree: 3.4 - 1.5 * p - 0.35 * p2, // 3,4 s au départ, 1,9 s à la vague 31, 1,55 s au plus dur
-    fruits: Math.min(7, 1 + Math.floor((n - 1) / 3)),
-    probaFragile: n < 6 ? 0 : Math.min(0.85, 0.2 + (n - 6) * 0.035),
-    maxFragiles: n < 6 ? 0 : Math.min(3, 1 + Math.floor((n - 6) / 10)),
+    // 3,4 s au départ, 1,9 s à la vague 25, 1,55 s à la 60, 1,4 s à la 120 et après
+    duree: 3.4 - 1.5 * p - 0.35 * p2 - 0.15 * p3,
+    fruits: Math.min(8, 1 + Math.floor((n - 1) / 3)),
+    probaFragile: n < 6 ? 0 : Math.min(0.92, 0.2 + (n - 6) * 0.035),
+    maxFragiles: n < 6 ? 0 : Math.min(4, 1 + Math.floor((n - 6) / 9)),
     etalement: Math.max(0.15, 0.9 - 0.025 * n),
-    pause: Math.max(0.35, 1.3 - 0.03 * n),
+    pause: Math.max(0.3, 1.3 - 0.03 * n),
+    salve: n <= 3 ? 0 : 0.35 + 0.25 * p2, // chance que tout parte presque ensemble
   };
+}
+
+/**
+ * Chance qu'un bonus (glaçon, étoile, bouclier) se joigne à la vague `v` :
+ * 0 avant la vague 4, puis 22 % qui montent avec la difficulté (40 % au plus).
+ */
+export function probaBonus(v) {
+  const n = Math.max(1, Math.floor(v));
+  if (n < VAGUE_PREMIER_BONUS) return 0;
+  return Math.min(0.4, 0.22 + 0.18 * borner((n - VAGUE_PREMIER_BONUS) / 40, 0, 1));
+}
+
+/** Bonus proposables : jamais celui qui est déjà actif (bouclier gardé, minuteur en cours). */
+export function bonusPossibles(m) {
+  return BONUS.filter((b) => (
+    (b !== 'bouclier' || !m.bouclier)
+    && (b !== 'glacon' || m.ralenti <= 0)
+    && (b !== 'etoile' || m.double <= 0)
+  ));
+}
+
+/** Ajoute des points sans jamais dépasser SCORE_MAX. */
+function marquer(m, n) {
+  m.score = Math.min(SCORE_MAX, m.score + n);
 }
 
 /**
@@ -120,6 +171,11 @@ export function creerMonde(largeur, graine = Date.now()) {
     rates: 0, // fruits retombés
     coeurs: 0, // cœurs dorés tranchés
     meilleurCombo: 0,
+    bonus: 0, // bonus tranchés (glaçon, étoile, bouclier)
+    ralenti: 0, // s de ralenti restantes
+    double: 0, // s de points doublés restantes
+    bouclier: false, // un colis fragile sera pardonné
+    vagueBonus: -99, // dernière vague où un bonus est parti
     objets: [], // fruits et colis fragiles entiers
     morceaux: [], // moitiés de fruits qui retombent
     file: [], // départs prévus de la vague en cours { delai, type }
@@ -156,13 +212,23 @@ export function nouvelleVague(m, ev) {
     types.push('coeur');
     m.vagueCoeur = m.vague;
   }
+  const possibles = bonusPossibles(m);
+  if (
+    possibles.length
+    && m.vague - m.vagueBonus > VAGUES_ENTRE_BONUS
+    && !m.objets.some((o) => estBonus(o.type))
+    && aleatoire(m) < probaBonus(m.vague)
+  ) {
+    types.push(possibles[Math.floor(aleatoire(m) * possibles.length)]);
+    m.vagueBonus = m.vague;
+  }
   // Mélange (le colis peut partir avant, pendant ou après les fruits).
   for (let i = types.length - 1; i > 0; i -= 1) {
     const j = Math.floor(aleatoire(m) * (i + 1));
     [types[i], types[j]] = [types[j], types[i]];
   }
   // Salve (tout part presque ensemble) ou départs échelonnés.
-  const salve = m.vague > 3 && aleatoire(m) < 0.35;
+  const salve = aleatoire(m) < r.salve;
   let delai = 0;
   m.file = types.map((type, i) => {
     if (i > 0) delai += salve ? aleatoire(m) * 0.08 : 0.08 + aleatoire(m) * r.etalement;
@@ -176,7 +242,7 @@ export function lancer(m, type) {
   const r = reglagesVague(m.vague);
   const l = m.largeur;
   const debutant = m.vague <= 2;
-  const rayon = type === 'fragile' ? RAYON_FRAGILE : type === 'coeur' ? RAYON_COEUR : RAYON_FRUIT;
+  const rayon = type === 'fragile' ? RAYON_FRAGILE : type === 'coeur' ? RAYON_COEUR : estBonus(type) ? RAYON_BONUS : RAYON_FRUIT;
   // Départ et arrivée bornés : l'objet entier reste dans la largeur de l'écran.
   const bord = Math.min(rayon + 6, l / 2);
   const x0 = borner(l * (debutant ? 0.3 + aleatoire(m) * 0.4 : 0.12 + aleatoire(m) * 0.76), bord, l - bord);
@@ -196,8 +262,8 @@ export function lancer(m, type) {
     vx: (xFin - x0) / duree,
     vy: -g * demi,
     g,
-    rot: type === 'coeur' ? (aleatoire(m) - 0.5) * 30 : aleatoire(m) * 360,
-    vr: (aleatoire(m) - 0.5) * (type === 'fragile' ? 160 : type === 'coeur' ? 90 : 320),
+    rot: type === 'coeur' || estBonus(type) ? (aleatoire(m) - 0.5) * 30 : aleatoire(m) * 360,
+    vr: (aleatoire(m) - 0.5) * (type === 'fragile' ? 160 : type === 'coeur' || estBonus(type) ? 90 : 320),
   };
   m.prochainId += 1;
   m.gravite = g;
@@ -239,7 +305,8 @@ function couper(m, o, angle, ev) {
     m.prochainId += 1;
   }
   m.tranches += 1;
-  m.score += POINTS_FRUIT;
+  const points = POINTS_FRUIT * (m.double > 0 ? 2 : 1);
+  marquer(m, points);
   const c = m.combo;
   if (c.n > 0 && m.t - c.dernier <= FENETRE_COMBO) c.n += 1;
   else {
@@ -249,7 +316,7 @@ function couper(m, o, angle, ev) {
   c.dernier = m.t;
   c.x = o.x;
   c.y = o.y;
-  ev.push({ type: 'tranche', x: o.x, y: o.y, sorte: o.sorte, angle, points: POINTS_FRUIT });
+  ev.push({ type: 'tranche', x: o.x, y: o.y, sorte: o.sorte, angle, points });
 }
 
 /** Clôt le combo en cours : bonus égal au nombre de fruits (2 ou plus). */
@@ -257,7 +324,7 @@ export function finirCombo(m, ev) {
   const c = m.combo;
   if (c.n >= COMBO_MIN) {
     const bonus = c.n;
-    m.score += bonus;
+    marquer(m, bonus);
     m.meilleurCombo = Math.max(m.meilleurCombo, c.n);
     ev.push({ type: 'combo', n: c.n, bonus, x: c.x, y: c.y });
   }
@@ -276,10 +343,14 @@ export function lame(m, ax, ay, bx, by) {
   const restants = [];
   let changement = false;
   for (const o of m.objets) {
-    const marge = o.type === 'fragile' ? MARGE_FRAGILE : o.type === 'coeur' ? MARGE_COEUR : MARGE_FRUIT;
+    const marge = o.type === 'fragile' ? MARGE_FRAGILE : o.type === 'coeur' ? MARGE_COEUR : estBonus(o.type) ? MARGE_BONUS : MARGE_FRUIT;
     if (m.phase === 'jeu' && segmentTouche(ax, ay, bx, by, o.x, o.y, o.r * marge)) {
       changement = true;
-      if (o.type === 'fragile') {
+      if (o.type === 'fragile' && m.bouclier) {
+        // Bouclier : le colis est pardonné (il disparaît), la partie continue.
+        m.bouclier = false;
+        ev.push({ type: 'protege', x: o.x, y: o.y, id: o.id });
+      } else if (o.type === 'fragile') {
         m.phase = 'casse';
         m.tempsArret = 0;
         finirCombo(m, ev);
@@ -291,6 +362,12 @@ export function lame(m, ax, ay, bx, by) {
         m.vies = Math.min(VIES, m.vies + 1);
         m.coeurs += 1;
         ev.push({ type: 'vie', x: o.x, y: o.y, vies: m.vies });
+      } else if (estBonus(o.type)) {
+        m.bonus += 1;
+        if (o.type === 'glacon') m.ralenti = DUREE_RALENTI;
+        else if (o.type === 'etoile') m.double = DUREE_DOUBLE;
+        else m.bouclier = true;
+        ev.push({ type: 'bonus', sorte: o.type, x: o.x, y: o.y });
       } else {
         couper(m, o, angle, ev);
       }
@@ -305,7 +382,14 @@ export function lame(m, ax, ay, bx, by) {
 
 /** État à sauvegarder (partie en cours, à la pause) : on repart au début de la vague. */
 export function etatSauvegarde(m) {
-  return { vague: Math.max(1, m.vague, m.vagueReprise || 0), score: m.score, vies: m.vies };
+  return {
+    vague: Math.max(1, m.vague, m.vagueReprise || 0),
+    score: m.score,
+    vies: m.vies,
+    bouclier: !!m.bouclier,
+    ralenti: Math.max(0, m.ralenti || 0),
+    double: Math.max(0, m.double || 0),
+  };
 }
 
 /** Monde repris d'une sauvegarde : même score, mêmes vies, la vague recommence. */
@@ -314,8 +398,11 @@ export function mondeRepris(largeur, etat, graine = Date.now()) {
   const e = etat || {};
   m.vagueReprise = Math.max(1, Math.floor(Number(e.vague) || 1));
   m.vague = m.vagueReprise - 1;
-  m.score = Math.max(0, Math.floor(Number(e.score) || 0));
+  m.score = borner(Math.floor(Number(e.score) || 0), 0, SCORE_MAX);
   m.vies = borner(Math.floor(Number(e.vies) || VIES), 1, VIES);
+  m.bouclier = e.bouclier === true;
+  m.ralenti = borner(Number(e.ralenti) || 0, 0, DUREE_RALENTI);
+  m.double = borner(Number(e.double) || 0, 0, DUREE_DOUBLE);
   return m;
 }
 
@@ -328,7 +415,7 @@ export function finGeste(m) {
 
 /**
  * Avance le monde de `dt` secondes (borné à DT_MAX). Rend la liste des
- * événements : vague, liste, rate (vie perdue), combo, fin.
+ * événements : vague, liste, rate (vie perdue), combo, finBonus, fin.
  */
 export function avancer(m, dtBrut) {
   const ev = [];
@@ -351,27 +438,39 @@ export function avancer(m, dtBrut) {
   // Combo clos si plus rien n'est tranché pendant la fenêtre.
   if (m.combo.n > 0 && m.t - m.combo.dernier > FENETRE_COMBO) finirCombo(m, ev);
 
+  // Bonus à durée : minuteurs en temps de jeu réel, le monde ralentit sous le glaçon.
+  const lent = m.ralenti > 0;
+  if (m.ralenti > 0) {
+    m.ralenti = Math.max(0, m.ralenti - dt);
+    if (m.ralenti === 0) ev.push({ type: 'finBonus', sorte: 'glacon' });
+  }
+  if (m.double > 0) {
+    m.double = Math.max(0, m.double - dt);
+    if (m.double === 0) ev.push({ type: 'finBonus', sorte: 'etoile' });
+  }
+  const dm = lent ? dt * FACTEUR_RALENTI : dt; // temps du monde
+
   // Vagues : départs prévus, puis attente avant la suivante.
   let changement = false;
   if (m.file.length) {
-    m.tVague += dt;
+    m.tVague += dm;
     while (m.file.length && m.file[0].delai <= m.tVague) {
       lancer(m, m.file.shift().type);
       changement = true;
     }
   } else if (m.objets.length === 0) {
     if (m.attente == null) m.attente = reglagesVague(m.vague).pause;
-    m.attente -= dt;
+    m.attente -= dm;
     if (m.attente <= 0) nouvelleVague(m, ev);
   }
 
   // Objets entiers.
   const restants = [];
   for (const o of m.objets) {
-    o.vy += o.g * dt;
-    o.x += o.vx * dt;
-    o.y += o.vy * dt;
-    o.rot += o.vr * dt;
+    o.vy += o.g * dm;
+    o.x += o.vx * dm;
+    o.y += o.vy * dm;
+    o.rot += o.vr * dm;
     if (o.vy > 0 && o.y - o.r > HAUTEUR) {
       changement = true;
       if (o.type === 'fruit') {
@@ -384,7 +483,7 @@ export function avancer(m, dtBrut) {
     }
   }
   m.objets = restants;
-  if (bougerMorceaux(m, dt)) changement = true;
+  if (bougerMorceaux(m, dm)) changement = true;
   if (changement) ev.push({ type: 'liste' });
 
   if (m.vies <= 0) {
