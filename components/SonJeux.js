@@ -25,7 +25,7 @@
  * Les interrupteurs Musique et Bruitages (components/ReglagesSon.js) sont
  * suivis en direct et gardés sur le téléphone.
  */
-import React, { useEffect, useRef } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import { View, StyleSheet, AppState } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { MOTEUR_AUDIO_JS, chargerReglagesSon, ecouterReglagesSon, reglagesSon } from '../utils/sonJeux';
@@ -61,7 +61,7 @@ export function arreterMusique() {
   rappels.forEach((f) => f());
 }
 
-export default function SonJeux({ jeu, actif }) {
+function SonJeux({ jeu, actif }) {
   const vue = useRef(null);
   const pret = useRef(false);
   const premierPlan = useRef(AppState.currentState === 'active');
@@ -115,3 +115,5 @@ export default function SonJeux({ jeu, actif }) {
 const styles = StyleSheet.create({
   cache: { position: 'absolute', width: 1, height: 1, opacity: 0, left: -10, top: -10 },
 });
+
+export default memo(SonJeux);

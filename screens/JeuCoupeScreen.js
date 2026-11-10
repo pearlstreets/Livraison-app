@@ -557,7 +557,7 @@ export default function JeuCoupeScreen({ navigation }) {
               if (!a) return null;
               if (o.genre === 'moitie') return <Moitie key={o.id} o={o} a={a} k={k} />;
               if (o.genre === 'fragile') return <ColisFragile key={o.id} o={o} a={a} k={k} />;
-              if (o.genre === 'coeur') return <Coeur key={o.id} o={o} a={a} k={k} />;
+              if (o.genre === 'coeur') return <Coeur key={o.id} o={o} a={a} k={k} anime={phase === 'jeu'} />;
               return <Fruit key={o.id} o={o} a={a} k={k} />;
             })}
 
@@ -783,18 +783,19 @@ const ColisFragile = memo(function ColisFragile({ o, a, k }) {
 });
 
 // Cœur doré : liseré brun, cœur or, reflet blanc, halo qui pulse et petites étoiles.
-const Coeur = memo(function Coeur({ o, a, k }) {
+const Coeur = memo(function Coeur({ o, a, k, anime }) {
   const d = o.r * 2 * k;
   const rotate = useRotation(a);
   const pouls = useRef(new Animated.Value(0)).current;
   useEffect(() => {
+    if (!anime) return undefined;
     const boucle = Animated.loop(Animated.sequence([
       Animated.timing(pouls, { toValue: 1, duration: 520, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       Animated.timing(pouls, { toValue: 0, duration: 520, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ]));
     boucle.start();
     return () => boucle.stop();
-  }, [pouls]);
+  }, [pouls, anime]);
   const echelle = pouls.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.18] });
   const opacite = pouls.interpolate({ inputRange: [0, 1], outputRange: [0.75, 0.3] });
   const coeur = pouls.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] });
