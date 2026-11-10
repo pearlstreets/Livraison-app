@@ -8,7 +8,7 @@
  *   bruit('saut');   // ou jouerSon('saut'), même chose
  *
  * Props :
- *   jeu    'coupe' | 'memoire' | 'drone' | 'toits' | 'sommet' | 'rush'
+ *   jeu    'coupe' | 'memoire' | 'drone' | 'toits' | 'sommet' | 'rush' | 'basket'
  *   actif  vrai = la musique joue. Mettre faux à la pause, en fin de partie,
  *          à l'accueil : elle s'arrête. Elle s'arrête aussi toute seule quand
  *          l'application passe en arrière-plan et quand l'écran est quitté.
