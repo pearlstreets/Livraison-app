@@ -513,7 +513,7 @@ export default function JeuMemoireScreen({ navigation }) {
   return (
     <View style={[styles.ecran, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }]} onLayout={surEcran}>
       {/* Décor lumineux : la ville et le panneau Pearl Streets, sous la grille */}
-      <DecorMemoire l={ecran.l} h={ecran.h} bas={insets.bottom} largeurEnseigne={Math.min(104, ecran.l * 0.26)} piedsEnseigne={PIEDS_ENSEIGNE} />
+      <DecorMemoire l={ecran.l} h={ecran.h} bas={insets.bottom} largeurEnseigne={Math.min(104, ecran.l * 0.26)} piedsEnseigne={PIEDS_ENSEIGNE} actif={phase === 'jeu'} />
       <SonJeux jeu={JEU} actif={phase === 'jeu'} />
       {/* Barre du haut : quitter, niveau et score, pause */}
       <View style={styles.haut}>
