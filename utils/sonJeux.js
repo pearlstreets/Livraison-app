@@ -75,7 +75,10 @@ export const MOTEUR_AUDIO_JS = `
 (function(){
   var ctx=null, maitre=null, busMus=null, busFx=null;
   var etat={musique:true,bruitages:true,joue:false,jeu:'rush'};
-  var minuteur=null, prochain=0, pas=0;
+  var minuteur=null, prochain=0, pas=0, veille=null;
+  // Sans musique, le contexte audio est mis en veille après le dernier son :
+  // plus de calcul audio en pause, sur l'accueil ou la fin du jeu (batterie).
+  function dormir(ms){ clearTimeout(veille); veille=setTimeout(function(){ if(!minuteur&&ctx&&ctx.state==='running'){ try{ctx.suspend();}catch(e){} } },ms||2000); }
   var PISTES={
     // Fruits express : pentatonique de do, joyeux et sautillant.
     coupe:{bpm:132,lt:'square',lv:0.15,bt:'triangle',bv:0.34,swing:0,
@@ -154,10 +157,10 @@ export const MOTEUR_AUDIO_JS = `
   }
   function demarrer(){
     if(!etat.musique||!etat.joue||minuteur||!init()) return;
-    reveil(); prochain=ctx.currentTime+0.05; pas=0;
+    clearTimeout(veille); reveil(); prochain=ctx.currentTime+0.05; pas=0;
     minuteur=setInterval(planifier,60); planifier();
   }
-  function arreter(){ if(minuteur){ clearInterval(minuteur); minuteur=null; } }
+  function arreter(){ if(minuteur){ clearInterval(minuteur); minuteur=null; } dormir(); }
   var SONS={
     saut:function(t){ note(busFx,330,t,0.18,'square',0.3,880); },
     accroupi:function(t){ note(busFx,420,t,0.16,'triangle',0.4,140); },
@@ -184,9 +187,9 @@ export const MOTEUR_AUDIO_JS = `
     reglages:function(r){ etat.musique=r.musique!==false; etat.bruitages=r.bruitages!==false; if(etat.musique) demarrer(); else arreter(); },
     choisir:function(jeu){ var nouveau=PISTES[jeu]?jeu:'rush'; if(nouveau===etat.jeu) return; etat.jeu=nouveau; if(minuteur){ arreter(); demarrer(); } },
     musique:function(on){ etat.joue=!!on; if(on) demarrer(); else arreter(); },
-    jouer:function(nom){ if(!etat.bruitages||!init()) return; reveil(); var f=SONS[nom]; if(f) f(ctx.currentTime+0.01); },
-    reveil:function(){ if(init()) reveil(); }
+    jouer:function(nom){ if(!etat.bruitages||!init()) return; reveil(); var f=SONS[nom]; if(f) f(ctx.currentTime+0.01); if(!minuteur) dormir(2500); },
+    reveil:function(){ if(init()){ reveil(); if(!minuteur) dormir(); } }
   };
-  document.addEventListener('touchstart',function(){ if(init()) reveil(); },{passive:true});
+  document.addEventListener('touchstart',function(){ if(init()){ reveil(); if(!minuteur) dormir(); } },{passive:true});
 })();
 `;
