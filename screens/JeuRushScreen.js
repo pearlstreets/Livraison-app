@@ -34,6 +34,7 @@ import IndiceGestes from '../components/IndiceGestes';
 import { BanniereRecompense, EtoilesFin, creerSuivi, suivreScore, etoilesPour, formaterNombre } from '../components/RecompensesJeu';
 import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
 import usePauseJeu from '../hooks/usePauseJeu';
+import AlerteCourseJeu from '../components/AlerteCourseJeu';
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import { PAGE_RUSH_3D } from '../utils/jeuRush3dPage';
 import { chargerReglagesSon, ecouterReglagesSon, reglagesSon } from '../utils/sonJeux';
@@ -422,16 +423,8 @@ export default function JeuRushScreen({ navigation }) {
           />
         </View>
       )}
-      {alerteCourse && (
-        <View style={styles.voile}>
-          <View style={styles.carte}>
-            <Ionicons name="bicycle" size={44} color={BRAND} />
-            <Text style={styles.titre}>{t('jeuNouvelleCourse')}</Text>
-            <Text style={styles.texte}>{t('jeuNouvelleCourseTexte')}</Text>
-            <Bouton styles={styles} texte={t('jeuVoirCourse')} onPress={voirCourse} />
-            <Bouton styles={styles} secondaire texte={t('jeuResterIci')} onPress={fermerAlerte} />
-          </View>
-        </View>
+      {!!alerteCourse && (
+        <AlerteCourseJeu alerte={alerteCourse} t={t} navigation={navigation} onVoir={voirCourse} onRester={fermerAlerte} />
       )}
     </View>
   );
