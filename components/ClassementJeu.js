@@ -85,6 +85,7 @@ export default function ClassementJeu({ t, colors, dark, onFermer, avantChargeme
           </ScrollView>
           {!moiDansTop && etat.moi && (
             <View style={styles.votreRang}>
+              {!!etat.moi.nom && <Text style={styles.votreRangTexte}>{String(etat.moi.nom)}</Text>}
               <Text style={styles.votreRangTexte}>{t('jeuVotreRang', { n: etat.moi.rang })}</Text>
               <Text style={styles.texteDiscret}>
                 {etat.moi.niveau != null ? `${t('jeuNiveauCourt', { n: etat.moi.niveau })} · ` : ''}{t('jeuScore', { n: etat.moi.score })}
