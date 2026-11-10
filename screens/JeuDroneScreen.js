@@ -15,6 +15,10 @@
  * Sauvegarde : le monde entier est mémorisé en pause, « Reprendre ou
  * Recommencer » à la réouverture dans les 24 h, jamais après une partie perdue.
  * Haut d'écran : barre, bandeau classement, HUD commun (components/HudJeu.js).
+ * Bonus spéciaux (demande du 10/11) : bouclier, aimant, points doublés,
+ * posés au milieu de certains passages ; actifs affichés en jauges dans le
+ * HUD. Annonces (bonus, médailles, paliers) et points gagnés : toujours en
+ * HAUT, sous la barre d'infos, jamais au milieu de l'écran.
  * Décor d'avant le 09/11 (demande du 10/11) : ciel uni, ville en parallaxe,
  * immeubles simples, petit panneau Pearl Streets discret sur les toits
  * (components/FondJeu.js). Récompenses : paliers de score, record battu,
@@ -44,7 +48,7 @@ import {
 import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
-  HAUTEUR, SOL, DRONE_DESSIN, TAILLE_BONUS, POINTS_COLIS, POINTS_CLIENT,
+  HAUTEUR, SOL, DRONE_DESSIN, TAILLE_BONUS, bonusActifs,
   creerMonde, changerLargeur, avancer, impulsion, centreObstacle, niveauPalier, medaille, decorNiveau,
 } from '../utils/jeuDrone';
 
@@ -79,6 +83,16 @@ const DECORS = {
   sombre: [{}, { ciel: '#2A1A22', loin: '#3A2530', proche: '#4A303D' }, { ciel: '#0D2220', loin: '#173432', proche: '#1F4542' }, { ciel: '#1A1530', loin: '#271F45', proche: '#33295A' }],
 };
 const PERIODE_RUE = 90; // unités entre deux traits de la chaussée
+// Bonus spéciaux : icône du HUD (Ionicons), icône posée dans le passage, couleur, libellé.
+const BONUS_VUE = {
+  bouclier: { icone: 'shield-checkmark', iconePassage: 'shield-check', couleur: '#2D7FF9', cle: 'jeuxDroneBouclier' },
+  aimant: { icone: 'magnet', iconePassage: 'magnet', couleur: '#8E44AD', cle: 'jeuxDroneAimant' },
+  double: { icone: 'flash', iconePassage: null, couleur: '#E8590C', cle: 'jeuxDroneDouble' },
+};
+const HUD_BONUS_MS = 250; // rafraîchissement des jauges de bonus (seulement en vol, bonus actif)
+// Zone des annonces, sous la barre d'infos (barre + bandeau classement + HUD et jauges).
+const HAUT_HUD = 96;
+const HAUT_ANNONCES = 172;
 
 const PALETTE = {
   clair: {
@@ -114,6 +128,7 @@ function instantane(o) {
   return {
     id: o.id, largeur: o.largeur, ecart: o.ecart, centre: o.centre, amp: o.amp, haut: o.haut,
     teinte: o.teinte, colis: o.colis, colisPris: o.colisPris, client: o.client, livre: o.livre,
+    bonus: o.bonus || null, bonusPris: !!o.bonusPris,
   };
 }
 
@@ -135,6 +150,7 @@ export default function JeuDroneScreen({ navigation }) {
   const [meilleur, setMeilleur] = useState(0);
   const [resultat, setResultat] = useState(null); // { score, passes, colis, clients, nouveauRecord }
   const [bulles, setBulles] = useState([]);
+  const [bonusHud, setBonusHud] = useState([]); // bonus actifs { id, ratio }
   const [impact, setImpact] = useState(null);
   const [classementOuvert, setClassementOuvert] = useState(false);
   const [reprise, setReprise] = useState(null); // partie sauvegardée proposée à l'ouverture
@@ -155,9 +171,11 @@ export default function JeuDroneScreen({ navigation }) {
   const suiviRef = useRef(null); // paliers et record annoncés pendant la partie
   const meilleurRef = useRef(0);
   meilleurRef.current = meilleur;
+  const hudBonusTsRef = useRef(0);
 
   const droneY = useRef(new Animated.Value(0)).current;
   const droneRot = useRef(new Animated.Value(0)).current;
+  const droneOpacite = useRef(new Animated.Value(1)).current; // clignote pendant l'invincibilité
   const decorLoin = useRef(new Animated.Value(0)).current;
   const decorProche = useRef(new Animated.Value(0)).current;
   const rue = useRef(new Animated.Value(0)).current;
@@ -191,6 +209,7 @@ export default function JeuDroneScreen({ navigation }) {
     const lPx = tailleRef.current.l || 1;
     droneY.setValue((m.drone.y - DRONE_DESSIN / 2) * k);
     droneRot.setValue(m.drone.angle);
+    droneOpacite.setValue(m.invincible > 0 && Math.floor(m.t * 12) % 2 === 0 ? 0.35 : 1);
     const anims = animsRef.current;
     for (const o of m.obstacles) {
       const a = anims.get(o.id);
@@ -202,7 +221,7 @@ export default function JeuDroneScreen({ navigation }) {
     decorLoin.setValue(-((m.decor * k * 0.15) % lPx));
     decorProche.setValue(-((m.decor * k * 0.4) % lPx));
     rue.setValue(-((m.decor * k) % (PERIODE_RUE * k)));
-  }, [decorLoin, decorProche, droneRot, droneY, rue]);
+  }, [decorLoin, decorProche, droneOpacite, droneRot, droneY, rue]);
 
   const arreterBoucle = useCallback(() => {
     actifRef.current = false;
@@ -218,13 +237,18 @@ export default function JeuDroneScreen({ navigation }) {
     sauverPartie('drone', user?.id, { monde: m, niveau: niveauPalier(m.passes), score: m.score });
   }, [user?.id]);
 
+  // Points gagnés : petites bulles en haut à droite, sous la barre d'infos.
   const ajouterBulle = useCallback((texte, couleur) => {
-    const m = mondeRef.current;
-    if (!m || !monteRef.current) return;
+    if (!mondeRef.current || !monteRef.current) return;
     idBulleRef.current += 1;
     const id = idBulleRef.current;
-    const k = kRef.current;
-    setBulles((b) => [...b.slice(-3), { id, texte, couleur, x: m.drone.x * k, y: (m.drone.y - DRONE_DESSIN) * k }]);
+    // Bonus actifs : leurs jauges occupent la 2e rangée du HUD, une seule bulle (1re rangée).
+    const seule = bonusActifs(mondeRef.current).length > 0;
+    setBulles((b) => [...(seule ? [] : b.slice(-1)), { id, texte, couleur }]);
+  }, []);
+  const majBonusHud = useCallback(() => {
+    const m = mondeRef.current;
+    if (m && monteRef.current) setBonusHud(bonusActifs(m));
   }, []);
   const retirerBulle = useCallback((id) => {
     if (monteRef.current) setBulles((b) => b.filter((x) => x.id !== id));
@@ -257,6 +281,8 @@ export default function JeuDroneScreen({ navigation }) {
     const m = mondeRef.current;
     let changementListe = false;
     let points = false;
+    // Une seule annonce par image : montrer() remplace la précédente.
+    let annonce = null;
     for (const e of evenements) {
       if (e.type === 'liste') changementListe = true;
       else if (e.type === 'passage') points = true;
@@ -265,18 +291,31 @@ export default function JeuDroneScreen({ navigation }) {
         jouerSon('niveau');
         sauverEtat();
         if (monteRef.current) setNiveau(e.niveau);
-        ajouterBulle(t(CLE_MEDAILLE[e.medaille]), COULEUR_MEDAILLE[e.medaille]);
+        annonce = { texte: t(CLE_MEDAILLE[e.medaille]), icone: 'medal', couleur: COULEUR_MEDAILLE[e.medaille] };
       }
       else if (e.type === 'colis') {
         points = true;
         vibrer(false);
         jouerSon('ramasse');
-        ajouterBulle(`+${POINTS_COLIS}`, OR);
+        ajouterBulle(`+${e.points}`, OR);
       } else if (e.type === 'client') {
         points = true;
         vibrer(false);
         jouerSon('vie');
-        ajouterBulle(`${t('jeuxDroneLivre')} +${POINTS_CLIENT}`, VERT);
+        ajouterBulle(`${t('jeuxDroneLivre')} +${e.points}`, VERT);
+      } else if (e.type === 'bonus') {
+        const v = BONUS_VUE[e.bonus];
+        vibrer(false);
+        jouerSon('booster');
+        if (v) annonce = { texte: t(v.cle), icone: v.icone, couleur: v.couleur };
+        majBonusHud();
+      } else if (e.type === 'bouclierPerdu') {
+        vibrer(true);
+        jouerSon('choc');
+        annonce = { texte: t('jeuxDroneBouclierPerdu'), icone: 'shield-half', couleur: BONUS_VUE.bouclier.couleur };
+        majBonusHud();
+      } else if (e.type === 'finBonus') {
+        majBonusHud();
       } else if (e.type === 'crash') {
         vibrer(true);
         jouerSon('choc');
@@ -294,15 +333,19 @@ export default function JeuDroneScreen({ navigation }) {
     if (changementListe) synchroniserListe();
     if (points && monteRef.current) {
       setScore(m.score);
-      const annonce = suivreScore(suiviRef.current, m.score);
-      if (annonce?.type === 'record') {
+      const palier = suivreScore(suiviRef.current, m.score);
+      if (palier?.type === 'record') {
         jouerSon('record');
-        banniereRef.current?.montrer({ texte: t('jeuRecompRecord'), icone: 'trophy', couleur: OR });
-      } else if (annonce) {
-        banniereRef.current?.montrer({ texte: t('jeuRecompPalier', { n: formaterNombre(annonce.n) }), icone: 'star', couleur: OR });
+        annonce = { texte: t('jeuRecompRecord'), icone: 'trophy', couleur: OR };
+      } else if (palier && annonce) {
+        // Médaille ou bonus dans la même image : le palier passe en bulle, les deux restent visibles.
+        ajouterBulle(t('jeuRecompPalier', { n: formaterNombre(palier.n) }), OR);
+      } else if (palier) {
+        annonce = { texte: t('jeuRecompPalier', { n: formaterNombre(palier.n) }), icone: 'star', couleur: OR };
       }
     }
-  }, [ajouterBulle, changerPhase, flash, sauverEtat, synchroniserListe, t, terminer, user?.id]);
+    if (annonce && monteRef.current) banniereRef.current?.montrer(annonce);
+  }, [ajouterBulle, changerPhase, flash, majBonusHud, sauverEtat, synchroniserListe, t, terminer, user?.id]);
 
   const boucleRef = useRef(null);
   boucleRef.current = (ts) => {
@@ -317,6 +360,12 @@ export default function JeuDroneScreen({ navigation }) {
     dernierTsRef.current = ts;
     const ev = avancer(mondeRef.current, dt);
     if (ev.length) traiter(ev);
+    // Jauges des bonus à durée : quelques rafraîchissements par seconde, seulement s'il y en a un.
+    const m = mondeRef.current;
+    if (m && (m.aimant > 0 || m.double > 0) && ts - hudBonusTsRef.current >= HUD_BONUS_MS) {
+      hudBonusTsRef.current = ts;
+      majBonusHud();
+    }
     dessiner();
     if (actifRef.current) rafRef.current = requestAnimationFrame((x) => boucleRef.current(x));
   };
@@ -351,6 +400,7 @@ export default function JeuDroneScreen({ navigation }) {
     setNiveau(0);
     setResultat(null);
     setBulles([]);
+    setBonusHud([]);
     setImpact(null);
     setClassementOuvert(false);
     changerPhase('pret');
@@ -426,6 +476,7 @@ export default function JeuDroneScreen({ navigation }) {
     setNiveau(d.niveau || 0);
     setResultat(null);
     setBulles([]);
+    setBonusHud(bonusActifs(m));
     setImpact(null);
     changerPhase('reprise');
   }, [arreterBoucle, changerPhase, dessiner, reprise, synchroniserListe]);
@@ -535,8 +586,11 @@ export default function JeuDroneScreen({ navigation }) {
             {/* Drone */}
             <Animated.View
               pointerEvents="none"
-              style={[styles.drone, { left: droneGauche, width: D, height: D, transform: [{ translateY: droneY }, { rotate: rotation }] }]}
+              style={[styles.drone, { left: droneGauche, width: D, height: D, opacity: droneOpacite, transform: [{ translateY: droneY }, { rotate: rotation }] }]}
             >
+              {bonusHud.some((b) => b.id === 'bouclier') && (
+                <View style={[styles.bouclier, { width: D * 1.15, height: D * 1.15, borderRadius: D * 0.6, left: -D * 0.075, top: -D * 0.075, borderColor: BONUS_VUE.bouclier.couleur }]} />
+              )}
               <MaterialCommunityIcons name="quadcopter" size={D * 0.62} color={BRAND} />
               <View style={[styles.fil, { height: D * 0.1, backgroundColor: dark ? '#C9CED6' : '#444' }]} />
               <View style={[styles.colisDrone, { width: D * 0.3, height: D * 0.24, borderRadius: D * 0.04 }]}>
@@ -545,12 +599,9 @@ export default function JeuDroneScreen({ navigation }) {
             </Animated.View>
 
             {impact && <Impact key={impact.n} x={impact.x} y={impact.y} taille={D} />}
-            {bulles.map((b) => (
-              <Bulle key={b.id} id={b.id} x={b.x} y={b.y} texte={b.texte} couleur={b.couleur} onFin={retirerBulle} />
-            ))}
-
             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.flash, { opacity: flash }]} />
-            <BanniereRecompense ref={banniereRef} haut={taille.h * 0.3} />
+            {/* Annonces en haut, sous la barre d'infos, jamais au milieu de l'écran */}
+            <BanniereRecompense ref={banniereRef} haut={insets.top + HAUT_ANNONCES} />
 
             {(phase === 'pret' || phase === 'reprise') && (
               <View pointerEvents="none" style={[styles.consigne, { top: taille.h * 0.62 }]}>
@@ -577,13 +628,21 @@ export default function JeuDroneScreen({ navigation }) {
         />
       )}
       {enJeu && (
-        <View pointerEvents="none" style={[styles.hudLigne, { top: insets.top + 96 }]}>
-          <HudJeu colors={colors} score={score} />
+        <View pointerEvents="none" style={[styles.hudLigne, { top: insets.top + HAUT_HUD }]}>
+          <HudJeu
+            colors={colors}
+            score={score}
+            boosters={bonusHud.map((b) => ({ id: b.id, icone: BONUS_VUE[b.id].icone, couleur: BONUS_VUE[b.id].couleur, ratio: b.ratio }))}
+          />
           {niveau > 0 && (
-            <MaterialCommunityIcons name="medal" size={28} color={COULEUR_MEDAILLE[medaille(niveau)]} />
+            <MaterialCommunityIcons name="medal" size={28} color={COULEUR_MEDAILLE[medaille(niveau)]} style={styles.medailleHud} />
           )}
         </View>
       )}
+      {/* Points gagnés : en haut à droite, sur la ligne du HUD */}
+      {enJeu && bulles.map((b, i) => (
+        <Bulle key={b.id} id={b.id} top={insets.top + HAUT_HUD + i * 30} texte={b.texte} couleur={b.couleur} onFin={retirerBulle} />
+      ))}
       <IndiceGestes jeu="drone" actif={phase === 'pret'} gestes={['appui']} t={t} colors={colors} />
 
       {/* Barre du haut : quitter, meilleur score, pause (au-dessus du monde, hors zone de toucher) */}
@@ -622,6 +681,7 @@ export default function JeuDroneScreen({ navigation }) {
                 <Text style={styles.titre}>{t('jeuxDroneTitre')}</Text>
                 <Text style={styles.texte}>{t('jeuxDroneRegle')}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuxDroneBonus')}</Text>
+                <Text style={styles.texteDiscret}>{t('jeuxDroneBonusSpeciaux')}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuMeilleurScore', { n: meilleur })}</Text>
                 <ReglagesSon t={t} colors={colors} compact />
                 <Bouton styles={styles} texte={t('jeuJouer')} onPress={jouer} desactive={!taille.h} />
@@ -805,6 +865,13 @@ const Obstacle = memo(function Obstacle({ o, a, k, hPx, pal, dark }) {
           <View style={{ position: 'absolute', bottom: 0, left: w * 0.12, right: w * 0.12, height: Math.max(3, 6 * k), backgroundColor: '#E8E8E8', borderRadius: 2 }} />
         </View>
       )}
+      {o.bonus && !o.bonusPris && BONUS_VUE[o.bonus] && (
+        <View style={[styles2.bonus, { top: hPx - b / 2, left: w / 2 - b / 2, width: b, height: b, borderRadius: b / 2, backgroundColor: BONUS_VUE[o.bonus].couleur }]}>
+          {BONUS_VUE[o.bonus].iconePassage
+            ? <MaterialCommunityIcons name={BONUS_VUE[o.bonus].iconePassage} size={b * 0.62} color="#fff" />
+            : <Text style={[styles2.x2, { fontSize: b * 0.42 }]}>x2</Text>}
+        </View>
+      )}
       {o.colis && !o.colisPris && (
         <View style={[styles2.bonus, { top: hPx - b / 2, left: w / 2 - b / 2, width: b, height: b, borderRadius: b * 0.22 }]}>
           <MaterialCommunityIcons name="package-variant-closed" size={b * 0.68} color="#fff" />
@@ -814,17 +881,17 @@ const Obstacle = memo(function Obstacle({ o, a, k, hPx, pal, dark }) {
   );
 });
 
-function Bulle({ id, x, y, texte, couleur, onFin }) {
+function Bulle({ id, top, texte, couleur, onFin }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const anim = Animated.timing(v, { toValue: 1, duration: 750, easing: Easing.out(Easing.quad), useNativeDriver: true });
     anim.start(() => onFin(id));
     return () => anim.stop();
   }, [id, onFin, v]);
-  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [0, -46] });
-  const opacity = v.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 1, 0] });
+  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [6, -6] });
+  const opacity = v.interpolate({ inputRange: [0, 0.15, 0.75, 1], outputRange: [0, 1, 1, 0] });
   return (
-    <Animated.Text pointerEvents="none" style={[styles2.bulle, { left: x - 80, top: y, color: couleur, opacity, transform: [{ translateY }] }]}>
+    <Animated.Text pointerEvents="none" numberOfLines={1} style={[styles2.bulle, { right: 16, top, color: couleur, opacity, transform: [{ translateY }] }]}>
       {texte}
     </Animated.Text>
   );
@@ -878,8 +945,9 @@ const styles2 = StyleSheet.create({
   bonus: {
     position: 'absolute', backgroundColor: OR, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff',
   },
+  x2: { color: '#fff', fontWeight: '900' },
   bulle: {
-    position: 'absolute', width: 160, textAlign: 'center', fontSize: 22, fontWeight: '900',
+    position: 'absolute', width: 180, textAlign: 'right', fontSize: 20, fontWeight: '900', lineHeight: 30,
     textShadowColor: 'rgba(0,0,0,0.45)', textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 },
   },
 });
@@ -895,7 +963,9 @@ const makeStyles = (c) => StyleSheet.create({
   colisDrone: { backgroundColor: '#B07A45', alignItems: 'center', justifyContent: 'center' },
   flash: { backgroundColor: '#fff' },
   bandeau: { position: 'absolute', left: 16, right: 16 },
-  hudLigne: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  hudLigne: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  medailleHud: { marginTop: 3 },
+  bouclier: { position: 'absolute', borderWidth: 3, backgroundColor: 'rgba(45,127,249,0.15)' },
   consigne: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   consigneTexte: {
     color: '#fff', fontSize: 18, fontWeight: '800', marginTop: 6, textAlign: 'center', paddingHorizontal: 24,
