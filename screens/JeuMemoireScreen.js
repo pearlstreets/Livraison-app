@@ -14,7 +14,13 @@
  * pendant la pause. Son : musique propre au jeu et bruitages (components/SonJeux.js),
  * bandeau de classement en haut, reprise de la partie sauvegardée (24 h). En haut :
  * niveau, score et paires trouvées (components/HudJeu.js). Cartes dessinées en
- * code (components/FacesMemoire.js : dos Pearl Streets, faces thème livraison).
+ * illustrées (components/FacesMemoire.js : dos au logo Pearl Streets en
+ * filigrane, faces illustrées thème livraison).
+ * Récompenses : « +N » sur la carte, combo de paires d'affilée (points et
+ * secondes en plus), étoiles et confettis au niveau gagné.
+ * Batterie : chrono à une mise à jour par seconde dans son propre composant
+ * (la grille ne se redessine pas), barre animée par le pilote natif, tout
+ * arrêté en pause et en arrière-plan (usePauseJeu).
  * Décor lumineux : ville et panneau Pearl Streets (components/DecorMemoire.js).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -28,7 +34,7 @@ import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
 import { reserveBasVille } from '../components/FondJeu';
 import DecorMemoire from '../components/DecorMemoire';
-import { Dessin, DosCarte } from '../components/FacesMemoire';
+import { FaceCarte, DosCarte, rayonCarte } from '../components/FacesMemoire';
 import HudJeu from '../components/HudJeu';
 import SonJeux, { bruit } from '../components/SonJeux';
 import ReglagesSon from '../components/ReglagesSon';
@@ -38,6 +44,7 @@ import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauve
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
   parametresNiveau, creerDonne, creerAlea, estPaire, melangerCachees, pointsPaire, bonusNiveau, dispositionGrille,
+  bonusCombo, secondesCombo, etoilesNiveau,
 } from '../utils/jeuMemoire';
 
 // Vibration légère : module natif facultatif, le jeu marche sans.
@@ -64,7 +71,7 @@ const OR = '#F2B705';
 const VERT = '#2ecc71';
 const ROUGE = '#e74c3c';
 const ECART = 10;
-const PAS_CHRONO = 100; // ms entre deux mises à jour du chrono
+const BLEU_TEMPS = '#1E88E5';
 const DUREE_RETOURNEMENT = 340;
 const TEXTE_CLAIR = '#16324A';
 const PIEDS_ENSEIGNE = 10;
@@ -84,10 +91,9 @@ export default function JeuMemoireScreen({ navigation }) {
   const [retournees, setRetournees] = useState([]);
   const [score, setScore] = useState(0);
   const [meilleur, setMeilleur] = useState(0);
-  const [secondes, setSecondes] = useState(() => parametresNiveau(1).duree);
   const [zone, setZone] = useState({ l: 0, h: 0 });
   const [ecran, setEcran] = useState({ l: 0, h: 0 });
-  const [palier, setPalier] = useState(null); // { niveau, paires, points, temps, sansErreur, suivant }
+  const [palier, setPalier] = useState(null); // { niveau, paires, points, combo, temps, sansErreur, etoiles, suivant }
   const [resultat, setResultat] = useState(null); // { score, niveau, paires, nouveauRecord }
   const [bulles, setBulles] = useState([]);
   const [classementOuvert, setClassementOuvert] = useState(false);
@@ -111,6 +117,10 @@ export default function JeuMemoireScreen({ navigation }) {
   const aleaRef = useRef(creerAlea(Date.now()));
   const idBulleRef = useRef(0);
   const termineRef = useRef(false);
+  const comboRef = useRef(0); // paires d'affilée sans erreur
+  const pointsComboRef = useRef(0); // points de combo du niveau
+  const afficheSecondesRef = useRef(null); // setter du composant Chrono
+  const grilleRef = useRef(null);
 
   const progression = useRef(new Animated.Value(1)).current;
   const secousse = useRef(new Animated.Value(1)).current;
@@ -135,32 +145,45 @@ export default function JeuMemoireScreen({ navigation }) {
     if (monteRef.current) setScore(s);
   }, []);
 
-  const ajouterBulle = useCallback((texte, couleur) => {
+  // Bulle de récompense ; `carteId` la place sur la carte, sinon en haut de la grille.
+  const ajouterBulle = useCallback((texte, couleur, carteId, decalage = 0, gros = false) => {
     if (!monteRef.current) return;
     idBulleRef.current += 1;
     const id = idBulleRef.current;
-    setBulles((b) => [...b.slice(-2), { id, texte, couleur }]);
+    const g = grilleRef.current;
+    let x = null;
+    let y = null;
+    if (g && carteId != null) {
+      const i = cartesRef.current.findIndex((c) => c.id === carteId);
+      if (i >= 0) {
+        x = (i % g.colonnes) * (g.largeur + ECART) + g.largeur / 2;
+        y = Math.floor(i / g.colonnes) * (g.hauteur + ECART) + g.hauteur / 2;
+      }
+    }
+    setBulles((b) => [...b.slice(-4), { id, texte, couleur, x, y: y == null ? null : y + decalage, gros }]);
   }, []);
   const retirerBulle = useCallback((id) => {
     if (monteRef.current) setBulles((b) => b.filter((x) => x.id !== id));
   }, []);
 
   // Chrono : décompte réel (Date.now), arrêté hors de la phase « jeu ».
+  // Une minuterie par seconde seulement ; la barre glisse seule (pilote natif).
   const arreterChrono = useCallback(() => {
-    if (chronoRef.current) clearInterval(chronoRef.current);
+    if (chronoRef.current) clearTimeout(chronoRef.current);
     chronoRef.current = null;
     if (dernierTicRef.current != null) {
       restantRef.current = Math.max(0, restantRef.current - (Date.now() - dernierTicRef.current));
     }
     dernierTicRef.current = null;
-  }, []);
+    progression.stopAnimation();
+    const duree = paramsRef.current.duree * 1000;
+    progression.setValue(duree > 0 ? Math.min(1, restantRef.current / duree) : 0);
+  }, [progression]);
 
   const afficherChrono = useCallback(() => {
-    const duree = paramsRef.current.duree * 1000;
-    progression.setValue(duree > 0 ? restantRef.current / duree : 0);
     const s = Math.ceil(restantRef.current / 1000);
-    if (monteRef.current) setSecondes((x) => (x === s ? x : s));
-  }, [progression]);
+    afficheSecondesRef.current?.(s);
+  }, []);
 
   const annulerErreurEnCours = useCallback(() => {
     if (minuteurErreurRef.current) clearTimeout(minuteurErreurRef.current);
@@ -190,7 +213,14 @@ export default function JeuMemoireScreen({ navigation }) {
     }).catch(() => {});
   }, [afficherChrono, annulerErreurEnCours, arreterChrono, changerPhase, user?.id]);
 
+  const ticRef = useRef(null);
+  const planifierTic = useCallback(() => {
+    const reste = restantRef.current % 1000 || 1000;
+    chronoRef.current = setTimeout(() => ticRef.current?.(), reste + 4);
+  }, []);
+
   const tic = useCallback(() => {
+    chronoRef.current = null;
     const maintenant = Date.now();
     if (dernierTicRef.current != null) restantRef.current -= maintenant - dernierTicRef.current;
     dernierTicRef.current = maintenant;
@@ -201,13 +231,20 @@ export default function JeuMemoireScreen({ navigation }) {
       return;
     }
     afficherChrono();
-  }, [afficherChrono, terminer]);
+    planifierTic();
+  }, [afficherChrono, planifierTic, terminer]);
+  ticRef.current = tic;
 
   const demarrerChrono = useCallback(() => {
     if (chronoRef.current) return;
     dernierTicRef.current = Date.now();
-    chronoRef.current = setInterval(tic, PAS_CHRONO);
-  }, [tic]);
+    const duree = paramsRef.current.duree * 1000;
+    progression.setValue(duree > 0 ? Math.min(1, restantRef.current / duree) : 0);
+    Animated.timing(progression, {
+      toValue: 0, duration: Math.max(0, restantRef.current), easing: Easing.linear, useNativeDriver: true,
+    }).start();
+    planifierTic();
+  }, [planifierTic, progression]);
 
   const demarrerNiveau = useCallback((n) => {
     arreterChrono();
@@ -217,6 +254,8 @@ export default function JeuMemoireScreen({ navigation }) {
     paramsRef.current = p;
     erreursRef.current = 0;
     pointsNiveauRef.current = 0;
+    comboRef.current = 0;
+    pointsComboRef.current = 0;
     restantRef.current = p.duree * 1000;
     majRetournees([]);
     majCartes(creerDonne(n, Math.floor(aleaRef.current() * 1e9) + 1));
@@ -257,9 +296,11 @@ export default function JeuMemoireScreen({ navigation }) {
       setPalier({
         niveau: n,
         paires: p.paires,
-        points: pointsNiveauRef.current,
+        points: pointsNiveauRef.current - pointsComboRef.current,
+        combo: pointsComboRef.current,
         temps: bonus.temps,
         sansErreur: bonus.sansErreur,
+        etoiles: etoilesNiveau(p.paires, erreursRef.current),
         suivant: { niveau: suivant.niveau, paires: suivant.paires, duree: suivant.duree },
       });
     }
@@ -300,25 +341,43 @@ export default function JeuMemoireScreen({ navigation }) {
     const premiere = cartesRef.current.find((c) => c.id === liste[0]);
     if (estPaire(premiere, carte)) {
       const n = niveauRef.current;
-      const gain = pointsPaire(n);
+      comboRef.current += 1;
+      const combo = comboRef.current;
+      const extra = bonusCombo(combo);
+      const gain = pointsPaire(n) + extra;
       pointsNiveauRef.current += gain;
+      pointsComboRef.current += extra;
       pairesTotalRef.current += 1;
       majScore(scoreRef.current + gain);
       const nouvelles = cartesRef.current.map((c) => (c.paire === carte.paire ? { ...c, trouvee: true } : c));
       majCartes(nouvelles);
       majRetournees([]);
       vibrer(false);
-      bruit('ramasse');
-      ajouterBulle(`+${gain}`, VERT);
-      if (nouvelles.every((c) => c.trouvee)) finirNiveau();
+      bruit(combo >= 2 ? 'booster' : 'ramasse');
+      ajouterBulle(`+${gain}`, VERT, carte.id, 0, combo >= 2);
+      if (combo >= 2) ajouterBulle(t('jeuxMemoireCombo', { n: combo }), OR, null, 0, true);
+      if (nouvelles.every((c) => c.trouvee)) {
+        finirNiveau();
+        return;
+      }
+      const offert = secondesCombo(combo);
+      if (offert > 0) {
+        // Secondes offertes : le chrono repart du nouveau temps, plafonné à la durée du niveau.
+        arreterChrono();
+        restantRef.current = Math.min(paramsRef.current.duree * 1000, restantRef.current + offert * 1000);
+        afficherChrono();
+        demarrerChrono();
+        ajouterBulle(`+${offert} s`, BLEU_TEMPS, premiere.id, 0, true);
+      }
       return;
     }
+    comboRef.current = 0;
     erreursRef.current += 1;
     verrouRef.current = true;
     vibrer(true);
     bruit('rate');
     minuteurErreurRef.current = setTimeout(recacher, paramsRef.current.delaiErreur);
-  }, [ajouterBulle, finirNiveau, majCartes, majRetournees, majScore, recacher]);
+  }, [afficherChrono, ajouterBulle, arreterChrono, demarrerChrono, finirNiveau, majCartes, majRetournees, majScore, recacher, t]);
 
   const pause = useCallback(() => {
     if (phaseRef.current !== 'jeu') return;
@@ -332,6 +391,7 @@ export default function JeuMemoireScreen({ navigation }) {
     } else {
       majRetournees([]);
     }
+    if (monteRef.current) setBulles([]);
     changerPhase('pause');
   }, [afficherChrono, arreterChrono, changerPhase, majRetournees, recacher, user?.id]);
   const estEnJeu = useCallback(() => phaseRef.current === 'jeu', []);
@@ -390,10 +450,11 @@ export default function JeuMemoireScreen({ navigation }) {
     monteRef.current = true;
     return () => {
       monteRef.current = false;
-      if (chronoRef.current) clearInterval(chronoRef.current);
+      if (chronoRef.current) clearTimeout(chronoRef.current);
+      progression.stopAnimation();
       if (minuteurErreurRef.current) clearTimeout(minuteurErreurRef.current);
     };
-  }, []);
+  }, [progression]);
 
   const surMesure = useCallback((ev) => {
     const { width, height } = ev.nativeEvent.layout;
@@ -446,14 +507,13 @@ export default function JeuMemoireScreen({ navigation }) {
   const pairesTotal = cartes.length / 2;
   const grilleVisible = phase === 'jeu' || phase === 'palier';
   const grille = useMemo(() => dispositionGrille(cartes.length || 4, zone.l, Math.max(0, zone.h - ECART), ECART), [cartes.length, zone]);
+  grilleRef.current = grille;
   const largeurGrille = grille.colonnes * grille.largeur + (grille.colonnes - 1) * ECART;
-  const pressee = secondes <= Math.max(3, Math.ceil(paramsRef.current.duree * 0.25));
-  const largeurBarre = progression.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'], extrapolate: 'clamp' });
 
   return (
     <View style={[styles.ecran, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 12 }]} onLayout={surEcran}>
       {/* Décor lumineux : la ville et le panneau Pearl Streets, sous la grille */}
-      <DecorMemoire l={ecran.l} h={ecran.h} bas={insets.bottom} largeurEnseigne={Math.min(170, ecran.l * 0.44)} piedsEnseigne={PIEDS_ENSEIGNE} />
+      <DecorMemoire l={ecran.l} h={ecran.h} bas={insets.bottom} largeurEnseigne={Math.min(104, ecran.l * 0.26)} piedsEnseigne={PIEDS_ENSEIGNE} />
       <SonJeux jeu={JEU} actif={phase === 'jeu'} />
       {/* Barre du haut : quitter, niveau et score, pause */}
       <View style={styles.haut}>
@@ -481,13 +541,13 @@ export default function JeuMemoireScreen({ navigation }) {
       <BandeauClassement jeu={JEU} idLivreur={user?.id} score={score} rafraichir={nbParties} t={t} colors={colors} style={{ marginTop: 8 }} />
 
       {/* Chrono du niveau */}
-      <View style={styles.chrono}>
-        <Ionicons name="time" size={18} color={pressee && enJeu ? ROUGE : TEXTE_CLAIR} />
-        <View style={styles.barreFond}>
-          <Animated.View style={[styles.barre, { width: largeurBarre, backgroundColor: pressee ? ROUGE : BRAND }]} />
-        </View>
-        <Text style={[styles.chronoTexte, pressee && enJeu && { color: ROUGE }]}>{secondes}</Text>
-      </View>
+      <Chrono
+        styles={styles}
+        progression={progression}
+        enregistrer={afficheSecondesRef}
+        duree={parametresNiveau(niveau).duree}
+        enJeu={enJeu}
+      />
 
       {/* Cartes (masquées pendant la pause : pas de triche) */}
       <View style={[styles.zone, { marginBottom: Math.max(0, reserveBasVille(largeurEcran) - 4) }]} onLayout={surMesure}>
@@ -505,6 +565,11 @@ export default function JeuMemoireScreen({ navigation }) {
                 styles={styles}
               />
             ))}
+            <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+              {bulles.filter((b) => b.x != null).map((b) => (
+                <Bulle key={b.id} id={b.id} texte={b.texte} couleur={b.couleur} x={b.x} y={b.y} gros={b.gros} onFin={retirerBulle} />
+              ))}
+            </View>
           </Animated.View>
         )}
         {phase === 'pause' && (
@@ -513,12 +578,13 @@ export default function JeuMemoireScreen({ navigation }) {
           </View>
         )}
         <View pointerEvents="none" style={styles.bulles}>
-          {bulles.map((b) => (
-            <Bulle key={b.id} id={b.id} texte={b.texte} couleur={b.couleur} onFin={retirerBulle} />
+          {bulles.filter((b) => b.x == null).map((b) => (
+            <Bulle key={b.id} id={b.id} texte={b.texte} couleur={b.couleur} gros={b.gros} onFin={retirerBulle} />
           ))}
         </View>
       </View>
 
+      {phase === 'palier' && palier && !classementOuvert && !alerteCourse && <Confettis cle={palier.niveau} l={ecran.l} h={ecran.h} />}
       {/* Fenêtres : accueil, palier, pause, fin */}
       {(phase === 'accueil' || phase === 'palier' || phase === 'pause' || phase === 'fin') && !classementOuvert && !alerteCourse && (
         <View style={styles.voile}>
@@ -529,6 +595,7 @@ export default function JeuMemoireScreen({ navigation }) {
                 <Text style={styles.titre}>{t('jeuxMemoireTitre')}</Text>
                 <Text style={styles.texte}>{t('jeuxMemoireRegle')}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuxMemoireBonus')}</Text>
+                <Text style={styles.texteDiscret}>{t('jeuxMemoireComboRegle')}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuMeilleurScore', { n: meilleur })}</Text>
                 <ReglagesSon t={t} colors={colors} />
                 <Bouton styles={styles} texte={t('jeuJouer')} onPress={jouer} />
@@ -538,10 +605,12 @@ export default function JeuMemoireScreen({ navigation }) {
             )}
             {phase === 'palier' && palier && (
               <>
-                <Ionicons name="checkmark-circle" size={46} color={VERT} />
+                <Etoiles n={palier.etoiles} />
                 <Text style={styles.titre}>{t('jeuNiveauReussi', { n: palier.niveau })}</Text>
+                {palier.etoiles === 3 && <Text style={styles.record}>{t('jeuxMemoireParfait')}</Text>}
                 <View style={styles.lignes}>
                   <Ligne styles={styles} texte={t('jeuxMemoirePaires', { n: palier.paires })} valeur={`+${palier.points}`} />
+                  {palier.combo > 0 && <Ligne styles={styles} texte={t('jeuxMemoireBonusCombo')} valeur={`+${palier.combo}`} couleur={OR} />}
                   <Ligne styles={styles} texte={t('jeuxMemoireBonusTemps')} valeur={`+${palier.temps}`} />
                   <Ligne styles={styles} texte={t('jeuxMemoireBonusSansErreur')} valeur={`+${palier.sansErreur}`} couleur={palier.sansErreur > 0 ? VERT : undefined} />
                 </View>
@@ -645,7 +714,8 @@ const Carte = memo(function Carte({ carte, visible, largeur, hauteur, marge, onR
     opacity: rot.interpolate({ inputRange: [0, 0.5, 0.501, 1], outputRange: [0, 0, 1, 1] }),
     transform: [{ perspective: 900 }, { rotateY: rot.interpolate({ inputRange: [0, 1], outputRange: ['180deg', '360deg'] }) }],
   };
-  const illustration = Math.min(largeur, hauteur) * 0.74;
+  const coche = Math.max(16, Math.min(largeur, hauteur) * 0.22);
+  const rayon = rayonCarte(largeur, hauteur);
 
   return (
     <Pressable
@@ -654,16 +724,14 @@ const Carte = memo(function Carte({ carte, visible, largeur, hauteur, marge, onR
       accessibilityRole="button"
     >
       <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ scale: pop }] }]}>
-        <Animated.View style={[styles.faceCarte, dos]}>
+        <Animated.View style={[styles.faceCarte, styles.dosCarte, { borderRadius: rayon }, dos]}>
           <DosCarte largeur={largeur} hauteur={hauteur} />
         </Animated.View>
-        <Animated.View
-          style={[styles.faceCarte, styles.face, carte.trouvee && { borderColor: VERT, borderWidth: 3 }, face]}
-        >
-          <Dessin icone={carte.icone} couleur={carte.couleur} taille={illustration} />
+        <Animated.View style={[styles.faceCarte, { borderRadius: rayon, backgroundColor: carte.couleur }, face]}>
+          <FaceCarte icone={carte.icone} couleur={carte.couleur} largeur={largeur} hauteur={hauteur} />
           {carte.trouvee && (
             <View style={styles.coche}>
-              <Ionicons name="checkmark-circle" size={Math.max(16, illustration * 0.28)} color={VERT} />
+              <Ionicons name="checkmark-circle" size={coche} color={VERT} />
             </View>
           )}
         </Animated.View>
@@ -672,19 +740,104 @@ const Carte = memo(function Carte({ carte, visible, largeur, hauteur, marge, onR
   );
 });
 
-function Bulle({ id, texte, couleur, onFin }) {
+// Chrono : seul composant redessiné chaque seconde, la barre glisse par le pilote natif.
+const Chrono = memo(function Chrono({ styles, progression, enregistrer, duree, enJeu }) {
+  const [secondes, setSecondes] = useState(duree);
+  useEffect(() => {
+    enregistrer.current = (s) => setSecondes((x) => (x === s ? x : s));
+    return () => { enregistrer.current = null; };
+  }, [enregistrer]);
+  const pressee = secondes <= Math.max(3, Math.ceil(duree * 0.25));
+  return (
+    <View style={styles.chrono}>
+      <Ionicons name="time" size={18} color={pressee && enJeu ? ROUGE : TEXTE_CLAIR} />
+      <View style={styles.barreFond}>
+        <Animated.View style={[styles.barre, { backgroundColor: pressee ? ROUGE : BRAND, transform: [{ scaleX: progression }] }]} />
+      </View>
+      <Text style={[styles.chronoTexte, pressee && enJeu && { color: ROUGE }]}>{secondes}</Text>
+    </View>
+  );
+});
+
+// Bulle de récompense : jaillit, grossit puis monte et s'efface (pilote natif).
+function Bulle({ id, texte, couleur, x, y, gros, onFin }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(v, { toValue: 1, duration: 900, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(() => onFin(id));
-  }, [id, onFin, v]);
-  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [10, -40] });
-  const opacity = v.interpolate({ inputRange: [0, 0.15, 0.7, 1], outputRange: [0, 1, 1, 0] });
+    Animated.timing(v, { toValue: 1, duration: gros ? 1100 : 900, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(() => onFin(id));
+  }, [gros, id, onFin, v]);
+  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [6, gros ? -56 : -44] });
+  const scale = v.interpolate({ inputRange: [0, 0.18, 0.32, 1], outputRange: [0.4, gros ? 1.35 : 1.2, 1, 1] });
+  const opacity = v.interpolate({ inputRange: [0, 0.12, 0.72, 1], outputRange: [0, 1, 1, 0] });
+  const place = x == null ? null : { position: 'absolute', left: x - 80, top: y - 18, width: 160 };
   return (
-    <Animated.Text style={[styles2.bulle, { color: couleur, opacity, transform: [{ translateY }] }]}>
+    <Animated.Text style={[styles2.bulle, gros && styles2.bulleGrosse, place, { color: couleur, opacity, transform: [{ translateY }, { scale }] }]}>
       {texte}
     </Animated.Text>
   );
 }
+
+// Étoiles du niveau gagné : apparaissent l'une après l'autre.
+function Etoiles({ n }) {
+  const vals = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
+  useEffect(() => {
+    Animated.stagger(180, vals.map((v) => Animated.spring(v, { toValue: 1, friction: 4, tension: 140, useNativeDriver: true }))).start();
+  }, [vals]);
+  return (
+    <View style={styles2.etoiles}>
+      {vals.map((v, i) => (
+        <Animated.View key={i} style={{ transform: [{ scale: v }, { translateY: i === 1 ? -8 : 0 }] }}>
+          <Ionicons name={i < n ? 'star' : 'star-outline'} size={i === 1 ? 46 : 36} color={i < n ? OR : '#C8D1DC'} />
+        </Animated.View>
+      ))}
+    </View>
+  );
+}
+
+// Confettis du niveau gagné : une seule animation native, jouée une fois.
+const COULEURS_CONFETTIS = [OR, VERT, '#FF6A13', '#1E88E5', '#E63946', '#8E44AD'];
+const NB_CONFETTIS = 22;
+const Confettis = memo(function Confettis({ cle, l, h }) {
+  const v = useRef(new Animated.Value(0)).current;
+  const pieces = useMemo(() => Array.from({ length: NB_CONFETTIS }, (_, i) => {
+    const angle = (i / NB_CONFETTIS) * Math.PI * 2 + (i % 3) * 0.3;
+    const force = 0.28 + ((i * 37) % 10) / 30;
+    return {
+      dx: Math.cos(angle) * l * force,
+      dy: Math.sin(angle) * h * force * 0.6,
+      chute: h * (0.18 + ((i * 13) % 7) / 40),
+      tour: `${(i % 2 ? 1 : -1) * (240 + i * 20)}deg`,
+      couleur: COULEURS_CONFETTIS[i % COULEURS_CONFETTIS.length],
+      rond: i % 3 === 0,
+    };
+  }), [l, h]);
+  useEffect(() => {
+    v.setValue(0);
+    const a = Animated.timing(v, { toValue: 1, duration: 1500, easing: Easing.out(Easing.cubic), useNativeDriver: true });
+    a.start();
+    return () => a.stop();
+  }, [cle, v]);
+  if (!l || !h) return null;
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 5 }]}>
+      {pieces.map((p, i) => (
+        <Animated.View
+          key={i}
+          style={[styles2.confetti, p.rond && styles2.confettiRond, {
+            left: l / 2 - 5,
+            top: h * 0.34,
+            backgroundColor: p.couleur,
+            opacity: v.interpolate({ inputRange: [0, 0.08, 0.75, 1], outputRange: [0, 1, 1, 0] }),
+            transform: [
+              { translateX: v.interpolate({ inputRange: [0, 1], outputRange: [0, p.dx] }) },
+              { translateY: v.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, p.dy, p.dy + p.chute] }) },
+              { rotate: v.interpolate({ inputRange: [0, 1], outputRange: ['0deg', p.tour] }) },
+            ],
+          }]}
+        />
+      ))}
+    </View>
+  );
+});
 
 function Ligne({ texte, valeur, couleur, styles }) {
   return (
@@ -721,6 +874,10 @@ const styles2 = StyleSheet.create({
     position: 'absolute', alignSelf: 'center', textAlign: 'center', fontSize: 24, fontWeight: '900',
     textShadowColor: 'rgba(0,0,0,0.35)', textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 },
   },
+  bulleGrosse: { fontSize: 28 },
+  etoiles: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  confetti: { position: 'absolute', width: 10, height: 14, borderRadius: 2 },
+  confettiRond: { width: 10, height: 10, borderRadius: 5 },
 });
 
 const makeStyles = (c, dark) => StyleSheet.create({
@@ -733,7 +890,7 @@ const makeStyles = (c, dark) => StyleSheet.create({
   rondPause: { backgroundColor: BRAND, borderColor: BRAND },
   chrono: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14 },
   barreFond: { flex: 1, height: 10, borderRadius: 5, backgroundColor: dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)', overflow: 'hidden' },
-  barre: { height: '100%', borderRadius: 5 },
+  barre: { width: '100%', height: '100%', borderRadius: 5, transformOrigin: 'left' },
   chronoTexte: { color: TEXTE_CLAIR, fontWeight: '800', fontSize: 15, minWidth: 26, textAlign: 'right' },
   zone: { flex: 1, marginTop: 16, alignItems: 'center', justifyContent: 'center' },
   grille: { flexDirection: 'row', flexWrap: 'wrap' },
@@ -744,7 +901,7 @@ const makeStyles = (c, dark) => StyleSheet.create({
     backfaceVisibility: 'hidden',
     shadowColor: '#000', shadowOpacity: dark ? 0.4 : 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 3,
   },
-  face: { backgroundColor: '#FFFFFF', borderWidth: 2, borderColor: '#D5DEE9' },
+  dosCarte: { backgroundColor: '#16223F' },
   coche: { position: 'absolute', top: 6, right: 6 },
   voile: {
     ...StyleSheet.absoluteFillObject, backgroundColor: c.overlay, alignItems: 'center', justifyContent: 'center', padding: 24,
