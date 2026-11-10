@@ -31,6 +31,7 @@ import ReprisePartie from '../components/ReprisePartie';
 import BandeauClassement from '../components/BandeauClassement';
 import HudJeu from '../components/HudJeu';
 import IndiceGestes from '../components/IndiceGestes';
+import { BanniereRecompense, EtoilesFin, creerSuivi, suivreScore, etoilesPour, formaterNombre } from '../components/RecompensesJeu';
 import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
 import usePauseJeu from '../hooks/usePauseJeu';
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
@@ -63,6 +64,9 @@ const BONUS_HUD = {
   aimant: { icone: 'magnet', couleur: '#E5383B' },
   casque: { icone: 'shield-checkmark', couleur: '#2D7FF9' },
 };
+// Scores annoncés en grand pendant la course.
+const PALIERS = [500, 1000, 2500, 5000, 10000, 25000, 50000];
+const CLE_BONUS = { turbo: 'jeuRecompTurbo', saut: 'jeuRecompSaut', x2: 'jeuRecompX2', aimant: 'jeuRecompAimant', casque: 'jeuRecompCasque' };
 
 export default function JeuRushScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -78,6 +82,10 @@ export default function JeuRushScreen({ navigation }) {
   const [reprise, setReprise] = useState(null); // sauvegarde trouvée à l'ouverture
   const [rafraichir, setRafraichir] = useState(0); // relance le bandeau classement
   const [meilleur, setMeilleur] = useState(0);
+  const meilleurRef = useRef(0);
+  meilleurRef.current = meilleur;
+  const suiviRef = useRef(null);
+  const recompRef = useRef(null);
   const [resultat, setResultat] = useState(null); // { score, distance, colis, palier, nouveauRecord }
   const [classementOuvert, setClassementOuvert] = useState(false);
   const [charge, setCharge] = useState('chargement'); // chargement | pret | erreur
@@ -131,7 +139,9 @@ export default function JeuRushScreen({ navigation }) {
     vibrer();
     changerPhase('choc');
     const s = Math.max(0, Math.floor(Number(m.score) || 0));
-    const base = { score: s, distance: Math.floor(Number(m.distance) || 0), colis: Number(m.pieces) || 0, total: Number(m.total) || 0, palier: Number(m.palier) || 1, nouveauRecord: false };
+    const base = { score: s, distance: Math.floor(Number(m.distance) || 0), colis: Number(m.pieces) || 0, total: Number(m.total) || 0, palier: Number(m.palier) || 1, nouveauRecord: false, etoiles: etoilesPour(s, meilleurRef.current, PALIERS) };
+    suiviRef.current = null;
+    recompRef.current?.cacher();
     setResultat(base);
     setAffiche((p) => ({ ...p, score: s, boosters: [] }));
     effacerPartie(JEU, idLivreur);
@@ -159,6 +169,13 @@ export default function JeuRushScreen({ navigation }) {
       const n = Number(m.pieces) || 0;
       const tot = Number(m.total) || 0;
       const pal = Number(m.palier) || 0;
+      const annonce = suivreScore(suiviRef.current, s);
+      if (annonce?.type === 'record') {
+        recompRef.current?.montrer({ texte: t('jeuRecompRecord'), icone: 'trophy', couleur: OR });
+        jouerSon('record');
+      } else if (annonce) {
+        recompRef.current?.montrer({ texte: t('jeuRecompPalier', { n: formaterNombre(annonce.n) }), icone: 'ribbon', couleur: OR });
+      }
       const bon = Array.isArray(m.boosters) ? m.boosters.filter((b) => BONUS_HUD[b?.id]).map((b) => ({
         id: b.id, ...BONUS_HUD[b.id], ratio: Math.max(0, Math.min(1, Number(b.ratio) || 0)),
       })) : [];
@@ -172,12 +189,16 @@ export default function JeuRushScreen({ navigation }) {
       sauverPartie(JEU, idLivreur, {
         etat: m, score: Math.floor((Number(m.points) || 0) + (Number(m.ptsDist) || 0)), niveau: (Number(m.palier) || 0) + 1,
       });
+    } else if (m.t === 'serie' && phaseRef.current === 'jeu') {
+      recompRef.current?.montrer({ texte: t('jeuRecompSerie', { n: Number(m.n) || 0 }), icone: 'flame', couleur: '#FF7A1A' });
+    } else if (m.t === 'bonus' && phaseRef.current === 'jeu' && CLE_BONUS[m.id]) {
+      recompRef.current?.montrer({ texte: t(CLE_BONUS[m.id]), icone: BONUS_HUD[m.id].icone, couleur: BONUS_HUD[m.id].couleur });
     } else if (m.t === 'palier') {
       montrerBanniere(Number(m.palier) || 0);
       jouerSon('niveau');
     }
     else if (m.t === 'fin' && phaseRef.current === 'jeu') terminer(m);
-  }, [idLivreur, montrerBanniere, synchroSon, terminer]);
+  }, [idLivreur, montrerBanniere, synchroSon, t, terminer]);
 
   // etat : sauvegarde à reprendre (objet), ou rien pour une nouvelle course.
   const jouer = useCallback((etat) => {
@@ -188,6 +209,9 @@ export default function JeuRushScreen({ navigation }) {
     setReprise(null);
     setResultat(null);
     setClassementOuvert(false);
+    const depart = reprend ? Math.floor((Number(etat.points) || 0) + (Number(etat.ptsDist) || 0)) : 0;
+    suiviRef.current = creerSuivi(PALIERS, meilleurRef.current, depart);
+    recompRef.current?.cacher();
     setAffiche({ score: reprend ? Math.floor((Number(etat.points) || 0) + (Number(etat.ptsDist) || 0)) : 0, colis: 0, total: 0, palier: reprend ? Number(etat.palier) || 0 : 0, boosters: [] });
     montrerBanniere(reprend ? Number(etat.palier) || 0 : 0);
     changerPhase('jeu');
@@ -312,6 +336,7 @@ export default function JeuRushScreen({ navigation }) {
             <Text style={styles.banniereTitre}>{t('jeuxRushPalier', { n: banniere + 1 })}</Text>
           </Animated.View>
         )}
+        <BanniereRecompense ref={recompRef} haut="36%" />
         {phase === 'choc' && <View pointerEvents="none" style={styles.flash} />}
         <IndiceGestes jeu={JEU} actif={phase === 'jeu'} gestes={['gauche', 'droite', 'haut', 'bas']} t={t} colors={colors} />
       </View>
@@ -371,6 +396,7 @@ export default function JeuRushScreen({ navigation }) {
                 <Ionicons name={resultat.nouveauRecord ? 'trophy' : 'alert-circle'} size={44} color={resultat.nouveauRecord ? OR : colors.danger} />
                 <Text style={styles.titre}>{resultat.nouveauRecord ? t('jeuxRushNouveauRecord') : t('jeuxRushChoc')}</Text>
                 <Text style={styles.texteFort}>{t('jeuScore', { n: resultat.score })}</Text>
+                <EtoilesFin n={resultat.etoiles} t={t} colors={colors} />
                 <Text style={styles.texteDiscret}>
                   {t('jeuxRushDistance', { n: resultat.distance })}  ·  {t('jeuxRushColis', { n: resultat.total > 0 ? `${resultat.colis} / ${resultat.total}` : resultat.colis })}  ·  {t('jeuxRushPalier', { n: resultat.palier })}
                 </Text>

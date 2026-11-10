@@ -70,7 +70,8 @@ function Marche({ l, h, dark, haut }) {
   const c = dark ? BANNE.sombre : BANNE.clair;
   const hBanne = haut + 46;
   const nb = Math.ceil(l / LARGEUR_RAYURE) + 1;
-  const largeurEnseigne = Math.min(l * 0.5, 220);
+  // Petite enseigne discrète (demande du 10/11) : pas un grand panneau.
+  const largeurEnseigne = Math.min(l * 0.26, 104);
   const hCagette = Math.max(34, h * 0.06);
   const nbCagettes = Math.max(3, Math.round(l / 110));
   const lCagette = l / nbCagettes;
@@ -97,9 +98,9 @@ function Marche({ l, h, dark, haut }) {
       {/* Enseigne suspendue sous la banne */}
       <EnseignePearl
         largeur={largeurEnseigne}
-        cordons={16}
+        cordons={10}
         couleurSupport={c.cordon}
-        style={{ position: 'absolute', top: hBanne + LARGEUR_RAYURE / 2 - 2, left: (l - largeurEnseigne) / 2 }}
+        style={{ position: 'absolute', top: hBanne + LARGEUR_RAYURE / 2 - 2, left: (l - largeurEnseigne) / 2, opacity: 0.6 }}
       />
       {/* Cagettes de l'étal */}
       <View style={[styles.rangee, { bottom: 0, height: hCagette }]}>

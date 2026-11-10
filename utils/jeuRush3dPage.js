@@ -58,10 +58,13 @@ export const JEU_JS = `
   ];
 
   // ---------- Scène ----------
-  var rendu=new T.WebGLRenderer({antialias:true, powerPreference:'high-performance'});
-  rendu.setPixelRatio(Math.min(window.devicePixelRatio||1,1.75));
+  // Économie de batterie (10/11) : résolution plafonnée à 1,5, anticrénelage
+  // seulement sur les écrans peu denses, ombres simples en 512.
+  var DPR=Math.min(window.devicePixelRatio||1,1.5);
+  var rendu=new T.WebGLRenderer({antialias:(window.devicePixelRatio||1)<1.5, powerPreference:'default'});
+  rendu.setPixelRatio(DPR);
   rendu.setSize(window.innerWidth,window.innerHeight);
-  rendu.shadowMap.enabled=true; rendu.shadowMap.type=T.PCFSoftShadowMap;
+  rendu.shadowMap.enabled=true; rendu.shadowMap.type=T.PCFShadowMap;
   rendu.outputEncoding=T.sRGBEncoding;
   rendu.toneMapping=T.ACESFilmicToneMapping; rendu.toneMappingExposure=1.05;
   document.body.appendChild(rendu.domElement);
@@ -70,7 +73,7 @@ export const JEU_JS = `
   var camera=new T.PerspectiveCamera(62,window.innerWidth/window.innerHeight,0.1,400);
   var hemi=new T.HemisphereLight(0xcdeeff,0x6a7080,0.75); scene.add(hemi);
   var soleil=new T.DirectionalLight(0xfff3d6,1.25);
-  soleil.castShadow=true; soleil.shadow.mapSize.set(1024,1024);
+  soleil.castShadow=true; soleil.shadow.mapSize.set(512,512);
   var sc=soleil.shadow.camera; sc.left=-14; sc.right=14; sc.top=22; sc.bottom=-12; sc.near=1; sc.far=80;
   soleil.shadow.bias=-0.0006; scene.add(soleil); scene.add(soleil.target);
 
@@ -200,7 +203,7 @@ export const JEU_JS = `
   var geoTrottoir=new T.BoxGeometry(3.8,0.16,SEG), geoBordure=new T.BoxGeometry(0.22,0.2,SEG);
   var geoPoteauL=new T.CylinderGeometry(0.07,0.1,5.2,8), geoBras=new T.BoxGeometry(1.2,0.08,0.08), geoAmpoule=new T.SphereGeometry(0.17,10,8);
   var geoFlaque=new T.CircleGeometry(2.6,20), geoTronc=new T.CylinderGeometry(0.1,0.14,1.3,8), geoFeuille=new T.SphereGeometry(0.85,14,10), geoPot=new T.CylinderGeometry(0.4,0.3,0.5,12);
-  var geoPoteau=new T.CylinderGeometry(0.12,0.12,3.2,8), geoPanneau=new T.BoxGeometry(4.2,2.1,0.15);
+  var geoPoteau=new T.CylinderGeometry(0.12,0.12,3.2,8), geoPanneau=new T.BoxGeometry(1.5,0.75,0.12);
   var geoShop=new T.PlaneGeometry(12,3), geoAuvent=new T.BoxGeometry(1.3,0.08,11.4);
   var HAUTEURS=[18,24,30,36,42];
   function corpsImmeuble(h){
@@ -235,8 +238,9 @@ export const JEU_JS = `
   }
   function creerPanneau(){
     var g=new T.Group();
-    [-1,1].forEach(function(c){ var t=maille(geoPoteau,M.acier,true); t.position.set(c*1.5,1.6,-0.1); g.add(t); });
-    var b=maille(geoPanneau,[M.cadreLogo,M.cadreLogo,M.cadreLogo,M.cadreLogo,M.logo,M.cadreLogo],true); b.position.y=4.25; g.add(b);
+    // Petit panneau discret (demande du 10/11), jamais un grand panneau.
+    var t=maille(geoPoteau,M.acier,true); t.scale.set(0.6,0.85,0.6); t.position.set(0,1.36,-0.1); g.add(t);
+    var b=maille(geoPanneau,[M.cadreLogo,M.cadreLogo,M.cadreLogo,M.cadreLogo,M.logo,M.cadreLogo],true); b.position.y=3.0; g.add(b);
     return g;
   }
   function placerPanneau(pn){ var c=Math.random()<0.5?-1:1; pn.position.set(c*5.7,0.16,-22+Math.random()*44); pn.rotation.y=-c*0.4; }
@@ -353,8 +357,10 @@ export const JEU_JS = `
     [-0.28,0.28].forEach(function(dz){ var bd=maille(geoBandeFut,M.blanc,true); bd.rotation.x=Math.PI/2; bd.position.z=dz; pivot.add(bd); });
     var marque=maille(geoLisse,M.blanc,false); marque.scale.set(0.22,0.22,1.02); marque.position.set(0.5,0,0); pivot.add(marque);
     g.position.set(x,0.5,0); g.userData={genre:'tonneau', demi:0.5, bas:0, haut:1.0, prof:0.5, pivot:pivot, vx:(Math.random()<0.5?-1:1)*(2+Math.random()*1.5)}; return g; }
+  var geoLogoBan=new T.PlaneGeometry(1.3,0.65);
   function creerBanniere(){ var g=new T.Group(); var l=LARGEUR_PISTE-0.2;
-    var ban=maille(geoLisse,[M.cadreLogo,M.cadreLogo,M.cadreLogo,M.cadreLogo,M.logo,M.cadreLogo],true); ban.scale.set(l,1.5,0.18); ban.position.y=1.85; g.add(ban);
+    var ban=maille(geoLisse,M.cadreLogo,true); ban.scale.set(l,1.5,0.18); ban.position.y=1.85; g.add(ban);
+    var lg=new T.Mesh(geoLogoBan,M.logo); lg.position.set(0,1.85,0.1); g.add(lg);
     var traverse=maille(geoLisse,M.acier,true); traverse.scale.set(LARGEUR_PISTE+0.6,0.2,0.3); traverse.position.y=3.4; g.add(traverse);
     [-1,1].forEach(function(c){ var po=maille(geoJambe,M.acier,true); po.position.set(c*(LARGEUR_PISTE/2+0.1),1.7,0); g.add(po); });
     [-3.5,-1.2,1.2,3.5].forEach(function(px){ var ca=new T.Mesh(geoCable,M.acier); ca.scale.y=0.85; ca.position.set(px,3.0,0); g.add(ca); });
@@ -445,10 +451,33 @@ export const JEU_JS = `
   window.addEventListener('touchend',function(){ t0=null; },{passive:true});
   window.addEventListener('keydown',function(e){ var k=e.key; if(k==='ArrowLeft') changerVoie(-1); else if(k==='ArrowRight') changerVoie(1); else if(k==='ArrowUp'||k===' ') sauter(); else if(k==='ArrowDown') glisser(); });
 
+  // ---------- Récompenses visibles : « +10 » / « +50 » au colis ----------
+  var stylePop=document.createElement('style');
+  stylePop.textContent='.pop{position:absolute;left:0;top:0;pointer-events:none;font:900 26px -apple-system,Roboto,sans-serif;color:#F2B705;text-shadow:0 1px 3px #7a4a00,0 0 2px #fff;opacity:0;will-change:transform,opacity}'
+    +'.pop.or{color:#fff;text-shadow:0 1px 3px #b8860b,0 0 6px #F2B705;font-size:32px}'
+    +'.pop.vu{animation:monte .8s ease-out forwards}'
+    +'@keyframes monte{0%{opacity:0;transform:translate(var(--x),var(--y)) scale(.6)}15%{opacity:1;transform:translate(var(--x),var(--y)) scale(1.15)}100%{opacity:0;transform:translate(var(--x),calc(var(--y) - 60px)) scale(1)}}';
+  document.head.appendChild(stylePop);
+  var pops=[], popI=0, vecPop=new T.Vector3();
+  for(var pi=0;pi<6;pi++){ var d=document.createElement('div'); d.className='pop'; document.body.appendChild(d); pops.push(d); }
+  function montrerPop(pos,texte,or){
+    vecPop.copy(pos); vecPop.project(camera);
+    var d=pops[popI]; popI=(popI+1)%pops.length;
+    d.className='pop'+(or?' or':''); d.textContent=texte;
+    d.style.setProperty('--x',Math.round((vecPop.x*0.5+0.5)*window.innerWidth-24)+'px');
+    d.style.setProperty('--y',Math.round((-vecPop.y*0.5+0.5)*window.innerHeight-40)+'px');
+    void d.offsetWidth; d.className='pop vu'+(or?' or':'');
+  }
+
   // ---------- Boucle ----------
+  // 60 images par seconde au plus en course, 24 à l'accueil, arrêt en fin de
+  // partie, en pause et quand la page est cachée (moins de chauffe).
+  var IMAGE_MIN=15, IMAGE_REPOS=41;
   function boucler(){ if(raf) cancelAnimationFrame(raf); raf=requestAnimationFrame(image); }
   function image(ts){
     raf=null;
+    if(document.hidden) return;
+    if(dernier!=null && ts-dernier<(phase==='jeu'?IMAGE_MIN:IMAGE_REPOS)){ raf=requestAnimationFrame(image); return; }
     var dt=dernier==null?0:Math.min(0.05,(ts-dernier)/1000); dernier=ts; temps+=dt;
     if(phase==='jeu') avancer(dt);
     else if(phase==='pret'){ livreur.position.set(0,0,0); poser('repos',temps*1.2); }
@@ -457,17 +486,17 @@ export const JEU_JS = `
     camera.lookAt(livreur.position.x*0.35,1.3,livreur.position.z-9);
     soleil.position.set(livreur.position.x+8,18,livreur.position.z+6); soleil.target.position.set(livreur.position.x,0,livreur.position.z-6);
     ciel.position.set(camera.position.x,0,camera.position.z); lointain.position.z=livreur.position.z;
-    pieces.forEach(function(p){ p.rotation.y+=dt*3; });
-    bonus.forEach(function(b){ var u=b.userData; u.t+=dt; b.position.y=1.15+Math.sin(u.t*2.4)*0.14; u.ic.rotation.y+=dt*2.6; u.an.rotation.z+=dt*2; });
+    for(var ip=0;ip<pieces.length;ip++) pieces[ip].rotation.y+=dt*3;
+    for(var ib=0;ib<bonus.length;ib++){ var bb=bonus[ib], u=bb.userData; u.t+=dt; bb.position.y=1.15+Math.sin(u.t*2.4)*0.14; u.ic.rotation.y+=dt*2.6; u.an.rotation.z+=dt*2; }
     rendu.render(scene,camera);
-    if(phase!=='pause') raf=requestAnimationFrame(image);
+    if(phase!=='pause'&&phase!=='fin') raf=requestAnimationFrame(image);
   }
   function activer(id){ son('booster');
     if(id==='casque') E.casque=true; else E.b[id]=DUREE[id];
-    envoyerScore(); }
+    envoyer({t:'bonus',id:id}); envoyerScore(); }
   function avancer(dt){
     var b=E.b, tb=b.turbo>0;
-    CLES_BONUS.forEach(function(k){ if(b[k]>0) b[k]=Math.max(0,b[k]-dt); });
+    for(var ik=0;ik<CLES_BONUS.length;ik++){ var kb=CLES_BONUS[ik]; if(b[kb]>0) b[kb]=Math.max(0,b[kb]-dt); }
     if(E.inv>0) E.inv-=dt;
     if(E.glisse>0) E.glisse-=dt;
     var base=Math.min(V_MAX,V_DEPART+Math.sqrt(E.dist)*0.32+E.palier*0.8);
@@ -503,8 +532,12 @@ export const JEU_JS = `
       if(aimant&&p.position.z<E.z+1&&p.position.z>E.z-9&&Math.abs(p.position.x-E.x)<7){
         p.position.x+=(E.x-p.position.x)*Math.min(1,dt*7); p.position.y+=(cy-p.position.y)*Math.min(1,dt*7); p.position.z+=(E.z-p.position.z)*Math.min(1,dt*3); }
       if(Math.abs(p.position.z-E.z)<0.8 && Math.abs(p.position.x-E.x)<0.8 && Math.abs(p.position.y-cy)<1.0){
-        scene.remove(p); pieces.splice(k,1); E.nbPieces++; E.points+=(pu.or?50:10)*(b.x2>0?2:1); son(pu.or?'bonus':'ramasse'); continue; }
-      if(p.position.z>E.z+1&&!pu.rate){ pu.rate=true; E.rates++; }
+        var gain=(pu.or?50:10)*(b.x2>0?2:1);
+        montrerPop(p.position,'+'+gain,pu.or);
+        scene.remove(p); pieces.splice(k,1); E.nbPieces++; E.points+=gain; son(pu.or?'bonus':'ramasse');
+        E.serie=(E.serie||0)+1; if(E.serie%10===0) envoyer({t:'serie',n:E.serie});
+        continue; }
+      if(p.position.z>E.z+1&&!pu.rate){ pu.rate=true; E.rates++; E.serie=0; }
       if(p.position.z>E.z+10){ scene.remove(p); pieces.splice(k,1); }
     }
     for(var q=bonus.length-1;q>=0;q--){ var bo=bonus[q];
@@ -512,7 +545,7 @@ export const JEU_JS = `
       if(Math.abs(bo.position.z-E.z)<0.9 && Math.abs(bo.position.x-E.x)<0.9 && Math.abs(bo.position.y-cy)<1.3){ var id=bo.userData.id; scene.remove(bo); bonus.splice(q,1); activer(id); }
     }
     // Rue recyclée.
-    segments.forEach(function(sg){ if(sg.position.z-SEG/2>E.z+15){ sg.position.z-=SEG*NSEG; remixer(sg); } });
+    for(var is=0;is<segments.length;is++){ var sg=segments[is]; if(sg.position.z-SEG/2>E.z+15){ sg.position.z-=SEG*NSEG; remixer(sg); } }
     E.dernierEnvoi+=dt; if(E.dernierEnvoi>=0.1){ E.dernierEnvoi=0; envoyerScore(); }
   }
 
@@ -522,6 +555,11 @@ export const JEU_JS = `
     pause:function(){ if(phase==='jeu'){ phase='pause'; if(raf) cancelAnimationFrame(raf); raf=null; envoyerEtat(); } },
     reprendre:function(){ if(phase==='pause'){ phase='jeu'; dernier=null; boucler(); } }
   };
+  // Page cachée (WebView en arrière-plan) : plus aucune image calculée.
+  document.addEventListener('visibilitychange',function(){
+    if(document.hidden){ if(raf) cancelAnimationFrame(raf); raf=null; }
+    else if(phase!=='pause'&&phase!=='fin'){ dernier=null; boucler(); }
+  });
   appliquerCiel(0); boucler();
   envoyer({t:'pret'});
 })();
