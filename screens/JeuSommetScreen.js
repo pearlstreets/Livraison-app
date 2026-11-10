@@ -23,6 +23,10 @@
  * le livreur. Récompenses :
  * « +5 » au colis, paliers de score, record battu, étoiles en fin de partie
  * (components/RecompensesJeu.js). Boucle plafonnée à 60 images par seconde.
+ * Bonus (demande du 10/11) : aimant à colis, casque, filet de sécurité, avec
+ * leur pastille et leur jauge dans la barre du haut. Annonces (palier, bonus,
+ * récompenses) et « +5 » toujours en haut, sous la barre d'infos, jamais au
+ * milieu de l'écran.
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
@@ -49,7 +53,8 @@ import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauve
 import ClassementJeu from '../components/ClassementJeu';
 import { chargerRecord, envoyerRecordEnAttente, finDePartie } from '../utils/jeuxRecords';
 import {
-  MONDE_L, ETAGE, JOUEUR_L, JOUEUR_H, PLAT_H, VX_MAX, POINTS_COLIS, partieNeuve, avancer,
+  MONDE_L, ETAGE, JOUEUR_L, JOUEUR_H, PLAT_H, VX_MAX, POINTS_COLIS, BONUS, TYPES_BONUS,
+  partieNeuve, avancer, bonusActifs, restaurerBonus,
 } from '../utils/jeuSommet';
 
 // Vibration légère : module natif facultatif, le jeu marche sans.
@@ -72,7 +77,23 @@ function vibrer(fort) {
 }
 
 // Bruitage de chaque événement du jeu (utils/jeuSommet.js).
-const SONS_SOMMET = { rebond: 'saut', store: 'saut', trampo: 'booster', monte: 'booster', colis: 'ramasse', pigeon: 'ramasse', touche: 'choc', palier: 'niveau', fin: 'perdu' };
+const SONS_SOMMET = {
+  rebond: 'saut', store: 'saut', trampo: 'booster', monte: 'booster', colis: 'ramasse', pigeon: 'ramasse', touche: 'choc', palier: 'niveau', fin: 'perdu',
+  aimant: 'bonus', casque: 'bonus', filet: 'bonus', protege: 'choc', sauve: 'booster',
+};
+
+// Bonus : icône, couleur (icône blanche dessus) et textes de leur annonce.
+const BONUS_VUE = {
+  aimant: { icone: 'magnet', couleur: '#E74C3C', titre: 'jeuxSommetBonusAimant', texte: 'jeuxSommetBonusAimantTexte' },
+  casque: { icone: 'hard-hat', couleur: '#B7791F', titre: 'jeuxSommetBonusCasque', texte: 'jeuxSommetBonusCasqueTexte' },
+  filet: { icone: 'grid', couleur: '#2F80ED', titre: 'jeuxSommetBonusFilet', texte: 'jeuxSommetBonusFiletTexte' },
+};
+// Annonce d'un événement de bonus : bonus concerné et clé du texte.
+const ANNONCES_BONUS = {
+  aimant: { bonus: 'aimant' }, casque: { bonus: 'casque' }, filet: { bonus: 'filet' },
+  protege: { bonus: 'casque', texte: 'jeuxSommetSauveCasque' }, sauve: { bonus: 'filet', texte: 'jeuxSommetSauveFilet' },
+};
+const DUREE_ANNONCE_BONUS = 2.2; // secondes de jeu
 
 const JEU = 'sommet';
 const HAUTEUR_MIN = 520; // hauteur de monde toujours visible (grands écrans larges)
@@ -234,8 +255,37 @@ const Colis = memo(function Colis({ x, y, s, p }) {
   );
 });
 
+/** Bonus à ramasser : pastille colorée cernée de blanc, légère oscillation. */
+const ObjetBonus = memo(function ObjetBonus({ type, x, y, s }) {
+  const v = BONUS_VUE[type];
+  const t = 30 * s;
+  return (
+    <View
+      style={{
+        position: 'absolute', left: x * s - t / 2, top: -y * s - t / 2, width: t, height: t, borderRadius: t / 2,
+        backgroundColor: v.couleur, borderWidth: Math.max(1, 2 * s), borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <MaterialCommunityIcons name={v.icone} size={18 * s} color="#FFFFFF" />
+    </View>
+  );
+});
 
-function Livreur({ x, y, rot, vx, s, dark }) {
+/** Pastille d'un bonus actif dans la barre du haut, avec sa jauge. */
+function PuceBonus({ type, ratio }) {
+  const v = BONUS_VUE[type];
+  const r = Math.max(0, Math.min(1, ratio));
+  return (
+    <View style={[stylesFixes.puce, { backgroundColor: v.couleur }]}>
+      <MaterialCommunityIcons name={v.icone} size={18} color="#FFFFFF" />
+      <View style={stylesFixes.puceFond}>
+        <View style={{ width: `${r * 100}%`, height: '100%', backgroundColor: '#FFFFFF', borderRadius: 2 }} />
+      </View>
+    </View>
+  );
+}
+
+function Livreur({ x, y, rot, vx, s, dark, casque, aimant }) {
   const l = JOUEUR_L * s;
   const h = JOUEUR_H * s;
   const penche = rot || (vx / VX_MAX) * 10;
@@ -249,7 +299,17 @@ function Livreur({ x, y, rot, vx, s, dark }) {
     >
       {/* Halo clair : le livreur se détache toujours de la façade */}
       <View style={{ position: 'absolute', left: -l * 0.2, top: -h * 0.05, width: l * 1.4, height: h * 1.1, borderRadius: l, backgroundColor: '#FFFFFF', opacity: dark ? 0.22 : 0.55 }} />
-      <View style={{ position: 'absolute', top: -4 * s }}>
+      {/* Casque actif : contour doré autour du livreur */}
+      {casque && (
+        <View style={{ position: 'absolute', left: -l * 0.3, top: -h * 0.12, width: l * 1.6, height: h * 1.24, borderRadius: l, borderWidth: Math.max(1, 2.5 * s), borderColor: OR }} />
+      )}
+      {aimant && (
+        <View style={{ position: 'absolute', right: -14 * s, top: h * 0.35 }}>
+          <MaterialCommunityIcons name="magnet" size={16 * s} color={BONUS_VUE.aimant.couleur} />
+        </View>
+      )}
+      <View style={{ position: 'absolute', top: casque ? -16 * s : -4 * s, alignItems: 'center' }}>
+        {casque && <MaterialCommunityIcons name="hard-hat" size={18 * s} color={OR} style={{ marginBottom: -6 * s }} />}
         <MaterialCommunityIcons name="package-variant-closed" size={18 * s} color="#B07A3B" />
       </View>
       <MaterialCommunityIcons name="human-handsup" size={h * 0.82} color={BRAND} />
@@ -269,6 +329,7 @@ export default function JeuSommetScreen({ navigation }) {
   const [, setImage] = useState(0);
   const [taille, setTaille] = useState({ l: 0, h: 0 });
   const [meilleur, setMeilleur] = useState(0);
+  const [hauteurAnnonces, setHauteurAnnonces] = useState(0); // pile des annonces, pour placer la bannière dessous
   const [resultat, setResultat] = useState(null); // { score, etage, colis, cause, nouveauRecord }
   const [classementOuvert, setClassementOuvert] = useState(false);
   const [reprise, setReprise] = useState(null); // partie sauvegardée { score, etage, colis }
@@ -278,6 +339,7 @@ export default function JeuSommetScreen({ navigation }) {
   const banniereRef = useRef(null);
   const suiviRef = useRef(null); // paliers et record annoncés pendant la partie
   const bullesRef = useRef([]); // « +5 » des colis : { id, x, y, t0 }
+  const annonceBonusRef = useRef(null); // { bonus, texte, fin } en secondes de jeu
   const meilleurRef = useRef(0);
   meilleurRef.current = meilleur;
   const monteRef = useRef(true);
@@ -315,7 +377,7 @@ export default function JeuSommetScreen({ navigation }) {
   const sauver = useCallback(() => {
     const e = partieRef.current;
     if (!e || e.phase !== 'jeu' || e.score <= 0) return;
-    sauverPartie(JEU, user?.id, { score: e.score, etage: e.etage, colis: e.colis }).catch(() => {});
+    sauverPartie(JEU, user?.id, { score: e.score, etage: e.etage, colis: e.colis, bonus: bonusActifs(e) }).catch(() => {});
   }, [user?.id]);
   const pause = useCallback(() => {
     if (uiRef.current !== 'jeu') return;
@@ -342,6 +404,7 @@ export default function JeuSommetScreen({ navigation }) {
     };
     banniereRef.current?.cacher();
     bullesRef.current = [];
+    annonceBonusRef.current = null;
     setResultat(base);
     setReprise(null);
     effacerPartie(JEU, user?.id).catch(() => {});
@@ -361,6 +424,7 @@ export default function JeuSommetScreen({ navigation }) {
     partieRef.current = partieNeuve(visibleRef.current);
     suiviRef.current = creerSuivi(PALIERS, meilleurRef.current, 0);
     bullesRef.current = [];
+    annonceBonusRef.current = null;
     banniereRef.current?.cacher();
     dirRef.current = 0;
     setResultat(null);
@@ -379,10 +443,12 @@ export default function JeuSommetScreen({ navigation }) {
       e.colis = Math.max(0, Math.floor(sauvee.colis || 0));
       e.etage = e.etageBase;
       e.score = e.etageBase + e.colis * POINTS_COLIS;
+      restaurerBonus(e, sauvee.bonus);
     }
     partieRef.current = e;
     suiviRef.current = creerSuivi(PALIERS, meilleurRef.current, e.score);
     bullesRef.current = [];
+    annonceBonusRef.current = null;
     dirRef.current = 0;
     setReprise(null);
     setResultat(null);
@@ -408,9 +474,10 @@ export default function JeuSommetScreen({ navigation }) {
       const evts = avancer(e, dt, dirRef.current);
       for (let i = 0; i < evts.length; i += 1) {
         const ev = evts[i];
-        if (ev === 'colis' || ev === 'trampo' || ev === 'monte' || ev === 'pigeon') vibrer(false);
+        if (ev === 'colis' || ev === 'trampo' || ev === 'monte' || ev === 'pigeon' || ANNONCES_BONUS[ev]) vibrer(ev === 'protege');
         else if (ev === 'touche') vibrer(true);
         bruit(SONS_SOMMET[ev]);
+        if (ANNONCES_BONUS[ev]) annonceBonusRef.current = { ...ANNONCES_BONUS[ev], fin: e.t + DUREE_ANNONCE_BONUS };
         if (ev === 'colis') {
           bullesRef.current.push({ id: e.t + Math.random(), x: e.joueur.x, y: e.joueur.y + JOUEUR_H + 10, t0: e.t });
         }
@@ -471,6 +538,15 @@ export default function JeuSommetScreen({ navigation }) {
   const joueur = e && ui !== 'accueil' ? e.joueur : { x: MONDE_L / 2, y: 0, vx: 0, vy: 0, rot: 0, regard: 1 };
   const enJeu = ui === 'jeu';
   const hautHud = insets.top + 118;
+  const basHud = insets.top + 134; // juste sous les pastilles de score
+  const casqueActif = !!(e && ui !== 'accueil' && (e.casque > 0 || e.invuln > 0));
+  const aimantActif = !!(e && ui !== 'accueil' && e.aimant > 0);
+  const ab = annonceBonusRef.current;
+  const annonceBonus = e && ab && e.t < ab.fin ? ab : null;
+  // « +5 » du dernier colis : il s'affiche sur le compteur de colis, en haut.
+  const bulles = bullesRef.current;
+  const derniereBulle = e && ui !== 'accueil' && bulles.length ? bulles[bulles.length - 1] : null;
+  const ageBulle = derniereBulle ? (e.t - derniereBulle.t0) / DUREE_BULLE : 1;
 
   return (
     <View style={[styles.ecran, { backgroundColor: dark ? '#14161B' : '#DCEBF7' }]}>
@@ -493,7 +569,54 @@ export default function JeuSommetScreen({ navigation }) {
                 <Plateforme key={pl.id} type={pl.type} x={pl.x} y={pl.y} l={pl.l} rot={pl.rot} dechire={pl.dechire} s={s} p={p} />
               ))}
               {e && ui !== 'accueil' && e.colisListe.map((c) => <Colis key={c.id} x={c.x} y={c.y} s={s} p={p} />)}
-              {e && ui !== 'accueil' && e.pots.filter((pot) => pot.alerte <= 0).map((pot) => (
+              {e && ui !== 'accueil' && e.bonusListe.map((b) => (
+                <ObjetBonus key={b.id} type={b.type} x={b.x} y={b.y + Math.sin(e.t * 4 + b.id) * 3} s={s} />
+              ))}
+              <Livreur x={joueur.x} y={joueur.y} rot={joueur.rot} vx={joueur.vx} s={s} dark={dark} casque={casqueActif} aimant={aimantActif} />
+              {/* Copie du livreur au passage d'un bord */}
+              {joueur.x < JOUEUR_L && <Livreur x={joueur.x + MONDE_L} y={joueur.y} rot={joueur.rot} vx={joueur.vx} s={s} dark={dark} casque={casqueActif} aimant={aimantActif} />}
+              {joueur.x > MONDE_L - JOUEUR_L && <Livreur x={joueur.x - MONDE_L} y={joueur.y} rot={joueur.rot} vx={joueur.vx} s={s} dark={dark} casque={casqueActif} aimant={aimantActif} />}
+            </View>
+            {/* Filet de sécurité actif : tendu en bas de l'écran */}
+            {e && ui !== 'accueil' && e.filet > 0 && (
+              <View style={[styles.filet, { height: 16 * s, borderColor: BONUS_VUE.filet.couleur }]}>
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <View key={i} style={{ flex: 1, borderRightWidth: i < 11 ? 1.5 : 0, borderColor: BONUS_VUE.filet.couleur }} />
+                ))}
+              </View>
+            )}
+          </View>
+        )}
+        {/* Annonces empilées : bonus puis palier, la bannière des récompenses se place dessous */}
+        <View pointerEvents="none" style={[styles.pileAnnonces, { top: basHud }]} onLayout={(ev) => setHauteurAnnonces(ev.nativeEvent.layout.height)}>
+          {enJeu && e && annonceBonus && (
+            <View style={[styles.annonce, { borderColor: BONUS_VUE[annonceBonus.bonus].couleur }]}>
+              <View style={[styles.annonceIcone, { backgroundColor: BONUS_VUE[annonceBonus.bonus].couleur }]}>
+                <MaterialCommunityIcons name={BONUS_VUE[annonceBonus.bonus].icone} size={16} color="#FFFFFF" />
+              </View>
+              <Text style={styles.annonceTexte} numberOfLines={2}>
+                <Text style={styles.annonceTitre}>{`${t(BONUS_VUE[annonceBonus.bonus].titre)}. `}</Text>
+                {t(annonceBonus.texte || BONUS_VUE[annonceBonus.bonus].texte)}
+              </Text>
+            </View>
+          )}
+          {enJeu && e && e.annonce > 0 && e.palier > 0 && (
+            <View style={styles.annonce}>
+              <View style={[styles.annonceIcone, { backgroundColor: BRAND }]}>
+                <Ionicons name="flag" size={15} color="#FFFFFF" />
+              </View>
+              <Text style={styles.annonceTexte} numberOfLines={2}>
+                <Text style={styles.annonceTitre}>{`${t('jeuxSommetPalier', { n: e.palier })}. `}</Text>
+                {t(`jeuxSommetPiege${Math.min(e.palier, 5)}`)}
+              </Text>
+            </View>
+          )}
+        </View>
+        {/* Pots et pigeons au-dessus des annonces : jamais cachés par elles */}
+        {taille.l > 0 && (
+          <View pointerEvents="none" style={{ position: 'absolute', left: decalage, top: 0, width: largeurMonde, height: taille.h, overflow: 'hidden' }}>
+            <View style={{ position: 'absolute', left: 0, top: 0, width: largeurMonde, height: 0, transform: [{ translateY: taille.h + cam * s }] }}>
+              {e && ui !== 'accueil' && e.pots.filter((pot) => pot.alerte <= 0 && !pot.casse).map((pot) => (
                 <View key={pot.id} style={{ position: 'absolute', left: (pot.x - 12) * s, top: -(pot.y + 22) * s, width: 24 * s, alignItems: 'center' }}>
                   <MaterialCommunityIcons name="flower-tulip" size={18 * s} color="#E0457B" />
                   <View style={{ width: 22 * s, height: 16 * s, marginTop: -3 * s, backgroundColor: p.pot, borderBottomLeftRadius: 7 * s, borderBottomRightRadius: 7 * s, borderTopLeftRadius: 2 * s, borderTopRightRadius: 2 * s }} />
@@ -507,36 +630,16 @@ export default function JeuSommetScreen({ navigation }) {
                   <MaterialCommunityIcons name="bird" size={34 * s} color={p.pigeon} />
                 </View>
               ))}
-              <Livreur x={joueur.x} y={joueur.y} rot={joueur.rot} vx={joueur.vx} s={s} dark={dark} />
-              {/* Copie du livreur au passage d'un bord */}
-              {joueur.x < JOUEUR_L && <Livreur x={joueur.x + MONDE_L} y={joueur.y} rot={joueur.rot} vx={joueur.vx} s={s} dark={dark} />}
-              {/* « +5 » au colis ramassé */}
-              {e && ui !== 'accueil' && bullesRef.current.map((b) => {
-                const age = (e.t - b.t0) / DUREE_BULLE;
-                return (
-                  <Text key={b.id} style={[styles.bulle, { left: b.x * s - 30, top: -(b.y + age * 46) * s, opacity: age < 0.7 ? 1 : Math.max(0, (1 - age) / 0.3) }]}>
-                    {`+${POINTS_COLIS}`}
-                  </Text>
-                );
-              })}
-              {joueur.x > MONDE_L - JOUEUR_L && <Livreur x={joueur.x - MONDE_L} y={joueur.y} rot={joueur.rot} vx={joueur.vx} s={s} dark={dark} />}
             </View>
-            {/* Alerte : un pot va tomber ici */}
-            {e && ui !== 'accueil' && e.pots.filter((pot) => pot.alerte > 0).map((pot) => (
-              <View key={pot.id} style={{ position: 'absolute', left: pot.x * s - 13, top: hautHud + 4 }}>
-                <Ionicons name="warning" size={26} color={OR} />
-              </View>
-            ))}
           </View>
         )}
-        {/* Annonce de palier */}
-        {enJeu && e && e.annonce > 0 && e.palier > 0 && (
-          <View pointerEvents="none" style={[styles.annonce, { top: hautHud + 52 }]}>
-            <Text style={styles.annonceTitre}>{t('jeuxSommetPalier', { n: e.palier })}</Text>
-            <Text style={styles.annonceTexte}>{t(`jeuxSommetPiege${Math.min(e.palier, 4)}`)}</Text>
+        <BanniereRecompense ref={banniereRef} haut={basHud + (hauteurAnnonces > 0 ? hauteurAnnonces + 6 : 0)} />
+        {/* Alerte : un pot va tomber ici (par-dessus les annonces) */}
+        {taille.l > 0 && e && ui !== 'accueil' && e.pots.filter((pot) => pot.alerte > 0).map((pot) => (
+          <View key={pot.id} pointerEvents="none" style={{ position: 'absolute', left: decalage + pot.x * s - 13, top: hautHud + 4 }}>
+            <Ionicons name="warning" size={26} color={OR} />
           </View>
-        )}
-        <BanniereRecompense ref={banniereRef} haut={hautHud + 120} />
+        ))}
         <IndiceGestes jeu={JEU} actif={enJeu} gestes={['gauche', 'droite', 'appui']} t={t} colors={colors} />
         {/* Couche des gestes : tout l'écran */}
         <View {...balayage.panHandlers} style={StyleSheet.absoluteFill} />
@@ -570,6 +673,15 @@ export default function JeuSommetScreen({ navigation }) {
           <View style={styles.pastilles}>
             <PastilleScore valeur={e.score} colors={colors} />
             <PastilleScore valeur={e.colis} icone="cube" couleur="#C98A45" colors={colors} />
+            {TYPES_BONUS.filter((k) => e[k] > 0).map((k) => (
+              <PuceBonus key={k} type={k} ratio={e[k] / BONUS[k].duree} />
+            ))}
+            {/* « +5 » au bout de la ligne des pastilles : ne recouvre pas le classement */}
+            {ageBulle < 1 && (
+              <Text style={[styles.bulle, { opacity: ageBulle < 0.7 ? 1 : Math.max(0, (1 - ageBulle) / 0.3), transform: [{ translateY: -ageBulle * 6 }] }]}>
+                {`+${POINTS_COLIS * bulles.length}`}
+              </Text>
+            )}
           </View>
         )}
       </View>
@@ -672,17 +784,23 @@ const makeStyles = (c) => StyleSheet.create({
   },
   etage: { color: c.text, fontSize: 17, fontWeight: '800' },
   bandeau: { position: 'absolute', left: 16, right: 16 },
-  pastilles: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  pastilles: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   annonce: {
-    position: 'absolute', left: 24, right: 24, alignItems: 'center', backgroundColor: c.card, borderRadius: 14,
-    paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: OR,
+    flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: c.card,
+    borderRadius: 14, minHeight: 36, paddingVertical: 5, paddingHorizontal: 8, borderWidth: 1.5, borderColor: OR,
   },
+  annonceIcone: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  pileAnnonces: { position: 'absolute', left: 16, right: 16, gap: 6 },
   bulle: {
-    position: 'absolute', width: 60, textAlign: 'center', color: OR, fontSize: 22, fontWeight: '900',
+    color: OR, fontSize: 16, fontWeight: '900',
     textShadowColor: '#7A4A00', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
   },
-  annonceTitre: { color: c.text, fontSize: 17, fontWeight: '800' },
-  annonceTexte: { color: c.textSoft, fontSize: 13, marginTop: 2, textAlign: 'center', lineHeight: 18 },
+  filet: {
+    position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', borderTopWidth: 2, borderBottomWidth: 2,
+    backgroundColor: 'rgba(47,128,237,0.12)',
+  },
+  annonceTitre: { color: c.text, fontSize: 13, fontWeight: '800' },
+  annonceTexte: { flex: 1, color: c.textSoft, fontSize: 12, lineHeight: 16 },
   voile: {
     ...StyleSheet.absoluteFillObject, backgroundColor: c.overlay, alignItems: 'center', justifyContent: 'center', padding: 24,
   },
@@ -696,4 +814,12 @@ const makeStyles = (c) => StyleSheet.create({
   boutonSecondaire: { backgroundColor: 'transparent', borderWidth: 1, borderColor: c.borderStrong, marginTop: 10 },
   boutonTexte: { color: '#fff', fontSize: 16, fontWeight: '700' },
   boutonTexteSecondaire: { color: c.text },
+});
+
+// Styles qui ne dépendent pas du thème.
+const stylesFixes = StyleSheet.create({
+  puce: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', paddingBottom: 4 },
+  puceFond: {
+    position: 'absolute', left: 8, right: 8, bottom: 5, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.35)', overflow: 'hidden',
+  },
 });
