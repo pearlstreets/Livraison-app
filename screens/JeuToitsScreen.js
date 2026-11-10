@@ -50,6 +50,8 @@ import {
   creerMonde, pas, avancee, visibles, genererFond,
 } from '../utils/jeuToits';
 
+const MARGE_BANDEAU = { marginTop: 8 };
+
 // Bruitage de chaque événement du jeu (utils/jeuToits.js).
 const SONS_TOITS = {
   touche: 'choc', chute: 'choc', temps: 'sirene', ecarte: 'rebond', boite: 'ramasse', colis: 'ramasse',
@@ -1102,7 +1104,7 @@ export default function JeuToitsScreen({ navigation }) {
         </Pressable>
       </View>
       {/* Rang, record et TOP 1, toujours visibles */}
-      <BandeauClassement jeu={JEU} idLivreur={user?.id} score={m.score} rafraichir={nbParties} t={t} colors={colors} style={{ marginTop: 8 }} />
+      <BandeauClassement jeu={JEU} idLivreur={user?.id} score={m.score} rafraichir={nbParties} t={t} colors={colors} style={MARGE_BANDEAU} />
       <View style={sty.jauge}>
         <View style={[sty.jaugePleine, { width: `${progression * 100}%` }]} />
       </View>

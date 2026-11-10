@@ -83,7 +83,7 @@ export function useDonneesBandeau(jeu, idLivreur, rafraichir) {
   return d;
 }
 
-export default function BandeauClassement({ jeu, idLivreur, score = 0, rafraichir = 0, t, colors, style }) {
+function BandeauClassement({ jeu, idLivreur, score = 0, rafraichir = 0, t, colors, style }) {
   const d = useDonneesBandeau(jeu, idLivreur, rafraichir);
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const s = Math.floor(Number(score) || 0);
@@ -129,3 +129,5 @@ const makeStyles = (c) => StyleSheet.create({
   texte: { flex: 1, color: c.text, fontSize: 12, fontWeight: '800' },
   blanc: { color: '#fff' },
 });
+
+export default React.memo(BandeauClassement);
