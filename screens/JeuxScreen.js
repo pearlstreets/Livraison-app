@@ -21,6 +21,7 @@ const LISTE = [
   { id: 'drone', image: require('../assets/images/jeux/drone.webp'), route: 'JeuDrone', icone: 'airplane', couleur: '#16A085', titre: 'jeuxDroneTitre', texte: 'jeuxDroneTexte' },
   { id: 'coupe', image: require('../assets/images/jeux/coupe.webp'), route: 'JeuCoupe', icone: 'nutrition', couleur: '#E74C3C', titre: 'jeuxCoupeTitre', texte: 'jeuxCoupeTexte' },
   { id: 'memoire', image: require('../assets/images/jeux/memoire.webp'), route: 'JeuMemoire', icone: 'albums', couleur: '#F2B705', titre: 'jeuxMemoireTitre', texte: 'jeuxMemoireTexte' },
+  { id: 'basket', image: require('../assets/images/jeux/basket.webp'), route: 'JeuBasket', icone: 'basketball', couleur: '#E67E22', titre: 'jeuxBasketTitre', texte: 'jeuxBasketTexte' },
 ];
 
 export default function JeuxScreen({ navigation }) {
