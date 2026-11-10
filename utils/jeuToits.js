@@ -11,7 +11,7 @@
  *    par-dessous, on se pose dessus par le haut.
  * Boîtes aux lettres et caisses bonus : blocs pleins, à frapper par-dessous
  * (une fois). La boîte donne un colis, la caisse une amélioration (grand
- * livreur, vol, étoile).
+ * livreur, drone qui soulève le livreur, étoile, chrono, points doublés).
  *
  * Toujours faisable : la portée et la hauteur réelles du saut sont mesurées
  * avec la physique du jeu (`mesurerSaut`). Chaque trou reste sous
@@ -45,7 +45,7 @@ const TAMPON = 0.12; // saut demandé juste avant de toucher le sol
 const REBOND = 420;
 const REBOND_TENU = 560;
 const PAS_MAX = 1 / 120;
-// Vol (caisse bonus) : chaque geste vers le haut relance, descente planée.
+// Drone (caisse bonus) : il soulève le livreur, chaque geste vers le haut relance, descente planée.
 const GRAVITE_VOL = 700;
 const CHUTE_VOL = 110;
 const PLAFOND_VOL = 330;
@@ -58,8 +58,10 @@ export const MARGE_SAUT = 24; // saut faisable même déclenché 24 unités trop
 
 export const PALIER_PIECES = 10; // tous les 10 colis : une vie, sinon un aimant
 export const INVUL_REPRISE = 2; // secondes d'invincibilité après la reprise
-export const DUREES = { aimant: 8, vol: 5, etoile: 6 };
-export const BONUS_CAISSE = ['taille', 'vol', 'etoile'];
+export const DUREES = { aimant: 8, vol: 5, etoile: 6, double: 10 };
+export const BONUS_CAISSE = ['taille', 'vol', 'etoile', 'chrono', 'double'];
+export const BONUS_CHRONO = 10; // secondes ajoutées au chrono par la caisse « chrono »
+export const PROB_CAISSE = 0.38; // chance d'une caisse bonus sur un toit libre et assez large
 const RAYON_AIMANT = 120;
 
 // Reprise sûre et placement des gêneurs.
@@ -327,25 +329,38 @@ export function decorNiveau(niveau) {
   };
 }
 
-/** Difficulté progressive : tout monte doucement jusqu'au niveau 10. */
+/**
+ * Difficulté progressive, sans plafond brutal : tout monte doucement jusqu'au
+ * niveau 10 (`diff`), puis une seconde vague jusqu'au niveau 22 (`dur`),
+ * puis une pente très douce jusqu'au niveau 40 (`plus`) :
+ * chrono plus serré, gêneurs plus nombreux et plus rapides, plus de nacelles,
+ * de toits fragiles et de sauts enchaînés. Les trous et les marches restent
+ * sous les bornes mesurées : chaque niveau reste faisable.
+ */
 export function reglagesNiveau(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
   const diff = Math.min(1, (n - 1) / 9);
+  const dur = Math.min(1, Math.max(0, (n - 10) / 12));
+  const plus = Math.min(1, Math.max(0, (n - 22) / 18));
   const longueur = Math.min(6400, 1600 + (n - 1) * 360);
-  const facteur = Math.max(2.1, 3 - 0.1 * (n - 1));
+  const facteur = n <= 10 ? Math.max(2.1, 3 - 0.1 * (n - 1)) : 2.1 - 0.3 * dur - 0.05 * plus;
   return {
     n,
     diff,
+    dur,
     longueur,
     // Trous en part de la portée réelle du saut, jamais plus de RATIO_MAX.
     ratioMin: 0.22 + 0.26 * diff,
     ratioMax: Math.min(RATIO_MAX, 0.42 + 0.28 * diff),
     // Marches (montée ou descente) entre deux plateformes.
     marche: Math.round(MONTEE_MAX * (0.45 + 0.55 * diff)),
-    probMobile: n >= 4 ? Math.min(0.14, 0.06 + 0.02 * (n - 4)) : 0,
-    probFragile: n >= 3 ? Math.min(0.14, 0.06 + 0.02 * (n - 3)) : 0,
-    probEnchaine: n >= 2 ? Math.min(0.2, 0.08 + 0.03 * (n - 2)) : 0,
-    probGeneur: Math.min(0.6, 0.25 + diff * 0.35),
+    probMobile: n >= 4 ? Math.min(0.14, 0.06 + 0.02 * (n - 4)) + 0.06 * dur : 0,
+    probFragile: n >= 3 ? Math.min(0.14, 0.06 + 0.02 * (n - 3)) + 0.06 * dur : 0,
+    probEnchaine: n >= 2 ? Math.min(0.2, 0.08 + 0.03 * (n - 2)) + 0.06 * dur : 0,
+    probGeneur: Math.min(0.6, 0.25 + diff * 0.35) + 0.12 * dur + 0.08 * plus,
+    // Gêneurs plus rapides dans la seconde vague (jusqu'à +35 %), puis +50 % au niveau 40.
+    vitesseGeneurs: 1 + 0.35 * dur + 0.15 * plus,
+    probCaisse: PROB_CAISSE,
     types: ['chien', ...(n >= 2 ? ['pigeon'] : []), ...(n >= 3 ? ['trottinette'] : [])],
     // Chrono large : le temps de course sans faute, fois un facteur confortable.
     limite: Math.round((longueur / VITESSE) * facteur + 15),
@@ -435,7 +450,7 @@ export function pointDeReprise(m, xMort) {
 /** Niveau complet, reproductible pour un même (niveau, graine). */
 export function genererNiveau(niveau, graine) {
   const r = reglagesNiveau(niveau);
-  const { n, diff, longueur } = r;
+  const { n, diff, dur, longueur } = r;
   const rng = alea(graine != null ? graine : n * 7919 + 13);
   const plateformes = [];
   let id = 0;
@@ -558,7 +573,7 @@ export function genererNiveau(niveau, graine) {
       ajouter({
         flottante: true,
         type: 'nacelle',
-        mobile: { axe, amp, vit: entre(rng, 1, 1.3 + diff * 0.3), phase: rng() * 6.28, x0: 0, y0: 0 },
+        mobile: { axe, amp, vit: entre(rng, 1, 1.3 + diff * 0.3 + dur * 0.3), phase: rng() * 6.28, x0: 0, y0: 0 },
         w: entre(rng, 76, 96),
         y: borner(prec.y + entre(rng, -10, 30), 40, 150),
         ratio: ratio() * 0.85,
@@ -666,16 +681,16 @@ export function genererNiveau(niveau, graine) {
             const haut = 46 - Math.min(12, diff * 16);
             geneurs.push({
               type, x, y: p.y + haut, base: p.y + haut, cx: (x1 + x2) / 2, amp: (x2 - x1) / 2,
-              vitesse: 1.1 + diff * 0.8, phase: rng() * 6.28, w: t.w, h: t.h, dir: -1,
+              vitesse: (1.1 + diff * 0.8) * r.vitesseGeneurs, phase: rng() * 6.28, w: t.w, h: t.h, dir: -1,
             });
           } else {
-            const v = type === 'chien' ? 45 + diff * 45 : 90 + diff * 50;
+            const v = (type === 'chien' ? 45 + diff * 45 : 90 + diff * 50) * r.vitesseGeneurs;
             geneurs.push({ type, x, y: p.y, x1, x2, vx: -v, w: t.w, h: t.h, dir: -1 });
           }
         }
       }
       // Caisse bonus ou boîte aux lettres, au milieu du toit, loin des bords.
-      if (i > 0 && suivante && !geneurPose && p.w >= 170 && rng() < 0.3) {
+      if (i > 0 && suivante && !geneurPose && p.w >= 170 && rng() < r.probCaisse) {
         caisse(p.x + p.w / 2 - B / 2, p.y + 66);
       } else if (i > 0 && suivante && largeurUtile >= 250 && rng() < 0.5) {
         const bx = debut + 140 + rng() * (largeurUtile - 220 - B);
@@ -728,6 +743,7 @@ export function creerMonde(niveau, report = {}, graine) {
     vol: 0,
     etoile: 0,
     aimant: 0,
+    double: 0,
     etat: 'jeu', // jeu | livre | perdu
     bonusTemps: 0,
     dernierSol: niv.plateformes[0],
@@ -745,13 +761,15 @@ function popup(m, x, y, texte) {
   if (m.popups.length > 8) m.popups.shift();
 }
 
-// Annonce au centre de l'écran : clé de texte traduite, durée 1,8 s.
+// Annonce en haut de la scène, sous le score : clé de texte traduite, durée 1,8 s.
 const ANNONCES = {
   vie: { cle: 'jeuxToitsBonusVie', icone: 'heart', couleur: '#E74C3C' },
   aimant: { cle: 'jeuxToitsBonusAimant', icone: 'magnet', couleur: '#8E44AD', n: DUREES.aimant },
   taille: { cle: 'jeuxToitsBonusTaille', icone: 'shield-star', couleur: '#0A9A78' },
-  vol: { cle: 'jeuxToitsBonusVol', icone: 'umbrella', couleur: '#2D7FD3', n: DUREES.vol },
+  vol: { cle: 'jeuxToitsBonusVol', icone: 'quadcopter', couleur: '#2D7FD3', n: DUREES.vol },
   etoile: { cle: 'jeuxToitsBonusEtoile', icone: 'star', couleur: '#E0A100', n: DUREES.etoile },
+  chrono: { cle: 'jeuxToitsBonusChrono', icone: 'timer-plus-outline', couleur: '#16A34A', n: BONUS_CHRONO },
+  double: { cle: 'jeuxToitsBonusDouble', icone: 'numeric-2-circle', couleur: '#E8650F', n: DUREES.double },
   encaisse: { cle: 'jeuxToitsCoupEncaisse', icone: 'shield-check', couleur: '#0A9A78' },
 };
 function annoncer(m, type) {
@@ -777,10 +795,17 @@ function appliquerCaisse(m, b, evenements) {
   if (type === 'taille') m.grand = true;
   else if (type === 'vol') m.vol = DUREES.vol;
   else if (type === 'etoile') m.etoile = DUREES.etoile;
+  else if (type === 'chrono') m.reste += BONUS_CHRONO;
+  else if (type === 'double') m.double = DUREES.double;
   m.score += POINTS.caisse;
   m.sorties.push({ type, x: b.x + b.w / 2, y: b.y + b.h, age: 0, id: `s${b.id}` });
   annoncer(m, type);
   evenements.push({ type: 'bonus' });
+}
+
+// Points d'un objet ramassé ou d'un gêneur écarté : doublés pendant le bonus « double ».
+function points(m, base) {
+  return m.double > 0 ? base * 2 : base;
 }
 
 function chevauche(j, e, marge) {
@@ -871,6 +896,7 @@ function sousPas(m, dtPas, cmdBrut, evenements) {
   if (m.vol > 0) m.vol = Math.max(0, m.vol - dt);
   if (m.etoile > 0) m.etoile = Math.max(0, m.etoile - dt);
   if (m.aimant > 0) m.aimant = Math.max(0, m.aimant - dt);
+  if (m.double > 0 && !m.attente) m.double = Math.max(0, m.double - dt);
   j.vol = m.vol > 0;
   const avantY = j.y;
 
@@ -925,9 +951,10 @@ function sousPas(m, dtPas, cmdBrut, evenements) {
     if (frappee.bonus) {
       appliquerCaisse(m, frappee, evenements);
     } else {
-      m.score += POINTS.boite;
+      const pts = points(m, POINTS.boite);
+      m.score += pts;
       m.colisNiveau += 1;
-      popup(m, frappee.x + frappee.w / 2, frappee.y + frappee.h + 6, `+${POINTS.boite}`);
+      popup(m, frappee.x + frappee.w / 2, frappee.y + frappee.h + 6, `+${pts}`);
       evenements.push({ type: 'boite' });
       gagnerPiece(m, evenements);
     }
@@ -955,9 +982,10 @@ function sousPas(m, dtPas, cmdBrut, evenements) {
     if (Math.abs(c.x - j.x) > 60) continue;
     if (chevauche(j, { x: c.x, y: c.y, w: C, h: C }, 1)) {
       c.pris = true;
-      m.score += POINTS.colis;
+      const pts = points(m, POINTS.colis);
+      m.score += pts;
       m.colisNiveau += 1;
-      popup(m, c.x + C / 2, c.y + C, `+${POINTS.colis}`);
+      popup(m, c.x + C / 2, c.y + C, `+${pts}`);
       evenements.push({ type: 'colis' });
       gagnerPiece(m, evenements);
     }
@@ -996,7 +1024,7 @@ function sousPas(m, dtPas, cmdBrut, evenements) {
         j.enSaut = !!cmd.sautTenu;
         j.tenue = TENUE_MAX;
       }
-      const pts = POINTS[e.type] || 100;
+      const pts = points(m, POINTS[e.type] || 100);
       m.score += pts;
       m.ecartesNiveau += 1;
       popup(m, e.x + e.w / 2, e.y + e.h, `+${pts}`);

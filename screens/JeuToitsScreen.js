@@ -11,7 +11,9 @@
  * vers le haut pour sauter, vers le bas pour s'arrêter et s'accroupir (on
  * passe sous les pigeons bas), toucher l'écran pour s'arrêter (utils/gestes.js).
  * Tous les 10 colis : une vie (ou un aimant). Caisses dorées à frapper par
- * dessous : grand livreur (un coup encaissé), vol, étoile.
+ * dessous : grand livreur (un coup encaissé), drone qui soulève le livreur,
+ * étoile, chrono (+10 s), points doublés. Niveaux de plus en plus durs.
+ * Annonces de bonus en haut de la scène, sous le score, jamais au centre.
  * Après une chute ou un coup : reprise sûre, immobile jusqu'au prochain geste.
  *
  * Batterie : boucle arrêtée hors du jeu (pause, arrière-plan, écran quitté),
@@ -57,16 +59,19 @@ const SONS_TOITS = {
   touche: 'choc', chute: 'choc', temps: 'sirene', ecarte: 'rebond', boite: 'ramasse', colis: 'ramasse',
   accroupi: 'accroupi', bonus: 'booster', encaisse: 'choc',
 };
-// Boosters affichés dans le HUD (icônes Ionicons) et objets qui sortent des caisses.
+// Boosters affichés sous le score (icônes MaterialCommunityIcons) et objets qui sortent des caisses.
 const BOOSTERS = [
-  { id: 'vol', icone: 'umbrella', couleur: '#2D7FD3' },
+  { id: 'vol', icone: 'quadcopter', couleur: '#2D7FD3' },
   { id: 'etoile', icone: 'star', couleur: '#E0A100' },
   { id: 'aimant', icone: 'magnet', couleur: '#8E44AD' },
+  { id: 'double', icone: 'numeric-2-circle', couleur: '#E8650F' },
 ];
 const SORTIES = {
   taille: { icone: 'shield-star', couleur: '#0A9A78' },
-  vol: { icone: 'umbrella', couleur: '#2D7FD3' },
+  vol: { icone: 'quadcopter', couleur: '#2D7FD3' },
   etoile: { icone: 'star', couleur: '#E0A100' },
+  chrono: { icone: 'timer-plus-outline', couleur: '#16A34A' },
+  double: { icone: 'numeric-2-circle', couleur: '#E8650F' },
 };
 const IMAGE_MIN = 1000 / 60 - 1.5; // plafond : 60 images par seconde
 
@@ -492,8 +497,9 @@ function Livreur({ j, s, clignote, accroupi, grand, vol, etoile, horloge }) {
   // Angles des jambes et des bras selon l'état.
   const jambeAvant = enAir ? (montee ? -38 : -20) : marche * 42;
   const jambeArriere = enAir ? (montee ? 18 : 34) : -marche * 42;
-  const brasAvant = enAir ? (montee ? -150 : -110) : -marche * 50;
-  const brasArriere = enAir ? 40 : marche * 50;
+  // Drone : les deux bras levés, accrochés à la poignée.
+  const brasAvant = vol ? -168 : enAir ? (montee ? -150 : -110) : -marche * 50;
+  const brasArriere = vol ? 170 : enAir ? 40 : marche * 50;
   const k = accroupi ? HAUTEUR_ACCROUPI / HAUTEUR : 1;
   // Grand livreur : dessiné 20 % plus grand, pieds au même endroit.
   const g = grand ? 1.2 : 1;
@@ -508,12 +514,8 @@ function Livreur({ j, s, clignote, accroupi, grand, vol, etoile, horloge }) {
     >
       {/* Étoile : halo doré qui pulse */}
       {etoile ? <View style={{ position: 'absolute', left: u(-6), bottom: u(-3), width: u(32), height: u(36), borderRadius: u(16), backgroundColor: '#FFD34D', opacity: 0.25 + pouls * 0.3 }} /> : null}
-      {/* Vol : parapluie ouvert au-dessus de la tête */}
-      {vol ? (
-        <View style={{ position: 'absolute', left: u(-2), bottom: u(28), width: u(24), height: u(22), alignItems: 'center' }}>
-          <MaterialCommunityIcons name="umbrella" size={u(24)} color="#2D7FD3" />
-        </View>
-      ) : null}
+      {/* Vol : petit drone qui soulève le livreur */}
+      {vol ? <Drone s={s} horloge={horloge} /> : null}
       {/* Ombre au sol */}
       {j.sol && <View style={{ position: 'absolute', left: u(1), bottom: u(-1.5), width: u(18), height: u(3), borderRadius: u(2), backgroundColor: 'rgba(0,0,0,0.2)' }} />}
       {/* Jambe arrière et bras arrière */}
@@ -538,6 +540,48 @@ function Livreur({ j, s, clignote, accroupi, grand, vol, etoile, horloge }) {
       <View style={{ position: 'absolute', left: u(8), bottom: u(19.5), width: u(8), height: u(3), borderRadius: u(1.5), backgroundColor: OR }} />
       {/* Bras avant */}
       <Membre x={9.5} bas={11} long={7} large={3.6} angle={brasAvant} couleur="#0BB58E" s={s} bout="#F2C79B" />
+    </View>
+  );
+}
+
+// Drone de livraison au-dessus du livreur : poignée, câbles, corps bleu, deux
+// bras et hélices qui tournent (dessiné seulement pendant le vol, la boucle du
+// jeu tourne déjà : aucune animation en plus).
+function Drone({ s, horloge }) {
+  const u = (v) => v * s;
+  const h1 = 0.25 + 0.75 * Math.abs(Math.sin(horloge * 55));
+  const h2 = 0.25 + 0.75 * Math.abs(Math.cos(horloge * 55));
+  const tangage = Math.sin(horloge * 6) * 3;
+  return (
+    <View style={{ position: 'absolute', left: u(-6), bottom: u(24), width: u(32), height: u(26), transform: [{ rotate: `${tangage}deg` }] }}>
+      {/* Poignée tenue à bout de bras et câble (en partie caché par la tête) */}
+      <View style={{ position: 'absolute', left: u(11), bottom: 0, width: u(10), height: u(2), borderRadius: u(1), backgroundColor: '#22303C' }} />
+      <View style={{ position: 'absolute', left: u(15.4), bottom: u(1), width: u(1.2), height: u(16), backgroundColor: '#5E6A78' }} />
+      {/* Bras et moteurs */}
+      <View style={{ position: 'absolute', left: u(1), bottom: u(20.5), width: u(30), height: u(1.8), borderRadius: u(0.9), backgroundColor: '#22303C' }} />
+      <View style={{ position: 'absolute', left: u(2), bottom: u(21), width: u(3), height: u(3), borderRadius: u(0.8), backgroundColor: '#22303C' }} />
+      <View style={{ position: 'absolute', left: u(27), bottom: u(21), width: u(3), height: u(3), borderRadius: u(0.8), backgroundColor: '#22303C' }} />
+      {/* Hélices : leur largeur bat, elles semblent tourner */}
+      <View style={{ position: 'absolute', left: u(3.5 - 6 * h1), bottom: u(24), width: u(12 * h1), height: u(1.6), borderRadius: u(0.8), backgroundColor: 'rgba(205,215,225,0.9)' }} />
+      <View style={{ position: 'absolute', left: u(28.5 - 6 * h2), bottom: u(24), width: u(12 * h2), height: u(1.6), borderRadius: u(0.8), backgroundColor: 'rgba(205,215,225,0.9)' }} />
+      {/* Corps, reflet et voyant */}
+      <View style={{ position: 'absolute', left: u(9), bottom: u(16), width: u(14), height: u(7), borderRadius: u(3), backgroundColor: '#2D7FD3', borderWidth: Math.max(1, u(0.8)), borderColor: '#1B5A9E' }}>
+        <View style={{ position: 'absolute', left: u(2), right: u(2), top: u(1), height: u(2), borderRadius: u(1), backgroundColor: 'rgba(255,255,255,0.4)' }} />
+      </View>
+      <View style={{ position: 'absolute', left: u(15), bottom: u(15), width: u(2), height: u(2), borderRadius: u(1), backgroundColor: OR }} />
+    </View>
+  );
+}
+
+// Jauge d'un bonus en cours (même dessin que HudJeu, icône MaterialCommunityIcons pour le drone).
+function Booster({ icone, couleur, ratio }) {
+  const r = Math.max(0, Math.min(1, ratio));
+  return (
+    <View style={[styles.booster, { backgroundColor: couleur }]}>
+      <MaterialCommunityIcons name={icone} size={16} color="#fff" />
+      <View style={styles.boosterFond}>
+        <View style={[styles.boosterPlein, { width: `${r * 100}%` }]} />
+      </View>
     </View>
   );
 }
@@ -1074,7 +1118,7 @@ export default function JeuToitsScreen({ navigation }) {
   const boosters = BOOSTERS
     .filter((b) => m[b.id] > 0)
     .map((b) => ({ ...b, ratio: m[b.id] / DUREES[b.id] }));
-  if (m.grand) boosters.push({ id: 'grand', icone: 'shield-checkmark', couleur: '#0A9A78', ratio: 1 });
+  if (m.grand) boosters.push({ id: 'grand', icone: 'shield-check', couleur: '#0A9A78', ratio: 1 });
   const annonce = m.annonce;
 
   return (
@@ -1126,7 +1170,8 @@ export default function JeuToitsScreen({ navigation }) {
             />
           );
         })}
-        {/* Score, vies et colis du niveau, en haut de la scène */}
+        {/* En haut de la scène : score, vies et colis, puis bonus en cours, puis
+            l'annonce d'un bonus gagné, toujours sous le reste, jamais au centre. */}
         <View style={styles.hud} pointerEvents="none">
           <HudJeu
             colors={colors}
@@ -1134,18 +1179,19 @@ export default function JeuToitsScreen({ navigation }) {
             vies={m.vies}
             viesMax={VIES}
             objets={{ n: m.pieces % PALIER_PIECES, total: PALIER_PIECES, icone: 'cube', libelle: t('jeuxToitsBonusLibelle') }}
-            boosters={boosters}
           />
-        </View>
-        {/* Annonce d'un bonus gagné, au centre de la scène */}
-        {annonce && (
-          <View pointerEvents="none" style={styles.annonceZone}>
-            <View style={[styles.annonce, { backgroundColor: annonce.couleur, opacity: Math.min(1, (1.8 - annonce.age) / 0.4), transform: [{ scale: annonce.age < 0.15 ? 0.85 + annonce.age : 1 }] }]}>
-              <MaterialCommunityIcons name={annonce.icone} size={20} color="#fff" />
-              <Text style={styles.annonceTexte}>{t(annonce.cle, { n: annonce.n })}</Text>
+          {boosters.length > 0 && (
+            <View style={styles.rangee}>
+              {boosters.map((b) => <Booster key={b.id} icone={b.icone} couleur={b.couleur} ratio={b.ratio} />)}
             </View>
-          </View>
-        )}
+          )}
+          {annonce && (
+            <View style={[styles.annonce, { backgroundColor: annonce.couleur, opacity: Math.min(1, (1.8 - annonce.age) / 0.4), transform: [{ scale: annonce.age < 0.15 ? 0.85 + annonce.age : 1 }] }]}>
+              <MaterialCommunityIcons name={annonce.icone} size={16} color="#fff" />
+              <Text style={styles.annonceTexte} numberOfLines={1}>{t(annonce.cle, { n: annonce.n })}</Text>
+            </View>
+          )}
+        </View>
         <IndiceGestes jeu={JEU} actif={phase === 'jeu'} gestes={['gauche', 'droite', 'haut', 'bas']} t={t} colors={colors} />
         {/* Couche des gestes : toute la scène */}
         <View {...balayage.panHandlers} style={StyleSheet.absoluteFill} />
@@ -1253,13 +1299,16 @@ const styles = StyleSheet.create({
   astre: { position: 'absolute', top: 18, right: 22 },
   halo: { position: 'absolute', top: 2, right: 6, width: 66, height: 66, borderRadius: 33, opacity: 0.16 },
   halo2: { position: 'absolute', top: 10, right: 14, width: 50, height: 50, borderRadius: 25, opacity: 0.18 },
-  hud: { position: 'absolute', top: 8, left: 8, right: 8 },
+  hud: { position: 'absolute', top: 8, left: 8, right: 8, gap: 6 },
+  rangee: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  booster: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 16, paddingHorizontal: 9, height: 28 },
+  boosterFond: { width: 44, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.35)', overflow: 'hidden' },
+  boosterPlein: { height: '100%', backgroundColor: '#fff', borderRadius: 3 },
   etoile: { position: 'absolute', width: 2, height: 2, borderRadius: 1, backgroundColor: '#FFFFFF' },
   goutte: { position: 'absolute', width: 1.5, height: 14, backgroundColor: '#CFE3F2', transform: [{ rotate: '12deg' }] },
   bulle: { position: 'absolute', alignSelf: 'center', backgroundColor: '#E74C3C', alignItems: 'center', justifyContent: 'center' },
-  annonceZone: { position: 'absolute', top: 64, left: 0, right: 0, alignItems: 'center' },
-  annonce: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 9, borderRadius: 16, maxWidth: '90%' },
-  annonceTexte: { color: '#fff', fontSize: 15, fontWeight: '800', flexShrink: 1 },
+  annonce: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 11, height: 28, borderRadius: 14, maxWidth: '100%' },
+  annonceTexte: { color: '#fff', fontSize: 13, fontWeight: '800', flexShrink: 1 },
   popup: { position: 'absolute', width: 60, textAlign: 'center', color: OR, fontSize: 15, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.35)', textShadowRadius: 2 },
 });
 
