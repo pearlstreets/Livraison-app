@@ -32,6 +32,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
+import AlerteCourseJeu from '../components/AlerteCourseJeu';
 import { reserveBasVille } from '../components/FondJeu';
 import DecorMemoire from '../components/DecorMemoire';
 import { FaceCarte, DosCarte, rayonCarte } from '../components/FacesMemoire';
@@ -668,16 +669,8 @@ export default function JeuMemoireScreen({ navigation }) {
       {phase === 'accueil' && reprise && !classementOuvert && !alerteCourse && (
         <ReprisePartie t={t} colors={colors} niveau={reprise.niveau} score={reprise.score} onReprendre={reprendrePartie} onRecommencer={recommencerPartie} />
       )}
-      {alerteCourse && (
-        <View style={styles.voile}>
-          <View style={styles.carte}>
-            <Ionicons name="bicycle" size={44} color={BRAND} />
-            <Text style={styles.titre}>{t('jeuNouvelleCourse')}</Text>
-            <Text style={styles.texte}>{t('jeuNouvelleCourseTexte')}</Text>
-            <Bouton styles={styles} texte={t('jeuVoirCourse')} onPress={voirCourse} />
-            <Bouton styles={styles} secondaire texte={t('jeuResterIci')} onPress={fermerAlerte} />
-          </View>
-        </View>
+      {!!alerteCourse && (
+        <AlerteCourseJeu alerte={alerteCourse} t={t} navigation={navigation} onVoir={voirCourse} onRester={fermerAlerte} />
       )}
     </View>
   );
