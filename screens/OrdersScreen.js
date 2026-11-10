@@ -387,6 +387,11 @@ export default function OrdersScreen({ navigation, route }) {
       pollRef.current = null;
     };
   }, [online, fetchAvailableOrders]);
+  // Retour sur l'accueil (par exemple après un refus depuis un mini-jeu) :
+  // la liste est relue aussitôt, sans attendre la relève suivante.
+  useFocusEffect(useCallback(() => {
+    if (online) fetchAvailableOrders();
+  }, [online, fetchAvailableOrders]));
 
   const onAccept = useCallback(async (order) => {
     const key = orderKey(order);
