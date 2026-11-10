@@ -11,5 +11,6 @@ import rush from './rush';
 import coupe from './coupe';
 import memoire from './memoire';
 import socle from './socle';
+import recompenses from './recompenses';
 
-export default [hub, toits, sommet, drone, rush, coupe, memoire, socle];
+export default [hub, toits, sommet, drone, rush, coupe, memoire, socle, recompenses];
