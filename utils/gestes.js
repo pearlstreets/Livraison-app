@@ -8,8 +8,9 @@
  *   });
  *   <View {...pan.panHandlers} style={StyleSheet.absoluteFill} />
  *
- * Un glissé déclenche UNE action, puis la référence repart du doigt : un long
- * glissé peut enchaîner plusieurs actions (deux voies de suite). Un appui
+ * Un glissé déclenche UNE seule action par contact, comme dans les jeux de
+ * course : un long glissé ne change que d'une voie, il faut lever le doigt
+ * pour la suivante. Un appui
  * court sans déplacement déclenche onAppui. Les rappels peuvent changer à
  * chaque rendu (la dernière version est appelée). Glisser en diagonale : le
  * sens dominant gagne.
@@ -45,7 +46,7 @@ export function useBalayage(options) {
       },
       onPanResponderMove: (_e, g) => {
         const o = optRef.current || {};
-        if (o.actif === false) return;
+        if (o.actif === false || etat.declenche) return;
         const sens = directionBalayage(g.dx - etat.x, g.dy - etat.y, o.seuil || 28);
         if (!sens) return;
         etat.x = g.dx; etat.y = g.dy; etat.declenche = true;
