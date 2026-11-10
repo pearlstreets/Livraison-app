@@ -1,6 +1,6 @@
 /**
  * Son des mini-jeux : une musique de fond différente par jeu (coupe, memoire,
- * drone, toits, sommet, rush) et des bruitages, deux interrupteurs
+ * drone, toits, sommet, rush, basket) et des bruitages, deux interrupteurs
  * « Musique » et « Bruitages » gardés sur le téléphone (AsyncStorage,
  * clé jeux_son_v1).
  *
@@ -63,7 +63,7 @@ export function ecouterReglagesSon(f) {
   return () => abonnes.delete(f);
 }
 
-export const JEUX_MUSIQUE = ['coupe', 'memoire', 'drone', 'toits', 'sommet', 'rush'];
+export const JEUX_MUSIQUE = ['coupe', 'memoire', 'drone', 'toits', 'sommet', 'rush', 'basket'];
 export const BRUITAGES = ['saut', 'accroupi', 'ramasse', 'booster', 'choc', 'record', 'tranche', 'carte', 'vie', 'sirene', 'sifflet', 'niveau', 'perdu'];
 
 /**
@@ -85,6 +85,11 @@ export const MOTEUR_AUDIO_JS = `
       L:[72,0,76,0,79,0,76,72, 74,0,79,0,81,79,76,0, 72,0,76,79,84,0,81,79, 76,74,72,0,67,0,0,0],
       B:[48,0,0,0,55,0,0,0, 50,0,0,0,57,0,0,0, 48,0,0,0,55,0,0,0, 43,0,0,0,52,0,55,0],
       D:'k.h.s.h.k.h.s.hh'},
+    // Tir parfait : groove de salle de sport en sol, basse rebondissante.
+    basket:{bpm:96,lt:'square',lv:0.12,bt:'triangle',bv:0.36,swing:0.18,
+      L:[79,0,0,77,0,74,0,0, 72,0,74,0,70,0,67,0, 79,0,0,77,0,74,0,72, 0,70,0,72,74,0,0,0],
+      B:[43,0,0,43,0,0,46,0, 48,0,0,48,0,46,0,0, 43,0,0,43,0,0,46,0, 41,0,0,41,0,43,0,0],
+      D:'k..hs.h.k.khs.h.'},
     // Mémoire : boîte à musique, douce et rêveuse.
     memoire:{bpm:96,lt:'sine',lv:0.3,bt:'sine',bv:0.34,swing:0,
       L:[76,0,79,0,83,0,79,0, 77,0,81,0,84,0,81,0, 79,0,83,0,86,0,83,0, 81,0,79,0,76,0,0,0],
