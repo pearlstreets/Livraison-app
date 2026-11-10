@@ -15,6 +15,10 @@
  * écran quitté, flèche retour pendant la partie, nouvelle course.
  * Cœur doré : un cœur passe parfois parmi les fruits, le trancher rend une vie
  * (3 au plus), le rater ne coûte rien.
+ * Bonus (10/11) : glaçon (tout ralentit), étoile (points doublés), bouclier
+ * (un colis fragile pardonné), jauges dans le HUD. Toutes les annonces
+ * (points, combos, vague, bonus, paliers) s'affichent EN HAUT, juste sous le
+ * HUD et le classement, jamais au milieu de l'écran.
  * Son : musique propre au jeu et bruitages (components/SonJeux.js). Partie
  * sauvegardée à la pause et reprise possible pendant 24 h. En haut : score,
  * vague, vies (components/HudJeu.js), rang, record et TOP 1.
@@ -43,7 +47,7 @@ import HudJeu from '../components/HudJeu';
 import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
-  HAUTEUR, VIES, FRUITS, POINTS_FRUIT,
+  HAUTEUR, VIES, FRUITS, POINTS_FRUIT, DUREE_RALENTI, DUREE_DOUBLE,
   creerMonde, changerLargeur, avancer, lame, finGeste, etatSauvegarde, mondeRepris,
 } from '../utils/jeuCoupe';
 
@@ -85,6 +89,27 @@ const DUREE_TRACE = 150; // ms de trace visible derrière le doigt
 // Trace de lame : cœur blanc, liseré orange et halo doré, lisible sur la planche.
 const TRACE = { coeur: '#FFFFFF', lisere: '#FF8A00', halo: '#FFB300' };
 
+// Bonus : couleur et icône (jauge du HUD, annonce), son existant.
+const BLEU_GLACE = '#2E9BD6';
+const VERT_BOUCLIER = '#16A34A';
+const OR_ETOILE = '#E0A100';
+const BONUS_INFO = {
+  glacon: { couleur: BLEU_GLACE, icone: 'snow', son: 'booster', texte: 'jeuxCoupeAnnonceRalenti' },
+  etoile: { couleur: OR_ETOILE, icone: 'star', son: 'bonus', texte: 'jeuxCoupeAnnonceDouble' },
+  bouclier: { couleur: VERT_BOUCLIER, icone: 'shield-checkmark', son: 'ramasse', texte: 'jeuxCoupeAnnonceBouclier' },
+};
+const SANS_BONUS = { ralenti: 0, double: 0, bouclier: false };
+
+// Jauges des bonus actifs (rapport 0..1), arrondies au quart de seconde.
+function bonusActifs(m) {
+  if (!m) return SANS_BONUS;
+  return {
+    ralenti: Math.ceil((m.ralenti || 0) * 4) / 4,
+    double: Math.ceil((m.double || 0) * 4) / 4,
+    bouclier: !!m.bouclier,
+  };
+}
+
 function instantane(o, genre) {
   return { id: o.id, genre, sorte: o.sorte, cote: o.cote || 0, r: o.r, casse: !!o.casse };
 }
@@ -112,6 +137,8 @@ export default function JeuCoupeScreen({ navigation }) {
   const [classementOuvert, setClassementOuvert] = useState(false);
   const [reprise, setReprise] = useState(null); // partie sauvegardée proposée à l'ouverture
   const [nbParties, setNbParties] = useState(0); // fait recharger le bandeau de classement
+  const [actifs, setActifs] = useState(SANS_BONUS); // bonus en cours (jauges du HUD)
+  const [basHaut, setBasHaut] = useState(0); // bas du HUD et du classement : les annonces s'affichent dessous
 
   const mondeRef = useRef(null);
   const kRef = useRef(1);
@@ -130,6 +157,7 @@ export default function JeuCoupeScreen({ navigation }) {
   const serieRef = useRef(0); // fruits tranchés d'affilée
   const meilleurRef = useRef(0);
   meilleurRef.current = meilleur;
+  const actifsRef = useRef(SANS_BONUS);
 
   const flash = useRef(new Animated.Value(0)).current;
   const segments = useRef(
@@ -219,12 +247,27 @@ export default function JeuCoupeScreen({ navigation }) {
     dernierTsRef.current = null;
   }, []);
 
+  // Bulle : en haut sous le HUD (points, combos, vague), ou au point donné (fruit raté, en bas).
   const ajouterBulle = useCallback((texte, couleur, xU, yU, icone) => {
     if (!monteRef.current) return;
     idEffetRef.current += 1;
     const id = idEffetRef.current;
     const k = kRef.current;
-    setBulles((b) => [...b.slice(-4), { id, texte, couleur, icone, x: xU * k, y: yU * k }]);
+    const enHaut = xU == null;
+    const nouvelle = { id, texte, couleur, icone, enHaut, x: enHaut ? 0 : xU * k, y: enHaut ? 0 : yU * k };
+    // Au plus 3 bulles en haut (toutes affichées, donc toutes retirées à la fin de leur animation).
+    setBulles((b) => {
+      const haut = b.filter((x) => x.enHaut);
+      const bas = b.filter((x) => !x.enHaut);
+      return enHaut ? [...bas, ...haut.slice(-2), nouvelle] : [...bas.slice(-2), ...haut, nouvelle];
+    });
+  }, []);
+  const majActifs = useCallback(() => {
+    const a = bonusActifs(mondeRef.current);
+    const p = actifsRef.current;
+    if (a.ralenti === p.ralenti && a.double === p.double && a.bouclier === p.bouclier) return;
+    actifsRef.current = a;
+    if (monteRef.current) setActifs(a);
   }, []);
   const retirerBulle = useCallback((id) => {
     if (monteRef.current) setBulles((b) => b.filter((x) => x.id !== id));
@@ -270,28 +313,46 @@ export default function JeuCoupeScreen({ navigation }) {
     if (!m || !evenements.length) return;
     let changementListe = false;
     let points = false;
+    let annonceBonus = false; // une annonce de bonus de ce lot ne doit pas être écrasée par la série ou le palier
     for (const e of evenements) {
       if (e.type === 'liste') changementListe = true;
       else if (e.type === 'tranche') {
         points = true;
         bruit('tranche');
         ajouterJus(e.x, e.y, FRUITS[e.sorte]?.jus || ROUGE, e.angle);
-        ajouterBulle(`+${e.points || 1}`, OR, e.x, e.y - 70);
+        ajouterBulle(`+${e.points || 1}`, e.points > POINTS_FRUIT ? OR_ETOILE : OR);
         serieRef.current += 1;
         if (serieRef.current % SERIE === 0) {
-          banniereRef.current?.montrer({ texte: t('jeuRecompSerie', { n: serieRef.current }), icone: 'flame', couleur: '#FF7A1A' });
+          if (annonceBonus) ajouterBulle(t('jeuRecompSerie', { n: serieRef.current }), '#FF7A1A', null, null, 'flame');
+          else banniereRef.current?.montrer({ texte: t('jeuRecompSerie', { n: serieRef.current }), icone: 'flame', couleur: '#FF7A1A' });
         }
       } else if (e.type === 'vie') {
         vibrer(false);
         bruit('vie');
         if (monteRef.current) setVies(e.vies);
         ajouterJus(e.x, e.y, OR_COEUR, 0, true);
-        ajouterBulle('+1', OR_COEUR, e.x, e.y - 100, 'heart');
+        ajouterBulle('+1', OR_COEUR, null, null, 'heart');
+      } else if (e.type === 'bonus') {
+        const b = BONUS_INFO[e.sorte];
+        if (b) {
+          vibrer(false);
+          bruit(b.son);
+          ajouterJus(e.x, e.y, b.couleur, 0, true);
+          banniereRef.current?.montrer({ texte: t(b.texte), icone: b.icone, couleur: b.couleur });
+          annonceBonus = true;
+        }
+      } else if (e.type === 'protege') {
+        vibrer(false);
+        bruit('rebond');
+        const k = kRef.current;
+        if (monteRef.current) setEclats({ x: e.x * k, y: e.y * k, n: Date.now() });
+        banniereRef.current?.montrer({ texte: t('jeuxCoupeAnnonceProtege'), icone: 'shield-checkmark', couleur: VERT_BOUCLIER });
+        annonceBonus = true;
       } else if (e.type === 'combo') {
         points = true;
         vibrer(false);
         bruit('bonus');
-        ajouterBulle(t('jeuxCoupeCombo', { n: e.n, bonus: e.bonus }), OR, e.x, e.y - 90);
+        ajouterBulle(t('jeuxCoupeCombo', { n: e.n, bonus: e.bonus }), OR);
       } else if (e.type === 'rate') {
         vibrer(false);
         bruit('rate');
@@ -300,6 +361,7 @@ export default function JeuCoupeScreen({ navigation }) {
         ajouterBulle('', ROUGE, e.x, HAUTEUR - 130, 'heart-dislike');
       } else if (e.type === 'vague') {
         if (monteRef.current) setVague(e.n);
+        ajouterBulle(t('jeuxCoupeVague', { n: e.n }), '#0E7C66');
         sauverPartie(JEU, user?.id, etatSauvegarde(m));
       } else if (e.type === 'casse') {
         vibrer(true);
@@ -313,18 +375,22 @@ export default function JeuCoupeScreen({ navigation }) {
       }
     }
     if (changementListe) synchroniserListe();
+    majActifs();
     if (points && monteRef.current) {
       setScore(m.score);
       const annonce = suivreScore(suiviRef.current, m.score);
       if (annonce?.type === 'record') {
         bruit('record');
-        banniereRef.current?.montrer({ texte: t('jeuRecompRecord'), icone: 'trophy', couleur: OR });
+        if (annonceBonus) ajouterBulle(t('jeuRecompRecord'), OR, null, null, 'trophy');
+        else banniereRef.current?.montrer({ texte: t('jeuRecompRecord'), icone: 'trophy', couleur: OR });
       } else if (annonce) {
         bruit('niveau');
-        banniereRef.current?.montrer({ texte: t('jeuRecompPalier', { n: formaterNombre(annonce.n) }), icone: 'star', couleur: OR });
+        const texte = t('jeuRecompPalier', { n: formaterNombre(annonce.n) });
+        if (annonceBonus) ajouterBulle(texte, OR, null, null, 'star');
+        else banniereRef.current?.montrer({ texte, icone: 'star', couleur: OR });
       }
     }
-  }, [ajouterBulle, ajouterJus, flash, synchroniserListe, t, terminer, user?.id]);
+  }, [ajouterBulle, ajouterJus, flash, majActifs, synchroniserListe, t, terminer, user?.id]);
 
   const boucleRef = useRef(null);
   boucleRef.current = (ts) => {
@@ -339,6 +405,7 @@ export default function JeuCoupeScreen({ navigation }) {
     dernierTsRef.current = ts;
     const ev = avancer(mondeRef.current, dt);
     if (ev.length) traiter(ev);
+    majActifs(); // jauges des bonus, au quart de seconde
     dessiner();
     if (actifRef.current) rafRef.current = requestAnimationFrame((x) => boucleRef.current(x));
   };
@@ -375,6 +442,7 @@ export default function JeuCoupeScreen({ navigation }) {
     setScore(m.score);
     setVies(m.vies);
     setVague(m.vague);
+    majActifs();
     setResultat(null);
     setBulles([]);
     setJus([]);
@@ -386,7 +454,7 @@ export default function JeuCoupeScreen({ navigation }) {
       changerPhase('jeu');
       demarrerBoucle();
     }
-  }, [arreterBoucle, changerPhase, demarrerBoucle, effacerTrace, nouveauMonde, user?.id]);
+  }, [arreterBoucle, changerPhase, demarrerBoucle, effacerTrace, majActifs, nouveauMonde, user?.id]);
   const jouer = useCallback(() => demarrer(null), [demarrer]);
 
   const reprendrePartie = useCallback(() => {
@@ -522,6 +590,23 @@ export default function JeuCoupeScreen({ navigation }) {
 
   const avantClassement = useCallback(() => envoyerRecordEnAttente(JEU, user?.id), [user?.id]);
 
+  // Bas du bloc du haut (HUD, classement) : les annonces s'affichent juste dessous.
+  const mesureHaut = useCallback((ev) => {
+    const { y, height } = ev.nativeEvent.layout;
+    const bas = Math.round(y + height);
+    if (bas !== basHaut) setBasHaut(bas);
+  }, [basHaut]);
+  const yAnnonces = basHaut || insets.top + 110;
+
+  const boosters = useMemo(() => {
+    const l = [];
+    if (actifs.ralenti > 0) l.push({ id: 'glacon', icone: BONUS_INFO.glacon.icone, couleur: BLEU_GLACE, ratio: actifs.ralenti / DUREE_RALENTI });
+    if (actifs.double > 0) l.push({ id: 'etoile', icone: BONUS_INFO.etoile.icone, couleur: OR_ETOILE, ratio: actifs.double / DUREE_DOUBLE });
+    if (actifs.bouclier) l.push({ id: 'bouclier', icone: BONUS_INFO.bouclier.icone, couleur: VERT_BOUCLIER, ratio: 1 });
+    return l;
+  }, [actifs]);
+  const bullesHaut = bulles.filter((b) => b.enHaut);
+
   const k = kRef.current;
 
   return (
@@ -558,6 +643,7 @@ export default function JeuCoupeScreen({ navigation }) {
               if (o.genre === 'moitie') return <Moitie key={o.id} o={o} a={a} k={k} />;
               if (o.genre === 'fragile') return <ColisFragile key={o.id} o={o} a={a} k={k} />;
               if (o.genre === 'coeur') return <Coeur key={o.id} o={o} a={a} k={k} anime={phase === 'jeu'} />;
+              if (BONUS_INFO[o.genre]) return <Bonus key={o.id} o={o} a={a} k={k} />;
               return <Fruit key={o.id} o={o} a={a} k={k} />;
             })}
 
@@ -578,14 +664,21 @@ export default function JeuCoupeScreen({ navigation }) {
               );
             })}
 
+            {/* Glaçon : léger voile bleu fixe (aucune animation) */}
+            {actifs.ralenti > 0 && enJeu && <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.voileGlace]} />}
             {eclats && <Eclats key={eclats.n} x={eclats.x} y={eclats.y} taille={146 * k} />}
-            {bulles.map((b) => (
+            {bulles.filter((b) => !b.enHaut).map((b) => (
               <Bulle key={b.id} id={b.id} x={b.x} y={b.y} texte={b.texte} icone={b.icone} couleur={b.couleur} onFin={retirerBulle} />
             ))}
-            {vague > 0 && enJeu && <BandeauVague key={vague} texte={t('jeuxCoupeVague', { n: vague })} haut={taille.h * 0.4} />}
+            {/* Annonces en haut : points, combos, vague, cœur */}
+            <View pointerEvents="none" style={[styles.filHaut, { top: yAnnonces }]}>
+              {bullesHaut.map((b) => (
+                <Bulle key={b.id} id={b.id} enHaut texte={b.texte} icone={b.icone} couleur={b.couleur} onFin={retirerBulle} />
+              ))}
+            </View>
 
             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.flash, { opacity: flash }]} />
-            <BanniereRecompense ref={banniereRef} haut={taille.h * 0.28} />
+            <BanniereRecompense ref={banniereRef} haut={yAnnonces + 40} />
 
             {phase === 'reprise' && (
               <View pointerEvents="none" style={[styles.consigne, { top: taille.h * 0.6 }]}>
@@ -598,7 +691,7 @@ export default function JeuCoupeScreen({ navigation }) {
       </View>
 
       {/* Haut : quitter, vague, score et vies, pause, puis rang, record et TOP 1 (au-dessus du monde, hors zone de geste) */}
-      <View pointerEvents="box-none" style={[styles.haut, { top: insets.top + 8 }]}>
+      <View pointerEvents="box-none" style={[styles.haut, { top: insets.top + 8 }]} onLayout={mesureHaut}>
         <View pointerEvents="box-none" style={styles.rangeeHaut}>
           <Pressable onPress={quitter} style={styles.rond} hitSlop={10} accessibilityLabel={t('jeuQuitter')}>
             <Ionicons name="close" size={22} color={colors.text} />
@@ -610,6 +703,7 @@ export default function JeuCoupeScreen({ navigation }) {
               niveauLibelle={vague > 0 ? t('jeuxCoupeVague', { n: vague }) : undefined}
               vies={vies}
               viesMax={VIES}
+              boosters={enJeu || phase === 'pause' ? boosters : []}
             />
           </View>
           <Pressable
@@ -644,6 +738,14 @@ export default function JeuCoupeScreen({ navigation }) {
                 <View style={styles.ligneFragile}>
                   <Ionicons name="heart" size={20} color={OR_COEUR} />
                   <Text style={[styles.texteDiscret, styles.texteFragile]}>{t('jeuxCoupeCoeur')}</Text>
+                </View>
+                <View style={styles.ligneFragile}>
+                  <View style={styles.iconesBonus}>
+                    <Ionicons name="snow" size={17} color={BLEU_GLACE} />
+                    <Ionicons name="star" size={17} color={OR_ETOILE} />
+                    <Ionicons name="shield-checkmark" size={17} color={VERT_BOUCLIER} />
+                  </View>
+                  <Text style={[styles.texteDiscret, styles.texteFragile]}>{t('jeuxCoupeBonusListe')}</Text>
                 </View>
                 <Text style={styles.texteDiscret}>{t('jeuMeilleurScore', { n: meilleur })}</Text>
                 <ReglagesSon t={t} colors={colors} compact />
@@ -816,6 +918,45 @@ const Coeur = memo(function Coeur({ o, a, k, anime }) {
   );
 });
 
+// Bonus à trancher : glaçon (cube bleu, flocon), étoile x2 (or), bouclier (disque blanc, bouclier vert).
+// Aucune animation propre (batterie) : il suit seulement sa trajectoire.
+const Bonus = memo(function Bonus({ o, a, k }) {
+  const d = o.r * 2 * k;
+  const rotate = useRotation(a);
+  let contenu;
+  if (o.genre === 'glacon') {
+    contenu = (
+      <View style={[styles2.glacon, { width: d * 0.9, height: d * 0.9, borderRadius: d * 0.2, borderWidth: Math.max(2, 3 * k) }]}>
+        <Ionicons name="snow" size={d * 0.6} color={BLEU_GLACE} />
+        <View style={[styles2.reflet, { left: d * 0.12, top: d * 0.1, width: d * 0.24, height: d * 0.1, borderRadius: d * 0.05 }]} />
+      </View>
+    );
+  } else if (o.genre === 'etoile') {
+    contenu = (
+      <View style={styles2.centre}>
+        <Ionicons name="star" size={d * 1.02} color="#9A5B12" />
+        <Ionicons name="star" size={d * 0.86} color={OR_COEUR} style={styles2.surcouche} />
+        <Text style={[styles2.x2, { fontSize: d * 0.26 }]}>x2</Text>
+      </View>
+    );
+  } else {
+    contenu = (
+      <View style={[styles2.disqueBouclier, { width: d * 0.92, height: d * 0.92, borderRadius: d * 0.46, borderWidth: Math.max(2, 3 * k) }]}>
+        <MaterialCommunityIcons name="shield-check" size={d * 0.66} color={VERT_BOUCLIER} />
+      </View>
+    );
+  }
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles2.objet, { left: -d / 2, top: -d / 2, width: d, height: d, transform: [{ translateX: a.x }, { translateY: a.y }, { rotate }] }]}
+    >
+      {contenu}
+      <MaterialCommunityIcons name="star-four-points" size={d * 0.24} color="#FFFFFF" style={{ position: 'absolute', right: -d * 0.02, top: -d * 0.04 }} />
+    </Animated.View>
+  );
+});
+
 // Éclaboussure de jus : tache, balafre le long de la lame et gouttes projetées.
 const GOUTTES = Array.from({ length: 14 }, (_, i) => {
   const angle = (i / 14) * Math.PI * 2 + (i % 2 ? 0.25 : -0.18);
@@ -911,35 +1052,22 @@ function Eclats({ x, y, taille }) {
   );
 }
 
-function BandeauVague({ texte, haut }) {
-  const v = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const anim = Animated.timing(v, { toValue: 1, duration: 1300, easing: Easing.linear, useNativeDriver: true });
-    anim.start();
-    return () => anim.stop();
-  }, [v]);
-  const opacity = v.interpolate({ inputRange: [0, 0.15, 0.7, 1], outputRange: [0, 1, 1, 0] });
-  const scale = v.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0.7, 1, 1.05] });
-  return (
-    <Animated.Text pointerEvents="none" style={[styles2.bandeau, { top: haut, opacity, transform: [{ scale }] }]}>
-      {texte}
-    </Animated.Text>
-  );
-}
-
-function Bulle({ id, x, y, texte, icone, couleur, onFin }) {
+function Bulle({ id, x, y, texte, icone, couleur, onFin, enHaut }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const anim = Animated.timing(v, { toValue: 1, duration: 800, easing: Easing.out(Easing.quad), useNativeDriver: true });
     anim.start(() => onFin(id));
     return () => anim.stop();
   }, [id, onFin, v]);
-  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: [0, -50] });
+  const translateY = v.interpolate({ inputRange: [0, 1], outputRange: enHaut ? [6, -6] : [0, -50] });
   const opacity = v.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 1, 0] });
   return (
-    <Animated.View pointerEvents="none" style={[styles2.bulle, { left: x - 90, top: y, opacity, transform: [{ translateY }] }]}>
-      {icone ? <Ionicons name={icone} size={30} color={couleur} /> : null}
-      {texte ? <Text style={[styles2.bulleTexte, { color: couleur }]}>{texte}</Text> : null}
+    <Animated.View
+      pointerEvents="none"
+      style={[enHaut ? styles2.bulleHaut : [styles2.bulle, { left: x - 90, top: y }], { opacity, transform: [{ translateY }] }]}
+    >
+      {icone ? <Ionicons name={icone} size={enHaut ? 22 : 30} color={couleur} /> : null}
+      {texte ? <Text style={[styles2.bulleTexte, enHaut && styles2.bulleTexteHaut, { color: couleur }]} numberOfLines={1}>{texte}</Text> : null}
     </Animated.View>
   );
 }
@@ -977,11 +1105,9 @@ const styles2 = StyleSheet.create({
   etiquette: { backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   fente: { position: 'absolute', alignSelf: 'center', top: '5%' },
   jus: { position: 'absolute', width: 0, height: 0 },
-  bandeau: {
-    position: 'absolute', left: 0, right: 0, textAlign: 'center', color: '#0E7C66', fontSize: 36, fontWeight: '900',
-    textShadowColor: 'rgba(255,255,255,0.95)', textShadowRadius: 8, textShadowOffset: { width: 0, height: 1 },
-  },
   bulle: { position: 'absolute', width: 180, alignItems: 'center' },
+  bulleHaut: { flexDirection: 'row', alignItems: 'center', gap: 4, marginHorizontal: 6, flexShrink: 1, maxWidth: '33%' },
+  bulleTexteHaut: { fontSize: 20, flexShrink: 1, textShadowColor: 'rgba(255,255,255,0.95)', textShadowRadius: 6 },
   bulleTexte: {
     textAlign: 'center', fontSize: 24, fontWeight: '900',
     textShadowColor: 'rgba(60,35,0,0.75)', textShadowRadius: 5, textShadowOffset: { width: 0, height: 1 },
@@ -989,6 +1115,10 @@ const styles2 = StyleSheet.create({
   halo: { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.3)' },
   haloCoeur: { position: 'absolute', backgroundColor: '#FFE27A' },
   surcouche: { position: 'absolute' },
+  centre: { alignItems: 'center', justifyContent: 'center' },
+  x2: { position: 'absolute', color: '#5A3300', fontWeight: '900', includeFontPadding: false },
+  glacon: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#D6F1FF', borderColor: BLEU_GLACE },
+  disqueBouclier: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF', borderColor: VERT_BOUCLIER },
   reflet: { position: 'absolute', backgroundColor: 'rgba(255,255,255,0.75)', transform: [{ rotate: '-35deg' }] },
 });
 
@@ -1001,6 +1131,9 @@ const makeStyles = (c) => StyleSheet.create({
     shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 }, elevation: 4,
   },
   flash: { backgroundColor: '#ff4d3d' },
+  voileGlace: { backgroundColor: 'rgba(120,200,255,0.14)' },
+  filHaut: { position: 'absolute', left: 0, right: 0, height: 36, paddingHorizontal: 8, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  iconesBonus: { flexDirection: 'row', gap: 2 },
   consigne: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   consigneTexte: { fontSize: 18, fontWeight: '800', marginTop: 6, textAlign: 'center', paddingHorizontal: 24 },
   haut: { position: 'absolute', left: 16, right: 16 },
