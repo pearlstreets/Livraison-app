@@ -19,7 +19,7 @@
  * sauvegardée à la pause et reprise possible pendant 24 h. En haut : score,
  * vague, vies (components/HudJeu.js), rang, record et TOP 1.
  * Décor lumineux : ciel, rue et scooter de livraison, étal du primeur avec
- * l'enseigne Pearl Streets (components/DecorCoupe.js).
+ * l'enseigne Pearl Streets discrète (components/FondJeu.js, variante « marche »).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, Easing } from 'react-native';
@@ -30,7 +30,10 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import ClassementJeu from '../components/ClassementJeu';
 import usePauseJeu from '../hooks/usePauseJeu';
-import DecorCoupe from '../components/DecorCoupe';
+import FondJeu from '../components/FondJeu';
+import {
+  BanniereRecompense, EtoilesFin, creerSuivi, suivreScore, etoilesPour, formaterNombre,
+} from '../components/RecompensesJeu';
 import SonJeux, { bruit } from '../components/SonJeux';
 import ReglagesSon from '../components/ReglagesSon';
 import BandeauClassement from '../components/BandeauClassement';
@@ -65,13 +68,20 @@ function vibrer(fort) {
 const OR = '#F2B705';
 const ROUGE = '#E74C3C';
 const JEU = 'coupe';
-const FOND_ECRAN = '#BFE8FF'; // ciel, avant que le décor ne soit mesuré
-const TEXTE_CLAIR = '#16324A'; // texte posé sur le décor lumineux
+// Fond : planche à découper de l'étal du primeur (décor d'avant le 09/11).
+const PALETTE = {
+  clair: { fond: '#F1DEC0', latte: '#E6CDA6' },
+  sombre: { fond: '#2A2018', latte: '#33271D' },
+};
+// Paliers de score annoncés pendant la partie, étoiles de fin.
+const PALIERS = [25, 50, 100, 200, 400, 800, 1600];
+const SERIE = 10; // fruits d'affilée sans en rater un : bannière « Série »
+const IMAGE_MIN_MS = 15; // plafond d'environ 60 images par seconde (écrans 90 et 120 Hz)
 const OR_COEUR = '#FFC83D';
 const NB_SEGMENTS = 12; // morceaux de la trace de lame
 const DUREE_TRACE = 150; // ms de trace visible derrière le doigt
 
-// Trace de lame : cœur blanc, lisere orange et halo doré, lisible sur le ciel clair.
+// Trace de lame : cœur blanc, liseré orange et halo doré, lisible sur la planche.
 const TRACE = { coeur: '#FFFFFF', lisere: '#FF8A00', halo: '#FFB300' };
 
 function instantane(o, genre) {
@@ -84,6 +94,7 @@ export default function JeuCoupeScreen({ navigation }) {
   const { colors, dark } = useTheme();
   const { user } = useAuth();
   const styles = useMemo(() => makeStyles(colors), [colors]);
+  const pal = dark ? PALETTE.sombre : PALETTE.clair;
 
   const [phase, setPhase] = useState('accueil'); // accueil, jeu, pause, reprise, fin
   const phaseRef = useRef('accueil');
@@ -113,6 +124,11 @@ export default function JeuCoupeScreen({ navigation }) {
   const idEffetRef = useRef(0);
   const traceRef = useRef([]); // points du doigt { x, y, t } en pixels
   const doigtRef = useRef(null); // dernier point du doigt en unités
+  const banniereRef = useRef(null);
+  const suiviRef = useRef(null); // paliers et record annoncés pendant la partie
+  const serieRef = useRef(0); // fruits tranchés d'affilée
+  const meilleurRef = useRef(0);
+  meilleurRef.current = meilleur;
 
   const flash = useRef(new Animated.Value(0)).current;
   const segments = useRef(
@@ -233,6 +249,8 @@ export default function JeuCoupeScreen({ navigation }) {
       score: m?.score || 0, tranches: m?.tranches || 0, combo: m?.meilleurCombo || 0, vague: m?.vague || 0,
       raison: raison || (m && m.vies <= 0 ? 'vies' : 'casse'), nouveauRecord: false,
     };
+    res.etoiles = etoilesPour(res.score, meilleurRef.current, PALIERS);
+    banniereRef.current?.cacher();
     if (monteRef.current) setResultat(res);
     changerPhase('fin');
     effacerPartie(JEU, user?.id); // jamais de reprise après une partie perdue
@@ -257,6 +275,11 @@ export default function JeuCoupeScreen({ navigation }) {
         points = true;
         bruit('tranche');
         ajouterJus(e.x, e.y, FRUITS[e.sorte]?.jus || ROUGE, e.angle);
+        ajouterBulle(`+${e.points || 1}`, OR, e.x, e.y - 70);
+        serieRef.current += 1;
+        if (serieRef.current % SERIE === 0) {
+          banniereRef.current?.montrer({ texte: t('jeuRecompSerie', { n: serieRef.current }), icone: 'flame', couleur: '#FF7A1A' });
+        }
       } else if (e.type === 'vie') {
         vibrer(false);
         bruit('vie');
@@ -271,6 +294,7 @@ export default function JeuCoupeScreen({ navigation }) {
       } else if (e.type === 'rate') {
         vibrer(false);
         bruit('rate');
+        serieRef.current = 0;
         if (monteRef.current) setVies(e.vies);
         ajouterBulle('', ROUGE, e.x, HAUTEUR - 130, 'heart-dislike');
       } else if (e.type === 'vague') {
@@ -288,13 +312,28 @@ export default function JeuCoupeScreen({ navigation }) {
       }
     }
     if (changementListe) synchroniserListe();
-    if (points && monteRef.current) setScore(m.score);
+    if (points && monteRef.current) {
+      setScore(m.score);
+      const annonce = suivreScore(suiviRef.current, m.score);
+      if (annonce?.type === 'record') {
+        bruit('record');
+        banniereRef.current?.montrer({ texte: t('jeuRecompRecord'), icone: 'trophy', couleur: OR });
+      } else if (annonce) {
+        bruit('niveau');
+        banniereRef.current?.montrer({ texte: t('jeuRecompPalier', { n: formaterNombre(annonce.n) }), icone: 'star', couleur: OR });
+      }
+    }
   }, [ajouterBulle, ajouterJus, flash, synchroniserListe, t, terminer, user?.id]);
 
   const boucleRef = useRef(null);
   boucleRef.current = (ts) => {
     rafRef.current = null;
     if (!actifRef.current || !mondeRef.current) return;
+    // Écran 90 ou 120 Hz : une image sur deux suffit, 60 par seconde au plus.
+    if (dernierTsRef.current != null && ts - dernierTsRef.current < IMAGE_MIN_MS) {
+      rafRef.current = requestAnimationFrame((x) => boucleRef.current(x));
+      return;
+    }
     const dt = dernierTsRef.current == null ? 1 / 60 : (ts - dernierTsRef.current) / 1000;
     dernierTsRef.current = ts;
     const ev = avancer(mondeRef.current, dt);
@@ -329,6 +368,9 @@ export default function JeuCoupeScreen({ navigation }) {
     if (!etat) effacerPartie(JEU, user?.id);
     nouveauMonde(etat);
     const m = mondeRef.current;
+    suiviRef.current = creerSuivi(PALIERS, meilleurRef.current, m.score);
+    serieRef.current = 0;
+    banniereRef.current?.cacher();
     setScore(m.score);
     setVies(m.vies);
     setVague(m.vague);
@@ -482,11 +524,11 @@ export default function JeuCoupeScreen({ navigation }) {
   const k = kRef.current;
 
   return (
-    <View style={[styles.ecran, { backgroundColor: FOND_ECRAN }]}>
+    <View style={[styles.ecran, { backgroundColor: pal.fond }]}>
       <SonJeux jeu={JEU} actif={phase === 'jeu'} />
       {/* Monde : toute la hauteur sauf la zone basse du téléphone */}
       <View
-        style={[styles.monde, { backgroundColor: FOND_ECRAN, marginBottom: insets.bottom }]}
+        style={[styles.monde, { backgroundColor: pal.fond, marginBottom: insets.bottom }]}
         onLayout={surMesure}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
@@ -498,8 +540,12 @@ export default function JeuCoupeScreen({ navigation }) {
       >
         {taille.h > 0 && (
           <>
-            {/* Décor lumineux : ciel, rue et scooter, étal du primeur et enseigne Pearl Streets */}
-            <DecorCoupe l={taille.l} h={taille.h} haut={insets.top} />
+            {/* Planche à découper */}
+            {Array.from({ length: Math.ceil(taille.h / 90) }).map((_, i) => (
+              <View key={i} pointerEvents="none" style={[styles.latte, { top: i * 90 + 88, backgroundColor: pal.latte }]} />
+            ))}
+            {/* Étal du primeur : banne, petite enseigne Pearl Streets, cagettes */}
+            <FondJeu variante="marche" dark={dark} haut={insets.top} />
 
             {jus.map((j) => (
               <Eclaboussure key={j.id} id={j.id} x={j.x} y={j.y} couleur={j.couleur} angle={j.angle} gros={j.gros} taille={(j.gros ? 190 : 150) * k} onFin={retirerJus} />
@@ -538,11 +584,12 @@ export default function JeuCoupeScreen({ navigation }) {
             {vague > 0 && enJeu && <BandeauVague key={vague} texte={t('jeuxCoupeVague', { n: vague })} haut={taille.h * 0.4} />}
 
             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.flash, { opacity: flash }]} />
+            <BanniereRecompense ref={banniereRef} haut={taille.h * 0.28} />
 
             {phase === 'reprise' && (
               <View pointerEvents="none" style={[styles.consigne, { top: taille.h * 0.6 }]}>
-                <MaterialCommunityIcons name="gesture-swipe" size={34} color={TEXTE_CLAIR} />
-                <Text style={[styles.consigneTexte, { color: TEXTE_CLAIR }]}>{t('jeuxCoupeToucherReprendre')}</Text>
+                <MaterialCommunityIcons name="gesture-swipe" size={34} color={colors.text} />
+                <Text style={[styles.consigneTexte, { color: colors.text }]}>{t('jeuxCoupeToucherReprendre')}</Text>
               </View>
             )}
           </>
@@ -626,6 +673,7 @@ export default function JeuCoupeScreen({ navigation }) {
                     : <Ionicons name="heart-dislike" size={44} color={colors.danger} />}
                 <Text style={styles.titre}>{resultat?.raison === 'casse' ? t('jeuxCoupeFinCasse') : t('jeuxCoupeFinVies')}</Text>
                 {resultat?.nouveauRecord && <Text style={styles.record}>{t('jeuxCoupeNouveauRecord')}</Text>}
+                <EtoilesFin n={resultat?.etoiles ?? 0} t={t} colors={colors} />
                 <Text style={styles.scoreFin}>{resultat?.score ?? score}</Text>
                 <View style={styles.stats}>
                   <Stat icone="fruit-watermelon" n={resultat?.tranches ?? 0} styles={styles} couleur={ROUGE} />
@@ -953,6 +1001,7 @@ const styles2 = StyleSheet.create({
 const makeStyles = (c) => StyleSheet.create({
   ecran: { flex: 1 },
   monde: { flex: 1, overflow: 'hidden' },
+  latte: { position: 'absolute', left: 0, right: 0, height: 2 },
   segment: {
     position: 'absolute', left: 0, top: 0, width: 100,
     shadowOpacity: 0.9, shadowRadius: 6, shadowOffset: { width: 0, height: 0 }, elevation: 4,
