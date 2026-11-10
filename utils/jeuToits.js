@@ -9,10 +9,19 @@
  *    jusqu'à leur dessus : on se pose dessus, on bute sur leurs côtés.
  *  - flottantes (`flottante: true`) : échafaudage, auvent. On les traverse
  *    par-dessous, on se pose dessus par le haut.
- * Boîtes aux lettres : blocs pleins, à frapper par-dessous (une fois) pour un colis.
+ * Boîtes aux lettres et caisses bonus : blocs pleins, à frapper par-dessous
+ * (une fois). La boîte donne un colis, la caisse une amélioration (grand
+ * livreur, vol, étoile).
  *
- * Chaque saut d'un niveau généré est vérifié avec la physique réelle
- * (`simulerSaut`), avec une marge pour un saut déclenché un peu trop tôt.
+ * Toujours faisable : la portée et la hauteur réelles du saut sont mesurées
+ * avec la physique du jeu (`mesurerSaut`). Chaque trou reste sous
+ * ECART_MAX, chaque marche sous MONTEE_MAX (montée comme descente, pour
+ * pouvoir revenir), et chaque saut est rejoué (`simulerSaut`) avec une marge
+ * pour un saut déclenché trop tôt. Aucun gêneur à l'atterrissage.
+ *
+ * Reprise sûre (`pointDeReprise`) : après une chute ou un coup, le livreur
+ * revient un peu en arrière, sur un sol plein, loin des bords et des gêneurs,
+ * et reste immobile (invincible) jusqu'au prochain geste.
  */
 
 // ---- Physique (unités par seconde) ----
@@ -36,16 +45,33 @@ const TAMPON = 0.12; // saut demandé juste avant de toucher le sol
 const REBOND = 420;
 const REBOND_TENU = 560;
 const PAS_MAX = 1 / 120;
+// Vol (caisse bonus) : chaque geste vers le haut relance, descente planée.
+const GRAVITE_VOL = 700;
+const CHUTE_VOL = 110;
+const PLAFOND_VOL = 330;
 
 export const SOL_ECRAN = 40; // marge sous le trottoir à l'écran
 export const LIMITE_CHUTE = -70; // en dessous : vie perdue
 export const VIES = 3;
 const RESERVE_TEMPS = 12; // secondes rendues après un chrono épuisé
-const MARGE_SAUT = 14; // saut faisable même déclenché 14 unités trop tôt
+export const MARGE_SAUT = 24; // saut faisable même déclenché 24 unités trop tôt
+
+export const PALIER_PIECES = 10; // tous les 10 colis : une vie, sinon un aimant
+export const INVUL_REPRISE = 2; // secondes d'invincibilité après la reprise
+export const DUREES = { aimant: 8, vol: 5, etoile: 6 };
+export const BONUS_CAISSE = ['taille', 'vol', 'etoile'];
+const RAYON_AIMANT = 120;
+
+// Reprise sûre et placement des gêneurs.
+export const BORD_SUR = 36; // jamais à moins de 36 unités d'un bord
+export const DISTANCE_SURE = 45; // aucun gêneur à moins de 45 unités
+export const DEGAGEMENT_ATTERRISSAGE = 110; // début de toit sans gêneur
+export const LARGEUR_MIN_GENEUR = 180;
 
 export const POINTS = {
   colis: 10,
   boite: 50,
+  caisse: 100,
   chien: 100,
   pigeon: 120,
   trottinette: 150,
@@ -82,7 +108,7 @@ function borner(v, min, max) {
 export function nouveauJoueur(x, y) {
   return {
     x, y, vx: 0, vy: 0, dir: 1, sol: null, coyote: 0, tampon: 0, tenue: 0,
-    enSaut: false, recul: 0, course: 0, accroupi: false,
+    enSaut: false, recul: 0, course: 0, accroupi: false, vol: false,
   };
 }
 
@@ -90,14 +116,15 @@ function recouvreX(j, s, marge) {
   return j.x + LARGEUR > s.x + marge && j.x < s.x + s.w - marge;
 }
 
-function hautDe(s) {
+export function hautDe(s) {
   return s.boite ? s.y + s.h : s.y;
 }
 
 /**
  * Un pas de physique du livreur. `cmd` : { gauche, droite, sautTenu }.
  * Le saut demandé se pose avant via `j.tampon = TAMPON` (voir demanderSaut).
- * Rend la boîte aux lettres frappée par-dessous, sinon null.
+ * `j.vol` vrai : saut permis en l'air et descente planée.
+ * Rend la boîte frappée par-dessous, sinon null.
  */
 export function physiqueJoueur(j, plateformes, boites, cmd, dt) {
   const dir = (cmd.droite ? 1 : 0) - (cmd.gauche ? 1 : 0);
@@ -117,8 +144,8 @@ export function physiqueJoueur(j, plateformes, boites, cmd, dt) {
   // Saut (avec tolérance au bord et à l'appui anticipé).
   if (j.sol) j.coyote = COYOTE; else j.coyote -= dt;
   if (j.tampon > 0) j.tampon -= dt;
-  if (j.tampon > 0 && j.coyote > 0) {
-    j.vy = SAUT;
+  if (j.tampon > 0 && (j.coyote > 0 || j.vol)) {
+    j.vy = j.vol && !j.sol ? Math.max(j.vy, SAUT * 0.8) : SAUT;
     j.tenue = 0;
     j.coyote = 0;
     j.tampon = 0;
@@ -135,7 +162,8 @@ export function physiqueJoueur(j, plateformes, boites, cmd, dt) {
       j.enSaut = false;
     }
   }
-  j.vy = Math.max(-CHUTE_MAX, j.vy - g * dt);
+  if (j.vol && j.vy < 0) g = GRAVITE_VOL;
+  j.vy = Math.max(j.vol ? -CHUTE_VOL : -CHUTE_MAX, j.vy - g * dt);
 
   // Horizontal : on bute sur les côtés des colonnes et des boîtes.
   j.x += j.vx * dt;
@@ -158,6 +186,10 @@ export function physiqueJoueur(j, plateformes, boites, cmd, dt) {
   // Vertical : on se pose par le haut, on frappe les boîtes par-dessous.
   const avant = j.y;
   j.y += j.vy * dt;
+  if (j.vol && j.y > PLAFOND_VOL) {
+    j.y = PLAFOND_VOL;
+    j.vy = Math.min(0, j.vy);
+  }
   j.sol = null;
   let frappee = null;
   if (j.vy <= 0) {
@@ -198,6 +230,37 @@ export function demanderSaut(j) {
 }
 
 /**
+ * Saut le plus long sur sol plat, élan pris, saut maintenu (le geste vers le
+ * haut maintient le saut 0,3 s, plus que TENUE_MAX) : hauteur max atteinte
+ * et distance parcourue avant de retomber à la même hauteur.
+ */
+export function mesurerSaut() {
+  const sol = { x: -1e6, w: 2e6, y: 0 };
+  const j = nouveauJoueur(0, 0);
+  j.sol = sol;
+  j.vx = VITESSE;
+  demanderSaut(j);
+  const cmd = { gauche: false, droite: true, sautTenu: true };
+  let hauteur = 0;
+  let duree = 0;
+  for (let t = 0; t < 3; t += PAS_MAX) {
+    physiqueJoueur(j, [sol], [], cmd, PAS_MAX);
+    hauteur = Math.max(hauteur, j.y);
+    if (t > 0.05 && j.sol) {
+      duree = t;
+      break;
+    }
+  }
+  return { hauteur, portee: j.x, duree };
+}
+
+export const SAUT_MESURE = mesurerSaut();
+// Bornes du niveau, avec marge : 72 % de la portée, 60 % de la hauteur.
+export const ECART_MAX = Math.floor(SAUT_MESURE.portee * 0.72);
+export const MONTEE_MAX = Math.floor(SAUT_MESURE.hauteur * 0.6);
+export const RATIO_MAX = 0.72;
+
+/**
  * Saut réel de `a` vers `b` : élan depuis `a`, droite maintenue, saut maintenu,
  * déclenché `avance` unités avant le dernier moment. Vrai si on se pose sur `b`.
  */
@@ -225,6 +288,8 @@ export function simulerSaut(a, b, avance = 0, plateformes = null, boites = []) {
     }
     physiqueJoueur(j, liste, boites, cmd, dt);
     if (j.sol === b) return true;
+    // Posé sur une boîte au-dessus de `b` : on est bien arrivé (on en redescend sur `b`).
+    if (j.sol && j.sol.boite && j.sol.x >= b.x && j.sol.x + j.sol.w <= b.x + b.w) return true;
     if (saute && j.sol && j.sol !== a && j.sol !== b) return false;
     if (j.y < LIMITE_CHUTE) return false;
     // Coincé contre un mur sans avancer.
@@ -235,6 +300,14 @@ export function simulerSaut(a, b, avance = 0, plateformes = null, boites = []) {
 
 export function peutSauter(a, b) {
   return simulerSaut(a, b, MARGE_SAUT) && simulerSaut(a, b, 0);
+}
+
+// Même trou vu dans l'autre sens (retour vers la gauche).
+function miroir(p) {
+  return { ...p, x: -(p.x + p.w) };
+}
+export function peutRevenir(a, b) {
+  return peutSauter(miroir(b), miroir(a));
 }
 
 // ---- Génération des niveaux ----
@@ -254,27 +327,28 @@ export function decorNiveau(niveau) {
   };
 }
 
+/** Difficulté progressive : tout monte doucement jusqu'au niveau 10. */
 export function reglagesNiveau(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
-  const diff = Math.min(1, (n - 1) / 7);
-  const longueur = Math.min(7200, 1700 + (n - 1) * 420);
-  const t = Math.min(1, (n - 2) / 3);
-  const facteur = Math.max(1.55, 2.6 - 0.22 * (n - 1));
-  const dur = n >= 3;
+  const diff = Math.min(1, (n - 1) / 9);
+  const longueur = Math.min(6400, 1600 + (n - 1) * 360);
+  const facteur = Math.max(2.1, 3 - 0.1 * (n - 1));
   return {
     n,
     diff,
     longueur,
-    // Trous en part de la portée maximale du saut : serrés dès le niveau 2.
-    ratioMin: n === 1 ? 0.35 : 0.8 + 0.06 * t,
-    ratioMax: n === 1 ? 0.7 : 0.93 + 0.04 * t,
-    probMobile: dur ? Math.min(0.26, 0.1 + 0.03 * (n - 3)) : 0,
-    probFragile: dur ? Math.min(0.28, 0.12 + 0.03 * (n - 3)) : 0,
-    probEnchaine: n >= 2 ? Math.min(0.3, 0.14 + 0.03 * (n - 2)) : 0,
-    probGeneur: Math.min(0.92, 0.35 + diff * 0.5 + (n >= 2 ? 0.1 : 0)),
-    types: ['chien', ...(n >= 2 ? ['pigeon', 'trottinette'] : [])],
-    // Chrono serré : le temps de course d'un joueur sans faute, fois un facteur qui baisse.
-    limite: Math.round((longueur / VITESSE) * facteur + Math.max(5, 12 - (n - 1))),
+    // Trous en part de la portée réelle du saut, jamais plus de RATIO_MAX.
+    ratioMin: 0.22 + 0.26 * diff,
+    ratioMax: Math.min(RATIO_MAX, 0.42 + 0.28 * diff),
+    // Marches (montée ou descente) entre deux plateformes.
+    marche: Math.round(MONTEE_MAX * (0.45 + 0.55 * diff)),
+    probMobile: n >= 4 ? Math.min(0.14, 0.06 + 0.02 * (n - 4)) : 0,
+    probFragile: n >= 3 ? Math.min(0.14, 0.06 + 0.02 * (n - 3)) : 0,
+    probEnchaine: n >= 2 ? Math.min(0.2, 0.08 + 0.03 * (n - 2)) : 0,
+    probGeneur: Math.min(0.6, 0.25 + diff * 0.35),
+    types: ['chien', ...(n >= 2 ? ['pigeon'] : []), ...(n >= 3 ? ['trottinette'] : [])],
+    // Chrono large : le temps de course sans faute, fois un facteur confortable.
+    limite: Math.round((longueur / VITESSE) * facteur + 15),
   };
 }
 
@@ -321,6 +395,43 @@ export function positionMobile(p, t) {
   return mo.axe === 'x' ? { x: mo.x0 + o, y: mo.y0 } : { x: mo.x0, y: mo.y0 + o };
 }
 
+/** Zone [debut, fin] balayée par un gêneur (sa patrouille complète). */
+export function zoneGeneur(g) {
+  if (g.type === 'pigeon') return [g.cx - g.amp, g.cx + g.amp + g.w];
+  return [g.x1, g.x2 + g.w];
+}
+
+/**
+ * Point de reprise sûr : sur la dernière colonne pleine touchée (ou avant),
+ * x le plus à droite qui reste à BORD_SUR des bords et à DISTANCE_SURE de
+ * toute patrouille de gêneur encore active, sans dépasser `xMort`.
+ * Repli : le trottoir de départ, toujours sans gêneur.
+ */
+export function pointDeReprise(m, xMort) {
+  const solides = m.plateformes.filter((p) => !p.flottante && !p.mobile && !p.fragile && p.type !== 'benne');
+  let k = solides.indexOf(m.dernierSol);
+  if (k < 0) {
+    k = 0;
+    solides.forEach((p, i) => { if (p.x <= xMort) k = i; });
+  }
+  const interdits = m.geneurs
+    .filter((g) => g.actif && !(g.ecarte > 0))
+    .map((g) => {
+      const [a, b] = zoneGeneur(g);
+      return [a - DISTANCE_SURE, b + DISTANCE_SURE];
+    });
+  for (let i = k; i >= 0; i -= 1) {
+    const p = solides[i];
+    const lo = p.x + BORD_SUR;
+    let hi = p.x + p.w - BORD_SUR - LARGEUR;
+    if (xMort != null && i === k) hi = Math.min(hi, xMort - 10);
+    for (let x = Math.floor(hi); x >= lo; x -= 2) {
+      if (!interdits.some(([a, b]) => x + LARGEUR > a && x < b)) return { p, x };
+    }
+  }
+  return { p: m.plateformes[0], x: m.depart.x };
+}
+
 /** Niveau complet, reproductible pour un même (niveau, graine). */
 export function genererNiveau(niveau, graine) {
   const r = reglagesNiveau(niveau);
@@ -337,12 +448,25 @@ export function genererNiveau(niveau, graine) {
   const ajouter = (p) => {
     const cand = { ...p };
     const sources = prec.sorties || [prec];
+    const srcMin = Math.min(...sources.map(hautDe));
+    const srcMax = Math.max(...sources.map(hautDe));
     const faisable = () => {
       const entrees = etatsEntree(cand);
-      return sources.every((a) => entrees.every((b) => peutSauter(a, b)));
+      return sources.every((a) => entrees.every((b) => {
+        if (b.y - hautDe(a) > MONTEE_MAX || hautDe(a) - b.y > MONTEE_MAX) return false;
+        if (b.x - (a.x + a.w) > ECART_MAX) return false;
+        if (!peutSauter(a, b)) return false;
+        // Entre deux colonnes fixes, le retour doit aussi passer.
+        if (!a.flottante && !b.flottante && !a.mobile && !b.mobile && !peutRevenir(a, b)) return false;
+        return true;
+      }));
     };
     const placer = () => {
+      // Marche bornée : montée comme descente, sous MONTEE_MAX.
+      const amp = cand.mobile && cand.mobile.axe === 'y' ? cand.mobile.amp : 0;
+      cand.y = borner(cand.y, srcMax - MONTEE_MAX + amp, srcMin + MONTEE_MAX - amp);
       if (cand.mobile && cand.mobile.axe === 'y') cand.y = Math.max(cand.y, cand.mobile.amp + 28);
+      if (!cand.flottante) cand.y = Math.max(0, cand.y);
       cand.x = Math.round(prec.x + prec.w + cand.ecart);
       cand.y = Math.round(cand.y);
       if (cand.mobile) {
@@ -357,7 +481,7 @@ export function genererNiveau(niveau, graine) {
       cand.ecart = 0;
       placer();
       sources.forEach((a) => etatsEntree(cand).forEach((b) => { lim = Math.min(lim, portee(a, b)); }));
-      cand.ecart = Math.max(0, lim * cand.ratio);
+      cand.ecart = Math.min(ECART_MAX - (cand.mobile && cand.mobile.axe === 'x' ? 0 : 0), Math.max(0, lim * Math.min(cand.ratio, RATIO_MAX)));
       delete cand.ratio;
     }
     let ok = false;
@@ -367,7 +491,6 @@ export function genererNiveau(niveau, graine) {
       if (!ok) {
         cand.ecart = Math.max(0, cand.ecart * 0.75 - 4);
         cand.y = prec.y + (cand.y - prec.y) * 0.65;
-        if (!cand.flottante) cand.y = Math.max(0, cand.y);
       }
     }
     if (!ok) {
@@ -387,10 +510,12 @@ export function genererNiveau(niveau, graine) {
       if (cand.flottante || cand.y <= 0) {
         delete cand.fragile;
       } else {
-        cand.retard = Math.round((cand.w / VITESSE + 0.34) * 100) / 100;
+        // Temps de traverser, plus une bonne seconde de répit.
+        cand.retard = Math.round((cand.w / VITESSE + 0.9) * 100) / 100;
         cand.tombe = 0;
         cand.effondre = false;
         cand.chute = 0;
+        cand.reforme = 0;
       }
     }
     cand.w = Math.round(cand.w);
@@ -412,8 +537,8 @@ export function genererNiveau(niveau, graine) {
 
   const colonne = (extra) => ajouter({
     flottante: false,
-    w: entre(rng, Math.max(110, 170 - diff * 60), Math.max(160, 330 - diff * 150)),
-    y: borner(prec.y + entre(rng, -75, 30 + diff * 60), 0, 175),
+    w: entre(rng, Math.max(130, 190 - diff * 60), Math.max(200, 340 - diff * 120)),
+    y: borner(prec.y + entre(rng, -r.marche, r.marche), 0, 175),
     ratio: ratio(),
     ...extra,
   });
@@ -422,64 +547,65 @@ export function genererNiveau(niveau, graine) {
     let tirage = rng();
     const pM = r.probMobile;
     const pF = pM + r.probFragile;
-    // Dès le niveau 3, au moins une nacelle et un toit fragile par niveau.
-    if (n >= 3 && prec.x > longueur * 0.35 && !plateformes.some((q) => q.mobile)) tirage = 0;
+    // Dès le niveau 4, une nacelle par niveau ; dès le 3, un toit fragile.
+    if (n >= 4 && prec.x > longueur * 0.35 && !plateformes.some((q) => q.mobile)) tirage = 0;
     else if (n >= 3 && prec.x > longueur * 0.55 && !plateformes.some((q) => q.fragile)) tirage = pM + 0.0001;
     const pE = pF + r.probEnchaine;
     if (tirage < pM) {
-      // Nacelle : plateforme mobile, horizontale ou verticale, au-dessus d'un grand vide.
+      // Nacelle : plateforme mobile, horizontale ou verticale.
       const axe = rng() < 0.6 ? 'x' : 'y';
-      const amp = axe === 'x' ? entre(rng, 45, 80) : entre(rng, 28, 44);
+      const amp = axe === 'x' ? entre(rng, 35, 60) : entre(rng, 20, 26);
       ajouter({
         flottante: true,
         type: 'nacelle',
-        mobile: { axe, amp, vit: entre(rng, 1.1, 1.5 + diff * 0.5), phase: rng() * 6.28, x0: 0, y0: 0 },
-        w: entre(rng, 66, 90),
-        y: borner(prec.y + entre(rng, -10, 45), 40, 150),
-        ratio: ratio() * 0.9,
+        mobile: { axe, amp, vit: entre(rng, 1, 1.3 + diff * 0.3), phase: rng() * 6.28, x0: 0, y0: 0 },
+        w: entre(rng, 76, 96),
+        y: borner(prec.y + entre(rng, -10, 30), 40, 150),
+        ratio: ratio() * 0.85,
       });
-      colonne({ w: entre(rng, 150, 240), y: borner(prec.y + entre(rng, -60, 20), 0, 170) });
+      colonne({ w: entre(rng, 170, 250), y: prec.y });
     } else if (tirage < pF) {
-      // Toits fragiles : ils s'effondrent peu après qu'on s'y est posé.
-      const k = 1 + Math.floor(rng() * (1 + diff * 2));
+      // Toits fragiles : ils s'effondrent un peu après qu'on s'y est posé.
+      const k = 1 + (diff > 0.5 && rng() < 0.5 ? 1 : 0);
       for (let i = 0; i < k; i += 1) {
         colonne({
           fragile: true,
-          w: entre(rng, 80, 110),
-          y: borner(prec.y + entre(rng, -30, 40), 25, 170),
-          ratio: Math.min(ratio(), 0.88),
+          w: entre(rng, 90, 120),
+          y: borner(prec.y + entre(rng, -25, 30), 25, 170),
+          ratio: ratio(),
         });
       }
-      colonne({ w: entre(rng, 150, 230) });
+      colonne({ w: entre(rng, 170, 240) });
     } else if (tirage < pE) {
-      // Sauts enchaînés : petits toits serrés, trous proches de la limite.
-      const k = 2 + Math.floor(rng() * (1 + diff * 2.5));
+      // Sauts enchaînés : petits toits rapprochés.
+      const k = 2 + Math.floor(rng() * (1 + diff * 1.5));
       for (let i = 0; i < k; i += 1) {
         colonne({
-          w: entre(rng, 64, 88),
-          y: borner(prec.y + entre(rng, -50, 40), 0, 170),
-          ratio: Math.min(0.97, r.ratioMax + 0.01),
+          w: entre(rng, 80, 104),
+          y: borner(prec.y + entre(rng, -30, 30), 0, 170),
+          ratio: ratio(),
         });
       }
-    } else if (rng() < 0.2 + diff * 0.15) {
+      colonne({ w: entre(rng, 180, 260) });
+    } else if (rng() < 0.18 + diff * 0.12) {
       // Pierres de gué : échafaudages et auvents au-dessus d'un trou.
-      const k = 1 + Math.floor(rng() * (1 + diff * 2.5));
+      const k = 1 + Math.floor(rng() * (1 + diff * 1.5));
       for (let i = 0; i < k; i += 1) {
         ajouter({
           flottante: true,
           type: rng() < 0.5 ? 'echafaudage' : 'auvent',
-          w: entre(rng, 64, 98 - diff * 26),
-          y: borner(prec.y + entre(rng, -25, 45), 50, 185),
+          w: entre(rng, 80, 110 - diff * 16),
+          y: borner(prec.y + entre(rng, -25, 35), 50, 185),
           ratio: ratio(),
         });
       }
-      colonne({ w: entre(rng, 150, 280), y: borner(prec.y + entre(rng, -100, 15), 0, 170) });
+      colonne({ w: entre(rng, 180, 280) });
     } else if (rng() < 0.2 && !prec.flottante && !prec.fragile && prec.w >= 120) {
       // Benne sur le trottoir : on monte dessus, on redescend.
       const base = prec.y;
       const benne = ajouter({ flottante: false, type: 'benne', base, w: entre(rng, 56, 78), y: base + 34, ecart: 0 });
       if (benne.y - base < 10) benne.type = typeColonne(benne.y);
-      ajouter({ flottante: false, w: entre(rng, 150, 270), y: base, ecart: 0 });
+      ajouter({ flottante: false, w: entre(rng, 170, 270), y: base, ecart: 0 });
     } else {
       colonne();
     }
@@ -488,18 +614,26 @@ export function genererNiveau(niveau, graine) {
   const fin = ajouter({
     flottante: false,
     w: 380,
-    y: prec.flottante ? borner(prec.y - 40, 0, 170) : prec.y,
-    ratio: Math.min(ratio(), 0.7),
+    y: prec.y,
+    ratio: Math.min(ratio(), 0.6),
   });
   delete fin.fragile;
   fin.arrivee = true;
   const porte = { x: fin.x + fin.w - 110, y: fin.y, ...TAILLES.porte };
 
-  // Objets : colis, boîtes aux lettres, gêneurs.
+  // Objets : colis, boîtes aux lettres, caisses bonus, gêneurs.
   const colis = [];
   const boites = [];
   const geneurs = [];
   const C = TAILLES.colis;
+  const B = TAILLES.boite;
+  let nbCaisses = 0;
+  const caisse = (x, y) => {
+    boites.push({ x: Math.round(x), y, w: B, h: B, boite: true, frappee: false, bonus: BONUS_CAISSE[(n + nbCaisses) % BONUS_CAISSE.length] });
+    nbCaisses += 1;
+  };
+  // Une caisse bonus sur le trottoir de départ, à chaque niveau.
+  caisse(130, 66);
   for (let i = 0; i < plateformes.length; i += 1) {
     const p = plateformes[i];
     const suivante = plateformes[i + 1];
@@ -509,37 +643,43 @@ export function genererNiveau(niveau, graine) {
     if (p.flottante) {
       if (rng() < 0.5) colis.push({ x: p.x + p.w / 2 - C / 2, y: p.y + 34 });
     } else if (p.type !== 'benne' && !p.arrivee && !p.fragile) {
-      if (largeurUtile >= 110 && rng() < 0.6) {
+      if (largeurUtile >= 110 && rng() < 0.65) {
         const nb = largeurUtile >= 220 ? 3 : 2;
         const x0 = debut + largeurUtile / 2 - (nb * 28) / 2;
         for (let k = 0; k < nb; k += 1) colis.push({ x: x0 + k * 28, y: p.y + 40 });
       }
-      // Boîte loin des bords : jamais sur la trajectoire d'un saut.
-      if (i > 0 && suivante && largeurUtile >= 250 && rng() < 0.5) {
-        const bx = debut + 140 + rng() * (largeurUtile - 220 - TAILLES.boite);
-        boites.push({ x: Math.round(bx), y: p.y + 66, w: TAILLES.boite, h: TAILLES.boite, boite: true, frappee: false });
-      }
-      if (i > 0 && suivante && p.w >= 110 && rng() < r.probGeneur) {
-        const nb = p.w >= 240 && n >= 2 ? 2 : 1;
+      let geneurPose = false;
+      // Gêneurs : jamais sur les DEGAGEMENT_ATTERRISSAGE premières unités (on y atterrit).
+      if (i > 0 && suivante && p.w >= LARGEUR_MIN_GENEUR && rng() < r.probGeneur) {
+        const nb = p.w >= 300 && n >= 3 ? 2 : 1;
+        const zx1 = p.x + DEGAGEMENT_ATTERRISSAGE;
+        const zx2 = p.x + p.w - 30;
         for (let k = 0; k < nb; k += 1) {
           const type = r.types[Math.floor(rng() * r.types.length)];
           const t = TAILLES[type];
-          const x1 = p.x + 8 + (k * p.w) / nb;
-          const x2 = p.x + ((k + 1) * p.w) / nb - 8 - t.w;
+          const x1 = zx1 + (k * (zx2 - zx1)) / nb;
+          const x2 = zx1 + ((k + 1) * (zx2 - zx1)) / nb - t.w - (k < nb - 1 ? 8 : 0);
           if (x2 - x1 < 30) continue;
           const x = x1 + rng() * (x2 - x1);
+          geneurPose = true;
           if (type === 'pigeon') {
-            // Plus bas aux niveaux durs : il faut le sauter, on ne passe plus dessous.
-            const haut = 46 - Math.min(18, diff * 24);
+            const haut = 46 - Math.min(12, diff * 16);
             geneurs.push({
               type, x, y: p.y + haut, base: p.y + haut, cx: (x1 + x2) / 2, amp: (x2 - x1) / 2,
-              vitesse: 1.2 + diff * 1.1, phase: rng() * 6.28, w: t.w, h: t.h, dir: -1,
+              vitesse: 1.1 + diff * 0.8, phase: rng() * 6.28, w: t.w, h: t.h, dir: -1,
             });
           } else {
-            const v = type === 'chien' ? 60 + diff * 60 : 120 + diff * 70;
+            const v = type === 'chien' ? 45 + diff * 45 : 90 + diff * 50;
             geneurs.push({ type, x, y: p.y, x1, x2, vx: -v, w: t.w, h: t.h, dir: -1 });
           }
         }
+      }
+      // Caisse bonus ou boîte aux lettres, au milieu du toit, loin des bords.
+      if (i > 0 && suivante && !geneurPose && p.w >= 170 && rng() < 0.3) {
+        caisse(p.x + p.w / 2 - B / 2, p.y + 66);
+      } else if (i > 0 && suivante && largeurUtile >= 250 && rng() < 0.5) {
+        const bx = debut + 140 + rng() * (largeurUtile - 220 - B);
+        boites.push({ x: Math.round(bx), y: p.y + 66, w: B, h: B, boite: true, frappee: false });
       }
     }
     // Colis sur la trajectoire d'un saut.
@@ -569,7 +709,7 @@ export function genererNiveau(niveau, graine) {
 }
 
 // ---- Partie ----
-/** Monde d'un niveau. `report` : { score, vies } de la partie en cours. */
+/** Monde d'un niveau. `report` : { score, vies, pieces, grand } de la partie en cours. */
 export function creerMonde(niveau, report = {}, graine) {
   const niv = genererNiveau(niveau, graine);
   return {
@@ -577,16 +717,25 @@ export function creerMonde(niveau, report = {}, graine) {
     joueur: nouveauJoueur(niv.depart.x, niv.depart.y),
     vies: report.vies != null ? report.vies : VIES,
     score: report.score || 0,
+    pieces: Math.max(0, Math.floor(Number(report.pieces) || 0)),
+    grand: !!report.grand,
     colisNiveau: 0,
     ecartesNiveau: 0,
     temps: 0,
     invul: 0,
+    attente: false,
+    attenteArmee: false,
+    vol: 0,
+    etoile: 0,
+    aimant: 0,
     etat: 'jeu', // jeu | livre | perdu
     bonusTemps: 0,
     dernierSol: niv.plateformes[0],
     reste: niv.limite,
     cause: null,
     popups: [],
+    sorties: [],
+    annonce: null,
     horloge: 0,
   };
 }
@@ -594,6 +743,44 @@ export function creerMonde(niveau, report = {}, graine) {
 function popup(m, x, y, texte) {
   m.popups.push({ x, y, texte, age: 0, id: `${m.horloge.toFixed(3)}_${m.popups.length}` });
   if (m.popups.length > 8) m.popups.shift();
+}
+
+// Annonce au centre de l'écran : clé de texte traduite, durée 1,8 s.
+const ANNONCES = {
+  vie: { cle: 'jeuxToitsBonusVie', icone: 'heart', couleur: '#E74C3C' },
+  aimant: { cle: 'jeuxToitsBonusAimant', icone: 'magnet', couleur: '#8E44AD', n: DUREES.aimant },
+  taille: { cle: 'jeuxToitsBonusTaille', icone: 'shield-star', couleur: '#0A9A78' },
+  vol: { cle: 'jeuxToitsBonusVol', icone: 'umbrella', couleur: '#2D7FD3', n: DUREES.vol },
+  etoile: { cle: 'jeuxToitsBonusEtoile', icone: 'star', couleur: '#E0A100', n: DUREES.etoile },
+  encaisse: { cle: 'jeuxToitsCoupEncaisse', icone: 'shield-check', couleur: '#0A9A78' },
+};
+function annoncer(m, type) {
+  m.annonce = { ...ANNONCES[type], type, age: 0, id: `${type}_${m.horloge.toFixed(3)}` };
+}
+
+// Un colis de plus : tous les PALIER_PIECES, une vie (si il en manque), sinon un aimant.
+function gagnerPiece(m, evenements) {
+  m.pieces += 1;
+  if (m.pieces % PALIER_PIECES !== 0) return;
+  if (m.vies < VIES) {
+    m.vies += 1;
+    annoncer(m, 'vie');
+  } else {
+    m.aimant = DUREES.aimant;
+    annoncer(m, 'aimant');
+  }
+  evenements.push({ type: 'bonus' });
+}
+
+function appliquerCaisse(m, b, evenements) {
+  const type = b.bonus;
+  if (type === 'taille') m.grand = true;
+  else if (type === 'vol') m.vol = DUREES.vol;
+  else if (type === 'etoile') m.etoile = DUREES.etoile;
+  m.score += POINTS.caisse;
+  m.sorties.push({ type, x: b.x + b.w / 2, y: b.y + b.h, age: 0, id: `s${b.id}` });
+  annoncer(m, type);
+  evenements.push({ type: 'bonus' });
 }
 
 function chevauche(j, e, marge) {
@@ -612,31 +799,79 @@ function perdreVie(m, evenements, cause) {
 }
 
 /**
+ * Reprise sûre après une chute ou un coup : point sûr (pointDeReprise),
+ * livreur immobile et invincible jusqu'au prochain geste, puis encore
+ * INVUL_REPRISE secondes.
+ */
+export function reapparaitre(m, xMort) {
+  m.plateformes.forEach((p) => {
+    if (p.fragile) {
+      p.tombe = 0;
+      p.effondre = false;
+      p.chute = 0;
+      p.reforme = 0;
+    }
+  });
+  const { p, x } = pointDeReprise(m, xMort);
+  m.joueur = nouveauJoueur(x, hautDe(p));
+  m.joueur.sol = p;
+  m.dernierSol = p;
+  m.attente = true;
+  m.attenteArmee = false;
+  m.invul = INVUL_REPRISE;
+  m.vol = 0;
+}
+
+const CMD_VIDE = { gauche: false, droite: false, sautTenu: false, sautAppui: false, bas: false };
+
+/**
  * Avance le monde de `dt` secondes (borné, découpé en petits pas).
- * `cmd` : { gauche, droite, sautTenu, sautAppui, bas } (sautAppui : appui neuf,
- * bas : accroupi demandé).
- * Rend la liste des événements : colis, boite, ecarte, touche, chute, livre.
+ * `cmd` : { gauche, droite, sautTenu, sautAppui, bas, geste } (sautAppui :
+ * appui neuf, bas : accroupi demandé, geste : nouveau geste gauche, droite ou
+ * haut ce tour-ci, il relance le livreur après une reprise).
+ * Rend la liste des événements : colis, boite, bonus, ecarte, encaisse,
+ * touche, chute, temps, livre, reprise.
  */
 export function pas(m, dtBrut, cmd) {
   const evenements = [];
   if (m.etat !== 'jeu') return evenements;
   const dtTotal = borner(dtBrut || 0, 0, 0.05);
-  if (cmd.sautAppui) demanderSaut(m.joueur);
+  if (m.attente && m.attenteArmee && (cmd.geste || cmd.sautAppui)) {
+    m.attente = false;
+    m.invul = INVUL_REPRISE;
+    evenements.push({ type: 'reprise' });
+  }
+  if (cmd.sautAppui && !m.attente) demanderSaut(m.joueur);
   const n = Math.max(1, Math.ceil(dtTotal / PAS_MAX));
   const dt = dtTotal / n;
-  for (let k = 0; k < n && m.etat === 'jeu'; k += 1) sousPas(m, dt, cmd, evenements);
+  for (let k = 0; k < n && m.etat === 'jeu'; k += 1) sousPas(m, dt, m.attente ? CMD_VIDE : cmd, evenements);
+  if (m.attente) m.attenteArmee = true;
   for (let i = m.popups.length - 1; i >= 0; i -= 1) {
     m.popups[i].age += dtTotal;
     if (m.popups[i].age > 0.9) m.popups.splice(i, 1);
   }
+  for (let i = m.sorties.length - 1; i >= 0; i -= 1) {
+    m.sorties[i].age += dtTotal;
+    if (m.sorties[i].age > 0.9) m.sorties.splice(i, 1);
+  }
+  if (m.annonce) {
+    m.annonce.age += dtTotal;
+    if (m.annonce.age > 1.8) m.annonce = null;
+  }
   return evenements;
 }
 
-function sousPas(m, dt, cmd, evenements) {
+function sousPas(m, dtPas, cmdBrut, evenements) {
+  const dt = dtPas;
+  let cmd = cmdBrut;
   const j = m.joueur;
   m.temps += dt;
   m.horloge += dt;
-  if (m.invul > 0) m.invul -= dt;
+  if (m.invul > 0 && !m.attente) m.invul -= dt;
+  if (m.vol > 0) m.vol = Math.max(0, m.vol - dt);
+  if (m.etoile > 0) m.etoile = Math.max(0, m.etoile - dt);
+  if (m.aimant > 0) m.aimant = Math.max(0, m.aimant - dt);
+  j.vol = m.vol > 0;
   const avantY = j.y;
 
   // Plateformes mobiles (elles emportent le livreur) et toits qui s'effondrent.
@@ -653,6 +888,14 @@ function sousPas(m, dt, cmd, evenements) {
     } else if (p.fragile) {
       if (p.effondre) {
         p.chute += (160 + p.chute * 2) * dt;
+        // Le toit se reforme : on n'est jamais bloqué devant un trou devenu trop grand.
+        p.reforme += dt;
+        if (p.reforme > 3.5 && !(j.x + LARGEUR > p.x && j.x < p.x + p.w)) {
+          p.effondre = false;
+          p.tombe = 0;
+          p.chute = 0;
+          p.reforme = 0;
+        }
       } else if (p.tombe > 0) {
         p.tombe += dt;
         if (p.tombe >= p.retard) p.effondre = true;
@@ -661,11 +904,11 @@ function sousPas(m, dt, cmd, evenements) {
   }
   if (j.sol && j.sol.fragile && !j.sol.effondre && !(j.sol.tombe > 0)) j.sol.tombe = 0.0001;
 
-  // Chrono : à zéro, une vie est perdue et un peu de temps est rendu.
-  m.reste -= dt;
+  // Chrono (arrêté pendant l'attente de reprise) : à zéro, une vie est perdue.
+  if (!m.attente) m.reste -= dt;
   if (m.reste <= 0) {
     m.reste = RESERVE_TEMPS;
-    m.invul = 2;
+    m.invul = INVUL_REPRISE;
     perdreVie(m, evenements, 'temps');
     if (m.etat !== 'jeu') return;
   }
@@ -674,31 +917,49 @@ function sousPas(m, dt, cmd, evenements) {
   const etaitAccroupi = j.accroupi;
   j.accroupi = !!(cmd.bas && j.sol && !(j.tampon > 0));
   if (j.accroupi && !etaitAccroupi) evenements.push({ type: 'accroupi' });
+  if (m.attente) cmd = CMD_VIDE;
   const frappee = physiqueJoueur(j, m.plateformes, m.boites, cmd, dt);
   if (frappee && !frappee.frappee) {
     frappee.frappee = true;
     frappee.choc = 0.25;
-    m.score += POINTS.boite;
-    m.colisNiveau += 1;
-    popup(m, frappee.x + frappee.w / 2, frappee.y + frappee.h + 6, `+${POINTS.boite}`);
-    evenements.push({ type: 'boite' });
+    if (frappee.bonus) {
+      appliquerCaisse(m, frappee, evenements);
+    } else {
+      m.score += POINTS.boite;
+      m.colisNiveau += 1;
+      popup(m, frappee.x + frappee.w / 2, frappee.y + frappee.h + 6, `+${POINTS.boite}`);
+      evenements.push({ type: 'boite' });
+      gagnerPiece(m, evenements);
+    }
   } else if (frappee) {
     frappee.choc = 0.15;
   }
   m.boites.forEach((b) => { if (b.choc > 0) b.choc -= dt; });
-  if (j.sol && !j.sol.flottante && !j.sol.boite && !j.sol.fragile) m.dernierSol = j.sol;
+  if (j.sol && !j.sol.flottante && !j.sol.boite && !j.sol.fragile && !j.sol.mobile && j.sol.type !== 'benne') m.dernierSol = j.sol;
 
-  // Colis.
+  // Colis (attirés par l'aimant).
   const C = TAILLES.colis;
   for (let i = 0; i < m.colis.length; i += 1) {
     const c = m.colis[i];
-    if (c.pris || Math.abs(c.x - j.x) > 60) continue;
+    if (c.pris) continue;
+    if (m.aimant > 0) {
+      const dx = j.x + LARGEUR / 2 - (c.x + C / 2);
+      const dy = j.y + HAUTEUR / 2 - (c.y + C / 2);
+      const d = Math.hypot(dx, dy);
+      if (d < RAYON_AIMANT && d > 1) {
+        const v = Math.min(d, 320 * dt);
+        c.x += (dx / d) * v;
+        c.y += (dy / d) * v;
+      }
+    }
+    if (Math.abs(c.x - j.x) > 60) continue;
     if (chevauche(j, { x: c.x, y: c.y, w: C, h: C }, 1)) {
       c.pris = true;
       m.score += POINTS.colis;
       m.colisNiveau += 1;
       popup(m, c.x + C / 2, c.y + C, `+${POINTS.colis}`);
       evenements.push({ type: 'colis' });
+      gagnerPiece(m, evenements);
     }
   }
 
@@ -725,28 +986,34 @@ function sousPas(m, dt, cmd, evenements) {
       if (e.x > e.x2) { e.x = e.x2; e.vx = -Math.abs(e.vx); }
       e.dir = e.vx >= 0 ? 1 : -1;
     }
-    if (Math.abs(e.x - j.x) > 80 || !chevauche(j, e, 3)) continue;
-    // Par-dessus : le gêneur est écarté, on rebondit.
-    if (j.vy < 0 && avantY >= e.y + e.h - 10) {
+    if (m.joueur !== j || Math.abs(e.x - j.x) > 80 || !chevauche(j, e, 3)) continue;
+    const parDessus = j.vy < 0 && avantY >= e.y + e.h - 10;
+    if (parDessus || m.etoile > 0) {
+      // Par-dessus (ou avec l'étoile) : le gêneur est écarté.
       e.ecarte = 0.001;
-      j.vy = cmd.sautTenu ? REBOND_TENU : REBOND;
-      j.enSaut = !!cmd.sautTenu;
-      j.tenue = TENUE_MAX;
+      if (parDessus) {
+        j.vy = cmd.sautTenu ? REBOND_TENU : REBOND;
+        j.enSaut = !!cmd.sautTenu;
+        j.tenue = TENUE_MAX;
+      }
       const pts = POINTS[e.type] || 100;
       m.score += pts;
       m.ecartesNiveau += 1;
       popup(m, e.x + e.w / 2, e.y + e.h, `+${pts}`);
       evenements.push({ type: 'ecarte' });
     } else if (m.invul <= 0) {
-      const sens = j.x + LARGEUR / 2 < e.x + e.w / 2 ? -1 : 1;
-      j.vx = sens * 230;
-      j.vy = 300;
-      j.sol = null;
-      j.enSaut = false;
-      j.recul = 0.25;
-      m.invul = 1.6;
+      if (m.grand) {
+        // Grand livreur : il perd sa taille au lieu d'une vie, et reste en place.
+        m.grand = false;
+        m.invul = INVUL_REPRISE;
+        annoncer(m, 'encaisse');
+        evenements.push({ type: 'encaisse' });
+        continue;
+      }
       perdreVie(m, evenements, 'touche');
       if (m.etat !== 'jeu') return;
+      reapparaitre(m, j.x);
+      return;
     }
   }
 
@@ -754,20 +1021,7 @@ function sousPas(m, dt, cmd, evenements) {
   if (j.y < LIMITE_CHUTE) {
     perdreVie(m, evenements, 'chute');
     if (m.etat !== 'jeu') return;
-    const s = m.dernierSol || m.plateformes[0];
-    // Retour au bout du dernier sol, juste avant le trou raté.
-    const x = Math.max(s.x + 10, s.x + s.w - LARGEUR - 50);
-    // Les toits effondrés se reforment : le niveau reste faisable.
-    m.plateformes.forEach((p) => {
-      if (p.fragile) {
-        p.tombe = 0;
-        p.effondre = false;
-        p.chute = 0;
-      }
-    });
-    m.joueur = nouveauJoueur(x, s.y + 0.01);
-    m.joueur.sol = s;
-    m.invul = 2;
+    reapparaitre(m, j.x);
     return;
   }
 
