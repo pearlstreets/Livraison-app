@@ -15,9 +15,11 @@
  * Sauvegarde : le monde entier est mémorisé en pause, « Reprendre ou
  * Recommencer » à la réouverture dans les 24 h, jamais après une partie perdue.
  * Haut d'écran : barre, bandeau classement, HUD commun (components/HudJeu.js).
- * Décor : ciel en dégradé, astre, nuages, ville en parallaxe, immeubles,
- * grues, lampadaires, drone (components/DroneDessins.js), panneau Pearl Streets
- * sur les toits (components/FondJeu.js).
+ * Décor d'avant le 09/11 (demande du 10/11) : ciel uni, ville en parallaxe,
+ * immeubles simples, petit panneau Pearl Streets discret sur les toits
+ * (components/FondJeu.js). Récompenses : paliers de score, record battu,
+ * étoiles en fin de partie (components/RecompensesJeu.js). Boucle plafonnée
+ * à 60 images par seconde.
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, Easing } from 'react-native';
@@ -35,11 +37,10 @@ import ReprisePartie from '../components/ReprisePartie';
 import BandeauClassement from '../components/BandeauClassement';
 import HudJeu from '../components/HudJeu';
 import IndiceGestes from '../components/IndiceGestes';
-import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
 import {
-  OR, Ciel, Astre, CoucheNuages, listeNuages, silhouettes, SilhouetteImmeuble, Lampadaires, PERIODE_LAMPE,
-  Immeuble, HautGrue, HautEnseigne, HautCables, ColisBonus, ClientBalcon, DroneDessin, melange,
-} from '../components/DroneDessins';
+  BanniereRecompense, EtoilesFin, creerSuivi, suivreScore, etoilesPour, formaterNombre,
+} from '../components/RecompensesJeu';
+import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
 import { chargerRecord, finDePartie, envoyerRecordEnAttente } from '../utils/jeuxRecords';
 import {
   HAUTEUR, SOL, DRONE_DESSIN, TAILLE_BONUS, POINTS_COLIS, POINTS_CLIENT,
@@ -65,28 +66,48 @@ function vibrer(fort) {
   }
 }
 
+const OR = '#F2B705';
 const VERT = '#2ecc71';
+const PALIERS = [10, 25, 50, 100, 200, 500, 1000];
+const IMAGE_MIN_MS = 15; // plafond d'environ 60 images par seconde (écrans 90 et 120 Hz)
 const COULEUR_MEDAILLE = { bronze: '#CD7F32', argent: '#C0C6CE', or: OR };
 const CLE_MEDAILLE = { bronze: 'jeuxDroneBronze', argent: 'jeuxDroneArgent', or: 'jeuxDroneOr' };
 // Décors successifs (un nouveau tous les 10 passages) : ciel et silhouettes.
 const DECORS = {
-  clair: [{}, { ciel: '#F7D9B5', cielHaut: '#E58E6E', loin: '#D9B49A', proche: '#B98C7A' }, { ciel: '#BFE9D6', cielHaut: '#5FB59A', loin: '#9CC7B4', proche: '#7BA896' }, { ciel: '#D7C8EE', cielHaut: '#8D79C4', loin: '#B5A4D2', proche: '#9484B8' }],
-  sombre: [{}, { ciel: '#3A2230', cielHaut: '#120A10', loin: '#3A2530', proche: '#4A303D' }, { ciel: '#123530', cielHaut: '#050E0D', loin: '#173432', proche: '#1F4542' }, { ciel: '#2A2050', cielHaut: '#0A0716', loin: '#271F45', proche: '#33295A' }],
+  clair: [{}, { ciel: '#F7D9B5', loin: '#D9B49A', proche: '#B98C7A' }, { ciel: '#BFE9D6', loin: '#9CC7B4', proche: '#7BA896' }, { ciel: '#D7C8EE', loin: '#B5A4D2', proche: '#9484B8' }],
+  sombre: [{}, { ciel: '#2A1A22', loin: '#3A2530', proche: '#4A303D' }, { ciel: '#0D2220', loin: '#173432', proche: '#1F4542' }, { ciel: '#1A1530', loin: '#271F45', proche: '#33295A' }],
 };
 const PERIODE_RUE = 90; // unités entre deux traits de la chaussée
 
 const PALETTE = {
   clair: {
-    ciel: '#CFE6FA', cielHaut: '#6FA8DC', nuage: 'rgba(255,255,255,0.9)', fenLoin: '#FFF3C2', lampe: '#4A525C', loin: '#B3C9DE', proche: '#93ADC7', rue: '#5B6470', trottoir: '#9AA3AD', trait: '#ECECEC',
+    ciel: '#CFE6FA', loin: '#B3C9DE', proche: '#93ADC7', rue: '#5B6470', trottoir: '#9AA3AD', trait: '#ECECEC',
     immeubles: ['#C8553D', '#3D5A80', '#2A9D8F', '#6D597A'], toit: 'rgba(0,0,0,0.22)',
     fenetre: '#FFF6D6', fenetreEteinte: '#E3E8EE', cable: '#2B2F36', poteau: '#5E6670',
   },
   sombre: {
-    ciel: '#1B2A44', cielHaut: '#070B14', nuage: 'rgba(60,78,112,0.55)', fenLoin: '#F6C453', lampe: '#2F353D', loin: '#1A2636', proche: '#243246', rue: '#2A2F36', trottoir: '#3A4048', trait: '#8A8F96',
+    ciel: '#0E1622', loin: '#1A2636', proche: '#243246', rue: '#2A2F36', trottoir: '#3A4048', trait: '#8A8F96',
     immeubles: ['#9E3F2C', '#2E4663', '#1F786D', '#54445F'], toit: 'rgba(0,0,0,0.35)',
     fenetre: '#F6C453', fenetreEteinte: '#1B2430', cable: '#0B0D10', poteau: '#3F4650',
   },
 };
+
+// Silhouettes du décor (parallaxe), tirées une fois par largeur d'écran.
+function silhouettes(largeurPx, hauteurMin, hauteurMax, graine) {
+  const liste = [];
+  let x = 0;
+  let g = graine;
+  const alea = () => {
+    g = (g * 9301 + 49297) % 233280;
+    return g / 233280;
+  };
+  while (x < largeurPx) {
+    const l = 28 + alea() * 46;
+    liste.push({ x, l: Math.min(l, largeurPx - x), h: hauteurMin + alea() * (hauteurMax - hauteurMin), antenne: alea() < 0.25 });
+    x += l + 2;
+  }
+  return liste;
+}
 
 function instantane(o) {
   return {
@@ -129,14 +150,16 @@ export default function JeuDroneScreen({ navigation }) {
   const minuteurFinRef = useRef(null);
   const monteRef = useRef(true);
   const idBulleRef = useRef(0);
+  const banniereRef = useRef(null);
+  const suiviRef = useRef(null); // paliers et record annoncés pendant la partie
+  const meilleurRef = useRef(0);
+  meilleurRef.current = meilleur;
 
   const droneY = useRef(new Animated.Value(0)).current;
   const droneRot = useRef(new Animated.Value(0)).current;
   const decorLoin = useRef(new Animated.Value(0)).current;
   const decorProche = useRef(new Animated.Value(0)).current;
   const rue = useRef(new Animated.Value(0)).current;
-  const decorNuage = useRef(new Animated.Value(0)).current;
-  const decorLampe = useRef(new Animated.Value(0)).current;
   const flash = useRef(new Animated.Value(0)).current;
 
   const changerPhase = useCallback((p) => {
@@ -178,9 +201,7 @@ export default function JeuDroneScreen({ navigation }) {
     decorLoin.setValue(-((m.decor * k * 0.15) % lPx));
     decorProche.setValue(-((m.decor * k * 0.4) % lPx));
     rue.setValue(-((m.decor * k) % (PERIODE_RUE * k)));
-    decorNuage.setValue(-((m.decor * k * 0.05) % lPx));
-    decorLampe.setValue(-((m.decor * k) % (PERIODE_LAMPE * k)));
-  }, [decorLoin, decorLampe, decorNuage, decorProche, droneRot, droneY, rue]);
+  }, [decorLoin, decorProche, droneRot, droneY, rue]);
 
   const arreterBoucle = useCallback(() => {
     actifRef.current = false;
@@ -218,6 +239,8 @@ export default function JeuDroneScreen({ navigation }) {
     jouerSon('perdu');
     const m = mondeRef.current;
     const res = { score: m?.score || 0, passes: m?.passes || 0, colis: m?.colis || 0, clients: m?.clients || 0, nouveauRecord: false };
+    res.etoiles = etoilesPour(res.score, meilleurRef.current, PALIERS);
+    banniereRef.current?.cacher();
     if (monteRef.current) setResultat(res);
     changerPhase('fin');
     finDePartie('drone', user?.id, res.score).then((r) => {
@@ -268,13 +291,27 @@ export default function JeuDroneScreen({ navigation }) {
       }
     }
     if (changementListe) synchroniserListe();
-    if (points && monteRef.current) setScore(m.score);
+    if (points && monteRef.current) {
+      setScore(m.score);
+      const annonce = suivreScore(suiviRef.current, m.score);
+      if (annonce?.type === 'record') {
+        jouerSon('record');
+        banniereRef.current?.montrer({ texte: t('jeuRecompRecord'), icone: 'trophy', couleur: OR });
+      } else if (annonce) {
+        banniereRef.current?.montrer({ texte: t('jeuRecompPalier', { n: formaterNombre(annonce.n) }), icone: 'star', couleur: OR });
+      }
+    }
   }, [ajouterBulle, changerPhase, flash, sauverEtat, synchroniserListe, t, terminer, user?.id]);
 
   const boucleRef = useRef(null);
   boucleRef.current = (ts) => {
     rafRef.current = null;
     if (!actifRef.current || !mondeRef.current) return;
+    // Écran 90 ou 120 Hz : 60 images par seconde au plus, moins de chauffe.
+    if (dernierTsRef.current != null && ts - dernierTsRef.current < IMAGE_MIN_MS) {
+      rafRef.current = requestAnimationFrame((x) => boucleRef.current(x));
+      return;
+    }
     const dt = dernierTsRef.current == null ? 1 / 60 : (ts - dernierTsRef.current) / 1000;
     dernierTsRef.current = ts;
     const ev = avancer(mondeRef.current, dt);
@@ -307,6 +344,8 @@ export default function JeuDroneScreen({ navigation }) {
     effacerPartie('drone', user?.id);
     setReprise(null);
     nouveauMonde();
+    suiviRef.current = creerSuivi(PALIERS, meilleurRef.current, 0);
+    banniereRef.current?.cacher();
     setScore(0);
     setNiveau(0);
     setResultat(null);
@@ -381,6 +420,7 @@ export default function JeuDroneScreen({ navigation }) {
     animsRef.current = new Map();
     synchroniserListe();
     dessiner();
+    suiviRef.current = creerSuivi(PALIERS, meilleurRef.current, m.score || 0);
     setScore(m.score || 0);
     setNiveau(d.niveau || 0);
     setResultat(null);
@@ -459,9 +499,8 @@ export default function JeuDroneScreen({ navigation }) {
   const enJeu = phase === 'pret' || phase === 'vol' || phase === 'chute' || phase === 'reprise';
   const rotation = droneRot.interpolate({ inputRange: [-180, 180], outputRange: ['-180deg', '180deg'] });
 
-  const loin = useMemo(() => (taille.l ? silhouettes(taille.l, taille.h * 0.22, taille.h * 0.42, 17, true) : []), [taille]);
-  const proche = useMemo(() => (taille.l ? silhouettes(taille.l, taille.h * 0.12, taille.h * 0.28, 71, false) : []), [taille]);
-  const nuages = useMemo(() => (taille.l ? listeNuages(taille.l, taille.h * 0.5, 5) : []), [taille]);
+  const loin = useMemo(() => (taille.l ? silhouettes(taille.l, taille.h * 0.22, taille.h * 0.42, 17) : []), [taille]);
+  const proche = useMemo(() => (taille.l ? silhouettes(taille.l, taille.h * 0.12, taille.h * 0.28, 71) : []), [taille]);
 
   return (
     <View style={[styles.ecran, { backgroundColor: pal.rue }]}>
@@ -474,12 +513,8 @@ export default function JeuDroneScreen({ navigation }) {
       >
         {taille.h > 0 && (
           <>
-            <Ciel haut={pal.cielHaut} bas={pal.ciel} />
-            <Astre dark={dark} largeur={taille.l} hauteur={taille.h} couleurCiel={melange(pal.cielHaut, pal.ciel, 0.15)} />
-            <CoucheNuages liste={nuages} decalage={decorNuage} largeur={taille.l} couleur={pal.nuage} />
-            <Couche liste={loin} decalage={decorLoin} couleur={pal.loin} largeur={taille.l} bas={solPx} fenetre={pal.fenLoin} />
-            <Couche liste={proche} decalage={decorProche} couleur={pal.proche} largeur={taille.l} bas={solPx} enseigne={LARGEUR_ENSEIGNE} fenetre={pal.fenLoin} />
-            <Lampadaires decalage={decorLampe} largeur={taille.l} k={k} bas={solPx} dark={dark} couleur={pal.lampe} />
+            <Couche liste={loin} decalage={decorLoin} couleur={pal.loin} largeur={taille.l} bas={solPx} />
+            <Couche liste={proche} decalage={decorProche} couleur={pal.proche} largeur={taille.l} bas={solPx} enseigne={LARGEUR_ENSEIGNE} />
 
             {liste.map((o) => {
               const a = animsRef.current.get(o.id);
@@ -501,7 +536,11 @@ export default function JeuDroneScreen({ navigation }) {
               pointerEvents="none"
               style={[styles.drone, { left: droneGauche, width: D, height: D, transform: [{ translateY: droneY }, { rotate: rotation }] }]}
             >
-              <DroneDessin D={D} />
+              <MaterialCommunityIcons name="quadcopter" size={D * 0.62} color={BRAND} />
+              <View style={[styles.fil, { height: D * 0.1, backgroundColor: dark ? '#C9CED6' : '#444' }]} />
+              <View style={[styles.colisDrone, { width: D * 0.3, height: D * 0.24, borderRadius: D * 0.04 }]}>
+                <MaterialCommunityIcons name="package-variant-closed" size={D * 0.2} color="#fff" />
+              </View>
             </Animated.View>
 
             {impact && <Impact key={impact.n} x={impact.x} y={impact.y} taille={D} />}
@@ -510,6 +549,7 @@ export default function JeuDroneScreen({ navigation }) {
             ))}
 
             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.flash, { opacity: flash }]} />
+            <BanniereRecompense ref={banniereRef} haut={taille.h * 0.3} />
 
             {(phase === 'pret' || phase === 'reprise') && (
               <View pointerEvents="none" style={[styles.consigne, { top: taille.h * 0.62 }]}>
@@ -608,6 +648,7 @@ export default function JeuDroneScreen({ navigation }) {
                 {niveauPalier(resultat?.passes ?? 0) > 0 && (
                   <MaterialCommunityIcons name="medal" size={30} color={COULEUR_MEDAILLE[medaille(niveauPalier(resultat.passes))]} />
                 )}
+                <EtoilesFin n={resultat?.etoiles ?? 0} t={t} colors={colors} />
                 <Text style={styles.scoreFin}>{resultat?.score ?? score}</Text>
                 <View style={styles.stats}>
                   <Stat icone="office-building" n={resultat?.passes ?? 0} styles={styles} />
@@ -651,11 +692,11 @@ export default function JeuDroneScreen({ navigation }) {
 }
 
 // Couche de décor : deux copies de la même bande qui défilent en boucle.
-// `enseigne` (largeur) : panneau Pearl Streets sur pieds, posé sur le toit de
-// l'immeuble le plus proche du milieu de chaque bande.
-const LARGEUR_ENSEIGNE = 110;
+// `enseigne` (largeur) : petit panneau Pearl Streets discret sur pieds, posé
+// sur le toit de l'immeuble le plus proche du milieu de chaque bande.
+const LARGEUR_ENSEIGNE = 50;
 const PIEDS_ENSEIGNE = 12;
-const Couche = memo(function Couche({ liste, decalage, couleur, largeur, bas, enseigne = 0, fenetre }) {
+const Couche = memo(function Couche({ liste, decalage, couleur, largeur, bas, enseigne = 0 }) {
   const porteur = useMemo(() => {
     if (!enseigne || !liste.length) return -1;
     let meilleur = 0;
@@ -669,7 +710,9 @@ const Couche = memo(function Couche({ liste, decalage, couleur, largeur, bas, en
   const bande = (cle) => (
     <View key={cle} style={{ width: largeur, height: '100%' }}>
       {liste.map((b, i) => (
-        <SilhouetteImmeuble key={i} b={b} couleur={couleur} couleurFenetre={fenetre} bas={bas} porteur={i === porteur} />
+        <View key={i} style={{ position: 'absolute', left: b.x, bottom: bas, width: b.l, height: b.h, backgroundColor: couleur }}>
+          {b.antenne && i !== porteur && <View style={{ position: 'absolute', top: -14, left: b.l / 2 - 1, width: 2, height: 14, backgroundColor: couleur }} />}
+        </View>
       ))}
       {porteur >= 0 && (
         <EnseignePearl
@@ -679,7 +722,7 @@ const Couche = memo(function Couche({ liste, decalage, couleur, largeur, bas, en
           couleurSupport={couleur}
           style={{
             position: 'absolute', left: liste[porteur].x + liste[porteur].l / 2 - enseigne / 2,
-            bottom: bas + liste[porteur].h, height: hEnseigne,
+            bottom: bas + liste[porteur].h, height: hEnseigne, opacity: 0.6,
           }}
         />
       )}
@@ -705,9 +748,38 @@ const Obstacle = memo(function Obstacle({ o, a, k, hPx, pal, dark }) {
   const b = TAILLE_BONUS * k;
 
   let haut;
-  if (o.haut === 'grue') haut = <HautGrue w={w} hFull={hPx - ep / 2} hautVisible={hautVisible} k={k} />;
-  else if (o.haut === 'enseigne') haut = <HautEnseigne w={w} hFull={hPx - ep / 2} k={k} pal={pal} />;
-  else haut = <HautCables w={w} hFull={hPx - ep / 2} k={k} pal={pal} dark={dark} />;
+  if (o.haut === 'grue') {
+    const barres = Math.max(1, Math.min(12, Math.floor(hautVisible / (44 * k))));
+    haut = (
+      <View style={[styles2.morceau, { height: hPx - ep / 2, width: w, backgroundColor: OR, borderColor: '#8A6A00', borderWidth: Math.max(1, 3 * k) }]}>
+        {Array.from({ length: barres }).map((_, i) => (
+          <View key={i} style={{ position: 'absolute', left: 0, right: 0, bottom: 34 * k + i * 44 * k, height: Math.max(2, 6 * k), backgroundColor: '#8A6A00' }} />
+        ))}
+        <View style={[styles2.crochet, { height: 28 * k, backgroundColor: '#3B3F46' }]}>
+          <MaterialCommunityIcons name="hook" size={24 * k} color={OR} />
+        </View>
+      </View>
+    );
+  } else if (o.haut === 'enseigne') {
+    haut = (
+      <View style={[styles2.morceau, { height: hPx - ep / 2, width: w, backgroundColor: pal.poteau }]}>
+        <View style={[styles2.enseigne, { height: 74 * k, borderRadius: 10 * k }]}>
+          <MaterialCommunityIcons name="storefront-outline" size={40 * k} color="#fff" />
+        </View>
+      </View>
+    );
+  } else {
+    haut = (
+      <View style={[styles2.morceau, { height: hPx - ep / 2, width: w, flexDirection: 'row', justifyContent: 'space-between' }]}>
+        {[0, 1, 2, 3].map((i) => (
+          <View key={i} style={{ width: w * 0.21, height: '100%', backgroundColor: pal.cable, borderBottomLeftRadius: 4, borderBottomRightRadius: 4 }} />
+        ))}
+        <View style={[styles2.boitier, { height: 40 * k, backgroundColor: dark ? '#4A515B' : '#7D8794', borderColor: pal.cable }]}>
+          <MaterialCommunityIcons name="flash" size={22 * k} color={OR} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <Animated.View
@@ -715,15 +787,34 @@ const Obstacle = memo(function Obstacle({ o, a, k, hPx, pal, dark }) {
       style={{ position: 'absolute', left: 0, top: -hPx, width: w, height: 2 * hPx + ep, transform: [{ translateX: a.x }, { translateY: a.y }] }}
     >
       {haut}
-      <Immeuble w={w} h={hPx} top={hPx + ep / 2} couleur={couleur} k={k} rangees={rangees} id={o.id} pal={pal} sansAccessoire={o.client || (o.colis && !o.colisPris)} />
+      <View style={[styles2.immeuble, { top: hPx + ep / 2, height: hPx, width: w, backgroundColor: couleur }]}>
+        <View style={{ height: Math.max(4, 12 * k), backgroundColor: pal.toit }} />
+        <View style={[styles2.fenetres, { paddingTop: 14 * k, paddingHorizontal: w * 0.16 }]}>
+          {Array.from({ length: rangees * 2 }).map((_, i) => (
+            <View
+              key={i}
+              style={{
+                width: w * 0.26, height: 34 * k, marginBottom: 30 * k, borderRadius: 3,
+                backgroundColor: (i + o.id) % 3 === 0 ? pal.fenetreEteinte : pal.fenetre,
+              }}
+            />
+          ))}
+        </View>
+      </View>
       {o.client && (
-        <View style={{ position: 'absolute', left: 0, top: hPx + ep / 2 - 44 * k }}>
-          <ClientBalcon w={w} k={k} livre={o.livre} pal={pal} />
+        <View style={[styles2.client, { top: hPx + ep / 2 - 44 * k, width: w, height: 44 * k }]}>
+          {!o.livre && (
+            <View style={[styles2.demande, { top: -26 * k, width: 26 * k, height: 22 * k, borderRadius: 6 * k }]}>
+              <MaterialCommunityIcons name="package-variant" size={16 * k} color="#fff" />
+            </View>
+          )}
+          <MaterialCommunityIcons name={o.livre ? 'account-check' : 'human-greeting-variant'} size={40 * k} color={o.livre ? VERT : '#fff'} />
+          <View style={{ position: 'absolute', bottom: 0, left: w * 0.12, right: w * 0.12, height: Math.max(3, 6 * k), backgroundColor: '#E8E8E8', borderRadius: 2 }} />
         </View>
       )}
       {o.colis && !o.colisPris && (
-        <View style={{ position: 'absolute', top: hPx - b / 2, left: w / 2 - b / 2 }}>
-          <ColisBonus b={b} />
+        <View style={[styles2.bonus, { top: hPx - b / 2, left: w / 2 - b / 2, width: b, height: b, borderRadius: b * 0.22 }]}>
+          <MaterialCommunityIcons name="package-variant-closed" size={b * 0.68} color="#fff" />
         </View>
       )}
     </Animated.View>
@@ -783,6 +874,17 @@ function Bouton({ texte, onPress, secondaire, styles, desactive }) {
 }
 
 const styles2 = StyleSheet.create({
+  morceau: { position: 'absolute', left: 0, top: 0, overflow: 'hidden' },
+  crochet: { position: 'absolute', left: '22%', right: '22%', bottom: 0, alignItems: 'center', justifyContent: 'center', borderTopLeftRadius: 4, borderTopRightRadius: 4 },
+  enseigne: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#fff' },
+  boitier: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', borderRadius: 6, borderWidth: 2 },
+  immeuble: { position: 'absolute', left: 0, borderTopLeftRadius: 4, borderTopRightRadius: 4, overflow: 'hidden' },
+  fenetres: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  client: { position: 'absolute', left: 0, alignItems: 'center', justifyContent: 'flex-end' },
+  demande: { position: 'absolute', backgroundColor: BRAND, alignItems: 'center', justifyContent: 'center' },
+  bonus: {
+    position: 'absolute', backgroundColor: OR, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff',
+  },
   bulle: {
     position: 'absolute', width: 160, textAlign: 'center', fontSize: 22, fontWeight: '900',
     textShadowColor: 'rgba(0,0,0,0.45)', textShadowRadius: 4, textShadowOffset: { width: 0, height: 1 },
@@ -796,6 +898,8 @@ const makeStyles = (c) => StyleSheet.create({
   trottoir: { position: 'absolute', left: 0, right: 0, top: 0 },
   traits: { position: 'absolute', left: 0, flexDirection: 'row' },
   drone: { position: 'absolute', top: 0, alignItems: 'center' },
+  fil: { width: 2 },
+  colisDrone: { backgroundColor: '#B07A45', alignItems: 'center', justifyContent: 'center' },
   flash: { backgroundColor: '#fff' },
   bandeau: { position: 'absolute', left: 16, right: 16 },
   hudLigne: { position: 'absolute', left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
