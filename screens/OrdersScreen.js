@@ -56,7 +56,7 @@ function serverNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-function adaptAssignment(a, { revealCustomer = true } = {}) {
+export function adaptAssignment(a, { revealCustomer = true } = {}) {
   const fee = typeof a.delivery_fee === 'number' ? a.delivery_fee : 0;
   const tip = typeof a.tip_amount === 'number' ? a.tip_amount : 0;
   // Bonus de demande (zone de forte demande), figé à l'acceptation.
@@ -214,7 +214,7 @@ function makeMockOrder() {
 }
 
 /* ---------- Écran ---------- */
-const orderKey = (o) => o?._uid || o?.id || o?.code;
+export const orderKey = (o) => o?._uid || o?.id || o?.code;
 
 // Compte de démonstration remis aux vérificateurs Apple et Google. La liste
 // "Disponibles" dépend de commandes marchandes réelles et se trouve donc
@@ -387,6 +387,11 @@ export default function OrdersScreen({ navigation, route }) {
       pollRef.current = null;
     };
   }, [online, fetchAvailableOrders]);
+  // Retour sur l'accueil (par exemple après un refus depuis un mini-jeu) :
+  // la liste est relue aussitôt, sans attendre la relève suivante.
+  useFocusEffect(useCallback(() => {
+    if (online) fetchAvailableOrders();
+  }, [online, fetchAvailableOrders]));
 
   const onAccept = useCallback(async (order) => {
     const key = orderKey(order);
@@ -454,6 +459,25 @@ export default function OrdersScreen({ navigation, route }) {
 
   const onOpen = useCallback((order)=>{ setDetailsOrder(order); setDetailsVisible(true); }, []);
 
+  // Course acceptée ou ouverte depuis la fenêtre d'un mini-jeu
+  // (components/AlerteCourseJeu.js) : même parcours qu'ici, une seule fois.
+  useEffect(() => {
+    const order = route?.params?.accepterCourse;
+    if (!order) return;
+    navigation.setParams({ accepterCourse: undefined });
+    offresVues.current.add(String(orderKey(order)));
+    setOffre(o => (o && orderKey(o) === orderKey(order) ? null : o));
+    onAccept(order);
+  }, [route?.params?.accepterCourse]);
+  useEffect(() => {
+    const order = route?.params?.ouvrirCourse;
+    if (!order) return;
+    navigation.setParams({ ouvrirCourse: undefined });
+    offresVues.current.add(String(orderKey(order)));
+    setOffre(o => (o && orderKey(o) === orderKey(order) ? null : o));
+    onOpen(order);
+  }, [route?.params?.ouvrirCourse]);
+
   // Accueil sans course en cours : la carte de la demande (même vue que le
   // bouton carte), demande du 05/11/2026. Les courses proposées arrivent en
   // cartes par-dessus. L'icône liste revient à la liste.
@@ -510,12 +534,6 @@ export default function OrdersScreen({ navigation, route }) {
           <TouchableOpacity style={[styles.mockBtn, { alignSelf: 'flex-start' }]} onPress={addMockOrder} accessibilityLabel={t('simulate')}>
             <Ionicons name="flask-outline" size={16} color="#fff" />
             <Text style={styles.mockBtnTxt}>{t('simulate')}</Text>
-          </TouchableOpacity>
-        )}
-        {online && (
-          <TouchableOpacity style={[styles.jeuBtn, { alignSelf: 'flex-start' }]} onPress={() => navigation.navigate('JeuTri')} accessibilityLabel={t('jeuBoutonAccueil')}>
-            <Ionicons name="game-controller-outline" size={16} color="#FF6A13" />
-            <Text style={styles.jeuBtnTxt}>{t('jeuBoutonAccueil')}</Text>
           </TouchableOpacity>
         )}
         {online && displayedAvailable.length > 0 && (
@@ -674,12 +692,6 @@ export default function OrdersScreen({ navigation, route }) {
               <Text style={styles.emptyText}>{t('noOrders')}</Text>
             )}
           </View>
-          {active.length === 0 && (
-            <TouchableOpacity style={[styles.jeuBtn, { alignSelf: 'center', marginTop: 4 }]} onPress={() => navigation.navigate('JeuTri')} accessibilityLabel={t('jeuBoutonAccueil')}>
-              <Ionicons name="game-controller-outline" size={16} color="#FF6A13" />
-              <Text style={styles.jeuBtnTxt}>{t('jeuBoutonAccueil')}</Text>
-            </TouchableOpacity>
-          )}
         </>
       )}
       <DetailsSheet visible={detailsVisible} order={detailsOrder} onClose={() => setDetailsVisible(false)} />

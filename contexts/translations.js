@@ -1,3 +1,4 @@
+import traductionsJeux from './traductionsJeux';
 // All app translations for 13 languages
 // Keys are organized by screen/component
 
@@ -8684,5 +8685,12 @@ const translations = {
     notifEnregistrementEchec: "Не удалось сохранить настройку. Проверьте подключение и попробуйте снова.",
   },
 };
+
+// Mini-jeux de l'écran « Jeux » : un fichier par jeu (contexts/traductionsJeux/).
+traductionsJeux.forEach((parJeu) => {
+  Object.keys(parJeu).forEach((lang) => {
+    if (translations[lang]) Object.assign(translations[lang], parJeu[lang]);
+  });
+});
 
 export default translations;

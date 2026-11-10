@@ -86,10 +86,10 @@ async function jouerSon() {
  * Annonce une course : vibration et son, une seule fois par course. Sans
  * clé, seul l'anti-rebond s'applique. Ne lève jamais.
  */
-export function annoncerCourse(cle) {
+export function annoncerCourse(cle, course) {
   try {
     if (dejaAnnoncee(cle ? String(cle) : '')) return;
-    prevenirNouvelleCourse();
+    prevenirNouvelleCourse({ cle: cle ? String(cle) : '', course: course || null });
     const maintenant = Date.now();
     if (maintenant - _dernierSon < ANTI_REBOND_MS) return;
     _dernierSon = maintenant;
@@ -102,9 +102,11 @@ export function annoncerCourse(cle) {
 
 // Écrans prévenus d'une nouvelle course (le mini-jeu se met en pause).
 const _ecouteurs = new Set();
-function prevenirNouvelleCourse() {
+// Chaque écouteur reçoit { cle, course } : la course complète quand elle
+// vient d'une relève, seulement sa clé quand elle vient d'une push.
+function prevenirNouvelleCourse(info) {
   _ecouteurs.forEach((fn) => {
-    try { fn(); } catch { /* Un écouteur en erreur ne bloque pas l'annonce. */ }
+    try { fn(info); } catch { /* Un écouteur en erreur ne bloque pas l'annonce. */ }
   });
 }
 /** Appelle fn à chaque nouvelle course annoncée ; renvoie la fonction de désabonnement. */
@@ -132,7 +134,7 @@ export function marquerCoursesAnnoncees(liste) {
 /** Courses relevées sur le serveur : chaque nouvelle est annoncée. */
 export function annoncerCourses(liste) {
   if (!Array.isArray(liste)) return;
-  liste.filter(Boolean).forEach((course) => annoncerCourse(cleAnnonce(course)));
+  liste.filter(Boolean).forEach((course) => annoncerCourse(cleAnnonce(course), course));
 }
 
 // Dernière relève des courses disponibles, par n'importe quel écran : la
