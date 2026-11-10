@@ -4,7 +4,7 @@
  * Chaque jeu se met en pause tout seul à l'annonce d'une nouvelle course.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Switch } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView, Switch, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -15,12 +15,12 @@ import { chargerRecord } from '../utils/jeuxRecords';
 import { chargerReglagesSon, changerReglageSon, reglagesSon } from '../utils/sonJeux';
 
 const LISTE = [
-  { id: 'rush', route: 'JeuRush', icone: 'walk', couleur: '#FF6A13', titre: 'jeuxRushTitre', texte: 'jeuxRushTexte' },
-  { id: 'toits', route: 'JeuToits', icone: 'bicycle', couleur: '#2E86DE', titre: 'jeuxToitsTitre', texte: 'jeuxToitsTexte' },
-  { id: 'sommet', route: 'JeuSommet', icone: 'business', couleur: '#8E44AD', titre: 'jeuxSommetTitre', texte: 'jeuxSommetTexte' },
-  { id: 'drone', route: 'JeuDrone', icone: 'airplane', couleur: '#16A085', titre: 'jeuxDroneTitre', texte: 'jeuxDroneTexte' },
-  { id: 'coupe', route: 'JeuCoupe', icone: 'nutrition', couleur: '#E74C3C', titre: 'jeuxCoupeTitre', texte: 'jeuxCoupeTexte' },
-  { id: 'memoire', route: 'JeuMemoire', icone: 'albums', couleur: '#F2B705', titre: 'jeuxMemoireTitre', texte: 'jeuxMemoireTexte' },
+  { id: 'rush', image: require('../assets/images/jeux/rush.webp'), route: 'JeuRush', icone: 'walk', couleur: '#FF6A13', titre: 'jeuxRushTitre', texte: 'jeuxRushTexte' },
+  { id: 'toits', image: require('../assets/images/jeux/toits.webp'), route: 'JeuToits', icone: 'bicycle', couleur: '#2E86DE', titre: 'jeuxToitsTitre', texte: 'jeuxToitsTexte' },
+  { id: 'sommet', image: require('../assets/images/jeux/sommet.webp'), route: 'JeuSommet', icone: 'business', couleur: '#8E44AD', titre: 'jeuxSommetTitre', texte: 'jeuxSommetTexte' },
+  { id: 'drone', image: require('../assets/images/jeux/drone.webp'), route: 'JeuDrone', icone: 'airplane', couleur: '#16A085', titre: 'jeuxDroneTitre', texte: 'jeuxDroneTexte' },
+  { id: 'coupe', image: require('../assets/images/jeux/coupe.webp'), route: 'JeuCoupe', icone: 'nutrition', couleur: '#E74C3C', titre: 'jeuxCoupeTitre', texte: 'jeuxCoupeTexte' },
+  { id: 'memoire', image: require('../assets/images/jeux/memoire.webp'), route: 'JeuMemoire', icone: 'albums', couleur: '#F2B705', titre: 'jeuxMemoireTitre', texte: 'jeuxMemoireTexte' },
 ];
 
 export default function JeuxScreen({ navigation }) {
@@ -69,7 +69,7 @@ export default function JeuxScreen({ navigation }) {
             accessibilityLabel={t(j.titre)}
           >
             <View style={[s.pastille, { backgroundColor: j.couleur }]}>
-              <Ionicons name={j.icone} size={28} color="#fff" />
+              <Image source={j.image} style={s.illustration} resizeMode="cover" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.nom}>{t(j.titre)}</Text>
@@ -108,7 +108,8 @@ function makeStyles(c, dark) {
     titre: { fontSize: 20, fontWeight: '800', color: c.text },
     intro: { color: c.textMuted, fontSize: 14, marginBottom: 14 },
     carte: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: dark ? c.card : '#fff', borderRadius: 16, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: dark ? c.border : '#E6E8EC' },
-    pastille: { width: 54, height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    pastille: { width: 54, height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    illustration: { width: '100%', height: '100%' },
     nom: { fontSize: 16, fontWeight: '800', color: c.text },
     texte: { fontSize: 13, color: c.textMuted, marginTop: 2 },
     record: { fontSize: 12, fontWeight: '700', color: BRAND, marginTop: 4 },
