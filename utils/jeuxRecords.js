@@ -8,7 +8,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { deliveryService } from '../services/deliveryService';
 
-export const JEUX = ['toits', 'sommet', 'drone', 'rush', 'coupe', 'memoire'];
+export const JEUX = ['toits', 'sommet', 'drone', 'rush', 'coupe', 'memoire', 'basket'];
 
 const PREFIXE = 'pearl_jeux_record';
 
