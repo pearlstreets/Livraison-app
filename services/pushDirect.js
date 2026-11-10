@@ -154,6 +154,21 @@ async function rejouerRevocations() {
   await ecrireRevocations(restantes);
 }
 
+// Langue affichée par l'app (contexts/LanguageContext.js, clé DRIVER_LANG,
+// français par défaut comme l'écran) : le serveur écrit les notifications de
+// ce téléphone dans cette langue. Valeur inconnue : rien d'envoyé, le serveur
+// garde la langue du compte.
+const LANGUES_APP = ['ar', 'de', 'en', 'es', 'fr', 'it', 'ja', 'nl', 'pt', 'ru', 'sv', 'th', 'zh'];
+
+async function langueAffichee() {
+  try {
+    const code = (await AsyncStorage.getItem('DRIVER_LANG')) || 'fr';
+    return LANGUES_APP.includes(code) ? code : null;
+  } catch {
+    return null;
+  }
+}
+
 async function envoyerJeton(jeton) {
   if (!jeton || !jeton.data) return;
   const ios = Platform.OS === 'ios';
@@ -164,6 +179,8 @@ async function envoyerJeton(jeton) {
     push_token: String(jeton.data),
     app_version: String(Constants.expoConfig?.version || ''),
   };
+  const langue = await langueAffichee();
+  if (langue) corps.langue = langue;
   let ancienne = null;
   try { ancienne = await AsyncStorage.getItem(CLE_APPAREIL); } catch { /* illisible */ }
   const res = await api.post(ROUTE_ENREGISTRER, corps);
@@ -247,4 +264,19 @@ export function oublierAppareil() {
   AsyncStorage.getItem(CLE_APPAREIL)
     .then((cle) => marquerRevocation(cle))
     .catch(() => {});
+}
+
+/**
+ * Langue de l'app changée : renvoie le jeton avec la nouvelle langue, mais
+ * seulement si ce téléphone est déjà enregistré (livreur connecté). Avant la
+ * connexion, rien : ni demande d'autorisation ni appel. Ne lève jamais.
+ */
+export async function signalerLangue() {
+  try {
+    if (!(await AsyncStorage.getItem(CLE_APPAREIL))) return;
+    // Envoi déjà en cours avec l'ancienne langue : on attend sa fin, puis
+    // on renvoie avec la nouvelle.
+    if (_enCours) await _enCours;
+    await enregistrerAppareil();
+  } catch { /* nouvel envoi au prochain lancement */ }
 }
