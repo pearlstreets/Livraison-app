@@ -17,8 +17,12 @@
  * (hooks/usePauseJeu.js). Sons et musique propres au jeu (components/
  * SonJeux.js). Partie sauvegardée à la pause et à la sortie (reprise : le
  * livreur repart du trottoir avec ses étages et ses colis, utils/
- * partieSauvegardee.js). Décor : façade colorée, balcons fleuris, linge,
- * auvents, nuages ; enseigne Pearl Streets un étage sur six.
+ * partieSauvegardee.js). Décor d'avant le 09/11 (demande du 10/11) : façade
+ * unie et fenêtres simples, petite enseigne Pearl Streets discrète un étage
+ * sur six. Lisibilité : plateformes foncées et cernées, halo clair derrière
+ * le livreur. Récompenses :
+ * « +5 » au colis, paliers de score, record battu, étoiles en fin de partie
+ * (components/RecompensesJeu.js). Boucle plafonnée à 60 images par seconde.
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
@@ -35,6 +39,9 @@ import BandeauClassement from '../components/BandeauClassement';
 import { PastilleScore } from '../components/HudJeu';
 import IndiceGestes from '../components/IndiceGestes';
 import ReprisePartie from '../components/ReprisePartie';
+import {
+  BanniereRecompense, EtoilesFin, creerSuivi, suivreScore, etoilesPour, formaterNombre,
+} from '../components/RecompensesJeu';
 import { useBalayage } from '../utils/gestes';
 import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
 
@@ -69,6 +76,9 @@ const SONS_SOMMET = { rebond: 'saut', store: 'saut', trampo: 'booster', monte: '
 const JEU = 'sommet';
 const HAUTEUR_MIN = 520; // hauteur de monde toujours visible (grands écrans larges)
 const OR = '#F2B705';
+const PALIERS = [100, 250, 500, 1000, 2000, 5000, 10000];
+const IMAGE_MIN_MS = 15; // plafond d'environ 60 images par seconde (écrans 90 et 120 Hz)
+const DUREE_BULLE = 0.9; // secondes d'affichage d'un « +5 »
 
 // Décor par palier (tous les 50 étages) : teintes de façade qui changent.
 const DECORS = [
@@ -89,12 +99,12 @@ function palette(dark) {
   return dark
     ? {
       mur: '#2A2320', murJoint: '#332B27', vitre: '#1B2733', vitreAllumee: '#E7B54F', cadre: '#4A3F39',
-      dalle: '#7A716A', dalleBord: '#958B83', console: '#5C544E', trottoir: '#3A3A3D', route: '#26262A',
+      dalle: '#B3A79C', dalleBord: '#E9E2DA', dalleTrait: '#F4EFEA', console: '#A2978D', trottoir: '#3A3A3D', route: '#26262A',
       matelas: '#3D8BD9', nacelle: '#8D99A6', cable: '#9AA3AD', pot: '#C2643C', pigeon: '#B7C0C9', colis: '#C98A45',
     }
     : {
       mur: '#F3E4D4', murJoint: '#EAD7C3', vitre: '#CFE3F1', vitreAllumee: '#F6D27A', cadre: '#DCC3A9',
-      dalle: '#B9B1A8', dalleBord: '#D3CCC4', console: '#9C948B', trottoir: '#C9C9CC', route: '#9EA0A6',
+      dalle: '#8E8073', dalleBord: '#B5A899', dalleTrait: '#3E352E', console: '#5E544B', trottoir: '#C9C9CC', route: '#9EA0A6',
       matelas: '#2F80ED', nacelle: '#7D8995', cable: '#6E7781', pot: '#C2643C', pigeon: '#7A8691', colis: '#B07A3B',
     };
 }
@@ -106,112 +116,50 @@ function allumee(rang, col) {
 }
 
 /** Un étage de façade (4 fenêtres), redessiné seulement s'il change. */
-// Un étage sur six porte l'enseigne Pearl Streets sur la façade, à la place
-// des deux fenêtres du milieu. Les autres reçoivent, selon un tirage fixe par
-// étage, un auvent rayé, des volets, une jardinière fleurie ou du linge.
-const LARGEUR_ENSEIGNE = 108;
-const COULEURS_AUVENT = ['#E8590C', '#2F9E8F', '#D6336C', '#3B82F6'];
-const COULEURS_FLEURS = ['#E0457B', '#F2B705', '#FFFFFF', '#FF7A3D'];
-const COULEURS_LINGE = ['#FFFFFF', '#F2B705', '#2F80ED', '#E0457B', '#2F9E8F'];
-function tirage(rang, col, graine) {
-  const x = Math.sin(rang * 12.9898 + col * 78.233 + graine * 37.719) * 43758.5453;
-  return x - Math.floor(x);
-}
+// Un étage sur six porte une petite enseigne Pearl Streets discrète entre
+// deux fenêtres (jamais un grand panneau).
+const LARGEUR_ENSEIGNE = 36;
+const GAUCHE_ENSEIGNE = 155; // entre la 2e fenêtre (108 à 152) et la 3e (194)
 const Etage = memo(function Etage({ rang, s, dark, p }) {
   const h = ETAGE * s;
   const lf = 44 * s;
   const hf = 34 * s;
   const enseigne = rang % 6 === 1;
   const hEnseigne = mesuresEnseigne(LARGEUR_ENSEIGNE * s, true).hauteur;
-  const bande = rang % 2 === 0;
-  const linge = !enseigne && tirage(rang, 9, 3) < 0.22;
   return (
     <View style={{ position: 'absolute', left: 0, right: 0, top: -(rang + 1) * h, height: h }}>
-      {bande && <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: p.murJoint, opacity: 0.35 }} />}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: Math.max(1, 2 * s), backgroundColor: p.murJoint }} />
-      <View style={{ position: 'absolute', left: 0, width: 5 * s, top: 0, bottom: 0, backgroundColor: p.cadre, opacity: 0.8 }} />
-      <View style={{ position: 'absolute', right: 0, width: 5 * s, top: 0, bottom: 0, backgroundColor: p.cadre, opacity: 0.8 }} />
       {enseigne && (
         <EnseignePearl
           largeur={LARGEUR_ENSEIGNE * s}
           compacte
-          style={{ position: 'absolute', left: (MONDE_L - LARGEUR_ENSEIGNE) / 2 * s, top: (h - hEnseigne) / 2 }}
+          style={{ position: 'absolute', left: GAUCHE_ENSEIGNE * s, top: (h - hEnseigne) / 2, opacity: 0.6 }}
         />
       )}
-      {(enseigne ? [0, 3] : [0, 1, 2, 3]).map((c) => {
-        const gauche = (22 + c * 86) * s;
-        const fleurs = tirage(rang, c, 1) < 0.3;
-        const auvent = !fleurs && tirage(rang, c, 2) < 0.22;
-        const volets = tirage(rang, c, 4) < 0.35;
-        return (
-          <React.Fragment key={c}>
-            {volets && (
-              <>
-                <View style={{ position: 'absolute', left: gauche - 8 * s, top: (h - hf) / 2, width: 7 * s, height: hf, borderRadius: 1.5 * s, backgroundColor: COULEURS_AUVENT[(rang + c) % 4], opacity: 0.85 }} />
-                <View style={{ position: 'absolute', left: gauche + lf + 1 * s, top: (h - hf) / 2, width: 7 * s, height: hf, borderRadius: 1.5 * s, backgroundColor: COULEURS_AUVENT[(rang + c) % 4], opacity: 0.85 }} />
-              </>
-            )}
-            <View
-              style={{
-                position: 'absolute',
-                left: gauche,
-                top: (h - hf) / 2,
-                width: lf,
-                height: hf,
-                borderRadius: 3 * s,
-                borderWidth: Math.max(1, 2 * s),
-                borderColor: p.cadre,
-                backgroundColor: dark && allumee(rang, c) ? p.vitreAllumee : p.vitre,
-              }}
-            >
-              <View style={{ position: 'absolute', left: lf / 2 - 1.5 * s, top: 0, bottom: 0, width: Math.max(1, 2 * s), backgroundColor: p.cadre }} />
-              <View style={{ position: 'absolute', left: 2 * s, top: 2 * s, width: 9 * s, height: 3 * s, borderRadius: 1.5 * s, backgroundColor: '#FFFFFF', opacity: 0.45 }} />
-            </View>
-            {auvent && (
-              <View style={{ position: 'absolute', left: gauche - 4 * s, top: (h - hf) / 2 - 7 * s, width: lf + 8 * s, height: 8 * s, flexDirection: 'row', borderRadius: 2 * s, overflow: 'hidden' }}>
-                {[0, 1, 2, 3, 4, 5].map((i) => (
-                  <View key={i} style={{ flex: 1, backgroundColor: i % 2 ? '#FFFFFF' : COULEURS_AUVENT[(rang + c) % 4], borderBottomLeftRadius: 3 * s, borderBottomRightRadius: 3 * s }} />
-                ))}
-              </View>
-            )}
-            {fleurs && (
-              <View style={{ position: 'absolute', left: gauche - 2 * s, top: (h - hf) / 2 + hf - 1 * s, width: lf + 4 * s, height: 9 * s }}>
-                <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 5 * s, borderRadius: 1.5 * s, backgroundColor: '#9A5B3A' }} />
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <View
-                    key={i}
-                    style={{
-                      position: 'absolute', left: (4 + i * 8) * s, bottom: 3 * s, width: 6 * s, height: 6 * s,
-                      borderRadius: 3 * s, backgroundColor: COULEURS_FLEURS[(rang + c + i) % 4],
-                    }}
-                  />
-                ))}
-                <View style={{ position: 'absolute', left: 6 * s, right: 6 * s, bottom: 3 * s, height: 2.5 * s, backgroundColor: '#3FA34D', opacity: 0.9 }} />
-              </View>
-            )}
-          </React.Fragment>
-        );
-      })}
-      {linge && (
-        <View style={{ position: 'absolute', left: 14 * s, right: 14 * s, top: 6 * s, height: 14 * s }}>
-          <View style={{ position: 'absolute', left: 0, right: 0, top: 1 * s, height: Math.max(1, 1.2 * s), backgroundColor: p.cable }} />
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <View
-              key={i}
-              style={{
-                position: 'absolute', left: (10 + i * 50) * s, top: 1 * s, width: 9 * s, height: (8 + (i % 3) * 3) * s,
-                borderRadius: 1.5 * s, backgroundColor: COULEURS_LINGE[(rang + i) % 5], transform: [{ rotate: `${i % 2 ? 4 : -4}deg` }],
-              }}
-            />
-          ))}
+      {[0, 1, 2, 3].map((c) => (
+        <View
+          key={c}
+          style={{
+            position: 'absolute',
+            left: (22 + c * 86) * s,
+            top: (h - hf) / 2,
+            width: lf,
+            height: hf,
+            borderRadius: 3 * s,
+            borderWidth: Math.max(1, 2 * s),
+            borderColor: p.cadre,
+            backgroundColor: dark && allumee(rang, c) ? p.vitreAllumee : p.vitre,
+          }}
+        >
+          <View style={{ position: 'absolute', left: lf / 2 - 1.5 * s, top: 0, bottom: 0, width: Math.max(1, 2 * s), backgroundColor: p.cadre }} />
         </View>
-      )}
+      ))}
     </View>
   );
 });
 
 /** Une plateforme (balcon, nacelle, store, matelas, monte-charge). */
-const Plateforme = memo(function Plateforme({ id, type, x, y, l, rot, dechire, s, p }) {
+const Plateforme = memo(function Plateforme({ type, x, y, l, rot, dechire, s, p }) {
   const left = x * s;
   const top = -y * s;
   const w = l * s;
@@ -224,6 +172,7 @@ const Plateforme = memo(function Plateforme({ id, type, x, y, l, rot, dechire, s
         style={{
           position: 'absolute', left, top, width: w, height: hh + 4 * s, flexDirection: 'row',
           borderRadius: 3 * s, overflow: 'hidden', opacity: dechire ? 0.7 : 1,
+          borderWidth: Math.max(1, 1.5 * s), borderColor: p.dalleTrait,
           transform: [{ rotate: `${dechire ? rot : 0}deg` }],
         }}
       >
@@ -238,7 +187,7 @@ const Plateforme = memo(function Plateforme({ id, type, x, y, l, rot, dechire, s
       <View style={{ position: 'absolute', left, top: top - 70 * s, width: w, height: 70 * s + hh }}>
         <View style={{ position: 'absolute', left: 6 * s, top: 0, width: Math.max(1, 1.5 * s), height: 70 * s, backgroundColor: p.cable }} />
         <View style={{ position: 'absolute', right: 6 * s, top: 0, width: Math.max(1, 1.5 * s), height: 70 * s, backgroundColor: p.cable }} />
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: hh, borderRadius: 2 * s, backgroundColor: p.nacelle, overflow: 'hidden' }}>
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: hh, borderRadius: 2 * s, backgroundColor: p.nacelle, overflow: 'hidden', borderWidth: Math.max(1, 1.5 * s), borderColor: p.dalleTrait }}>
           <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 4 * s, backgroundColor: OR }} />
         </View>
       </View>
@@ -248,7 +197,7 @@ const Plateforme = memo(function Plateforme({ id, type, x, y, l, rot, dechire, s
     return (
       <View style={{ position: 'absolute', left, top: top - 50 * s, width: w, height: 50 * s + hh + 34 * s }}>
         <View style={{ position: 'absolute', left: w / 2 - 1 * s, top: 0, width: Math.max(1, 2 * s), height: 50 * s, backgroundColor: p.cable }} />
-        <View style={{ position: 'absolute', left: 0, right: 0, top: 50 * s, height: hh, borderRadius: 2 * s, backgroundColor: OR }} />
+        <View style={{ position: 'absolute', left: 0, right: 0, top: 50 * s, height: hh, borderRadius: 2 * s, backgroundColor: OR, borderWidth: Math.max(1, 1.5 * s), borderColor: p.dalleTrait }} />
         <View
           style={{
             position: 'absolute', left: 6 * s, right: 6 * s, top: 50 * s + hh, height: 34 * s,
@@ -264,22 +213,9 @@ const Plateforme = memo(function Plateforme({ id, type, x, y, l, rot, dechire, s
   return (
     <View style={{ position: 'absolute', left, top, width: w, height: hh + (trampo ? 8 * s : 0) + 12 * s }}>
       {trampo && (
-        <View style={{ height: 8 * s, marginHorizontal: 6 * s, borderRadius: 4 * s, backgroundColor: p.matelas }} />
+        <View style={{ height: 8 * s, marginHorizontal: 6 * s, borderRadius: 4 * s, backgroundColor: p.matelas, borderWidth: Math.max(1, 1.2 * s), borderColor: p.dalleTrait }} />
       )}
-      {!trampo && (
-        <View pointerEvents="none" style={{ position: 'absolute', left: 2 * s, right: 2 * s, top: -9 * s, height: 9 * s, borderTopWidth: Math.max(1, 1.5 * s), borderTopColor: p.console, flexDirection: 'row', justifyContent: 'space-between' }}>
-          {[0, 1, 2, 3, 4, 5, 6].map((i) => (
-            <View key={i} style={{ width: Math.max(1, 1.2 * s), height: 9 * s, backgroundColor: p.console }} />
-          ))}
-        </View>
-      )}
-      {!trampo && id % 3 === 0 && (
-        <View pointerEvents="none" style={{ position: 'absolute', right: 6 * s, top: -17 * s, width: 12 * s, alignItems: 'center' }}>
-          <View style={{ width: 11 * s, height: 11 * s, borderRadius: 5.5 * s, backgroundColor: '#3FA34D' }} />
-          <View style={{ width: 9 * s, height: 7 * s, marginTop: -2 * s, backgroundColor: p.pot, borderBottomLeftRadius: 3 * s, borderBottomRightRadius: 3 * s }} />
-        </View>
-      )}
-      <View style={{ height: hh, borderRadius: 2 * s, backgroundColor: p.dalle, borderTopWidth: Math.max(1, 3 * s), borderTopColor: p.dalleBord }} />
+      <View style={{ height: hh, borderRadius: 2 * s, backgroundColor: p.dalle, borderWidth: Math.max(1, 1.5 * s), borderColor: p.dalleTrait, borderTopWidth: Math.max(1, 3 * s), borderTopColor: p.dalleBord }} />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8 * s }}>
         <View style={{ width: 6 * s, height: 10 * s, backgroundColor: p.console, borderBottomLeftRadius: 4 * s, borderBottomRightRadius: 4 * s }} />
         <View style={{ width: 6 * s, height: 10 * s, backgroundColor: p.console, borderBottomLeftRadius: 4 * s, borderBottomRightRadius: 4 * s }} />
@@ -288,90 +224,37 @@ const Plateforme = memo(function Plateforme({ id, type, x, y, l, rot, dechire, s
   );
 });
 
-const Colis = memo(function Colis({ x, y, s, t }) {
-  const l = 24 * s;
-  const flotte = Math.sin(t * 4 + x) * 2 * s;
+const Colis = memo(function Colis({ x, y, s, p }) {
+  const t = 26 * s;
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: x * s - l / 2, top: -y * s - l / 2 + flotte, width: l, height: l, alignItems: 'center', justifyContent: 'center' }}>
-      <View style={{ position: 'absolute', width: l * 1.7, height: l * 1.7, borderRadius: l, backgroundColor: OR, opacity: 0.2 + 0.1 * Math.sin(t * 5 + x) }} />
-      <View style={{ width: l, height: l * 0.86, borderRadius: 3 * s, backgroundColor: '#E0A64F', borderWidth: Math.max(1, 1.5 * s), borderColor: '#9A6A2B' }}>
-        <View style={{ position: 'absolute', left: l / 2 - 2.5 * s, top: 0, bottom: 0, width: 5 * s, backgroundColor: '#FFF3D1' }} />
-        <View style={{ position: 'absolute', left: 0, right: 0, top: l * 0.3, height: 3 * s, backgroundColor: '#C98A45' }} />
-      </View>
-      <View style={{ position: 'absolute', right: -2 * s, top: -2 * s, width: 5 * s, height: 5 * s, borderRadius: 2.5 * s, backgroundColor: '#FFFFFF', opacity: 0.55 + 0.45 * Math.sin(t * 7 + y) }} />
+    <View style={{ position: 'absolute', left: x * s - t / 2, top: -y * s - t / 2, width: t, height: t }}>
+      <MaterialCommunityIcons name="package-variant-closed" size={t} color={p.colis} />
     </View>
   );
 });
 
-// Livreur dessiné en vues : casquette et veste de la marque, sac à dos,
-// bras levés qui tiennent un colis. Il s'étire à la montée, s'écrase à la descente.
-function Livreur({ x, y, rot, vx, vy, regard, s }) {
+
+function Livreur({ x, y, rot, vx, s, dark }) {
   const l = JOUEUR_L * s;
   const h = JOUEUR_H * s;
   const penche = rot || (vx / VX_MAX) * 10;
-  const montee = vy > 0;
-  const etire = Math.min(0.12, Math.abs(vy) / 9000);
-  const echelleY = montee ? 1 + etire : 1 - etire * 0.6;
-  const echelleX = montee ? 1 - etire * 0.6 : 1 + etire * 0.5;
-  const pas = Math.sin(y * 0.12) * 14;
   return (
     <View
       pointerEvents="none"
       style={{
         position: 'absolute', left: x * s - l / 2, top: -y * s - h, width: l, height: h,
-        transform: [{ rotate: `${penche}deg` }, { scaleX: echelleX }, { scaleY: echelleY }],
+        alignItems: 'center', justifyContent: 'flex-end', transform: [{ rotate: `${penche}deg` }],
       }}
     >
-      {/* Sac de livraison dans le dos */}
-      <View style={{ position: 'absolute', left: regard >= 0 ? 0 : undefined, right: regard >= 0 ? undefined : 0, top: h * 0.4, width: l * 0.4, height: h * 0.34, borderRadius: 4 * s, backgroundColor: '#E8590C', borderWidth: Math.max(1, 1.2 * s), borderColor: '#B8430A' }} />
-      {/* Jambes */}
-      <View style={{ position: 'absolute', left: l * 0.3, top: h * 0.74, width: 5.5 * s, height: h * 0.26, borderRadius: 2.5 * s, backgroundColor: '#2C3E57', transform: [{ rotate: `${pas}deg` }] }} />
-      <View style={{ position: 'absolute', left: l * 0.52, top: h * 0.74, width: 5.5 * s, height: h * 0.26, borderRadius: 2.5 * s, backgroundColor: '#2C3E57', transform: [{ rotate: `${-pas}deg` }] }} />
-      {/* Bras levés */}
-      <View style={{ position: 'absolute', left: l * 0.02, top: h * 0.12, width: 5 * s, height: h * 0.4, borderRadius: 2.5 * s, backgroundColor: BRAND, transform: [{ rotate: '-18deg' }] }} />
-      <View style={{ position: 'absolute', right: l * 0.02, top: h * 0.12, width: 5 * s, height: h * 0.4, borderRadius: 2.5 * s, backgroundColor: BRAND, transform: [{ rotate: '18deg' }] }} />
-      {/* Veste */}
-      <View style={{ position: 'absolute', left: l * 0.2, top: h * 0.36, width: l * 0.6, height: h * 0.42, borderRadius: 7 * s, backgroundColor: BRAND }}>
-        <View style={{ position: 'absolute', left: 0, right: 0, bottom: h * 0.09, height: Math.max(1, 2 * s), backgroundColor: '#FFFFFF', opacity: 0.8 }} />
+      {/* Halo clair : le livreur se détache toujours de la façade */}
+      <View style={{ position: 'absolute', left: -l * 0.2, top: -h * 0.05, width: l * 1.4, height: h * 1.1, borderRadius: l, backgroundColor: '#FFFFFF', opacity: dark ? 0.22 : 0.55 }} />
+      <View style={{ position: 'absolute', top: -4 * s }}>
+        <MaterialCommunityIcons name="package-variant-closed" size={18 * s} color="#B07A3B" />
       </View>
-      {/* Tête et casquette */}
-      <View style={{ position: 'absolute', left: l * 0.3, top: h * 0.2, width: l * 0.4, height: l * 0.4, borderRadius: l * 0.2, backgroundColor: '#F2C9A0' }}>
-        <View style={{ position: 'absolute', left: l * 0.09, top: l * 0.17, width: 2.4 * s, height: 2.4 * s, borderRadius: 1.2 * s, backgroundColor: '#2C3E57' }} />
-        <View style={{ position: 'absolute', right: l * 0.09, top: l * 0.17, width: 2.4 * s, height: 2.4 * s, borderRadius: 1.2 * s, backgroundColor: '#2C3E57' }} />
-        <View style={{ position: 'absolute', left: l * 0.14, bottom: l * 0.07, width: l * 0.12, height: 1.6 * s, borderRadius: 1 * s, backgroundColor: '#B55A3C' }} />
-      </View>
-      <View style={{ position: 'absolute', left: l * 0.26, top: h * 0.13, width: l * 0.48, height: h * 0.12, borderTopLeftRadius: l * 0.24, borderTopRightRadius: l * 0.24, backgroundColor: BRAND }} />
-      <View style={{ position: 'absolute', left: regard >= 0 ? l * 0.5 : l * 0.12, top: h * 0.22, width: l * 0.38, height: 2.5 * s, borderRadius: 1.2 * s, backgroundColor: '#D9560A' }} />
-      {/* Colis tenu au-dessus de la tête */}
-      <View style={{ position: 'absolute', left: l * 0.24, top: -3 * s, width: l * 0.52, height: h * 0.2, borderRadius: 2.5 * s, backgroundColor: '#E0A64F', borderWidth: Math.max(1, 1.2 * s), borderColor: '#9A6A2B' }}>
-        <View style={{ position: 'absolute', left: l * 0.26 - 2 * s, top: 0, bottom: 0, width: 4 * s, backgroundColor: '#FFF3D1' }} />
-      </View>
+      <MaterialCommunityIcons name="human-handsup" size={h * 0.82} color={BRAND} />
     </View>
   );
 }
-
-// Nuages qui défilent plus lentement que la façade : effet d'altitude.
-const NUAGES = Array.from({ length: 8 }, (_, i) => ({
-  id: i, x: (i * 97 + 20) % 300, y: 380 + i * 520 + (i % 3) * 90, l: 70 + (i % 3) * 26,
-}));
-const Nuages = memo(function Nuages({ cam, s, dark }) {
-  const periode = 8 * 520;
-  return (
-    <>
-      {NUAGES.map((n) => {
-        const ecran = (((n.y - cam * 0.4) % periode) + periode) % periode; // hauteur à l'écran
-        if (ecran > 1400) return null;
-        return (
-          <View key={n.id} pointerEvents="none" style={{ position: 'absolute', left: n.x * s, top: -(ecran + cam) * s, width: n.l * s, height: 26 * s, opacity: dark ? 0.2 : 0.6 }}>
-            <View style={{ position: 'absolute', left: 0, bottom: 0, right: 0, height: 14 * s, borderRadius: 7 * s, backgroundColor: '#FFFFFF' }} />
-            <View style={{ position: 'absolute', left: n.l * 0.18 * s, bottom: 5 * s, width: 28 * s, height: 20 * s, borderRadius: 10 * s, backgroundColor: '#FFFFFF' }} />
-            <View style={{ position: 'absolute', left: n.l * 0.5 * s, bottom: 5 * s, width: 22 * s, height: 16 * s, borderRadius: 8 * s, backgroundColor: '#FFFFFF' }} />
-          </View>
-        );
-      })}
-    </>
-  );
-});
 
 export default function JeuSommetScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -391,6 +274,11 @@ export default function JeuSommetScreen({ navigation }) {
   const [nbParties, setNbParties] = useState(0);
   const partieRef = useRef(null);
   const dirRef = useRef(0);
+  const banniereRef = useRef(null);
+  const suiviRef = useRef(null); // paliers et record annoncés pendant la partie
+  const bullesRef = useRef([]); // « +5 » des colis : { id, x, y, t0 }
+  const meilleurRef = useRef(0);
+  meilleurRef.current = meilleur;
   const monteRef = useRef(true);
   const palierEcran = partieRef.current ? partieRef.current.palier : 0;
   const p = useMemo(() => appliquerDecor(palette(dark), dark, palierEcran), [dark, palierEcran]);
@@ -447,7 +335,12 @@ export default function JeuSommetScreen({ navigation }) {
 
   const terminer = useCallback((e) => {
     dirRef.current = 0;
-    const base = { score: e.score, etage: e.etage, colis: e.colis, cause: e.cause, nouveauRecord: false };
+    const base = {
+      score: e.score, etage: e.etage, colis: e.colis, cause: e.cause, nouveauRecord: false,
+      etoiles: etoilesPour(e.score, meilleurRef.current, PALIERS),
+    };
+    banniereRef.current?.cacher();
+    bullesRef.current = [];
     setResultat(base);
     setReprise(null);
     effacerPartie(JEU, user?.id).catch(() => {});
@@ -465,6 +358,9 @@ export default function JeuSommetScreen({ navigation }) {
 
   const jouer = useCallback(() => {
     partieRef.current = partieNeuve(visibleRef.current);
+    suiviRef.current = creerSuivi(PALIERS, meilleurRef.current, 0);
+    bullesRef.current = [];
+    banniereRef.current?.cacher();
     dirRef.current = 0;
     setResultat(null);
     setReprise(null);
@@ -484,6 +380,8 @@ export default function JeuSommetScreen({ navigation }) {
       e.score = e.etageBase + e.colis * POINTS_COLIS;
     }
     partieRef.current = e;
+    suiviRef.current = creerSuivi(PALIERS, meilleurRef.current, e.score);
+    bullesRef.current = [];
     dirRef.current = 0;
     setReprise(null);
     setResultat(null);
@@ -499,24 +397,43 @@ export default function JeuSommetScreen({ navigation }) {
     const image = (ts) => {
       const e = partieRef.current;
       if (!e || uiRef.current !== 'jeu') return;
+      // Écran 90 ou 120 Hz : 60 images par seconde au plus, moins de chauffe.
+      if (avant != null && ts - avant < IMAGE_MIN_MS) {
+        id = requestAnimationFrame(image);
+        return;
+      }
       const dt = avant == null ? 0 : (ts - avant) / 1000;
       avant = ts;
       const evts = avancer(e, dt, dirRef.current);
-      for (const ev of evts) {
+      for (let i = 0; i < evts.length; i += 1) {
+        const ev = evts[i];
         if (ev === 'colis' || ev === 'trampo' || ev === 'monte' || ev === 'pigeon') vibrer(false);
         else if (ev === 'touche') vibrer(true);
         bruit(SONS_SOMMET[ev]);
+        if (ev === 'colis') {
+          bullesRef.current.push({ id: e.t + Math.random(), x: e.joueur.x, y: e.joueur.y + JOUEUR_H + 10, t0: e.t });
+        }
       }
       if (e.phase === 'fin') {
         terminer(e);
         return;
+      }
+      if (bullesRef.current.length && e.t - bullesRef.current[0].t0 > DUREE_BULLE) {
+        bullesRef.current = bullesRef.current.filter((b) => e.t - b.t0 <= DUREE_BULLE);
+      }
+      const annonce = suivreScore(suiviRef.current, e.score);
+      if (annonce?.type === 'record') {
+        bruit('record');
+        banniereRef.current?.montrer({ texte: t('jeuRecompRecord'), icone: 'trophy', couleur: OR });
+      } else if (annonce) {
+        banniereRef.current?.montrer({ texte: t('jeuRecompPalier', { n: formaterNombre(annonce.n) }), icone: 'star', couleur: OR });
       }
       setImage((n) => (n + 1) % 1000000);
       id = requestAnimationFrame(image);
     };
     id = requestAnimationFrame(image);
     return () => { if (id != null) cancelAnimationFrame(id); };
-  }, [ui, terminer]);
+  }, [ui, terminer, t]);
 
   const quitter = useCallback(() => {
     pause();
@@ -569,11 +486,12 @@ export default function JeuSommetScreen({ navigation }) {
               {/* Trottoir et rue */}
               <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 24 * s, backgroundColor: p.trottoir }} />
               <View style={{ position: 'absolute', left: 0, right: 0, top: 24 * s, height: 400 * s, backgroundColor: p.route }} />
+            </View>
+            <View style={{ position: 'absolute', left: 0, top: 0, width: largeurMonde, height: 0, transform: [{ translateY: taille.h + cam * s }] }}>
               {e && ui !== 'accueil' && e.plateformes.map((pl) => (
-                <Plateforme key={pl.id} id={pl.id} type={pl.type} x={pl.x} y={pl.y} l={pl.l} rot={pl.rot} dechire={pl.dechire} s={s} p={p} />
+                <Plateforme key={pl.id} type={pl.type} x={pl.x} y={pl.y} l={pl.l} rot={pl.rot} dechire={pl.dechire} s={s} p={p} />
               ))}
-              {e && ui !== 'accueil' && <Nuages cam={cam} s={s} dark={dark} />}
-              {e && ui !== 'accueil' && e.colisListe.map((c) => <Colis key={c.id} x={c.x} y={c.y} s={s} t={e.t} />)}
+              {e && ui !== 'accueil' && e.colisListe.map((c) => <Colis key={c.id} x={c.x} y={c.y} s={s} p={p} />)}
               {e && ui !== 'accueil' && e.pots.filter((pot) => pot.alerte <= 0).map((pot) => (
                 <View key={pot.id} style={{ position: 'absolute', left: (pot.x - 12) * s, top: -(pot.y + 22) * s, width: 24 * s, alignItems: 'center' }}>
                   <MaterialCommunityIcons name="flower-tulip" size={18 * s} color="#E0457B" />
@@ -588,10 +506,19 @@ export default function JeuSommetScreen({ navigation }) {
                   <MaterialCommunityIcons name="bird" size={34 * s} color={p.pigeon} />
                 </View>
               ))}
-              <Livreur x={joueur.x} y={joueur.y} rot={joueur.rot} vx={joueur.vx} vy={joueur.vy || 0} regard={joueur.regard || 1} s={s} />
+              <Livreur x={joueur.x} y={joueur.y} rot={joueur.rot} vx={joueur.vx} s={s} dark={dark} />
               {/* Copie du livreur au passage d'un bord */}
-              {joueur.x < JOUEUR_L && <Livreur x={joueur.x + MONDE_L} y={joueur.y} rot={joueur.rot} vx={joueur.vx} vy={joueur.vy || 0} regard={joueur.regard || 1} s={s} />}
-              {joueur.x > MONDE_L - JOUEUR_L && <Livreur x={joueur.x - MONDE_L} y={joueur.y} rot={joueur.rot} vx={joueur.vx} vy={joueur.vy || 0} regard={joueur.regard || 1} s={s} />}
+              {joueur.x < JOUEUR_L && <Livreur x={joueur.x + MONDE_L} y={joueur.y} rot={joueur.rot} vx={joueur.vx} s={s} dark={dark} />}
+              {/* « +5 » au colis ramassé */}
+              {e && ui !== 'accueil' && bullesRef.current.map((b) => {
+                const age = (e.t - b.t0) / DUREE_BULLE;
+                return (
+                  <Text key={b.id} style={[styles.bulle, { left: b.x * s - 30, top: -(b.y + age * 46) * s, opacity: age < 0.7 ? 1 : Math.max(0, (1 - age) / 0.3) }]}>
+                    {`+${POINTS_COLIS}`}
+                  </Text>
+                );
+              })}
+              {joueur.x > MONDE_L - JOUEUR_L && <Livreur x={joueur.x - MONDE_L} y={joueur.y} rot={joueur.rot} vx={joueur.vx} s={s} dark={dark} />}
             </View>
             {/* Alerte : un pot va tomber ici */}
             {e && ui !== 'accueil' && e.pots.filter((pot) => pot.alerte > 0).map((pot) => (
@@ -608,6 +535,7 @@ export default function JeuSommetScreen({ navigation }) {
             <Text style={styles.annonceTexte}>{t(`jeuxSommetPiege${Math.min(e.palier, 4)}`)}</Text>
           </View>
         )}
+        <BanniereRecompense ref={banniereRef} haut={hautHud + 120} />
         <IndiceGestes jeu={JEU} actif={enJeu} gestes={['gauche', 'droite', 'appui']} t={t} colors={colors} />
         {/* Couche des gestes : tout l'écran */}
         <View {...balayage.panHandlers} style={StyleSheet.absoluteFill} />
@@ -682,6 +610,7 @@ export default function JeuSommetScreen({ navigation }) {
                 <Text style={styles.texteDiscret}>
                   {resultat.cause === 'pot' ? t('jeuxSommetCausePot') : resultat.cause === 'pigeon' ? t('jeuxSommetCausePigeon') : t('jeuxSommetCauseChute')}
                 </Text>
+                <EtoilesFin n={resultat.etoiles} t={t} colors={colors} />
                 <Text style={styles.gros}>{t('jeuScore', { n: resultat.score })}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuxSommetEtageAtteint', { n: resultat.etage })}</Text>
                 <Text style={styles.texteDiscret}>{t('jeuxSommetColisRamasses', { n: resultat.colis })}</Text>
@@ -754,6 +683,10 @@ const makeStyles = (c) => StyleSheet.create({
   annonce: {
     position: 'absolute', left: 24, right: 24, alignItems: 'center', backgroundColor: c.card, borderRadius: 14,
     paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: OR,
+  },
+  bulle: {
+    position: 'absolute', width: 60, textAlign: 'center', color: OR, fontSize: 22, fontWeight: '900',
+    textShadowColor: '#7A4A00', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
   },
   annonceTitre: { color: c.text, fontSize: 17, fontWeight: '800' },
   annonceTexte: { color: c.textSoft, fontSize: 13, marginTop: 2, textAlign: 'center', lineHeight: 18 },

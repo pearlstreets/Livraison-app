@@ -6,10 +6,13 @@
  * reserveBasVille(l, bas) reste exacte).
  *
  * Toujours clair (jamais de fond sombre), ne capte jamais le toucher.
- * Les nuages tournent en pilote natif et s'arrêtent au démontage.
+ * Les nuages tournent en pilote natif et s'arrêtent au démontage, quand
+ * l'app passe en arrière-plan, quand l'écran n'est plus affiché et quand
+ * `actif` vaut false (pause), pour économiser la batterie.
  */
-import React, { memo, useEffect, useRef } from 'react';
-import { View, Animated, Easing, StyleSheet } from 'react-native';
+import React, { memo, useEffect, useRef, useState } from 'react';
+import { View, Animated, Easing, StyleSheet, AppState } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { EnseignePearl } from './FondJeu';
 
 const CIEL = ['#8FD6FF', '#A3DDFF', '#B8E5FF', '#CDEDFF', '#E1F4FF', '#F1F9FF', '#FFF6DC', '#FFEFC8'];
@@ -32,16 +35,24 @@ function Nuage({ x, y, echelle, derive }) {
   );
 }
 
-function DecorMemoire({ l, h, bas = 0, largeurEnseigne, piedsEnseigne }) {
+function DecorMemoire({ l, h, bas = 0, largeurEnseigne, piedsEnseigne, actif = true }) {
   const derive = useRef(new Animated.Value(0)).current;
+  const affiche = useIsFocused();
+  const [premierPlan, setPremierPlan] = useState(AppState.currentState === 'active');
   useEffect(() => {
+    const abo = AppState.addEventListener('change', (etat) => setPremierPlan(etat === 'active'));
+    return () => abo.remove();
+  }, []);
+  const anime = actif && affiche && premierPlan;
+  useEffect(() => {
+    if (!anime) return undefined;
     const boucle = Animated.loop(Animated.sequence([
       Animated.timing(derive, { toValue: 1, duration: 16000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
       Animated.timing(derive, { toValue: 0, duration: 16000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
     ]));
     boucle.start();
     return () => boucle.stop();
-  }, [derive]);
+  }, [anime, derive]);
 
   if (!l || !h) return null;
   const sol = Math.max(70, bas + 4 + piedsEnseigne + 70);
