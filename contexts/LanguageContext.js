@@ -83,6 +83,11 @@ export function LanguageProvider({ children }) {
     setLangState(code);
     // Écrit AVANT un éventuel rechargement RTL, sinon la langue serait perdue.
     await AsyncStorage.setItem(STORAGE_KEY, code).catch(() => {});
+    // Notifications dans la nouvelle langue. Import paresseux (pushDirect
+    // charge les modules natifs), sans attendre : jamais bloquant.
+    try {
+      require('../services/pushDirect').signalerLangue();
+    } catch { /* relancé au prochain lancement */ }
     syncDirection(code);
   }, []);
 
