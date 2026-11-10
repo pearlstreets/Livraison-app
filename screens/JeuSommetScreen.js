@@ -32,6 +32,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import usePauseJeu from '../hooks/usePauseJeu';
+import AlerteCourseJeu from '../components/AlerteCourseJeu';
 import { EnseignePearl, mesuresEnseigne } from '../components/FondJeu';
 import SonJeux, { bruit } from '../components/SonJeux';
 import ReglagesSon from '../components/ReglagesSon';
@@ -639,16 +640,8 @@ export default function JeuSommetScreen({ navigation }) {
           />
         </View>
       )}
-      {alerteCourse && (
-        <View style={styles.voile}>
-          <View style={styles.carte}>
-            <Ionicons name="bicycle" size={44} color={BRAND} />
-            <Text style={styles.titre}>{t('jeuNouvelleCourse')}</Text>
-            <Text style={styles.texte}>{t('jeuNouvelleCourseTexte')}</Text>
-            <Bouton styles={styles} texte={t('jeuVoirCourse')} onPress={voirCourse} />
-            <Bouton styles={styles} secondaire texte={t('jeuResterIci')} onPress={fermerAlerte} />
-          </View>
-        </View>
+      {!!alerteCourse && (
+        <AlerteCourseJeu alerte={alerteCourse} t={t} navigation={navigation} onVoir={voirCourse} onRester={fermerAlerte} />
       )}
     </View>
   );
