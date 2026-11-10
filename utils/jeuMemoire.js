@@ -25,11 +25,17 @@ export const POINTS_PAIRE_PAR_NIVEAU = 2;
 export const POINTS_PAR_SECONDE = 3;
 export const POINTS_SANS_ERREUR_PAR_PAIRE = 5;
 
+// Combo : paires trouvées d'affilée sans erreur.
+export const POINTS_COMBO = 5; // par paire d'affilée après la première
+const COMBO_POINTS_MAX = 5; // plafond du multiplicateur
+export const COMBO_TEMPS_DES = 3; // secondes offertes à partir de 3 paires d'affilée
+export const SECONDES_COMBO = 2;
+
 // Durées d'affichage (ms).
 export const DELAI_ERREUR = 700;
 export const DELAI_ERREUR_RAPIDE = 550;
 
-// Motifs métier (Ionicons), chacun avec sa couleur.
+// Motifs métier : clé de l'illustration (components/FacesMemoire.js) et couleur du cadre.
 export const MOTIFS = [
   { icone: 'bicycle', couleur: '#FF6A13' },
   { icone: 'car', couleur: '#3D5A80' },
@@ -184,10 +190,31 @@ export function bonusNiveau(niveau, secondesRestantes, erreurs) {
   return { temps, sansErreur, total: temps + sansErreur };
 }
 
-/** Score maximal théorique d'un niveau (toutes les paires, chrono plein, sans erreur). */
+/** Points en plus pour la `combo`-ième paire d'affilée (0 pour la première). */
+export function bonusCombo(combo) {
+  const c = Math.floor(combo) || 0;
+  return c >= 2 ? POINTS_COMBO * Math.min(COMBO_POINTS_MAX, c - 1) : 0;
+}
+
+/** Secondes offertes pour la `combo`-ième paire d'affilée. */
+export function secondesCombo(combo) {
+  return (Math.floor(combo) || 0) >= COMBO_TEMPS_DES ? SECONDES_COMBO : 0;
+}
+
+/** Étoiles de fin de niveau : 3 sans erreur, 2 avec peu d'erreurs, 1 sinon. */
+export function etoilesNiveau(paires, erreurs) {
+  const e = Math.max(0, Math.floor(erreurs) || 0);
+  if (e === 0) return 3;
+  if (e <= Math.ceil(paires / 2)) return 2;
+  return 1;
+}
+
+/** Score maximal théorique d'un niveau (toutes les paires d'affilée, chrono plein, sans erreur). */
 export function scoreMaxNiveau(niveau) {
   const p = parametresNiveau(niveau);
-  return p.paires * pointsPaire(niveau) + bonusNiveau(niveau, p.duree, 0).total;
+  let combo = 0;
+  for (let k = 1; k <= p.paires; k += 1) combo += bonusCombo(k);
+  return p.paires * pointsPaire(niveau) + combo + bonusNiveau(niveau, p.duree, 0).total;
 }
 
 /**
