@@ -1,4 +1,19 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from './api';
+
+// Langue affichée par l'app (contexts/LanguageContext.js, clé DRIVER_LANG,
+// français par défaut comme l'écran), envoyée en ?lang= à la cloche : le
+// serveur y écrit les notifications. Inconnue ou illisible : rien d'envoyé.
+const LANGUES_APP = ['ar', 'de', 'en', 'es', 'fr', 'it', 'ja', 'nl', 'pt', 'ru', 'sv', 'th', 'zh'];
+
+async function langueApp() {
+  try {
+    const code = (await AsyncStorage.getItem('DRIVER_LANG')) || 'fr';
+    return LANGUES_APP.includes(code) ? code : null;
+  } catch {
+    return null;
+  }
+}
 
 export const deliveryService = {
   async toggleOnline(isOnline) {
@@ -142,7 +157,8 @@ export const deliveryService = {
   },
 
   async getNotifications() {
-    const { data } = await api.get('/api/v1/delivery/notifications/');
+    const lang = await langueApp();
+    const { data } = await api.get('/api/v1/delivery/notifications/', lang ? { params: { lang } } : undefined);
     return data;
   },
 

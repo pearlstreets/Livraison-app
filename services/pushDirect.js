@@ -15,6 +15,7 @@ import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from './api';
 import { binaireAvecSon, CANAL_COURSES_MUET, CANAL_COURSES_SON, SON_COURSE } from './sonCourse';
+import translations from '../contexts/translations';
 
 // Canal Android de toutes les notifications livreur (nouvelle course en
 // tête) : importance haute, donc bandeau et son. Nouvel id exprès : un canal
@@ -33,11 +34,24 @@ const ROUTE_RETIRER = '/api/v1/notifications/device-tokens/current/';
 let _abonnementJeton = null;
 let _enCours = null;
 
+// Nom d'un canal dans la langue de l'app (Réglages > Notifications) :
+// Android renomme un canal existant quand on le recrée avec le même id, ce
+// que fait signalerLangue() au changement de langue. Repli : texte français.
+function nomCanal(langue, cle, repli) {
+  try {
+    const texte = (langue && translations[langue]?.[cle]) || translations.fr?.[cle];
+    return typeof texte === 'string' && texte ? texte : repli;
+  } catch {
+    return repli;
+  }
+}
+
 async function preparerCanal() {
   if (Platform.OS !== 'android') return;
+  const langue = await langueAffichee();
   try {
     await Notifications.setNotificationChannelAsync(CANAL_ANDROID, {
-      name: 'Courses et messages',
+      name: nomCanal(langue, 'notifCanalCoursesMessages', 'Courses et messages'),
       importance: Notifications.AndroidImportance.HIGH,
       sound: 'default',
       vibrationPattern: [0, 250, 250, 250],
@@ -51,7 +65,7 @@ async function preparerCanal() {
   // son l'entendrait quand même (Android se replierait sur « courses »).
   try {
     await Notifications.setNotificationChannelAsync(CANAL_COURSES_MUET, {
-      name: 'Nouvelles courses sans son',
+      name: nomCanal(langue, 'notifCanalCoursesSansSon', 'Nouvelles courses sans son'),
       importance: Notifications.AndroidImportance.HIGH,
       sound: null,
       vibrationPattern: [0, 400, 200, 400],
@@ -66,7 +80,7 @@ async function preparerCanal() {
   if (!binaireAvecSon()) return;
   try {
     await Notifications.setNotificationChannelAsync(CANAL_COURSES_SON, {
-      name: 'Nouvelles courses',
+      name: nomCanal(langue, 'notifCanalNouvellesCourses', 'Nouvelles courses'),
       importance: Notifications.AndroidImportance.HIGH,
       sound: SON_COURSE,
       vibrationPattern: [0, 400, 200, 400],
@@ -274,6 +288,8 @@ export function oublierAppareil() {
 export async function signalerLangue() {
   try {
     if (!(await AsyncStorage.getItem(CLE_APPAREIL))) return;
+    // Canaux Android renommés dans la nouvelle langue : déjà fait par
+    // enregistrerAppareil() ci-dessous (demanderAutorisation, preparerCanal).
     // Envoi déjà en cours avec l'ancienne langue : on attend sa fin, puis
     // on renvoie avec la nouvelle.
     if (_enCours) await _enCours;
