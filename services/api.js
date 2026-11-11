@@ -44,6 +44,9 @@ try {
 //       reconnu : écran des documents demandés au seuil de gains.
 const REVISION_JS = 3;
 
+// Codes de langue de l'app (contexts/LanguageContext.js).
+const LANGUES_APP = ['ar', 'de', 'en', 'es', 'fr', 'it', 'ja', 'nl', 'pt', 'ru', 'sv', 'th', 'zh'];
+
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 15000,
@@ -90,6 +93,13 @@ api.interceptors.request.use(async (config) => {
   // Vérification d'identité par selfie vidéo : 1 si la caméra peut filmer,
   // 0 sinon (permission refusée pour de bon ou absente de l'appareil).
   config.headers['X-Pearl-Selfie'] = enteteSelfie();
+  // Langue affichée par l'app (contexts/LanguageContext.js, clé DRIVER_LANG) :
+  // le serveur écrit les notifications de la cloche dans cette langue.
+  // Illisible ou inconnue : en-tête absent, le serveur garde la langue du compte.
+  try {
+    const langue = await AsyncStorage.getItem('DRIVER_LANG');
+    if (langue && LANGUES_APP.includes(langue)) config.headers['X-App-Language'] = langue;
+  } catch { /* sans en-tête */ }
 
   // Set timeout based on method, sauf délai explicite de l'appelant (retrait
   // d'appareil à 4 s, vérification SIRET à 9 s) : seul le délai par défaut de
