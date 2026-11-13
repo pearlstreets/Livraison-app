@@ -130,7 +130,7 @@ export default function DeliveryDetailScreen({ navigation, route }) {
         {/* Signalement */}
         {reported ? (
           <>
-            <View style={[s.reportedCard, resolved && { backgroundColor: dark ? '#173325' : '#e6f7ee' }]}>
+            <View style={[s.reportedCard, resolved && { backgroundColor: dark ? '#3a2414' : '#FFF1E8' }]}>
               <Ionicons name="checkmark-circle" size={20} color={resolved ? BRAND : '#f5a623'} style={{ marginRight: 8 }} />
               <Text style={s.reportedTitle}>{resolved ? t('problemResolved') : t('problemReported')}</Text>
               {!resolved && <View style={s.pendingDot} />}

@@ -15,7 +15,7 @@ import {
 import { marquerCameraIndisponible } from '../services/selfieCamera';
 
 const BRAND = '#FF6A13';
-const VERT = '#00C29B';
+const VERT = '#FF6A13';
 const APPEL_MIN = 10;
 const APPEL_MAX = 2000;
 const MOTIFS_BLOCAGE = ['echec_visage', 'echec_mouvement', 'pas_de_video', 'plusieurs_visages', 'aucun_visage'];
