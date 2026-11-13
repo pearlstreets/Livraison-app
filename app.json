@@ -3,7 +3,7 @@
     "name": "Pearl Delivery",
     "slug": "pearl-delivery",
     "scheme": "pearldelivery",
-    "version": "1.0.9",
+    "version": "1.0.10",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
@@ -38,11 +38,11 @@
         }
       },
       "bundleIdentifier": "com.pearlstreets.delivery",
-      "buildNumber": "1018"
+      "buildNumber": "1019"
     },
     "android": {
       "package": "com.pearlstreets.delivery",
-      "versionCode": 1019,
+      "versionCode": 1020,
       "jsEngine": "hermes",
       "config": {
         "googleMaps": {
@@ -109,7 +109,10 @@
     "updates": {
       "enabled": true,
       "url": "https://u.expo.dev/3be79991-dd51-479d-8ff7-d6c45a1af111",
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      }
     },
     "runtimeVersion": {
       "policy": "appVersion"
