@@ -163,7 +163,7 @@ const makeStyles = (c) => StyleSheet.create({
   empty: { color: c.dark ? c.textMuted : '#888', paddingHorizontal: 16, paddingVertical: 20 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: c.text, paddingHorizontal: 16, marginBottom: 8, marginTop: 4 },
   notifRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: c.card, borderBottomWidth: 1, borderBottomColor: c.dark ? c.border : '#f0f0f0' },
-  notifUnread: { backgroundColor: c.dark ? c.cardAlt : '#f0faf7' },
+  notifUnread: { backgroundColor: c.dark ? c.cardAlt : '#FFF1E8' },
   notifIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   notifTitle: { fontWeight: '700', fontSize: 15, color: c.text, marginBottom: 2 },
   notifSub: { color: c.dark ? c.textMuted : '#666', fontSize: 13 },
