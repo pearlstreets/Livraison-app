@@ -31,7 +31,7 @@ const CHAMPS = {
 const PASTILLES = {
   manquant: { cle: 'docsSeuilEtatManquant', fond: '#FFF1E8', texte: '#C2410C' },
   en_attente: { cle: 'docsSeuilEtatEnAttente', fond: '#FEF6E0', texte: '#8A5A00' },
-  valide: { cle: 'docsSeuilEtatValide', fond: '#00C29B', texte: '#FFFFFF' },
+  valide: { cle: 'docsSeuilEtatValide', fond: '#FF6A13', texte: '#FFFFFF' },
   refuse: { cle: 'docsSeuilEtatRefuse', fond: '#FDECEC', texte: '#B42318' },
   expire: { cle: 'docsSeuilEtatExpire', fond: '#FDECEC', texte: '#B42318' },
 };
