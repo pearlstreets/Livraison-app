@@ -68,7 +68,7 @@ const RAYON_AIMANT = 120;
 export const BORD_SUR = 36; // jamais à moins de 36 unités d'un bord
 export const DISTANCE_SURE = 45; // aucun gêneur à moins de 45 unités
 export const DEGAGEMENT_ATTERRISSAGE = 110; // début de toit sans gêneur
-export const LARGEUR_MIN_GENEUR = 180;
+export const LARGEUR_MIN_GENEUR = 160;
 
 export const POINTS = {
   colis: 10,
@@ -357,7 +357,7 @@ export function reglagesNiveau(niveau) {
     probMobile: n >= 4 ? Math.min(0.14, 0.06 + 0.02 * (n - 4)) + 0.06 * dur : 0,
     probFragile: n >= 3 ? Math.min(0.14, 0.06 + 0.02 * (n - 3)) + 0.06 * dur : 0,
     probEnchaine: n >= 2 ? Math.min(0.2, 0.08 + 0.03 * (n - 2)) + 0.06 * dur : 0,
-    probGeneur: Math.min(0.6, 0.25 + diff * 0.35) + 0.12 * dur + 0.08 * plus,
+    probGeneur: Math.min(0.85, 0.5 + diff * 0.35) + 0.1 * dur + 0.05 * plus,
     // Gêneurs plus rapides dans la seconde vague (jusqu'à +35 %), puis +50 % au niveau 40.
     vitesseGeneurs: 1 + 0.35 * dur + 0.15 * plus,
     probCaisse: PROB_CAISSE,
@@ -666,7 +666,7 @@ export function genererNiveau(niveau, graine) {
       let geneurPose = false;
       // Gêneurs : jamais sur les DEGAGEMENT_ATTERRISSAGE premières unités (on y atterrit).
       if (i > 0 && suivante && p.w >= LARGEUR_MIN_GENEUR && rng() < r.probGeneur) {
-        const nb = p.w >= 300 && n >= 3 ? 2 : 1;
+        const nb = p.w >= 380 && n >= 4 ? 3 : p.w >= 250 && n >= 2 ? 2 : 1;
         const zx1 = p.x + DEGAGEMENT_ATTERRISSAGE;
         const zx2 = p.x + p.w - 30;
         for (let k = 0; k < nb; k += 1) {
