@@ -197,8 +197,18 @@ export const deliveryService = {
 
   // Écran « Jeux » (Tournée des toits, Livraison au sommet, Drone express, Rush en ville) :
   // record par jeu, le serveur garde le max. Réponse : { status, moi: { rang, score } }.
-  async envoyerRecordJeux(jeu, score) {
-    const { data } = await api.post(`/api/v1/delivery/driver/jeux/${encodeURIComponent(jeu)}/score/`, { score }, { timeout: 10000 });
+  // `mois` (« AAAA-MM », heure de Paris) : mois où le score a été fait, pour
+  // qu'un score envoyé en retard ne compte pas dans le classement d'un autre mois.
+  async envoyerRecordJeux(jeu, score, mois) {
+    const corps = mois ? { score, mois } : { score };
+    const { data } = await api.post(`/api/v1/delivery/driver/jeux/${encodeURIComponent(jeu)}/score/`, corps, { timeout: 10000 });
+    return data;
+  },
+
+  // Classement du mois, tous jeux : { mois, fin, classement: [{ rang, nom, points, moi }],
+  // moi: { rang, points, jeux: { <jeu>: { rang, points, score } } } | null }.
+  async getClassementMoisJeux() {
+    const { data } = await api.get('/api/v1/delivery/driver/jeux/classement-mois/', { timeout: 10000 });
     return data;
   },
 
