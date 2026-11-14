@@ -97,7 +97,7 @@ const RAYON_AIMANT = 120;
 export const BORD_SUR = 36; // jamais à moins de 36 unités d'un bord
 export const DISTANCE_SURE = 45; // aucun gêneur à moins de 45 unités
 export const DEGAGEMENT_ATTERRISSAGE = 110; // début de toit sans gêneur
-export const LARGEUR_MIN_GENEUR = 180;
+export const LARGEUR_MIN_GENEUR = 160;
 
 export const POINTS = {
   colis: 10,
@@ -608,7 +608,7 @@ export function reglagesNiveau(niveau) {
     probMobile: 0.05 + 0.12 * diff + 0.03 * plus,
     probFragile: 0.05 + 0.12 * diff + 0.03 * plus,
     probEnchaine: 0.12 + 0.12 * diff,
-    probGeneur: Math.min(0.8, 0.3 + 0.38 * diff + 0.08 * plus),
+    probGeneur: Math.min(0.8, 0.45 + 0.27 * diff + 0.08 * plus),
     // Sections à étages (passerelles empilées et ressort) : une par niveau au moins, plus souvent ensuite.
     probEtage: 0.1 + 0.08 * diff,
     etagesMax: n >= 3 ? 3 : 2,
@@ -1101,7 +1101,7 @@ export function genererNiveau(niveau, graine) {
       let geneurPose = false;
       // Gêneurs : jamais sur les DEGAGEMENT_ATTERRISSAGE premières unités (on y atterrit).
       if (i > 0 && suivante && !p.calme && p.w >= LARGEUR_MIN_GENEUR && rng() < r.probGeneur) {
-        const nb = p.w >= 300 && n >= 3 ? 2 : 1;
+        const nb = p.w >= 380 && n >= 4 ? 3 : p.w >= 250 && n >= 2 ? 2 : 1;
         const zx1 = p.x + DEGAGEMENT_ATTERRISSAGE;
         const zx2 = p.x + p.w - 30;
         for (let k = 0; k < nb; k += 1) {
