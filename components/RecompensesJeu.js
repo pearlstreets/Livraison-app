@@ -1,5 +1,5 @@
 /**
- * Récompenses visibles des mini-jeux livreur (Rush, Sommet, Drone, Coupe).
+ * Récompenses visibles des mini-jeux livreur (Slalom, Sommet, Drone, Coupe).
  *
  * Suivi pendant la partie (aucun rendu React) :
  *   const suivi = creerSuivi(PALIERS, meilleur, scoreDepart);
@@ -14,8 +14,7 @@
  * qui s'allument l'une après l'autre et un mot d'encouragement.
  * etoilesPour(score, meilleurAvant, paliers) donne le nombre d'étoiles.
  *
- * Même style que la bannière de palier du Rush : bleu nuit translucide,
- * liseré doré, texte blanc. Jamais de fond noir.
+ * Bannière bleu nuit translucide, liseré doré, texte blanc. Jamais de fond noir.
  */
 import React, { forwardRef, memo, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { View, Text, Animated, Easing, StyleSheet } from 'react-native';

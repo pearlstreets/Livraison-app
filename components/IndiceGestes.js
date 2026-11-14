@@ -2,7 +2,7 @@
  * Petit indice animé des gestes, affiché au début de la PREMIÈRE partie d'un
  * jeu puis mémorisé (AsyncStorage, par jeu). Disparaît au toucher ou après 4,5 s.
  *
- *   <IndiceGestes jeu="rush" actif={phase === 'jeu'} gestes={['gauche', 'droite', 'haut', 'bas']}
+ *   <IndiceGestes jeu="slalom" actif={phase === 'jeu'} gestes={['gauche', 'droite', 'haut', 'bas']}
  *                 t={t} colors={colors} />
  *
  * Props :
