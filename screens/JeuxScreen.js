@@ -1,6 +1,8 @@
 /**
- * Écran « Jeux » (onglet Profil) : les mini-jeux du livreur pour patienter
+ * Écran « Mini-jeux » (onglet Profil) : les mini-jeux du livreur pour patienter
  * entre deux courses, avec le meilleur score de chacun sur ce téléphone.
+ * Compte de démonstration (utils/simulation.js) : en tête, « Simuler une
+ * course » ouvre l'accueil avec une course d'essai.
  * Chaque jeu se met en pause tout seul à l'annonce d'une nouvelle course.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -12,6 +14,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
 import { chargerRecord } from '../utils/jeuxRecords';
+import { peutSimuler } from '../utils/simulation';
 import { chargerReglagesSon, changerReglageSon, reglagesSon } from '../utils/sonJeux';
 
 const LISTE = [
@@ -62,6 +65,22 @@ export default function JeuxScreen({ navigation }) {
       </View>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}>
         <Text style={s.intro}>{t('jeuxIntro')}</Text>
+        {peutSimuler(user) && (
+          <Pressable
+            onPress={() => navigation.navigate('Accueil', { screen: 'OrdersMain', params: { simulerCourse: Date.now() } })}
+            style={({ pressed }) => [s.carte, pressed && { opacity: 0.85 }]}
+            accessibilityLabel={t('jeuxSimulerTitre')}
+          >
+            <View style={[s.pastille, { backgroundColor: BRAND }]}>
+              <Ionicons name="flask-outline" size={26} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.nom}>{t('jeuxSimulerTitre')}</Text>
+              <Text style={s.texte}>{t('jeuxSimulerTexte')}</Text>
+            </View>
+            <Ionicons name="play-circle" size={34} color={BRAND} />
+          </Pressable>
+        )}
         {LISTE.map((j) => (
           <Pressable
             key={j.id}
