@@ -7,7 +7,7 @@ import hub from './hub';
 import toits from './toits';
 import sommet from './sommet';
 import drone from './drone';
-import rush from './rush';
+import slalom from './slalom';
 import coupe from './coupe';
 import memoire from './memoire';
 import basket from './basket';
@@ -15,4 +15,4 @@ import socle from './socle';
 import recompenses from './recompenses';
 import mois from './mois';
 
-export default [hub, toits, sommet, drone, rush, coupe, memoire, basket, socle, recompenses, mois];
+export default [hub, toits, sommet, drone, slalom, coupe, memoire, basket, socle, recompenses, mois];

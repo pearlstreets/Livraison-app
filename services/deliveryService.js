@@ -195,7 +195,7 @@ export const deliveryService = {
     return data;
   },
 
-  // Écran « Jeux » (Tournée des toits, Livraison au sommet, Drone express, Rush en ville) :
+  // Écran « Jeux » (Tournée des toits, Livraison au sommet, Drone express, Slalom urbain) :
   // record par jeu, le serveur garde le max. Réponse : { status, moi: { rang, score } }.
   // `mois` (« AAAA-MM », heure de Paris) : mois où le score a été fait, pour
   // qu'un score envoyé en retard ne compte pas dans le classement d'un autre mois.
