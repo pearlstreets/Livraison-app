@@ -21,6 +21,7 @@ import BandeauDocumentsSeuil from '../components/BandeauDocumentsSeuil';
 import { chargerDocumentsSeuil, donneesConnues, ecouter, estDocumentsRequis, signalerDocumentsRequis } from '../services/documentsSeuil';
 import { chargerEtapes, cleCourse, enregistrerEtape, garderSeulement, lireEtape, oublierEtape } from '../services/etapesCourses';
 import { annoncerCourses, marquerCoursesAnnoncees, noterReleve } from '../services/sonCourse';
+import { peutSimuler } from '../utils/simulation';
 
 // Libellé de l'étape en cours d'une course acceptée (index DeliveryFlow).
 const ACTIVE_STEP_KEYS = ['pickup', 'enRoute', 'arrived', 'deliveryCode', 'deliveryDone'];
@@ -216,13 +217,7 @@ function makeMockOrder() {
 /* ---------- Écran ---------- */
 export const orderKey = (o) => o?._uid || o?.id || o?.code;
 
-// Compte de démonstration remis aux vérificateurs Apple et Google. La liste
-// "Disponibles" dépend de commandes marchandes réelles et se trouve donc
-// presque toujours vide pendant une vérification : ce compte conserve le
-// générateur de commande de test pour que le parcours complet reste
-// vérifiable, sans exposer le bouton aux vrais livreurs.
-const REVIEW_ACCOUNT_EMAIL = 'king@gmail.com';
-// Livraison pas encore ouverte : bouton Simuler et message d'ouverture pour tous.
+// Livraison pas encore ouverte : message d'ouverture pour tous.
 const SIMULATION_POUR_TOUS = true;
 
 export default function OrdersScreen({ navigation, route }) {
@@ -334,10 +329,18 @@ export default function OrdersScreen({ navigation, route }) {
     setMockOrders(prev => [makeMockOrder(), ...prev]);
   }, []);
 
-  // Bouton Simuler réservé au compte King (et aux builds de développement) :
-  // aucun autre livreur ne voit de course simulée.
-  const canSimulate = __DEV__
-    || String(user?.email || '').trim().toLowerCase() === REVIEW_ACCOUNT_EMAIL;
+  // Course d'essai demandée depuis l'écran Mini-jeux (« Simuler une course »),
+  // réservée au compte King et aux builds de développement : une seule fois,
+  // et passage en ligne si besoin, sinon la course n'apparaîtrait pas.
+  const canSimulate = peutSimuler(user);
+  useEffect(() => {
+    const demande = route?.params?.simulerCourse;
+    if (!demande) return;
+    navigation.setParams({ simulerCourse: undefined });
+    if (!canSimulate) return;
+    addMockOrder();
+    if (!online) passerEnLigne();
+  }, [route?.params?.simulerCourse]);
 
   const displayedAvailable = useMemo(() => [...mockOrders, ...available], [mockOrders, available]);
 
@@ -530,12 +533,6 @@ export default function OrdersScreen({ navigation, route }) {
             <Text style={styles.goOnlineBtnTxt}>{t('goOnline')}</Text>
           </Pressable>
         )}
-        {online && canSimulate && (
-          <TouchableOpacity style={[styles.mockBtn, { alignSelf: 'flex-start' }]} onPress={addMockOrder} accessibilityLabel={t('simulate')}>
-            <Ionicons name="flask-outline" size={16} color="#fff" />
-            <Text style={styles.mockBtnTxt}>{t('simulate')}</Text>
-          </TouchableOpacity>
-        )}
         {online && displayedAvailable.length > 0 && (
           <ScrollView style={{ maxHeight: Dimensions.get('window').height * 0.45 }} showsVerticalScrollIndicator={false}>
             {/* La course de la fenêtre « Nouvelle course » n'est pas répétée derrière elle. */}
@@ -658,16 +655,6 @@ export default function OrdersScreen({ navigation, route }) {
             <Text style={[styles.sectionTitle, active.length > 0 && styles.sectionTitleGap, { flexShrink: 1 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
               {t('available')}
             </Text>
-            {canSimulate && (
-              <TouchableOpacity
-                style={[styles.mockBtn, { marginLeft: 8 }]}
-                onPress={addMockOrder}
-                accessibilityLabel={t('simulate')}
-              >
-                <Ionicons name="flask-outline" size={16} color="#fff" />
-                <Text style={styles.mockBtnTxt}>{t('simulate')}</Text>
-              </TouchableOpacity>
-            )}
           </View>
           <View style={[styles.cardsBlock, SIMULATION_POUR_TOUS && available.length === 0 && styles.cardsBlockCentre]}>
             {SIMULATION_POUR_TOUS && available.length === 0 && (
@@ -725,11 +712,9 @@ const makeStyles = (c, dark) => StyleSheet.create({
   sectionTitle: { fontSize: 28, fontWeight: '800', color: c.text, marginTop: 4, marginBottom: 8 },
   sectionTitleGap: {  marginTop: 8  },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  mockBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FF6A13', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
   opensSoonCard: { backgroundColor: c.card, borderRadius: 16, paddingVertical: 24, paddingHorizontal: 20, alignItems: 'center', marginBottom: 12 },
   opensSoonTitle: { fontSize: 17, fontWeight: '700', color: dark ? c.text : '#1c1c1e', marginTop: 10, textAlign: 'center' },
   opensSoonText: { fontSize: 14, color: dark ? c.textMuted : '#6b6b70', marginTop: 6, textAlign: 'center', lineHeight: 20 },
-  mockBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
   jeuBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.card, borderWidth: 1, borderColor: '#FF6A13', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8 },
   jeuBtnTxt: { color: '#FF6A13', fontWeight: '700', fontSize: 13 },
   cardsBlock: {  marginBottom: 0  },
