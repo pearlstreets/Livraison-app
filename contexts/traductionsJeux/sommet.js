@@ -3,7 +3,7 @@ export default {
   fr: {
     jeuxSommetTitre: 'Livraison au sommet',
     jeuxSommetTexte: 'Rebondissez de balcon en balcon pour livrer tout en haut.',
-    jeuxSommetRegle: 'Le livreur rebondit tout seul. Glissez le doigt vers la gauche ou la droite pour le diriger, touchez l\'écran pour le redresser.',
+    jeuxSommetRegle: 'Le livreur rebondit tout seul. Gardez le doigt posé et glissez-le vers la gauche ou la droite pour le diriger, levez-le pour qu\'il reparte tout droit.',
     jeuxSommetRegle2: 'Évitez les pots de fleurs et les pigeons, sauf en sautant dessus. Chaque colis rapporte 5 points.',
     jeuxSommetEtage: 'Étage {n}',
     jeuxSommetEtageAtteint: 'Étage atteint : {n}',
@@ -32,7 +32,7 @@ export default {
   en: {
     jeuxSommetTitre: 'Rooftop delivery',
     jeuxSommetTexte: 'Bounce from balcony to balcony to deliver at the very top.',
-    jeuxSommetRegle: 'The courier bounces on his own. Swipe left or right to steer him, tap the screen to straighten him up.',
+    jeuxSommetRegle: 'The courier bounces on his own. Keep your finger on the screen and slide it left or right to steer him, lift it and he goes straight up again.',
     jeuxSommetRegle2: 'Avoid flower pots and pigeons, unless you jump on them. Each parcel is worth 5 points.',
     jeuxSommetEtage: 'Floor {n}',
     jeuxSommetEtageAtteint: 'Floor reached: {n}',
@@ -61,7 +61,7 @@ export default {
   es: {
     jeuxSommetTitre: 'Entrega en la cima',
     jeuxSommetTexte: 'Rebote de balcón en balcón para entregar arriba del todo.',
-    jeuxSommetRegle: 'El repartidor rebota solo. Deslice el dedo a la izquierda o a la derecha para dirigirlo y toque la pantalla para enderezarlo.',
+    jeuxSommetRegle: 'El repartidor rebota solo. Mantenga el dedo en la pantalla y deslícelo a la izquierda o a la derecha para dirigirlo, levántelo para que vuelva a subir recto.',
     jeuxSommetRegle2: 'Evite las macetas y las palomas, salvo si salta encima. Cada paquete vale 5 puntos.',
     jeuxSommetEtage: 'Planta {n}',
     jeuxSommetEtageAtteint: 'Planta alcanzada: {n}',
@@ -90,7 +90,7 @@ export default {
   zh: {
     jeuxSommetTitre: '送到楼顶',
     jeuxSommetTexte: '在阳台之间弹跳，把包裹送到最高层。',
-    jeuxSommetRegle: '配送员会自动弹跳。向左或向右滑动来控制方向，轻触屏幕可让他回正。',
+    jeuxSommetRegle: '配送员会自动弹跳。手指按住屏幕并向左或向右滑动来控制方向，松开手指，他就会重新笔直向上。',
     jeuxSommetRegle2: '避开花盆和鸽子，踩在它们上面除外。每个包裹得 5 分。',
     jeuxSommetEtage: '{n} 层',
     jeuxSommetEtageAtteint: '到达楼层：{n}',
@@ -119,7 +119,7 @@ export default {
   ar: {
     jeuxSommetTitre: 'توصيل إلى القمة',
     jeuxSommetTexte: 'اقفزوا من شرفة إلى شرفة للتوصيل إلى أعلى المبنى.',
-    jeuxSommetRegle: 'يقفز عامل التوصيل وحده. اسحبوا إلى اليسار أو اليمين لتوجيهه، والمسوا الشاشة لتعديل مساره.',
+    jeuxSommetRegle: 'يقفز عامل التوصيل وحده. أبقوا إصبعكم على الشاشة واسحبوه إلى اليسار أو اليمين لتوجيهه، وارفعوه ليعود إلى الصعود مستقيمًا.',
     jeuxSommetRegle2: 'تجنبوا أصص الزهور والحمام، إلا إذا قفزتم فوقها. كل طرد يمنح 5 نقاط.',
     jeuxSommetEtage: 'الطابق {n}',
     jeuxSommetEtageAtteint: 'الطابق الذي وصلتم إليه: {n}',
@@ -148,7 +148,7 @@ export default {
   de: {
     jeuxSommetTitre: 'Lieferung ganz oben',
     jeuxSommetTexte: 'Springen Sie von Balkon zu Balkon und liefern Sie ganz oben.',
-    jeuxSommetRegle: 'Der Kurier springt von allein. Wischen Sie nach links oder rechts, um ihn zu lenken, und tippen Sie auf den Bildschirm, um ihn geradeaus zu richten.',
+    jeuxSommetRegle: 'Der Kurier springt von allein. Lassen Sie den Finger auf dem Bildschirm und ziehen Sie ihn nach links oder rechts, um ihn zu lenken, heben Sie ihn an, damit er wieder geradeaus springt.',
     jeuxSommetRegle2: 'Weichen Sie Blumentöpfen und Tauben aus, außer Sie springen darauf. Jedes Paket bringt 5 Punkte.',
     jeuxSommetEtage: 'Etage {n}',
     jeuxSommetEtageAtteint: 'Erreichte Etage: {n}',
@@ -177,7 +177,7 @@ export default {
   nl: {
     jeuxSommetTitre: 'Bezorgen op de top',
     jeuxSommetTexte: 'Stuiter van balkon naar balkon om helemaal bovenaan te bezorgen.',
-    jeuxSommetRegle: 'De bezorger stuitert vanzelf. Veeg naar links of rechts om te sturen en tik op het scherm om hem recht te zetten.',
+    jeuxSommetRegle: 'De bezorger stuitert vanzelf. Houd uw vinger op het scherm en schuif naar links of rechts om te sturen, til hem op en hij springt weer recht omhoog.',
     jeuxSommetRegle2: 'Ontwijk bloempotten en duiven, behalve als u erop springt. Elk pakket levert 5 punten op.',
     jeuxSommetEtage: 'Verdieping {n}',
     jeuxSommetEtageAtteint: 'Bereikte verdieping: {n}',
@@ -206,7 +206,7 @@ export default {
   it: {
     jeuxSommetTitre: 'Consegna in cima',
     jeuxSommetTexte: 'Rimbalzi di balcone in balcone per consegnare in cima.',
-    jeuxSommetRegle: 'Il rider rimbalza da solo. Scorra il dito a sinistra o a destra per guidarlo e tocchi lo schermo per raddrizzarlo.',
+    jeuxSommetRegle: 'Il rider rimbalza da solo. Tenga il dito sullo schermo e lo faccia scorrere a sinistra o a destra per guidarlo, lo sollevi e torna a salire dritto.',
     jeuxSommetRegle2: 'Eviti i vasi di fiori e i piccioni, a meno di saltarci sopra. Ogni pacco vale 5 punti.',
     jeuxSommetEtage: 'Piano {n}',
     jeuxSommetEtageAtteint: 'Piano raggiunto: {n}',
@@ -235,7 +235,7 @@ export default {
   pt: {
     jeuxSommetTitre: 'Entrega no topo',
     jeuxSommetTexte: 'Salte de varanda em varanda para entregar lá no alto.',
-    jeuxSommetRegle: 'O estafeta salta sozinho. Deslize o dedo para a esquerda ou para a direita para o dirigir e toque no ecrã para o endireitar.',
+    jeuxSommetRegle: 'O estafeta salta sozinho. Mantenha o dedo no ecrã e deslize-o para a esquerda ou para a direita para o dirigir, levante-o para que volte a subir a direito.',
     jeuxSommetRegle2: 'Evite os vasos de flores e os pombos, exceto se saltar em cima deles. Cada encomenda vale 5 pontos.',
     jeuxSommetEtage: 'Andar {n}',
     jeuxSommetEtageAtteint: 'Andar alcançado: {n}',
@@ -264,7 +264,7 @@ export default {
   ja: {
     jeuxSommetTitre: '屋上までお届け',
     jeuxSommetTexte: 'バルコニーからバルコニーへ跳ねて、いちばん上までお届けしましょう。',
-    jeuxSommetRegle: '配達員は自動で跳ねます。左か右にスワイプして動かし、画面をタップするとまっすぐに戻ります。',
+    jeuxSommetRegle: '配達員は自動で跳ねます。画面に指を置いたまま左か右に動かすと進む向きを変えられ、指を離すとまっすぐ上に戻ります。',
     jeuxSommetRegle2: '植木鉢とハトを避けてください。上から踏むのは大丈夫です。荷物は1個5点です。',
     jeuxSommetEtage: '{n} 階',
     jeuxSommetEtageAtteint: '到達した階：{n}',
@@ -293,7 +293,7 @@ export default {
   th: {
     jeuxSommetTitre: 'ส่งถึงดาดฟ้า',
     jeuxSommetTexte: 'กระโดดจากระเบียงสู่ระเบียงเพื่อส่งของถึงชั้นบนสุด',
-    jeuxSommetRegle: 'ไรเดอร์กระโดดเอง ปัดไปทางซ้ายหรือขวาเพื่อบังคับทิศทาง แตะหน้าจอเพื่อให้กลับมาตรง',
+    jeuxSommetRegle: 'ไรเดอร์กระโดดเอง วางนิ้วค้างไว้บนหน้าจอแล้วเลื่อนไปทางซ้ายหรือขวาเพื่อบังคับทิศทาง ยกนิ้วขึ้นแล้วไรเดอร์จะกลับมากระโดดตรงขึ้นไป',
     jeuxSommetRegle2: 'หลบกระถางดอกไม้และนกพิราบ เว้นแต่จะกระโดดเหยียบจากด้านบน พัสดุแต่ละชิ้นได้ 5 คะแนน',
     jeuxSommetEtage: 'ชั้น {n}',
     jeuxSommetEtageAtteint: 'ชั้นที่ไปถึง: {n}',
@@ -322,7 +322,7 @@ export default {
   sv: {
     jeuxSommetTitre: 'Leverans på toppen',
     jeuxSommetTexte: 'Studsa från balkong till balkong och leverera högst upp.',
-    jeuxSommetRegle: 'Budet studsar av sig självt. Svep åt vänster eller höger för att styra och tryck på skärmen för att räta upp det.',
+    jeuxSommetRegle: 'Budet studsar av sig självt. Håll fingret på skärmen och dra åt vänster eller höger för att styra, lyft fingret så hoppar det rakt upp igen.',
     jeuxSommetRegle2: 'Undvik blomkrukor och duvor, utom om du hoppar på dem. Varje paket ger 5 poäng.',
     jeuxSommetEtage: 'Våning {n}',
     jeuxSommetEtageAtteint: 'Nådd våning: {n}',
@@ -351,7 +351,7 @@ export default {
   ru: {
     jeuxSommetTitre: 'Доставка на крышу',
     jeuxSommetTexte: 'Прыгайте с балкона на балкон, чтобы доставить заказ на самый верх.',
-    jeuxSommetRegle: 'Курьер прыгает сам. Проведите пальцем влево или вправо, чтобы направлять его, и коснитесь экрана, чтобы выровнять.',
+    jeuxSommetRegle: 'Курьер прыгает сам. Держите палец на экране и ведите его влево или вправо, чтобы направлять курьера, отпустите палец, и он снова прыгает прямо вверх.',
     jeuxSommetRegle2: 'Избегайте цветочных горшков и голубей, если не прыгаете на них сверху. Каждая посылка даёт 5 очков.',
     jeuxSommetEtage: 'Этаж {n}',
     jeuxSommetEtageAtteint: 'Достигнутый этаж: {n}',

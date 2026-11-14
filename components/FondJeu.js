@@ -13,7 +13,7 @@
  *     de l'écran (`bas` : zone basse du téléphone ; reserveBasVille(l) donne
  *     la hauteur à laisser libre au-dessus).
  * Les autres jeux posent EnseignePearl dans leur propre décor (Drone, Toits,
- * Sommet) ; le Rush 3D a ses panneaux dans utils/jeuRush3dPage.js.
+ * Sommet) ; le Slalom urbain a ses plaques dans components/SceneSlalom3D.js.
  */
 import React, { memo, useCallback, useState } from 'react';
 import { View, Image, StyleSheet } from 'react-native';

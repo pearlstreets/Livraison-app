@@ -74,7 +74,7 @@ import JeuxScreen from './screens/JeuxScreen';
 import JeuToitsScreen from './screens/JeuToitsScreen';
 import JeuSommetScreen from './screens/JeuSommetScreen';
 import JeuDroneScreen from './screens/JeuDroneScreen';
-import JeuRushScreen from './screens/JeuRushScreen';
+import JeuSlalomScreen from './screens/JeuSlalomScreen';
 import JeuCoupeScreen from './screens/JeuCoupeScreen';
 import JeuMemoireScreen from './screens/JeuMemoireScreen';
 import JeuBasketScreen from './screens/JeuBasketScreen';
@@ -297,7 +297,7 @@ function MenuStackScreen() {
       <MenuStack.Screen name="JeuToits" component={JeuToitsScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="JeuSommet" component={JeuSommetScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="JeuDrone" component={JeuDroneScreen} options={{ headerShown: false }} />
-      <MenuStack.Screen name="JeuRush" component={JeuRushScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="JeuSlalom" component={JeuSlalomScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="JeuCoupe" component={JeuCoupeScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="JeuMemoire" component={JeuMemoireScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="JeuBasket" component={JeuBasketScreen} options={{ headerShown: false }} />
@@ -410,7 +410,7 @@ function Main() {
         }} />
       <Tab.Screen name="MessagesTab" component={DEPLIE ? InboxStackScreen : InboxScreen} options={{ headerShown: false, tabBarLabel: t('tabMessages') }} />
       <Tab.Screen name="Revenus" component={EarningsStackScreen} options={{ headerShown: false, tabBarLabel: t('tabEarnings') }} />
-      <Tab.Screen name="Profil" component={MenuStackScreen} options={({ route }) => ({ headerShown: false, tabBarLabel: t('tabProfile'), tabBarBadge: totalProfileNotifs > 0 ? totalProfileNotifs : undefined, tabBarBadgeStyle: { backgroundColor: '#e74c3c', fontSize: 10 }, ...(['JeuToits', 'JeuSommet', 'JeuDrone', 'JeuRush', 'JeuCoupe', 'JeuMemoire', 'JeuBasket'].includes(getFocusedRouteNameFromRoute(route)) ? { tabBarStyle: { display: 'none' } } : {}) })}
+      <Tab.Screen name="Profil" component={MenuStackScreen} options={({ route }) => ({ headerShown: false, tabBarLabel: t('tabProfile'), tabBarBadge: totalProfileNotifs > 0 ? totalProfileNotifs : undefined, tabBarBadgeStyle: { backgroundColor: '#e74c3c', fontSize: 10 }, ...(['JeuToits', 'JeuSommet', 'JeuDrone', 'JeuSlalom', 'JeuCoupe', 'JeuMemoire', 'JeuBasket'].includes(getFocusedRouteNameFromRoute(route)) ? { tabBarStyle: { display: 'none' } } : {}) })}
         listeners={({ navigation }) => ({
           tabPress: () => { navigation.navigate('Profil', { screen: 'MenuMain' }); },
         })}
