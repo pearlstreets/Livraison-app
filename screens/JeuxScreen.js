@@ -67,7 +67,7 @@ export default function JeuxScreen({ navigation }) {
         <Text style={s.intro}>{t('jeuxIntro')}</Text>
         {peutSimuler(user) && (
           <Pressable
-            onPress={() => navigation.navigate('Accueil', { screen: 'OrdersMain', params: { simulerCourse: Date.now() } })}
+            onPress={() => navigation.navigate('Accueil', { screen: 'OrdersMain', params: { simulerCourse: Date.now() }, pop: true })}
             style={({ pressed }) => [s.carte, pressed && { opacity: 0.85 }]}
             accessibilityLabel={t('jeuxSimulerTitre')}
           >
