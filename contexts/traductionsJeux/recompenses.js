@@ -1,5 +1,5 @@
 // Récompenses communes des mini-jeux livreur (components/RecompensesJeu.js) :
-// paliers, record, séries, bonus du Rush, étoiles de fin.
+// paliers, record, séries, bonus du Slalom, étoiles de fin.
 export default {
   fr: {
     jeuRecompPalier: '{n} points !',

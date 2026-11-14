@@ -27,7 +27,7 @@
  * Streets sur les toits du fond (components/FondJeu.js).
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Animated, Easing, View, Text, StyleSheet, Pressable } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
@@ -57,7 +57,8 @@ const MARGE_BANDEAU = { marginTop: 8 };
 // Bruitage de chaque événement du jeu (utils/jeuToits.js).
 const SONS_TOITS = {
   touche: 'choc', chute: 'choc', temps: 'sirene', ecarte: 'rebond', boite: 'ramasse', colis: 'ramasse',
-  accroupi: 'accroupi', bonus: 'booster', encaisse: 'choc',
+  accroupi: 'accroupi', bonus: 'booster', encaisse: 'choc', ressort: 'saut',
+  plouf: 'tranche', conduit: 'accroupi', sortieConduit: 'saut',
 };
 // Boosters affichés sous le score (icônes MaterialCommunityIcons) et objets qui sortent des caisses.
 const BOOSTERS = [
@@ -180,11 +181,12 @@ function pos(x, y, w, h, s) {
 // ---- Décor fixe (recalculé seulement à chaque tranche) ----
 const Decor = memo(function Decor({ plateformes, porte, x1, x2, s, pal, motif }) {
   const liste = visibles(plateformes, x1, x2);
-  const porteVisible = porte.x + 80 >= x1 && porte.x - 50 <= x2;
+  const porteVisible = porte.x + 130 >= x1 && porte.x - 110 <= x2;
   return (
     <>
+      {liste.map((p) => (p.mobile && p.mobile.ascenseur ? <Rails key={`r${p.id}`} p={p} s={s} pal={pal} /> : null))}
       {liste.map((p) => (p.mobile || p.fragile ? null : <Plateforme key={p.id} p={p} s={s} pal={pal} motif={motif} />))}
-      {porteVisible && <Maison porte={porte} s={s} pal={pal} />}
+      {porteVisible && <Villa porte={porte} s={s} pal={pal} />}
     </>
   );
 });
@@ -205,7 +207,41 @@ function Dynamique({ p, s, pal, motif, horloge }) {
   );
 }
 
+// Rails fixes d'un ascenseur, de sous l'écran jusqu'au-dessus de son point haut.
+function Rails({ p, s, pal }) {
+  const haut = p.mobile.y0 + p.mobile.amp + HAUTEUR + 22;
+  return (
+    <>
+      <View style={[pos(p.x - 4, BAS_DESSIN, 4, haut - BAS_DESSIN, s), { backgroundColor: pal.metal }]} />
+      <View style={[pos(p.x + p.w, BAS_DESSIN, 4, haut - BAS_DESSIN, s), { backgroundColor: pal.metal }]} />
+      <View style={[pos(p.x - 8, haut, p.w + 16, 6, s), { backgroundColor: pal.toitBord, borderRadius: 2 * s }]} />
+      <View style={[pos(p.x + p.w / 2 - 5, haut - 4, 10, 10, s), { backgroundColor: pal.metal, borderRadius: 5 * s, borderWidth: Math.max(1, s), borderColor: pal.toitBord }]} />
+    </>
+  );
+}
+
+// Couleurs des bassins : fond, paroi du fond, eau.
+const BASSINS = {
+  fontaine: { fond: '#B9B1A2', paroi: '#D8D1C3', eau: 'rgba(64,168,224,0.5)' },
+  bassin: { fond: '#6FB7D6', paroi: '#A9DDF0', eau: 'rgba(40,150,220,0.48)' },
+  inonde: { fond: '#7C8790', paroi: '#9AA5AE', eau: 'rgba(70,140,190,0.5)' },
+  canal: { fond: '#4F5B63', paroi: '#6E7B84', eau: 'rgba(30,105,140,0.6)' },
+};
+
 function Plateforme({ p, s, pal, motif }) {
+  if (p.mobile && p.mobile.ascenseur) {
+    // Cabine d'ascenseur : plancher, montants et toit à claire-voie.
+    const hc = HAUTEUR + 12;
+    return (
+      <View style={pos(p.x, p.y - 8, p.w, hc + 8, s)}>
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 8 * s, backgroundColor: OR, borderRadius: 2 * s, borderWidth: Math.max(1, s * 0.8), borderColor: pal.toitBord }} />
+        <View style={{ position: 'absolute', left: 0, bottom: 8 * s, width: 3 * s, height: hc * s, backgroundColor: pal.toitBord }} />
+        <View style={{ position: 'absolute', right: 0, bottom: 8 * s, width: 3 * s, height: hc * s, backgroundColor: pal.toitBord }} />
+        <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 4 * s, backgroundColor: pal.toitBord, borderRadius: 1 * s }} />
+        <View style={{ position: 'absolute', left: 0, right: 0, bottom: 8 * s + (hc * s) / 2, height: 2 * s, backgroundColor: 'rgba(0,0,0,0.25)' }} />
+      </View>
+    );
+  }
   if (p.mobile) {
     const vertical = p.mobile.axe === 'y';
     return (
@@ -215,6 +251,40 @@ function Plateforme({ p, s, pal, motif }) {
     );
   }
   if (p.flottante) {
+    if (p.type === 'balcon') {
+      // Balcon : dalle, consoles dessous et jardinière fleurie.
+      return (
+        <View style={pos(p.x, p.y - 18, p.w, 18, s)}>
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 7 * s, backgroundColor: pal.bordure, borderRadius: 2 * s, borderBottomWidth: Math.max(1, s), borderColor: pal.toitBord }} />
+          <View style={{ position: 'absolute', left: 6 * s, top: 7 * s, width: 5 * s, height: 9 * s, backgroundColor: pal.poteau, borderBottomLeftRadius: 4 * s }} />
+          <View style={{ position: 'absolute', right: 6 * s, top: 7 * s, width: 5 * s, height: 9 * s, backgroundColor: pal.poteau, borderBottomRightRadius: 4 * s }} />
+          <View style={{ position: 'absolute', left: p.w * 0.3 * s, width: p.w * 0.4 * s, top: 7 * s, height: 6 * s, backgroundColor: pal.planche, borderRadius: 1.5 * s }}>
+            <View style={{ position: 'absolute', left: 2 * s, top: -3 * s, width: 4 * s, height: 4 * s, borderRadius: 2 * s, backgroundColor: '#E2557A' }} />
+            <View style={{ position: 'absolute', right: 2 * s, top: -3 * s, width: 4 * s, height: 4 * s, borderRadius: 2 * s, backgroundColor: OR }} />
+          </View>
+        </View>
+      );
+    }
+    if (p.type === 'conduit') {
+      // Conduit de ventilation suspendu : tuyau rond, colliers et tiges de suspension.
+      const n = Math.max(2, Math.floor(p.w / 24));
+      return (
+        <>
+          <View style={pos(p.x + 8, p.y - 2, 2, 46, s)}>
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: pal.poteau }]} />
+          </View>
+          <View style={pos(p.x + p.w - 10, p.y - 2, 2, 46, s)}>
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: pal.poteau }]} />
+          </View>
+          <View style={[pos(p.x, p.y - 10, p.w, 10, s), { backgroundColor: pal.metal, borderRadius: 5 * s, overflow: 'hidden' }]}>
+            <View style={{ position: 'absolute', left: 0, right: 0, top: 2 * s, height: 2 * s, backgroundColor: 'rgba(255,255,255,0.35)' }} />
+            {Array.from({ length: n }).map((_, i) => (
+              <View key={i} style={{ position: 'absolute', left: ((p.w * (i + 0.5)) / n - 1) * s, top: 0, bottom: 0, width: 2 * s, backgroundColor: 'rgba(0,0,0,0.25)' }} />
+            ))}
+          </View>
+        </>
+      );
+    }
     if (p.type === 'auvent') {
       const n = Math.max(3, Math.round(p.w / 16));
       return (
@@ -237,6 +307,23 @@ function Plateforme({ p, s, pal, motif }) {
           <View style={[StyleSheet.absoluteFill, { backgroundColor: pal.poteau }]} />
         </View>
         <View style={[pos(p.x, p.y - 8, p.w, 8, s), { backgroundColor: pal.planche, borderRadius: 2 * s }]} />
+      </>
+    );
+  }
+  if (p.type === 'bassin') {
+    // Bassin : fond et paroi carrelée ; l'eau est dessinée par-dessus le livreur (Eaux).
+    const c = BASSINS[p.variante] || BASSINS.bassin;
+    const haut = (p.eau || p.y + 40) + 8 - p.y;
+    const lignes = Math.floor(haut / 12);
+    return (
+      <>
+        <View style={[pos(p.x, BAS_DESSIN, p.w, p.y - BAS_DESSIN, s), { backgroundColor: p.variante === 'fontaine' || p.variante === 'canal' ? pal.trottoir : pal.toit }]} />
+        <View style={[pos(p.x, p.y, p.w, haut, s), { backgroundColor: c.paroi, overflow: 'hidden' }]}>
+          {Array.from({ length: lignes }).map((_, i) => (
+            <View key={i} style={{ position: 'absolute', left: 0, right: 0, bottom: (i + 1) * 12 * s, height: Math.max(1, s * 0.8), backgroundColor: 'rgba(0,0,0,0.12)' }} />
+          ))}
+        </View>
+        <View style={[pos(p.x, p.y - 5, p.w, 5, s), { backgroundColor: c.fond }]} />
       </>
     );
   }
@@ -355,6 +442,41 @@ function Plateforme({ p, s, pal, motif }) {
       </View>,
     );
   }
+  if (p.gouttiere) {
+    // Gouttière sur la façade : tuyau, colliers et cuvette en haut.
+    const n = Math.max(2, Math.floor((p.y - BAS_DESSIN) / 34));
+    accessoires.push(
+      <View key="gouttiere" style={{ position: 'absolute', left: u(-5), top: u(-4), bottom: 0, width: u(7) }}>
+        <View style={{ position: 'absolute', left: u(1), top: u(4), bottom: 0, width: u(5), backgroundColor: pal.metal, borderLeftWidth: Math.max(1, s * 0.8), borderColor: 'rgba(255,255,255,0.35)' }} />
+        <View style={{ position: 'absolute', left: u(-2), top: 0, width: u(11), height: u(6), borderRadius: u(1.5), backgroundColor: pal.metal, borderWidth: Math.max(1, s * 0.8), borderColor: pal.toitBord }} />
+        {Array.from({ length: n }).map((_, i) => (
+          <View key={i} style={{ position: 'absolute', left: 0, top: u(16 + i * 34), width: u(9), height: u(3), backgroundColor: pal.toitBord }} />
+        ))}
+      </View>,
+    );
+  }
+  if (p.bouche) {
+    // Bouche d'aération : grille dans le toit, on s'y glisse vers le bas.
+    accessoires.push(
+      <View key="bouche" style={{ position: 'absolute', left: u(p.bouche.x - p.x), top: u(-2), width: u(p.bouche.w), height: u(7), borderRadius: u(1.5), backgroundColor: '#22262B', borderWidth: Math.max(1, s * 0.8), borderColor: pal.metal, flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center' }}>
+        {[0, 1, 2, 3].map((i) => <View key={i} style={{ width: u(2), height: u(4), backgroundColor: pal.metal }} />)}
+      </View>,
+      <View key="indice" style={{ position: 'absolute', left: u(p.bouche.x - p.x + p.bouche.w / 2 - 6), top: u(-16) }}>
+        <MaterialCommunityIcons name="chevron-double-down" size={u(12)} color={OR} />
+      </View>,
+    );
+  }
+  if (p.sortieConduit) {
+    // Sortie du conduit : bouche de ventilation ouverte sur le toit.
+    accessoires.push(
+      <View key="sortie" style={{ position: 'absolute', left: u(42), top: u(-15), width: u(36), height: u(15) }}>
+        <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: u(5), borderRadius: u(2), backgroundColor: pal.toitBord }} />
+        <View style={{ position: 'absolute', left: u(3), right: u(3), top: u(4), bottom: 0, backgroundColor: pal.metal }}>
+          <View style={{ position: 'absolute', left: u(4), right: u(4), top: u(2), height: u(5), borderRadius: u(1), backgroundColor: '#22262B' }} />
+        </View>
+      </View>,
+    );
+  }
   return (
     <View style={[pos(p.x, BAS_DESSIN, p.w, p.y - BAS_DESSIN, s), { backgroundColor: toit ? pal.toit : pal.trottoir }]}>
       {accessoires}
@@ -366,20 +488,178 @@ function Plateforme({ p, s, pal, motif }) {
   );
 }
 
-function Maison({ porte, s, pal }) {
+// Perle dans une fenêtre de la villa : halo qui pulse en boucle (fil natif).
+function PerleBrillante({ taille }) {
+  const v = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const boucle = Animated.loop(Animated.sequence([
+      Animated.timing(v, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      Animated.timing(v, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    ]));
+    boucle.start();
+    return () => boucle.stop();
+  }, [v]);
+  const halo = taille * 2.6;
+  const perle = taille;
+  return (
+    <View pointerEvents="none" style={{ width: halo, height: halo, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View
+        style={{
+          position: 'absolute', width: halo, height: halo, borderRadius: halo / 2, backgroundColor: 'rgba(255,236,170,0.9)',
+          opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.85] }),
+          transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1.15] }) }],
+        }}
+      />
+      <Animated.View
+        style={{
+          position: 'absolute', width: halo * 0.62, height: halo * 0.62, borderRadius: halo * 0.31, backgroundColor: 'rgba(255,255,255,0.9)',
+          opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.7] }),
+        }}
+      />
+      <View style={{ width: perle, height: perle, borderRadius: perle / 2, backgroundColor: '#FBF8F3', borderWidth: Math.max(1, perle * 0.06), borderColor: '#E6DCCB' }}>
+        <View style={{ position: 'absolute', left: perle * 0.2, top: perle * 0.16, width: perle * 0.32, height: perle * 0.26, borderRadius: perle * 0.16, backgroundColor: '#FFFFFF' }} />
+        <View style={{ position: 'absolute', right: perle * 0.16, bottom: perle * 0.14, width: perle * 0.24, height: perle * 0.2, borderRadius: perle * 0.12, backgroundColor: 'rgba(214,190,232,0.55)' }} />
+      </View>
+    </View>
+  );
+}
+
+// Villa du client, à l'arrivée : deux étages, baie vitrée, balcon, toit terrasse
+// planté, plaque Pearl Streets sur la façade et une perle qui brille à la fenêtre.
+function Villa({ porte, s, pal }) {
   const { w, h } = TAILLES.porte;
+  const u = (v) => v * s;
+  const X = porte.x - 86;
+  const W = 196;
+  const H1 = 68;
+  const H2 = 56;
+  const y1 = porte.y;
+  const y2 = porte.y + H1;
+  const y3 = y2 + H2;
+  const vitre = pal.fenetre;
+  const cadre = pal.murToit;
+  const fenetre = (x, y, l, ht, cle) => (
+    <View key={cle} style={[pos(x, y, l, ht, s), { backgroundColor: vitre, borderWidth: u(2), borderColor: cadre, borderRadius: u(2) }]}>
+      <View style={{ position: 'absolute', left: (l / 2 - 2) * s, top: 0, bottom: 0, width: u(1.5), backgroundColor: cadre }} />
+    </View>
+  );
+  const largeurPlaque = 72;
   return (
     <>
-      <View style={[pos(porte.x - 40, porte.y, w + 80, h + 40, s), { backgroundColor: pal.mur, borderTopLeftRadius: 4 * s, borderTopRightRadius: 4 * s }]}>
-        <View style={{ position: 'absolute', left: -6 * s, right: -6 * s, top: -6 * s, height: 10 * s, borderRadius: 3 * s, backgroundColor: pal.murToit }} />
+      {/* Rez-de-chaussée et étage */}
+      <View style={[pos(X, y1, W, H1, s), { backgroundColor: pal.mur, borderTopLeftRadius: u(2), borderTopRightRadius: u(2) }]} />
+      <View style={[pos(X + 10, y2, W - 20, H2, s), { backgroundColor: pal.mur }]} />
+      <View style={[pos(X - 4, y2 - 4, W + 8, 6, s), { backgroundColor: cadre, borderRadius: u(2) }]} />
+      {/* Toit terrasse : dalle, garde-corps vitré, plantes */}
+      <View style={[pos(X + 4, y3, W - 8, 6, s), { backgroundColor: cadre, borderRadius: u(2) }]} />
+      <View style={[pos(X + 6, y3 + 6, W - 12, 12, s), { backgroundColor: 'rgba(190,225,245,0.45)', borderTopWidth: u(1.5), borderColor: pal.metal }]} />
+      {[14, 52, W - 60, W - 26].map((dx, i) => (
+        <View key={`pot${i}`} style={pos(X + dx, y3 + 6, 14, 22, s)}>
+          <View style={{ position: 'absolute', left: u(2), right: u(2), bottom: 0, height: u(8), backgroundColor: '#B8613A', borderBottomLeftRadius: u(2), borderBottomRightRadius: u(2) }} />
+          <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: u(15), borderRadius: u(7), backgroundColor: i % 2 ? '#3E9B57' : '#2F7F47' }} />
+        </View>
+      ))}
+      {/* Baie vitrée à gauche de la porte */}
+      <View style={[pos(X + 10, y1 + 6, 64, 44, s), { backgroundColor: vitre, borderWidth: u(2), borderColor: cadre, borderRadius: u(2), flexDirection: 'row', justifyContent: 'space-evenly' }]}>
+        {[0, 1].map((i) => <View key={i} style={{ width: u(1.5), height: '100%', backgroundColor: cadre }} />)}
       </View>
-      <View style={[pos(porte.x, porte.y, w, h, s), { backgroundColor: pal.porte, borderTopLeftRadius: 5 * s, borderTopRightRadius: 5 * s }]}>
-        <View style={{ position: 'absolute', right: 5 * s, top: h * 0.5 * s, width: 5 * s, height: 5 * s, borderRadius: 3 * s, backgroundColor: OR }} />
+      {/* Porte d'entrée, auvent doré, lampes */}
+      <View style={[pos(porte.x - 6, porte.y + h, w + 12, 5, s), { backgroundColor: OR, borderRadius: u(2) }]} />
+      <View style={[pos(porte.x, porte.y, w, h, s), { backgroundColor: pal.porte, borderTopLeftRadius: u(4), borderTopRightRadius: u(4) }]}>
+        <View style={{ position: 'absolute', left: u(5), right: u(5), top: u(6), height: u(14), borderRadius: u(2), backgroundColor: 'rgba(255,255,255,0.18)' }} />
+        <View style={{ position: 'absolute', right: u(5), top: h * 0.55 * s, width: u(5), height: u(5), borderRadius: u(3), backgroundColor: OR }} />
       </View>
-      <View style={[pos(porte.x + w / 2 - 12, porte.y + h + 8, 24, 24, s), styles.centre]}>
-        <MaterialCommunityIcons name="home-variant" size={22 * s} color={BRAND} />
+      {fenetre(porte.x + w + 14, y1 + 18, 26, 30, 'f1')}
+      {/* Arbustes devant la façade */}
+      <View style={[pos(X - 10, y1, 22, 16, s), { backgroundColor: '#2F7F47', borderTopLeftRadius: u(11), borderTopRightRadius: u(11) }]} />
+      <View style={[pos(X + W - 12, y1, 22, 18, s), { backgroundColor: '#3E9B57', borderTopLeftRadius: u(11), borderTopRightRadius: u(11) }]} />
+      {/* Étage : fenêtre de la perle, plaque Pearl Streets, porte-fenêtre et balcon */}
+      <View style={[pos(X + 22, y2 + 10, 34, 36, s), { backgroundColor: '#2B3A55', borderWidth: u(2.5), borderColor: OR, borderTopLeftRadius: u(17), borderTopRightRadius: u(17), alignItems: 'center', justifyContent: 'center', overflow: 'visible' }]}>
+        <PerleBrillante taille={u(13)} />
+      </View>
+      <EnseignePearl
+        largeur={largeurPlaque * s}
+        compacte
+        style={{ position: 'absolute', left: (X + W / 2 - largeurPlaque / 2) * s, bottom: (y2 + 24 + SOL_ECRAN) * s }}
+      />
+      {fenetre(X + W - 58, y2 + 6, 30, 40, 'f2')}
+      <View style={[pos(X + W - 70, y2 + 4, 54, 4, s), { backgroundColor: cadre, borderRadius: u(1) }]} />
+      <View style={[pos(X + W - 70, y2 + 8, 54, 12, s), { borderWidth: u(1.5), borderBottomWidth: 0, borderColor: pal.toitBord, flexDirection: 'row', justifyContent: 'space-evenly' }]}>
+        {[0, 1, 2, 3].map((i) => <View key={i} style={{ width: u(1.5), height: '100%', backgroundColor: pal.toitBord }} />)}
       </View>
     </>
+  );
+}
+
+// Eau des bassins, dessinée par-dessus le livreur : il y paraît immergé.
+function Eaux({ eaux, x1, x2, s, horloge }) {
+  return visibles(eaux, x1, x2).map((e) => {
+    const c = BASSINS[e.variante] || BASSINS.bassin;
+    const prof = e.eau - e.y;
+    const vague = Math.sin(horloge * 2.2 + e.id) * 3 * s;
+    return (
+      <View key={e.id} pointerEvents="none" style={[pos(e.x, e.y, e.w, prof, s), { backgroundColor: c.eau, overflow: 'hidden' }]}>
+        <View style={{ position: 'absolute', left: 0, right: 0, top: 0, height: 3 * s, backgroundColor: 'rgba(255,255,255,0.55)' }} />
+        {[0.2, 0.55, 0.85].map((k, i) => (
+          <View key={`v${i}`} style={{ position: 'absolute', left: e.w * k * s - 8 * s, top: 5 * s, width: 16 * s, height: 1.5 * s, borderRadius: s, backgroundColor: 'rgba(255,255,255,0.4)', transform: [{ translateX: i % 2 ? -vague : vague }] }} />
+        ))}
+        {[0, 1, 2].map((i) => {
+          const montee = (horloge * 18 + i * 23) % Math.max(10, prof - 6);
+          return (
+            <View key={`b${i}`} style={{ position: 'absolute', left: (e.w * (0.25 + i * 0.25)) * s, bottom: montee * s, width: 3 * s, height: 3 * s, borderRadius: 1.5 * s, borderWidth: Math.max(1, s * 0.5), borderColor: 'rgba(255,255,255,0.7)' }} />
+          );
+        })}
+      </View>
+    );
+  });
+}
+
+// Passerelles des étages : poteaux posés sur le toit, puis planches (dessin fixe, recalculé à chaque tranche).
+const Etages = memo(function Etages({ etages, x1, x2, s, pal }) {
+  const liste = visibles(etages || [], x1, x2);
+  if (!liste.length) return null;
+  return (
+    <>
+      {liste.map((p) => (
+        <React.Fragment key={`pe${p.id}`}>
+          <View style={[pos(p.x + 8, p.appui, 3, p.y - 8 - p.appui, s), { backgroundColor: pal.poteau }]} />
+          <View style={[pos(p.x + p.w - 11, p.appui, 3, p.y - 8 - p.appui, s), { backgroundColor: pal.poteau }]} />
+        </React.Fragment>
+      ))}
+      {liste.map((p) => (
+        <View
+          key={`ep${p.id}`}
+          style={[pos(p.x, p.y - 9, p.w, 9, s), { backgroundColor: pal.planche, borderRadius: 2 * s, borderWidth: 1, borderColor: pal.toitBord }]}
+        >
+          <View style={[styles.rivets, { paddingHorizontal: 4 * s }]}>
+            {[0, 1, 2, 3].map((i) => (
+              <View key={i} style={{ width: 2.4 * s, height: 2.4 * s, borderRadius: 1.2 * s, backgroundColor: pal.toitBord }} />
+            ))}
+          </View>
+        </View>
+      ))}
+    </>
+  );
+});
+
+// Ressort sur un toit : il s'écrase au rebond puis se redresse (r.comp, de 1 à 0).
+function Ressort({ r, s, pal }) {
+  const h = r.h * (1 - 0.5 * (r.comp || 0));
+  const spire = (h - 6) / 3;
+  return (
+    <View style={pos(r.x, r.y, r.w, h, s)} pointerEvents="none">
+      <View style={[styles.ressortPlaque, { bottom: 0, height: 3 * s, backgroundColor: pal.toitBord }]} />
+      {[0, 1, 2].map((i) => (
+        <View
+          key={i}
+          style={[
+            styles.ressortSpire,
+            { bottom: (3 + i * spire) * s, height: Math.max(1, spire * s), borderColor: '#C0392B', transform: [{ skewX: i % 2 ? '-18deg' : '18deg' }] },
+          ]}
+        />
+      ))}
+      <View style={[styles.ressortPlaque, { top: 0, height: 3.5 * s, backgroundColor: '#E74C3C' }]} />
+    </View>
   );
 }
 
@@ -1076,7 +1356,9 @@ export default function JeuToitsScreen({ navigation }) {
           <Fond fond={fondRef.current} x1={ftranche * TRANCHE - 120} x2={ftranche * TRANCHE + visW + TRANCHE + 120} s={s} pal={pal} />
         </View>
         <View style={[StyleSheet.absoluteFill, { transform: [{ translateX: -cam.x * s }, { translateY: cam.y * s }] }]} pointerEvents="none">
-          <Decor plateformes={m.plateformes} porte={m.porte} x1={x1} x2={x2} s={s} pal={pal} motif={m.motif} />
+          <Decor plateformes={m.plateformesDecor || m.plateformes} porte={m.porte} x1={x1} x2={x2} s={s} pal={pal} motif={m.motif} />
+          <Etages etages={m.etages} x1={x1} x2={x2} s={s} pal={pal} />
+          {visibles(m.ressorts || [], vx1, vx2).map((r) => <Ressort key={`r${r.id}`} r={r} s={s} pal={pal} />)}
           {visibles(m.plateformes, vx1, vx2).map((p) => (p.mobile || p.fragile
             ? <Dynamique key={`d${p.id}`} p={p} s={s} pal={pal} motif={m.motif} horloge={m.horloge} />
             : null))}
@@ -1090,7 +1372,10 @@ export default function JeuToitsScreen({ navigation }) {
               aboie={g.type === 'chien' && Math.abs(g.x - j.x) < 150 && Math.floor(g.temps * 2.5) % 3 === 0}
             />
           ) : null))}
-          <Livreur j={j} s={s} clignote={clignote} accroupi={!!j.accroupi} grand={m.grand} vol={m.vol > 0} etoile={m.etoile > 0} horloge={m.horloge} />
+          {!m.passage && (
+            <Livreur j={j} s={s} clignote={clignote} accroupi={!!j.accroupi} grand={m.grand} vol={m.vol > 0} etoile={m.etoile > 0} horloge={m.horloge} />
+          )}
+          <Eaux eaux={(m.env && m.env.eaux) || []} x1={vx1} x2={vx2} s={s} horloge={m.horloge} />
           {m.sorties.map((o) => {
             const d = SORTIES[o.type] || SORTIES.etoile;
             return (
@@ -1209,6 +1494,7 @@ export default function JeuToitsScreen({ navigation }) {
                 <Text style={sty.texteDiscret}>{t('jeuxToitsAstuce')}</Text>
                 <Text style={sty.texteDiscret}>{t('jeuxToitsAstuceDur')}</Text>
                 <Text style={sty.texteDiscret}>{t('jeuxToitsAstuceBonus')}</Text>
+                <Text style={sty.texteDiscret}>{t('jeuxToitsAstuceTerrain')}</Text>
                 <Text style={sty.record}>{t('jeuMeilleurScore', { n: meilleur })}</Text>
                 <ReglagesSon t={t} colors={colors} />
                 <Bouton sty={sty} texte={t('jeuJouer')} onPress={nouvellePartie} />
@@ -1296,6 +1582,9 @@ function Bouton({ texte, onPress, secondaire, sty }) {
 
 const styles = StyleSheet.create({
   centre: { alignItems: 'center', justifyContent: 'center' },
+  rivets: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  ressortPlaque: { position: 'absolute', left: 0, right: 0, borderRadius: 2 },
+  ressortSpire: { position: 'absolute', left: '15%', right: '15%', borderWidth: 2, borderRadius: 2 },
   astre: { position: 'absolute', top: 18, right: 22 },
   halo: { position: 'absolute', top: 2, right: 6, width: 66, height: 66, borderRadius: 33, opacity: 0.16 },
   halo2: { position: 'absolute', top: 10, right: 14, width: 50, height: 50, borderRadius: 25, opacity: 0.18 },

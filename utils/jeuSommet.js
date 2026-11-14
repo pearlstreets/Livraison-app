@@ -522,3 +522,33 @@ export function avancer(e, dtBrut, dir) {
   e.score = e.etage + e.colis * POINTS_COLIS;
   return evts;
 }
+
+/**
+ * Commande au doigt, comme une direction tenue. Tant que le doigt est posé,
+ * le livreur va du côté où il a glissé ; doigt levé (ou simple appui), il
+ * repart tout droit : rien ne garde le cap. Le point d'ancrage suit le doigt
+ * à `SEUIL_DOIGT` points : revenir un peu en arrière redresse, revenir plus
+ * franchement change de côté, sans lever le doigt.
+ *
+ *   const d = doigtPose();          // au contact
+ *   doigtGlisse(d, g.dx);           // à chaque mouvement, rend -1, 0 ou 1
+ *   doigtLeve(d);                   // au relâché, rend 0
+ */
+export const SEUIL_DOIGT = 18;
+
+export function doigtPose(x = 0) {
+  return { ancre: x, dir: 0 };
+}
+
+export function doigtGlisse(d, x, seuil = SEUIL_DOIGT) {
+  if (x - d.ancre > seuil) d.ancre = x - seuil;
+  else if (d.ancre - x > seuil) d.ancre = x + seuil;
+  const ecart = x - d.ancre;
+  d.dir = ecart >= seuil / 2 ? 1 : ecart <= -seuil / 2 ? -1 : 0;
+  return d.dir;
+}
+
+export function doigtLeve(d) {
+  if (d) d.dir = 0;
+  return 0;
+}
