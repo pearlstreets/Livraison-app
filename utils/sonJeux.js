@@ -1,13 +1,12 @@
 /**
  * Son des mini-jeux : une musique de fond différente par jeu (coupe, memoire,
- * drone, toits, sommet, rush, basket) et des bruitages, deux interrupteurs
+ * drone, toits, sommet, slalom, basket) et des bruitages, deux interrupteurs
  * « Musique » et « Bruitages » gardés sur le téléphone (AsyncStorage,
  * clé jeux_son_v1).
  *
  * Aucun module natif, aucun fichier audio : tout est synthétisé en Web Audio
- * dans une WebView invisible (components/SonJeux.js) ; le Rush 3D embarque le
- * même moteur dans sa propre WebView. MOTEUR_AUDIO_JS est du JavaScript de
- * page web.
+ * dans une WebView invisible (components/SonJeux.js). MOTEUR_AUDIO_JS est du
+ * JavaScript de page web.
  *
  * API React Native (ce fichier) :
  *   chargerReglagesSon() -> Promise<{ musique, bruitages }>
@@ -63,7 +62,7 @@ export function ecouterReglagesSon(f) {
   return () => abonnes.delete(f);
 }
 
-export const JEUX_MUSIQUE = ['coupe', 'memoire', 'drone', 'toits', 'sommet', 'rush', 'basket'];
+export const JEUX_MUSIQUE = ['coupe', 'memoire', 'drone', 'toits', 'sommet', 'slalom', 'basket'];
 export const BRUITAGES = ['saut', 'accroupi', 'ramasse', 'booster', 'choc', 'record', 'tranche', 'carte', 'vie', 'sirene', 'sifflet', 'niveau', 'perdu'];
 
 /**
@@ -74,7 +73,7 @@ export const BRUITAGES = ['saut', 'accroupi', 'ramasse', 'booster', 'choc', 'rec
 export const MOTEUR_AUDIO_JS = `
 (function(){
   var ctx=null, maitre=null, busMus=null, busFx=null;
-  var etat={musique:true,bruitages:true,joue:false,jeu:'rush'};
+  var etat={musique:true,bruitages:true,joue:false,jeu:'slalom'};
   var minuteur=null, prochain=0, pas=0, veille=null;
   // Sans musique, le contexte audio est mis en veille après le dernier son :
   // plus de calcul audio en pause, sur l'accueil ou la fin du jeu (batterie).
@@ -110,8 +109,8 @@ export const MOTEUR_AUDIO_JS = `
       L:[65,0,69,0,72,0,77,0, 67,0,70,0,74,0,79,0, 69,0,72,0,77,0,81,0, 72,0,77,0,81,0,84,0],
       B:[41,0,41,0,48,0,48,0, 43,0,43,0,50,0,50,0, 45,0,45,0,52,0,52,0, 41,0,41,0,48,0,53,0],
       D:'k...s...k...s.hh'},
-    // Rush : course rapide en la mineur, basse martelée.
-    rush:{bpm:146,lt:'sawtooth',lv:0.1,bt:'square',bv:0.13,swing:0,
+    // Slalom urbain : course rapide en la mineur, basse martelée.
+    slalom:{bpm:146,lt:'sawtooth',lv:0.1,bt:'square',bv:0.13,swing:0,
       L:[81,0,81,84,0,81,79,0, 76,0,76,79,0,76,74,0, 77,0,77,81,0,77,76,0, 74,76,77,76,74,72,71,0],
       B:[45,45,0,45,45,0,45,45, 40,40,0,40,40,0,40,40, 41,41,0,41,41,0,41,41, 43,43,0,43,43,0,43,43],
       D:'k.hhs.hhk.hhs.hh'}
@@ -150,7 +149,7 @@ export const MOTEUR_AUDIO_JS = `
     else if(c==='h') souffle(busMus,t,0.04,0.1,'highpass',6500);
   }
   function planifier(){
-    var p=PISTES[etat.jeu]||PISTES.rush;
+    var p=PISTES[etat.jeu]||PISTES.slalom;
     var croche=60/p.bpm/4;
     while(prochain<ctx.currentTime+0.25){
       var i=pas%32, t=prochain+((i%2===1)?croche*p.swing:0);
@@ -190,7 +189,7 @@ export const MOTEUR_AUDIO_JS = `
   SONS.palier=SONS.niveau;
   window.sonJeu={
     reglages:function(r){ etat.musique=r.musique!==false; etat.bruitages=r.bruitages!==false; if(etat.musique) demarrer(); else arreter(); },
-    choisir:function(jeu){ var nouveau=PISTES[jeu]?jeu:'rush'; if(nouveau===etat.jeu) return; etat.jeu=nouveau; if(minuteur){ arreter(); demarrer(); } },
+    choisir:function(jeu){ var nouveau=PISTES[jeu]?jeu:'slalom'; if(nouveau===etat.jeu) return; etat.jeu=nouveau; if(minuteur){ arreter(); demarrer(); } },
     musique:function(on){ etat.joue=!!on; if(on) demarrer(); else arreter(); },
     jouer:function(nom){ if(!etat.bruitages||!init()) return; reveil(); var f=SONS[nom]; if(f) f(ctx.currentTime+0.01); if(!minuteur) dormir(2500); },
     reveil:function(){ if(init()){ reveil(); if(!minuteur) dormir(); } }

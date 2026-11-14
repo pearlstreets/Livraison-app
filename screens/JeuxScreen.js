@@ -18,7 +18,7 @@ import { peutSimuler } from '../utils/simulation';
 import { chargerReglagesSon, changerReglageSon, reglagesSon } from '../utils/sonJeux';
 
 const LISTE = [
-  { id: 'rush', image: require('../assets/images/jeux/rush.webp'), route: 'JeuRush', icone: 'walk', couleur: '#FF6A13', titre: 'jeuxRushTitre', texte: 'jeuxRushTexte' },
+  { id: 'slalom', image: require('../assets/images/jeux/slalom.webp'), route: 'JeuSlalom', icone: 'walk', couleur: '#FF6A13', titre: 'jeuxSlalomTitre', texte: 'jeuxSlalomTexte' },
   { id: 'toits', image: require('../assets/images/jeux/toits.webp'), route: 'JeuToits', icone: 'bicycle', couleur: '#2E86DE', titre: 'jeuxToitsTitre', texte: 'jeuxToitsTexte' },
   { id: 'sommet', image: require('../assets/images/jeux/sommet.webp'), route: 'JeuSommet', icone: 'business', couleur: '#8E44AD', titre: 'jeuxSommetTitre', texte: 'jeuxSommetTexte' },
   { id: 'drone', image: require('../assets/images/jeux/drone.webp'), route: 'JeuDrone', icone: 'airplane', couleur: '#16A085', titre: 'jeuxDroneTitre', texte: 'jeuxDroneTexte' },

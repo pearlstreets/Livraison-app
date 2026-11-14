@@ -195,7 +195,7 @@ export const deliveryService = {
     return data;
   },
 
-  // Écran « Jeux » (Tournée des toits, Livraison au sommet, Drone express, Rush en ville) :
+  // Écran « Jeux » (Tournée des toits, Livraison au sommet, Drone express, Slalom urbain) :
   // record par jeu, le serveur garde le max. Réponse : { status, moi: { rang, score } }.
   async envoyerRecordJeux(jeu, score) {
     const { data } = await api.post(`/api/v1/delivery/driver/jeux/${encodeURIComponent(jeu)}/score/`, { score }, { timeout: 10000 });
