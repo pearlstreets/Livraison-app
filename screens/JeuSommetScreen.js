@@ -2,9 +2,9 @@
  * Mini-jeu « Livraison au sommet », pour patienter entre deux courses.
  *
  * Le livreur grimpe la façade d'un immeuble en rebondissant tout seul de
- * balcon en balcon. Un balayage vers la gauche ou la droite le dirige (il
- * garde le cap), un appui le redresse ; sortir d'un bord fait revenir par
- * l'autre. Aucune flèche à l'écran. Tomber
+ * balcon en balcon. Le doigt posé et glissé vers la gauche ou la droite
+ * l'emmène de ce côté ; doigt levé (ou simple appui), il repart tout droit.
+ * Sortir d'un bord fait revenir par l'autre. Aucune flèche à l'écran. Tomber
  * sous le bas de l'écran, un pot de fleurs ou un pigeon (sauf par le
  * dessus) arrête la tournée. Score = étages + 5 points par colis.
  * Difficile : tous les 50 étages un palier annonce un nouveau décor et un
@@ -29,7 +29,7 @@
  * milieu de l'écran.
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, PanResponder } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
@@ -47,14 +47,13 @@ import ReprisePartie from '../components/ReprisePartie';
 import {
   BanniereRecompense, EtoilesFin, creerSuivi, suivreScore, etoilesPour, formaterNombre,
 } from '../components/RecompensesJeu';
-import { useBalayage } from '../utils/gestes';
 import { sauverPartie, chargerPartie, effacerPartie } from '../utils/partieSauvegardee';
 
 import ClassementJeu from '../components/ClassementJeu';
 import { chargerRecord, envoyerRecordEnAttente, finDePartie } from '../utils/jeuxRecords';
 import {
   MONDE_L, ETAGE, JOUEUR_L, JOUEUR_H, PLAT_H, VX_MAX, POINTS_COLIS, BONUS, TYPES_BONUS,
-  partieNeuve, avancer, bonusActifs, restaurerBonus,
+  partieNeuve, avancer, bonusActifs, restaurerBonus, doigtPose, doigtGlisse, doigtLeve,
 } from '../utils/jeuSommet';
 
 // Vibration légère : module natif facultatif, le jeu marche sans.
@@ -519,15 +518,33 @@ export default function JeuSommetScreen({ navigation }) {
     setTaille((x) => (Math.round(x.l) === Math.round(width) && Math.round(x.h) === Math.round(height) ? x : { l: width, h: height }));
   }, []);
 
-  // Commande au doigt : un balayage gauche ou droite fixe le cap (le livreur
-  // le garde), un appui le redresse. Aucune flèche à l'écran.
-  const balayage = useBalayage({
-    seuil: 22,
-    actif: ui === 'jeu',
-    onGauche: () => { dirRef.current = -1; },
-    onDroite: () => { dirRef.current = 1; },
-    onAppui: () => { dirRef.current = 0; },
-  });
+  // Commande au doigt, comme une direction tenue : le doigt posé glisse à
+  // gauche ou à droite, le livreur suit ; doigt levé ou simple appui, il
+  // repart tout droit. Aucune flèche à l'écran.
+  const enJeuRef = useRef(false);
+  enJeuRef.current = ui === 'jeu';
+  const doigtRef = useRef(null);
+  const balayage = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => enJeuRef.current,
+    onMoveShouldSetPanResponder: () => enJeuRef.current,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: () => {
+      doigtRef.current = doigtPose();
+      dirRef.current = 0;
+    },
+    onPanResponderMove: (_e, g) => {
+      if (!enJeuRef.current || !doigtRef.current) return;
+      dirRef.current = doigtGlisse(doigtRef.current, g.dx);
+    },
+    onPanResponderRelease: () => {
+      dirRef.current = doigtLeve(doigtRef.current);
+      doigtRef.current = null;
+    },
+    onPanResponderTerminate: () => {
+      dirRef.current = doigtLeve(doigtRef.current);
+      doigtRef.current = null;
+    },
+  }), []);
 
   const e = partieRef.current;
   const cam = e && ui !== 'accueil' ? e.cam : 0;

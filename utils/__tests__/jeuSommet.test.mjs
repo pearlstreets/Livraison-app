@@ -6,6 +6,7 @@ import {
   SURCHARGE_MAX, VENT_MAX, difficulte, ecarts, hauteurSaut, peutAtteindre, surcharge, ventMax,
   reglagesPieges, partieNeuve, genererJusqua, avancer, hasardGraine, bonusActifs, restaurerBonus,
 } from '../jeuSommet.js';
+import * as S from '../jeuSommet.js';
 
 const GRAINES = [1, 7, 42, 999, 31337];
 const H_SAUT = hauteurSaut(V_SAUT);
@@ -202,4 +203,53 @@ test('partie neuve accessible : premier bonus vers le 11e étage, aucun gêneur 
   for (let i = 0; i < 60; i += 1) avancer(e, 1 / 60, 0);
   assert.equal(e.pots.length, 0);
   assert.equal(e.pigeons.length, 0);
+});
+
+// Commande au doigt : le doigt posé dirige, doigt levé le livreur repart tout droit.
+const PAS = 1 / 60;
+const livreurAuCentre = () => ({ x: S.MONDE_L / 2, y: 0, vx: 0, vy: S.V_SAUT, regard: 1, rot: 0 });
+const courir = (j, dir, secondes) => {
+  for (let t = 0; t < secondes; t += PAS) S.pasJoueur(j, dir, PAS);
+};
+
+test('doigt : appui simple tout droit, glissé dirige, retour en arrière redresse puis change de côté', () => {
+  const d = S.doigtPose();
+  assert.equal(d.dir, 0);
+  assert.equal(S.doigtLeve(d), 0);
+  const g = S.doigtPose();
+  assert.equal(S.doigtGlisse(g, 4), 0, 'petit tremblement ignoré');
+  assert.equal(S.doigtGlisse(g, 40), 1);
+  assert.equal(S.doigtGlisse(g, 40), 1, 'doigt immobile : direction tenue');
+  assert.equal(S.doigtGlisse(g, 30), 0, 'léger retour : tout droit');
+  assert.equal(S.doigtGlisse(g, 5), -1, 'retour franc : autre côté');
+  assert.equal(S.doigtGlisse(g, -60), -1);
+  assert.equal(S.doigtLeve(g), 0);
+  assert.equal(g.dir, 0);
+});
+
+test('relâché = tout droit, aucune dérive', () => {
+  const j = livreurAuCentre();
+  const d = S.doigtPose();
+  courir(j, S.doigtLeve(d), 3);
+  assert.equal(j.x, S.MONDE_L / 2);
+  assert.equal(j.vx, 0);
+});
+
+test('geste gauche puis relâché ne continue pas à gauche', () => {
+  const j = livreurAuCentre();
+  const d = S.doigtPose();
+  const dir = S.doigtGlisse(d, -50);
+  assert.equal(dir, -1);
+  courir(j, dir, 0.4);
+  assert.ok(j.vx < -100, 'le livreur part bien à gauche tant que le doigt est posé');
+  const auRelache = j.x;
+  const apres = S.doigtLeve(d);
+  assert.equal(apres, 0);
+  courir(j, apres, 1);
+  assert.ok(Math.abs(j.vx) < 1, `vitesse latérale résiduelle ${j.vx}`);
+  const glisse = Math.abs(S.dxBoucle(auRelache, j.x));
+  assert.ok(glisse < S.VX_MAX / 6, `glissade après relâché ${glisse}`);
+  const pose = j.x;
+  courir(j, apres, 3);
+  assert.ok(Math.abs(S.dxBoucle(pose, j.x)) < 1, 'plus aucune dérive ensuite');
 });

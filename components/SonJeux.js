@@ -8,7 +8,7 @@
  *   bruit('saut');   // ou jouerSon('saut'), même chose
  *
  * Props :
- *   jeu    'coupe' | 'memoire' | 'drone' | 'toits' | 'sommet' | 'rush' | 'basket'
+ *   jeu    'coupe' | 'memoire' | 'drone' | 'toits' | 'sommet' | 'slalom' | 'basket'
  *   actif  vrai = la musique joue. Mettre faux à la pause, en fin de partie,
  *          à l'accueil : elle s'arrête. Elle s'arrête aussi toute seule quand
  *          l'application passe en arrière-plan et quand l'écran est quitté.
@@ -69,7 +69,7 @@ function SonJeux({ jeu, actif }) {
   const synchroniser = () => {
     if (!pret.current || !vue.current) return;
     const joue = voulu.on && premierPlan.current;
-    injecter(`window.sonJeu&&(window.sonJeu.reglages(${JSON.stringify(reglagesSon())}),window.sonJeu.choisir(${JSON.stringify(voulu.jeu || 'rush')}),window.sonJeu.musique(${joue ? 'true' : 'false'}))`);
+    injecter(`window.sonJeu&&(window.sonJeu.reglages(${JSON.stringify(reglagesSon())}),window.sonJeu.choisir(${JSON.stringify(voulu.jeu || 'slalom')}),window.sonJeu.musique(${joue ? 'true' : 'false'}))`);
   };
 
   useEffect(() => {
