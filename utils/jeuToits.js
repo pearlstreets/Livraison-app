@@ -1,5 +1,7 @@
 /**
  * Mini-jeu « Tournée des toits » : logique pure (sans React), testable sous node.
+ * Même logique que l'app client (AppUser, src/utils/jeux/toits.js), sans la
+ * sauvegarde (ici : utils/partieSauvegardee.js, côté écran).
  *
  * Monde en unités de jeu : x vers la droite, y vers le HAUT, y = 0 au niveau
  * du trottoir. Le livreur est une boîte (x, y) = coin bas gauche, LARGEUR x HAUTEUR.
@@ -22,7 +24,19 @@
  * Reprise sûre (`pointDeReprise`) : après une chute ou un coup, le livreur
  * revient un peu en arrière, sur un sol plein, loin des bords et des gêneurs,
  * et reste immobile (invincible) jusqu'au prochain geste.
+ *
+ * Terrains (`TERRAINS`) : un terrain différent à chaque niveau (ruelles,
+ * chantier, canal, terrasses, usine, tours, balcons, docks), chacun avec ses
+ * passages : ascenseurs de chantier (montent et descendent, s'arrêtent en bas
+ * et en haut), bassins, fontaines et canaux (on y nage : on flotte, on avance
+ * moins vite, un geste vers le haut fait remonter ou sortir), gouttières (on
+ * y grimpe à coups de gestes vers le haut), bouches d'aération (glisser vers
+ * le bas dessus : on passe dans le conduit et on ressort plus loin), conduits
+ * et balcons en hauteur. Difficulté (`reglagesNiveau`) : douce mais nette dès
+ * le niveau 1, en hausse à chaque niveau, plafonnée (jamais impossible).
  */
+
+export const JEU_TOITS = 'toits';
 
 // ---- Physique (unités par seconde) ----
 export const LARGEUR = 20;
@@ -47,8 +61,23 @@ const REBOND_TENU = 560;
 const PAS_MAX = 1 / 120;
 // Drone (caisse bonus) : il soulève le livreur, chaque geste vers le haut relance, descente planée.
 const GRAVITE_VOL = 700;
+// Ressort posé sur un toit : il renvoie le livreur bien plus haut qu'un saut (geste tenu : encore plus haut).
+export const RESSORT = 960;
+export const RESSORT_TENU = 1060;
+export const TAILLE_RESSORT = { w: 24, h: 14 };
+// Étages : passerelles empilées au-dessus d'un toit, une marche franchissable d'un saut entre deux.
+export const MARCHE_ETAGE = 70;
 const CHUTE_VOL = 110;
 const PLAFOND_VOL = 330;
+
+// Nage : dans l'eau, le livreur flotte (poussée), avance moins vite ; un geste
+// vers le haut le fait remonter (brasse) ou sortir de l'eau (tête dehors).
+export const NAGE = {
+  vitesse: 0.55, gravite: 520, poussee: 980, trainee: 2.4, plongeeMax: 110, brasse: 300, sortie: 560, plongee: 700,
+};
+export const GRIMPE = 420; // geste vers le haut contre une gouttière : le livreur grimpe
+const GLISSE = 60; // contre une gouttière, il glisse lentement au lieu de tomber
+export const PASSAGE = { duree: 0.7, sortie: 380 }; // bouche d'aération : durée du conduit, élan à la sortie
 
 export const SOL_ECRAN = 40; // marge sous le trottoir à l'écran
 export const LIMITE_CHUTE = -70; // en dessous : vie perdue
@@ -127,26 +156,51 @@ export function hautDe(s) {
  * Le saut demandé se pose avant via `j.tampon = TAMPON` (voir demanderSaut).
  * `j.vol` vrai : saut permis en l'air et descente planée.
  * Rend la boîte frappée par-dessous, sinon null.
+ * `env` (facultatif) : { eaux, gouttieres } du niveau. Sans `env`, tout est sec
+ * (les simulations de saut de la génération).
  */
-export function physiqueJoueur(j, plateformes, boites, cmd, dt) {
+export function physiqueJoueur(j, plateformes, boites, cmd, dt, env) {
+  const eau = env ? eauSous(j, env.eaux) : null;
+  const gout = env && !j.sol && !eau ? gouttiereContre(j, env.gouttieres) : null;
+  j.dansEau = !!eau;
+  j.grimpe = false;
   const dir = (cmd.droite ? 1 : 0) - (cmd.gauche ? 1 : 0);
   if (j.recul > 0) j.recul -= dt;
   if (dir && j.recul <= 0) {
     const acc = j.sol ? ACCEL_SOL : ACCEL_AIR;
     // Demi-tour : freinage plus vif, plus nerveux.
     const bonus = Math.sign(j.vx) === -dir ? 1.6 : 1;
-    const vmax = j.accroupi ? VITESSE * FREIN_ACCROUPI : VITESSE;
+    let vmax = j.accroupi ? VITESSE * FREIN_ACCROUPI : VITESSE;
+    if (eau) vmax = VITESSE * NAGE.vitesse;
     j.vx = borner(j.vx + dir * acc * bonus * dt, -vmax, vmax);
     j.dir = dir;
   } else {
-    const frein = (j.sol ? FREIN_SOL : FREIN_AIR) * dt;
+    const frein = (j.sol ? FREIN_SOL : FREIN_AIR * (eau ? 2 : 1)) * dt;
     j.vx = Math.abs(j.vx) <= frein ? 0 : j.vx - Math.sign(j.vx) * frein;
   }
+  if (eau) j.vx = borner(j.vx, -VITESSE * NAGE.vitesse, VITESSE * NAGE.vitesse); // l'eau absorbe l'élan
 
   // Saut (avec tolérance au bord et à l'appui anticipé).
   if (j.sol) j.coyote = COYOTE; else j.coyote -= dt;
   if (j.tampon > 0) j.tampon -= dt;
-  if (j.tampon > 0 && (j.coyote > 0 || j.vol)) {
+  if (eau && j.tampon > 0) {
+    // Dans l'eau : tête dehors, on sort d'un vrai saut ; sous l'eau, une brasse fait remonter.
+    const tete = j.y + HAUTEUR > eau.eau + 4;
+    j.vy = tete ? NAGE.sortie : Math.max(j.vy, NAGE.brasse);
+    j.enSaut = tete;
+    j.tenue = 0;
+    j.coyote = 0;
+    j.tampon = 0;
+    j.sol = null;
+  } else if (gout && j.tampon > 0) {
+    // Contre une gouttière : chaque geste vers le haut fait grimper.
+    j.vy = Math.max(j.vy, GRIMPE);
+    j.enSaut = true;
+    j.tenue = 0;
+    j.coyote = 0;
+    j.tampon = 0;
+    j.grimpe = true;
+  } else if (j.tampon > 0 && (j.coyote > 0 || j.vol)) {
     j.vy = j.vol && !j.sol ? Math.max(j.vy, SAUT * 0.8) : SAUT;
     j.tenue = 0;
     j.coyote = 0;
@@ -165,7 +219,17 @@ export function physiqueJoueur(j, plateformes, boites, cmd, dt) {
     }
   }
   if (j.vol && j.vy < 0) g = GRAVITE_VOL;
-  j.vy = Math.max(j.vol ? -CHUTE_VOL : -CHUTE_MAX, j.vy - g * dt);
+  if (eau && !(j.enSaut && j.vy > 0)) {
+    // Flottaison : la poussée grandit avec la part du livreur sous l'eau ; glisser vers le bas : il plonge.
+    const im = borner((eau.eau - j.y) / HAUTEUR, 0, 1);
+    j.vy += (NAGE.poussee * im - NAGE.gravite) * dt;
+    if (cmd.bas) j.vy -= NAGE.plongee * dt;
+    j.vy -= j.vy * NAGE.trainee * dt;
+    j.vy = Math.max(-NAGE.plongeeMax, j.vy);
+  } else {
+    j.vy = Math.max(j.vol ? -CHUTE_VOL : -CHUTE_MAX, j.vy - g * dt);
+    if (gout && j.vy < -GLISSE) j.vy = -GLISSE;
+  }
 
   // Horizontal : on bute sur les côtés des colonnes et des boîtes.
   j.x += j.vx * dt;
@@ -231,6 +295,27 @@ export function demanderSaut(j) {
   j.tampon = TAMPON;
 }
 
+/** Bassin dans lequel le livreur nage (centre au-dessus, pieds sous la surface), sinon null. */
+export function eauSous(j, eaux) {
+  if (!eaux || !eaux.length) return null;
+  const cx = j.x + LARGEUR / 2;
+  for (let i = 0; i < eaux.length; i += 1) {
+    const e = eaux[i];
+    if (cx > e.x && cx < e.x + e.w && j.y < e.eau && j.y > e.y - 2) return e;
+  }
+  return null;
+}
+
+/** Gouttière contre laquelle le livreur se tient (face gauche d'un immeuble), sinon null. */
+export function gouttiereContre(j, gouttieres) {
+  if (!gouttieres || !gouttieres.length) return null;
+  for (let i = 0; i < gouttieres.length; i += 1) {
+    const g = gouttieres[i];
+    if (Math.abs(j.x + LARGEUR - g.x) < 3 && j.y < g.haut && j.y + HAUTEUR > g.bas) return g;
+  }
+  return null;
+}
+
 /**
  * Saut le plus long sur sol plat, élan pris, saut maintenu (le geste vers le
  * haut maintient le saut 0,3 s, plus que TENUE_MAX) : hauteur max atteinte
@@ -270,7 +355,9 @@ export function simulerSaut(a, b, avance = 0, plateformes = null, boites = []) {
   const liste = plateformes || [a, b];
   const j = nouveauJoueur(Math.max(a.x + 2, a.x + a.w - LARGEUR - 60), hautDe(a));
   j.sol = a;
-  const declencheur = a.x + a.w - LARGEUR * 0.6 - avance;
+  let declencheur = a.x + a.w - LARGEUR * 0.6 - avance;
+  // Mur juste devant (marche collée, sortie de bassin) : on saute avant de le toucher.
+  if (!b.flottante && b.y > hautDe(a)) declencheur = Math.min(declencheur, b.x - LARGEUR - 0.5 - avance);
   const cmd = { gauche: false, droite: true, sautTenu: true };
   let saute = false;
   const dt = PAS_MAX;
@@ -312,58 +399,226 @@ export function peutRevenir(a, b) {
   return peutSauter(miroir(b), miroir(a));
 }
 
+/**
+ * Montée vers une passerelle au-dessus (étages) : départ arrêté sur `a`, juste
+ * avant le bord gauche de `b`, saut maintenu vers la droite. Vrai si on se pose sur `b`.
+ */
+export function peutMonter(a, b) {
+  const j = nouveauJoueur(Math.max(a.x + 2, b.x - LARGEUR - 10), hautDe(a));
+  j.sol = a;
+  demanderSaut(j);
+  const cmd = { gauche: false, droite: true, sautTenu: true };
+  for (let t = 0; t < 3; t += PAS_MAX) {
+    const centre = b.x + b.w / 2 - LARGEUR / 2;
+    if (j.vy < 0 && j.x >= centre - 4) {
+      cmd.droite = false;
+      cmd.gauche = j.vx > 0;
+    }
+    physiqueJoueur(j, [a, b], [], cmd, PAS_MAX);
+    if (j.sol === b) return true;
+    if (t > 0.05 && j.sol === a) return false;
+    if (j.y < LIMITE_CHUTE) return false;
+  }
+  return false;
+}
+
+/**
+ * Gouttière : `b` (immeuble plus haut, collé à `a`) porte une gouttière sur sa
+ * face gauche. On avance vers la droite et on fait un geste vers le haut toutes
+ * les 0,4 s. Vrai si on se pose sur le toit de `b`.
+ */
+export function peutGrimper(a, b) {
+  const j = nouveauJoueur(Math.max(a.x + 2, b.x - LARGEUR - 40), hautDe(a));
+  j.sol = a;
+  const env = { eaux: [], gouttieres: [{ x: b.x, bas: hautDe(a), haut: b.y }] };
+  const cmd = { gauche: false, droite: true, sautTenu: true };
+  let geste = -1;
+  for (let t = 0; t < 6; t += PAS_MAX) {
+    if (t - geste >= 0.4) {
+      demanderSaut(j);
+      geste = t;
+    }
+    cmd.sautTenu = t - geste < 0.3;
+    physiqueJoueur(j, [a, b], [], cmd, PAS_MAX, env);
+    if (j.sol === b) return true;
+    if (j.y < LIMITE_CHUTE) return false;
+  }
+  return false;
+}
+
 // ---- Génération des niveaux ----
 function entre(rng, min, max) {
   return min + rng() * Math.max(0, max - min);
 }
 
-const DECORS = ['jour', 'soir', 'nuit', 'pluie'];
-const MOTIFS = ['tuiles', 'briques', 'ardoise', 'terrasse'];
+/**
+ * Mondes : NIVEAUX_PAR_MONDE niveaux par monde, puis on passe au suivant (et on
+ * recommence le tour après le dernier). Chaque monde : ambiance de base
+ * (`decor` : jour, soir, nuit, pluie, lue par la palette du décor), motifs des
+ * toits (un par niveau du monde), couleurs propres (ciel, immeubles, toits) et
+ * éléments de fond (`elements` : dessinés au loin ; `particules` : à l'écran).
+ */
+export const NIVEAUX_PAR_MONDE = 2;
+export const MONDES = [
+  { id: 'ville', decor: 'jour', motifs: ['tuiles', 'terrasse'], couleurs: {}, elements: [], particules: null },
+  {
+    id: 'port', decor: 'soir', motifs: ['briques', 'tuiles'],
+    couleurs: { horizon: '#FBD0A6', loin: '#C98B7F', mer: '#3E6E8E', merClair: '#F6B07A' },
+    elements: ['bateau'], particules: null,
+  },
+  {
+    id: 'neons', decor: 'nuit', motifs: ['ardoise', 'terrasse'],
+    couleurs: {
+      ciel: '#170F33', cielHaut: '#110A28', horizon: '#3B2470', fond: '#24184A', fondHaut: '#2F2160',
+      loin: '#2A1D55', fenetre: '#FF6FD8', nuage: '#2E2258',
+    },
+    elements: ['enseigne'], particules: null,
+  },
+  { id: 'pluie', decor: 'pluie', motifs: ['terrasse', 'ardoise'], couleurs: {}, elements: ['antenne'], particules: 'pluie' },
+  {
+    id: 'hiver', decor: 'jour', motifs: ['ardoise', 'tuiles'],
+    couleurs: {
+      ciel: '#DCE8F2', cielHaut: '#B8CEE2', horizon: '#F2F6FA', fond: '#B9C9D8', fondHaut: '#EEF4F9',
+      loin: '#D3DFE9', toitBord: '#F4F8FB', trottoir: '#C6D0D9', bordure: '#FFFFFF', astre: '#FFE9A8', nuage: '#FFFFFF',
+    },
+    elements: ['sapin'], particules: 'neige',
+  },
+  {
+    id: 'chantier', decor: 'jour', motifs: ['briques', 'terrasse'],
+    couleurs: {
+      ciel: '#E8D6B0', cielHaut: '#D9BE8C', horizon: '#F6EAD0', fond: '#B9A88C', fondHaut: '#A8957A',
+      loin: '#CDBFA6', planche: '#E8A33D', poteau: '#C98A1B', nuage: '#FBF3E2',
+    },
+    elements: ['grue'], particules: null,
+  },
+  {
+    id: 'marche', decor: 'soir', motifs: ['tuiles', 'briques'],
+    couleurs: {
+      ciel: '#E9A15B', cielHaut: '#C9703F', horizon: '#F7D3A6', fond: '#9C5B3E', fondHaut: '#86472F',
+      loin: '#C99474', toit: '#9E3D22', nuage: '#FFE2C4',
+    },
+    elements: ['arbre'], particules: 'feuilles', lampions: true,
+  },
+];
 
-/** Décor (ambiance) et motif des toits d'un niveau : ils tournent pour varier. */
+/** Monde, ambiance et motif des toits d'un niveau : le décor change à chaque niveau et à chaque monde. */
 export function decorNiveau(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
+  const rang = Math.floor((n - 1) / NIVEAUX_PAR_MONDE);
+  const monde = MONDES[rang % MONDES.length];
+  const k = (n - 1) % NIVEAUX_PAR_MONDE;
   return {
-    decor: DECORS[(n - 1) % DECORS.length],
-    motif: MOTIFS[(n - 1 + Math.floor((n - 1) / DECORS.length)) % MOTIFS.length],
+    decor: monde.decor,
+    motif: monde.motifs[k % monde.motifs.length],
+    monde: monde.id,
+    numeroMonde: rang + 1,
+    niveauDansMonde: k + 1,
   };
 }
 
+/** Monde (couleurs, éléments de fond, particules) d'après son id ; repli : la ville. */
+export function mondeParId(id) {
+  return MONDES.find((x) => x.id === id) || MONDES[0];
+}
+
 /**
- * Difficulté progressive, sans plafond brutal : tout monte doucement jusqu'au
- * niveau 10 (`diff`), puis une seconde vague jusqu'au niveau 22 (`dur`),
- * puis une pente très douce jusqu'au niveau 40 (`plus`) :
- * chrono plus serré, gêneurs plus nombreux et plus rapides, plus de nacelles,
- * de toits fragiles et de sauts enchaînés. Les trous et les marches restent
- * sous les bornes mesurées : chaque niveau reste faisable.
+ * Terrains : chaque niveau a son terrain (8, puis on recommence le tour en
+ * mêlant dès le niveau 9 les passages obligés d'un second terrain). `poids` :
+ * part de chaque passage dans le tirage ; `obligatoires` : passages posés à
+ * coup sûr dans le niveau ; `gue` : pierres de gué du terrain ; `eau` : genre
+ * de bassin ; `hautMax` : hauteur maximale des immeubles.
+ */
+export const TERRAINS = [
+  {
+    id: 'ruelles', poids: { enchaine: 0.5, gue: 0.5, benne: 0.5, eau: 0.5, bouche: 0.4 },
+    obligatoires: ['eau', 'etage'], gue: ['auvent', 'balcon'], eau: 'fontaine', hautMax: 150,
+  },
+  {
+    id: 'chantier', poids: { gue: 0.6, nacelle: 0.6, ascenseur: 0.8, benne: 0.6, fragile: 0.6 },
+    obligatoires: ['ascenseur', 'etage'], gue: ['echafaudage'], eau: 'bassin', hautMax: 200,
+  },
+  {
+    id: 'canal', poids: { eau: 1.4, gue: 0.5, enchaine: 0.5, nacelle: 0.5 },
+    obligatoires: ['eau', 'eau', 'gouttiere'], gue: ['auvent', 'conduit'], eau: 'canal', hautMax: 170,
+  },
+  {
+    id: 'terrasses', poids: { eau: 0.8, enchaine: 0.6, fragile: 0.6, gue: 0.5 },
+    obligatoires: ['eau', 'bouche', 'etage'], gue: ['auvent'], eau: 'bassin', hautMax: 200,
+  },
+  {
+    id: 'usine', poids: { gouttiere: 0.9, bouche: 0.8, gue: 0.6, fragile: 0.6 },
+    obligatoires: ['gouttiere', 'bouche'], gue: ['conduit'], eau: 'inonde', hautMax: 230,
+  },
+  {
+    id: 'tours', poids: { ascenseur: 0.9, gouttiere: 0.8, enchaine: 0.6 },
+    obligatoires: ['ascenseur', 'gouttiere', 'etage'], gue: ['balcon', 'echafaudage'], eau: 'bassin', hautMax: 280,
+  },
+  {
+    id: 'balcons', poids: { gue: 1.6, gouttiere: 0.7, fragile: 0.6, nacelle: 0.6 },
+    obligatoires: ['gouttiere', 'etage'], gue: ['balcon'], eau: 'inonde', hautMax: 240,
+  },
+  {
+    id: 'docks', poids: { eau: 0.9, nacelle: 0.7, ascenseur: 0.7, benne: 0.6 },
+    obligatoires: ['eau', 'ascenseur'], gue: ['conduit', 'auvent'], eau: 'canal', hautMax: 180,
+  },
+];
+
+/** Terrain d'un niveau et passages obligés (ceux d'un second terrain s'y ajoutent dès le niveau 9). */
+export function terrainNiveau(niveau) {
+  const n = Math.max(1, Math.floor(niveau) || 1);
+  const k = (n - 1) % TERRAINS.length;
+  const terrain = TERRAINS[k];
+  let obligatoires = terrain.obligatoires.slice();
+  if (n > TERRAINS.length) {
+    const autre = TERRAINS[(k + 3) % TERRAINS.length];
+    obligatoires = obligatoires.concat(autre.obligatoires.filter((o) => o !== 'etage'));
+  }
+  return { terrain, obligatoires };
+}
+
+/**
+ * Difficulté progressive dès le niveau 1, jamais impossible : `diff` monte de
+ * 0,35 (niveau 1) à 1 (niveau 10), chaque niveau plus dur que le précédent,
+ * puis `plus` ajoute une pente douce jusqu'au niveau 20, et c'est le plafond.
+ * Trous plus larges, toits plus étroits, gêneurs plus nombreux et plus
+ * rapides, plus de nacelles, de toits fragiles et de sauts enchaînés, chrono
+ * plus serré. Trous et marches restent sous les bornes mesurées : chaque
+ * niveau reste faisable.
  */
 export function reglagesNiveau(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
-  const diff = Math.min(1, (n - 1) / 9);
-  const dur = Math.min(1, Math.max(0, (n - 10) / 12));
-  const plus = Math.min(1, Math.max(0, (n - 22) / 18));
-  const longueur = Math.min(6400, 1600 + (n - 1) * 360);
-  const facteur = n <= 10 ? Math.max(2.1, 3 - 0.1 * (n - 1)) : 2.1 - 0.3 * dur - 0.05 * plus;
+  const k = Math.min(1, (n - 1) / 9);
+  const diff = 0.35 + 0.65 * (1 - (1 - k) ** 1.5);
+  const plus = Math.min(1, Math.max(0, (n - 10) / 10));
+  const longueur = Math.min(6400, 1900 + (n - 1) * 330);
+  const facteur = 2.5 - 0.6 * diff - 0.3 * plus;
   return {
     n,
     diff,
-    dur,
+    dur: plus,
     longueur,
     // Trous en part de la portée réelle du saut, jamais plus de RATIO_MAX.
-    ratioMin: 0.22 + 0.26 * diff,
-    ratioMax: Math.min(RATIO_MAX, 0.42 + 0.28 * diff),
+    ratioMin: 0.24 + 0.28 * diff,
+    ratioMax: Math.min(RATIO_MAX, 0.46 + 0.24 * diff + 0.02 * plus),
     // Marches (montée ou descente) entre deux plateformes.
-    marche: Math.round(MONTEE_MAX * (0.45 + 0.55 * diff)),
-    probMobile: n >= 4 ? Math.min(0.14, 0.06 + 0.02 * (n - 4)) + 0.06 * dur : 0,
-    probFragile: n >= 3 ? Math.min(0.14, 0.06 + 0.02 * (n - 3)) + 0.06 * dur : 0,
-    probEnchaine: n >= 2 ? Math.min(0.2, 0.08 + 0.03 * (n - 2)) + 0.06 * dur : 0,
-    probGeneur: Math.min(0.6, 0.25 + diff * 0.35) + 0.12 * dur + 0.08 * plus,
-    // Gêneurs plus rapides dans la seconde vague (jusqu'à +35 %), puis +50 % au niveau 40.
-    vitesseGeneurs: 1 + 0.35 * dur + 0.15 * plus,
+    marche: Math.round(MONTEE_MAX * (0.5 + 0.5 * diff)),
+    // Largeur des toits : de plus en plus étroits.
+    largeurMin: Math.max(120, 200 - 70 * diff),
+    largeurMax: Math.max(190, 330 - 120 * diff),
+    probMobile: 0.05 + 0.12 * diff + 0.03 * plus,
+    probFragile: 0.05 + 0.12 * diff + 0.03 * plus,
+    probEnchaine: 0.12 + 0.12 * diff,
+    probGeneur: Math.min(0.8, 0.3 + 0.38 * diff + 0.08 * plus),
+    // Sections à étages (passerelles empilées et ressort) : une par niveau au moins, plus souvent ensuite.
+    probEtage: 0.1 + 0.08 * diff,
+    etagesMax: n >= 3 ? 3 : 2,
+    vitesseGeneurs: 0.9 + 0.4 * diff + 0.15 * plus,
     probCaisse: PROB_CAISSE,
     types: ['chien', ...(n >= 2 ? ['pigeon'] : []), ...(n >= 3 ? ['trottinette'] : [])],
-    // Chrono large : le temps de course sans faute, fois un facteur confortable.
+    // Chrono : le temps de course sans faute, fois un facteur qui se resserre
+    // (genererNiveau ajoute le temps des ascenseurs, bassins et gouttières).
     limite: Math.round((longueur / VITESSE) * facteur + 15),
+    facteur,
   };
 }
 
@@ -394,19 +649,25 @@ export function etatsEntree(c) {
   const mo = c.mobile;
   if (!mo) return [c];
   if (mo.axe === 'x') return [{ ...c, x: mo.x0 - mo.amp, y: mo.y0 }];
+  // Ascenseur : on y monte en bas, on en descend en haut.
+  if (mo.ascenseur) return [{ ...c, x: mo.x0, y: mo.y0 - mo.amp }];
   return [{ ...c, x: mo.x0, y: mo.y0 - mo.amp }, { ...c, x: mo.x0, y: mo.y0 + mo.amp }];
 }
 export function etatsSortie(c) {
   const mo = c.mobile;
   if (!mo) return [c];
   if (mo.axe === 'x') return [{ ...c, x: mo.x0 + mo.amp, y: mo.y0 }];
+  if (mo.ascenseur) return [{ ...c, x: mo.x0, y: mo.y0 + mo.amp }];
   return [{ ...c, x: mo.x0, y: mo.y0 - mo.amp }, { ...c, x: mo.x0, y: mo.y0 + mo.amp }];
 }
 
 /** Position d'une plateforme mobile à l'instant t (secondes de jeu). */
 export function positionMobile(p, t) {
   const mo = p.mobile;
-  const o = Math.sin(t * mo.vit + mo.phase) * mo.amp;
+  // L'ascenseur marque un arrêt en bas et en haut (sinus écrêté).
+  const o = mo.ascenseur
+    ? borner(1.5 * Math.sin(t * mo.vit + mo.phase), -1, 1) * mo.amp
+    : Math.sin(t * mo.vit + mo.phase) * mo.amp;
   return mo.axe === 'x' ? { x: mo.x0 + o, y: mo.y0 } : { x: mo.x0, y: mo.y0 + o };
 }
 
@@ -423,7 +684,7 @@ export function zoneGeneur(g) {
  * Repli : le trottoir de départ, toujours sans gêneur.
  */
 export function pointDeReprise(m, xMort) {
-  const solides = m.plateformes.filter((p) => !p.flottante && !p.mobile && !p.fragile && p.type !== 'benne');
+  const solides = m.plateformes.filter((p) => !p.flottante && !p.mobile && !p.fragile && p.type !== 'benne' && p.type !== 'bassin');
   let k = solides.indexOf(m.dernierSol);
   if (k < 0) {
     k = 0;
@@ -435,6 +696,8 @@ export function pointDeReprise(m, xMort) {
       const [a, b] = zoneGeneur(g);
       return [a - DISTANCE_SURE, b + DISTANCE_SURE];
     });
+  // Jamais sur un ressort : il renverrait le livreur en l'air pendant l'attente.
+  (m.ressorts || []).forEach((r) => interdits.push([r.x - BORD_SUR, r.x + r.w + BORD_SUR]));
   for (let i = k; i >= 0; i -= 1) {
     const p = solides[i];
     const lo = p.x + BORD_SUR;
@@ -450,9 +713,13 @@ export function pointDeReprise(m, xMort) {
 /** Niveau complet, reproductible pour un même (niveau, graine). */
 export function genererNiveau(niveau, graine) {
   const r = reglagesNiveau(niveau);
-  const { n, diff, dur, longueur } = r;
+  const { n, diff, longueur } = r;
+  const { terrain, obligatoires } = terrainNiveau(n);
+  const P = terrain.poids;
   const rng = alea(graine != null ? graine : n * 7919 + 13);
   const plateformes = [];
+  const sections = [];
+  const segments = [];
   let id = 0;
   const depart = { id: id++, x: -240, w: 520, y: 0, type: 'sol', flottante: false };
   plateformes.push(depart);
@@ -465,9 +732,12 @@ export function genererNiveau(niveau, graine) {
     const sources = prec.sorties || [prec];
     const srcMin = Math.min(...sources.map(hautDe));
     const srcMax = Math.max(...sources.map(hautDe));
+    const ascenseur = !!(cand.mobile && cand.mobile.ascenseur);
     const faisable = () => {
       const entrees = etatsEntree(cand);
       return sources.every((a) => entrees.every((b) => {
+        // Gouttière : on grimpe (plus haut qu'un saut), et on en redescend.
+        if (cand.gouttiere) return peutGrimper(a, b) && peutRevenir(a, b);
         if (b.y - hautDe(a) > MONTEE_MAX || hautDe(a) - b.y > MONTEE_MAX) return false;
         if (b.x - (a.x + a.w) > ECART_MAX) return false;
         if (!peutSauter(a, b)) return false;
@@ -477,16 +747,24 @@ export function genererNiveau(niveau, graine) {
       }));
     };
     const placer = () => {
-      // Marche bornée : montée comme descente, sous MONTEE_MAX.
-      const amp = cand.mobile && cand.mobile.axe === 'y' ? cand.mobile.amp : 0;
-      cand.y = borner(cand.y, srcMax - MONTEE_MAX + amp, srcMin + MONTEE_MAX - amp);
-      if (cand.mobile && cand.mobile.axe === 'y') cand.y = Math.max(cand.y, cand.mobile.amp + 28);
-      if (!cand.flottante) cand.y = Math.max(0, cand.y);
+      if (cand.gouttiere) {
+        // Gouttière : de MONTEE_MAX + 20 à 170 au-dessus du toit de départ.
+        cand.y = borner(cand.y, srcMax + MONTEE_MAX + 20, srcMin + 170);
+      } else if (ascenseur) {
+        // Ascenseur : `cand.y` est sa position basse, à portée du toit de départ.
+        cand.y = Math.max(24, borner(cand.y, srcMax - MONTEE_MAX, srcMin + MONTEE_MAX));
+      } else {
+        // Marche bornée : montée comme descente, sous MONTEE_MAX.
+        const amp = cand.mobile && cand.mobile.axe === 'y' ? cand.mobile.amp : 0;
+        cand.y = borner(cand.y, srcMax - MONTEE_MAX + amp, srcMin + MONTEE_MAX - amp);
+        if (cand.mobile && cand.mobile.axe === 'y') cand.y = Math.max(cand.y, cand.mobile.amp + 28);
+      }
+      if (!cand.flottante) cand.y = Math.max(cand.type === 'bassin' ? -40 : 0, cand.y);
       cand.x = Math.round(prec.x + prec.w + cand.ecart);
       cand.y = Math.round(cand.y);
       if (cand.mobile) {
         cand.mobile.x0 = cand.mobile.axe === 'x' ? cand.x + cand.mobile.amp : cand.x;
-        cand.mobile.y0 = cand.y;
+        cand.mobile.y0 = ascenseur ? cand.y + cand.mobile.amp : cand.y;
       }
     };
     if (cand.ratio != null) {
@@ -496,7 +774,7 @@ export function genererNiveau(niveau, graine) {
       cand.ecart = 0;
       placer();
       sources.forEach((a) => etatsEntree(cand).forEach((b) => { lim = Math.min(lim, portee(a, b)); }));
-      cand.ecart = Math.min(ECART_MAX - (cand.mobile && cand.mobile.axe === 'x' ? 0 : 0), Math.max(0, lim * Math.min(cand.ratio, RATIO_MAX)));
+      cand.ecart = Math.min(ECART_MAX, Math.max(0, lim * Math.min(cand.ratio, RATIO_MAX)));
       delete cand.ratio;
     }
     let ok = false;
@@ -511,16 +789,23 @@ export function genererNiveau(niveau, graine) {
     if (!ok) {
       // Repli toujours faisable : plateforme fixe, même hauteur, petit trou.
       delete cand.mobile;
-      if (cand.type === 'nacelle') cand.type = 'echafaudage';
+      delete cand.gouttiere;
+      if (cand.type === 'nacelle' || cand.type === 'ascenseur') cand.type = 'echafaudage';
+      if (cand.type === 'bassin') {
+        delete cand.type;
+        delete cand.variante;
+      }
       cand.ecart = 18;
-      cand.y = cand.flottante ? prec.y : Math.max(0, prec.y);
+      // Un toit fragile reste au-dessus de la rue pour garder son effondrement.
+      if (cand.flottante) cand.y = prec.y;
+      else cand.y = cand.fragile ? Math.max(30, prec.y) : Math.max(0, prec.y);
       placer();
       if (!faisable()) {
         cand.ecart = 0;
         placer();
       }
     }
-    if (!cand.flottante && cand.type !== 'benne') cand.type = typeColonne(cand.y);
+    if (!cand.flottante && cand.type !== 'benne' && cand.type !== 'bassin') cand.type = typeColonne(cand.y);
     if (cand.fragile) {
       if (cand.flottante || cand.y <= 0) {
         delete cand.fragile;
@@ -552,75 +837,193 @@ export function genererNiveau(niveau, graine) {
 
   const colonne = (extra) => ajouter({
     flottante: false,
-    w: entre(rng, Math.max(130, 190 - diff * 60), Math.max(200, 340 - diff * 120)),
-    y: borner(prec.y + entre(rng, -r.marche, r.marche), 0, 175),
+    w: entre(rng, r.largeurMin, r.largeurMax),
+    y: borner(prec.y + entre(rng, -r.marche, r.marche), 0, terrain.hautMax),
     ratio: ratio(),
     ...extra,
   });
+  // Toit de départ simple et sûr pour les passages spéciaux.
+  const fixe = (p) => !p.flottante && !p.mobile && !p.sorties && !p.fragile && p.type !== 'benne' && p.type !== 'bassin';
+  const aide = (extra) => colonne({ w: entre(rng, 180, 240), ...extra });
 
-  while (prec.x + prec.w < longueur) {
-    let tirage = rng();
-    const pM = r.probMobile;
-    const pF = pM + r.probFragile;
-    // Dès le niveau 4, une nacelle par niveau ; dès le 3, un toit fragile.
-    if (n >= 4 && prec.x > longueur * 0.35 && !plateformes.some((q) => q.mobile)) tirage = 0;
-    else if (n >= 3 && prec.x > longueur * 0.55 && !plateformes.some((q) => q.fragile)) tirage = pM + 0.0001;
-    const pE = pF + r.probEnchaine;
-    if (tirage < pM) {
+  // Passages : chacun rend vrai s'il est posé, faux s'il a d'abord posé un toit d'aide.
+  const passages = {
+    enchaine() {
+      // Sauts enchaînés : petits toits rapprochés.
+      const k = 2 + Math.floor(rng() * (1 + diff * 1.5));
+      for (let i = 0; i < k; i += 1) {
+        colonne({ w: entre(rng, 80, 104), y: borner(prec.y + entre(rng, -30, 30), 0, Math.min(170, terrain.hautMax)) });
+      }
+      colonne({ w: entre(rng, 180, 260) });
+      return true;
+    },
+    nacelle() {
       // Nacelle : plateforme mobile, horizontale ou verticale.
       const axe = rng() < 0.6 ? 'x' : 'y';
       const amp = axe === 'x' ? entre(rng, 35, 60) : entre(rng, 20, 26);
-      ajouter({
+      const p = ajouter({
         flottante: true,
         type: 'nacelle',
-        mobile: { axe, amp, vit: entre(rng, 1, 1.3 + diff * 0.3 + dur * 0.3), phase: rng() * 6.28, x0: 0, y0: 0 },
+        mobile: { axe, amp, vit: entre(rng, 1, 1.3 + diff * 0.5), phase: rng() * 6.28, x0: 0, y0: 0 },
         w: entre(rng, 76, 96),
         y: borner(prec.y + entre(rng, -10, 30), 40, 150),
         ratio: ratio() * 0.85,
       });
       colonne({ w: entre(rng, 170, 250), y: prec.y });
-    } else if (tirage < pF) {
+      return !!p.mobile;
+    },
+    fragile() {
       // Toits fragiles : ils s'effondrent un peu après qu'on s'y est posé.
       const k = 1 + (diff > 0.5 && rng() < 0.5 ? 1 : 0);
       for (let i = 0; i < k; i += 1) {
-        colonne({
-          fragile: true,
-          w: entre(rng, 90, 120),
-          y: borner(prec.y + entre(rng, -25, 30), 25, 170),
-          ratio: ratio(),
-        });
+        colonne({ fragile: true, w: entre(rng, 90, 120), y: borner(prec.y + entre(rng, -25, 30), 25, Math.min(170, terrain.hautMax)) });
       }
       colonne({ w: entre(rng, 170, 240) });
-    } else if (tirage < pE) {
-      // Sauts enchaînés : petits toits rapprochés.
-      const k = 2 + Math.floor(rng() * (1 + diff * 1.5));
-      for (let i = 0; i < k; i += 1) {
-        colonne({
-          w: entre(rng, 80, 104),
-          y: borner(prec.y + entre(rng, -30, 30), 0, 170),
-          ratio: ratio(),
-        });
-      }
-      colonne({ w: entre(rng, 180, 260) });
-    } else if (rng() < 0.18 + diff * 0.12) {
-      // Pierres de gué : échafaudages et auvents au-dessus d'un trou.
+      return true;
+    },
+    gue() {
+      // Pierres de gué au-dessus d'un trou : auvents, échafaudages, balcons, conduits.
       const k = 1 + Math.floor(rng() * (1 + diff * 1.5));
       for (let i = 0; i < k; i += 1) {
         ajouter({
           flottante: true,
-          type: rng() < 0.5 ? 'echafaudage' : 'auvent',
+          type: terrain.gue[Math.floor(rng() * terrain.gue.length)],
           w: entre(rng, 80, 110 - diff * 16),
-          y: borner(prec.y + entre(rng, -25, 35), 50, 185),
+          y: borner(prec.y + entre(rng, -25, 35), 50, Math.max(185, terrain.hautMax)),
           ratio: ratio(),
         });
       }
       colonne({ w: entre(rng, 180, 280) });
-    } else if (rng() < 0.2 && !prec.flottante && !prec.fragile && prec.w >= 120) {
+      return true;
+    },
+    benne() {
       // Benne sur le trottoir : on monte dessus, on redescend.
+      if (!fixe(prec) || prec.w < 120) return false;
       const base = prec.y;
       const benne = ajouter({ flottante: false, type: 'benne', base, w: entre(rng, 56, 78), y: base + 34, ecart: 0 });
       if (benne.y - base < 10) benne.type = typeColonne(benne.y);
       ajouter({ flottante: false, w: entre(rng, 170, 270), y: base, ecart: 0 });
+      return true;
+    },
+    ascenseur() {
+      // Ascenseur de chantier : il monte et descend, on le prend en bas, on descend en haut.
+      if (!fixe(prec)) { aide(); return false; }
+      const amp = entre(rng, 45, 70);
+      if (prec.y + 2 * amp > terrain.hautMax + 60) { aide({ y: prec.y - r.marche }); return false; }
+      const l = ajouter({
+        flottante: true,
+        type: 'ascenseur',
+        mobile: { axe: 'y', amp, vit: entre(rng, 0.85, 1.05 + 0.25 * diff), phase: rng() * 6.28, x0: 0, y0: 0, ascenseur: true },
+        w: entre(rng, 70, 84),
+        y: prec.y + entre(rng, -20, 20),
+        ratio: ratio() * 0.7,
+      });
+      colonne({ w: entre(rng, 180, 250), y: prec.y });
+      return !!l.mobile;
+    },
+    eau() {
+      // Bassin : fontaine ou canal dans la rue, bassin ou terrasse inondée sur les toits. On y nage.
+      const v = terrain.eau || 'bassin';
+      const rue = v === 'fontaine' || v === 'canal';
+      if (!fixe(prec) || prec.w < 120) { aide(); return false; }
+      if (rue && prec.y > 40) { aide({ y: Math.max(0, prec.y - r.marche) }); return false; }
+      if (!rue && prec.y < 50) { aide({ y: prec.y + r.marche }); return false; }
+      const bord = prec.y;
+      const largeur = { fontaine: [110, 140], bassin: [150, 220], inonde: [160, 240], canal: [220, 320] }[v];
+      const fond = Math.max(-36, bord - entre(rng, 50, MONTEE_MAX - 4));
+      const b = ajouter({ flottante: false, type: 'bassin', variante: v, w: entre(rng, largeur[0], largeur[1]), y: fond, ecart: 0 });
+      if (b.type !== 'bassin') return false;
+      if (bord - b.y < 30) {
+        b.type = typeColonne(b.y);
+        delete b.variante;
+        return false;
+      }
+      b.eau = bord - 8;
+      ajouter({ flottante: false, w: entre(rng, 170, 250), y: bord, ecart: 0 });
+      return true;
+    },
+    gouttiere() {
+      // Gouttière : immeuble plus haut qu'un saut, on grimpe le long du tuyau.
+      if (!fixe(prec) || prec.w < 150) { aide(); return false; }
+      if (terrain.hautMax - prec.y < MONTEE_MAX + 20) { aide({ y: prec.y - r.marche }); return false; }
+      const montee = entre(rng, MONTEE_MAX + 20, Math.min(170, terrain.hautMax - prec.y));
+      const b = ajouter({ flottante: false, gouttiere: true, w: entre(rng, 170, 240), y: prec.y + montee, ecart: 0 });
+      return !!b.gouttiere;
+    },
+    bouche() {
+      // Bouche d'aération : glisser vers le bas dessus, le conduit mène quelques toits plus loin.
+      if (!fixe(prec)) { aide(); return false; }
+      const entree = colonne({ w: entre(rng, 230, 290) });
+      const k = 2 + (rng() < 0.5 ? 1 : 0);
+      for (let i = 0; i < k; i += 1) colonne({ w: entre(rng, 100, 150) });
+      const sortie = colonne({ w: entre(rng, 200, 260) });
+      entree.calme = true;
+      sortie.calme = true;
+      sortie.sortieConduit = true;
+      entree.bouche = { x: Math.round(entree.x + entree.w * 0.55), w: 30, vers: { x: sortie.x + 50, y: sortie.y } };
+      return true;
+    },
+  };
+  const tenter = (nom) => {
+    const ok = passages[nom]();
+    if (ok) segments.push(nom);
+    return ok;
+  };
+  const compte = (nom) => segments.filter((s) => s === nom).length;
+  const table = [
+    ['enchaine', r.probEnchaine * 4 * (P.enchaine ?? 0.5)],
+    ['nacelle', r.probMobile * 5 * (P.nacelle ?? 0.4)],
+    ['fragile', r.probFragile * 5 * (P.fragile ?? 0.4)],
+    ['gue', (0.3 + 0.2 * diff) * 3 * (P.gue ?? 0.5)],
+    ['benne', 0.25 * (P.benne ?? 0.3)],
+    ['ascenseur', 0.4 * (P.ascenseur || 0)],
+    ['eau', 0.5 * (P.eau || 0)],
+    ['gouttiere', 0.4 * (P.gouttiere || 0)],
+    ['bouche', 0.3 * (P.bouche || 0)],
+  ];
+  const total = 1.6 + table.reduce((s, [, w]) => s + w, 0);
+  const probEtage = r.probEtage * (terrain.obligatoires.includes('etage') ? 2 : 1);
+  // Passages obligés, répartis sur le niveau.
+  const obliges = obligatoires.filter((o) => o !== 'etage');
+  // Dès le niveau 2, un toit fragile par niveau ; dès le 3, une nacelle.
+  if (n >= 2 && !obliges.includes('fragile')) obliges.splice(Math.ceil(obliges.length / 2), 0, 'fragile');
+  if (n >= 3 && !obliges.includes('nacelle')) obliges.splice(1, 0, 'nacelle');
+  const aPoser = obliges.map((nom, i) => ({ nom, x: longueur * (0.15 + (0.7 * (i + 0.5)) / obliges.length) }));
+
+  // Les passages obligés encore à poser prolongent un peu le niveau si besoin.
+  while (prec.x + prec.w < longueur || (aPoser.length && prec.x + prec.w < longueur * 2.2)) {
+    // Section à étages : au moins une par niveau (dès le premier quart), puis au hasard.
+    const forcerEtage = sections.length === 0 && prec.x > longueur * 0.22;
+    const du = aPoser.length && prec.x + prec.w >= aPoser[0].x;
+    if (fixe(prec) && (forcerEtage || (!du && sections.length < 3 && rng() < probEtage))) {
+      const nb = Math.min(r.etagesMax, 2 + (r.etagesMax > 2 && rng() < 0.5 + diff * 0.3 ? 1 : 0));
+      const toit = colonne({
+        w: nb === 3 ? entre(rng, 700, 740) : entre(rng, 620, 660),
+        y: borner(prec.y + entre(rng, -r.marche, r.marche), 0, 110),
+      });
+      toit.etage = true;
+      sections.push({ toit, nb });
+      segments.push('etage');
+      colonne({ w: entre(rng, 170, 240) });
+      continue;
+    }
+    if (forcerEtage) {
+      colonne();
+      continue;
+    }
+    if (du) {
+      if (tenter(aPoser[0].nom)) aPoser.shift();
+      continue;
+    }
+    let tirage = rng() * total - 1.6;
+    let choix = null;
+    for (let i = 0; i < table.length && tirage >= 0; i += 1) {
+      if (tirage < table[i][1]) choix = table[i][0];
+      tirage -= table[i][1];
+    }
+    // Pas plus de 3 passages spéciaux du même genre en plus des obligés.
+    if (choix && compte(choix) < 3 + (choix === 'enchaine' || choix === 'gue' ? 3 : 0)) {
+      if (!tenter(choix) && choix === 'benne') colonne();
     } else {
       colonne();
     }
@@ -635,6 +1038,32 @@ export function genererNiveau(niveau, graine) {
   delete fin.fragile;
   fin.arrivee = true;
   const porte = { x: fin.x + fin.w - 110, y: fin.y, ...TAILLES.porte };
+
+  // Étages : passerelles en escalier au-dessus du toit, ressort sur le toit
+  // (assez loin des bords pour que le rebond retombe toujours sur ce toit ou
+  // sur une passerelle), colis en récompense en haut. Le chemin du bas reste libre.
+  const etages = [];
+  const ressorts = [];
+  const colisEtages = [];
+  sections.forEach(({ toit, nb }) => {
+    let x = toit.x + 300;
+    for (let k = 0; k < nb; k += 1) {
+      const w = k === nb - 1 ? 130 : 120;
+      etages.push({
+        id: 1000 + etages.length, x: Math.round(x), w, y: toit.y + MARCHE_ETAGE * (k + 1),
+        flottante: true, type: 'passerelle', etage: k + 1, appui: toit.y,
+      });
+      x += 70;
+    }
+    const haut = etages[etages.length - 1];
+    const nbColis = nb === 3 ? 3 : 2;
+    for (let k = 0; k < nbColis; k += 1) {
+      colisEtages.push({ x: haut.x + haut.w / 2 - (nbColis * 28) / 2 + k * 28, y: haut.y + 40 });
+    }
+    const milieu = etages[etages.length - 2];
+    colisEtages.push({ x: milieu.x + 20, y: milieu.y + 40 });
+    ressorts.push({ id: ressorts.length, x: toit.x + 230, y: toit.y, ...TAILLE_RESSORT, comp: 0 });
+  });
 
   // Objets : colis, boîtes aux lettres, caisses bonus, gêneurs.
   const colis = [];
@@ -655,8 +1084,14 @@ export function genererNiveau(niveau, graine) {
     const debut = Math.max(p.x, -120);
     const largeurUtile = p.x + p.w - debut;
     if (p.mobile) continue;
-    if (p.flottante) {
+    if (p.type === 'bassin') {
+      // Bassin : colis sous l'eau, à mi-profondeur.
+      if (rng() < 0.7) colis.push({ x: p.x + p.w / 2 - C / 2, y: p.y + (p.eau - p.y) / 2 - C / 2 });
+    } else if (p.flottante) {
       if (rng() < 0.5) colis.push({ x: p.x + p.w / 2 - C / 2, y: p.y + 34 });
+    } else if (p.etage) {
+      // Toit à étages : colis au départ, ni gêneur ni boîte (le ressort et les passerelles y sont).
+      colis.push({ x: p.x + 60, y: p.y + 40 }, { x: p.x + 88, y: p.y + 40 });
     } else if (p.type !== 'benne' && !p.arrivee && !p.fragile) {
       if (largeurUtile >= 110 && rng() < 0.65) {
         const nb = largeurUtile >= 220 ? 3 : 2;
@@ -665,7 +1100,7 @@ export function genererNiveau(niveau, graine) {
       }
       let geneurPose = false;
       // Gêneurs : jamais sur les DEGAGEMENT_ATTERRISSAGE premières unités (on y atterrit).
-      if (i > 0 && suivante && p.w >= LARGEUR_MIN_GENEUR && rng() < r.probGeneur) {
+      if (i > 0 && suivante && !p.calme && p.w >= LARGEUR_MIN_GENEUR && rng() < r.probGeneur) {
         const nb = p.w >= 300 && n >= 3 ? 2 : 1;
         const zx1 = p.x + DEGAGEMENT_ATTERRISSAGE;
         const zx2 = p.x + p.w - 30;
@@ -690,7 +1125,9 @@ export function genererNiveau(niveau, graine) {
         }
       }
       // Caisse bonus ou boîte aux lettres, au milieu du toit, loin des bords.
-      if (i > 0 && suivante && !geneurPose && p.w >= 170 && rng() < r.probCaisse) {
+      if (p.calme) {
+        // Bouche d'aération et sortie du conduit : ni caisse ni boîte.
+      } else if (i > 0 && suivante && !geneurPose && p.w >= 170 && rng() < r.probCaisse) {
         caisse(p.x + p.w / 2 - B / 2, p.y + 66);
       } else if (i > 0 && suivante && largeurUtile >= 250 && rng() < 0.5) {
         const bx = debut + 140 + rng() * (largeurUtile - 220 - B);
@@ -702,15 +1139,30 @@ export function genererNiveau(niveau, graine) {
       colis.push({ x: (p.x + p.w + suivante.x) / 2 - C / 2, y: Math.max(hautDe(p), suivante.y) + 52 });
     }
   }
+  colis.push(...colisEtages);
   colis.forEach((c, k) => { c.id = k; c.pris = false; });
   boites.forEach((b, k) => { b.id = k; b.choc = 0; });
   geneurs.forEach((g, k) => { g.id = k; g.actif = true; g.ecarte = 0; g.temps = 0; });
 
-  const { decor, motif } = decorNiveau(n);
+  // Gouttières (face gauche de l'immeuble haut) et bassins, lus par la physique et le décor.
+  const gouttieres = [];
+  plateformes.forEach((p, i) => {
+    if (p.gouttiere) gouttieres.push({ x: p.x, bas: hautDe(plateformes[i - 1]), haut: p.y, id: p.id });
+  });
+  const eaux = plateformes.filter((p) => p.type === 'bassin').map((p) => ({ x: p.x, w: p.w, y: p.y, eau: p.eau, variante: p.variante, id: p.id }));
+  const bouches = plateformes.filter((p) => p.bouche).map((p) => ({ ...p.bouche, y: p.y, sol: p.id }));
+  // Chrono : du temps en plus pour attendre l'ascenseur, nager et grimper.
+  const nbAsc = plateformes.filter((p) => p.mobile && p.mobile.ascenseur).length;
+  const course = Math.round(((fin.x + fin.w) / VITESSE) * r.facteur + 15);
+  const limite = Math.max(r.limite, course) + 6 * nbAsc + 3 * eaux.length + 3 * gouttieres.length;
+
+  const { decor, motif, monde } = decorNiveau(n);
   return {
     niveau: n,
     longueur: fin.x + fin.w,
     plateformes,
+    etages,
+    ressorts,
     boites,
     colis,
     geneurs,
@@ -718,8 +1170,14 @@ export function genererNiveau(niveau, graine) {
     depart: { x: 20, y: 0 },
     decor,
     motif,
-    limite: r.limite,
-    tempsCible: r.limite,
+    monde,
+    limite,
+    tempsCible: limite,
+    terrain: terrain.id,
+    segments,
+    gouttieres,
+    eaux,
+    bouches,
   };
 }
 
@@ -729,6 +1187,11 @@ export function creerMonde(niveau, report = {}, graine) {
   const niv = genererNiveau(niveau, graine);
   return {
     ...niv,
+    // Physique : chaîne du niveau et passerelles des étages ; décor fixe : la chaîne seule.
+    plateformes: niv.plateformes.concat(niv.etages),
+    plateformesDecor: niv.plateformes,
+    env: { eaux: niv.eaux, gouttieres: niv.gouttieres },
+    passage: null,
     joueur: nouveauJoueur(niv.depart.x, niv.depart.y),
     vies: report.vies != null ? report.vies : VIES,
     score: report.score || 0,
@@ -761,16 +1224,16 @@ function popup(m, x, y, texte) {
   if (m.popups.length > 8) m.popups.shift();
 }
 
-// Annonce en haut de la scène, sous le score : clé de texte traduite, durée 1,8 s.
+// Annonce en haut de la scène, sous le score : clé de texte (sous jeuToits.), durée 1,8 s.
 const ANNONCES = {
-  vie: { cle: 'jeuxToitsBonusVie', icone: 'heart', couleur: '#E74C3C' },
-  aimant: { cle: 'jeuxToitsBonusAimant', icone: 'magnet', couleur: '#8E44AD', n: DUREES.aimant },
-  taille: { cle: 'jeuxToitsBonusTaille', icone: 'shield-star', couleur: '#0A9A78' },
-  vol: { cle: 'jeuxToitsBonusVol', icone: 'quadcopter', couleur: '#2D7FD3', n: DUREES.vol },
-  etoile: { cle: 'jeuxToitsBonusEtoile', icone: 'star', couleur: '#E0A100', n: DUREES.etoile },
-  chrono: { cle: 'jeuxToitsBonusChrono', icone: 'timer-plus-outline', couleur: '#16A34A', n: BONUS_CHRONO },
-  double: { cle: 'jeuxToitsBonusDouble', icone: 'numeric-2-circle', couleur: '#E8650F', n: DUREES.double },
-  encaisse: { cle: 'jeuxToitsCoupEncaisse', icone: 'shield-check', couleur: '#0A9A78' },
+  vie: { cle: 'bonusVie', icone: 'heart', couleur: '#E74C3C' },
+  aimant: { cle: 'bonusAimant', icone: 'magnet', couleur: '#8E44AD', n: DUREES.aimant },
+  taille: { cle: 'bonusTaille', icone: 'shield-star', couleur: '#0A9A78' },
+  vol: { cle: 'bonusVol', icone: 'quadcopter', couleur: '#2D7FD3', n: DUREES.vol },
+  etoile: { cle: 'bonusEtoile', icone: 'star', couleur: '#E0A100', n: DUREES.etoile },
+  chrono: { cle: 'bonusChrono', icone: 'timer-plus-outline', couleur: '#16A34A', n: BONUS_CHRONO },
+  double: { cle: 'bonusDouble', icone: 'numeric-2-circle', couleur: '#E8650F', n: DUREES.double },
+  encaisse: { cle: 'coupEncaisse', icone: 'shield-check', couleur: '#0A9A78' },
 };
 function annoncer(m, type) {
   m.annonce = { ...ANNONCES[type], type, age: 0, id: `${type}_${m.horloge.toFixed(3)}` };
@@ -855,7 +1318,7 @@ const CMD_VIDE = { gauche: false, droite: false, sautTenu: false, sautAppui: fal
  * appui neuf, bas : accroupi demandé, geste : nouveau geste gauche, droite ou
  * haut ce tour-ci, il relance le livreur après une reprise).
  * Rend la liste des événements : colis, boite, bonus, ecarte, encaisse,
- * touche, chute, temps, livre, reprise.
+ * touche, chute, temps, livre, reprise, plouf, grimpe, conduit, sortieConduit.
  */
 export function pas(m, dtBrut, cmd) {
   const evenements = [];
@@ -939,12 +1402,44 @@ function sousPas(m, dtPas, cmdBrut, evenements) {
     if (m.etat !== 'jeu') return;
   }
 
+  // Dans le conduit d'une bouche d'aération : le livreur file sous les toits, à l'abri.
+  if (m.passage) {
+    const ps = m.passage;
+    ps.t += dt;
+    const u = Math.min(1, ps.t / ps.duree);
+    j.x = ps.de.x + (ps.vers.x - ps.de.x) * u;
+    j.y = ps.de.y + (ps.vers.y - ps.de.y) * u;
+    j.vx = 0;
+    j.vy = 0;
+    if (u >= 1) {
+      m.passage = null;
+      j.y = ps.vers.y;
+      j.vy = PASSAGE.sortie;
+      j.sol = null;
+      j.enSaut = false;
+      j.accroupi = false;
+      m.invul = Math.max(m.invul, 0.6);
+      evenements.push({ type: 'sortieConduit' });
+    }
+    return;
+  }
+
   // Accroupi : seulement au sol, jamais en plein saut.
   const etaitAccroupi = j.accroupi;
   j.accroupi = !!(cmd.bas && j.sol && !(j.tampon > 0));
   if (j.accroupi && !etaitAccroupi) evenements.push({ type: 'accroupi' });
   if (m.attente) cmd = CMD_VIDE;
-  const frappee = physiqueJoueur(j, m.plateformes, m.boites, cmd, dt);
+  const etaitDansEau = !!j.dansEau;
+  const frappee = physiqueJoueur(j, m.plateformes, m.boites, cmd, dt, m.env);
+  if (j.dansEau && !etaitDansEau) evenements.push({ type: 'plouf' });
+  if (j.grimpe) evenements.push({ type: 'grimpe' });
+  // Glisser vers le bas sur une bouche d'aération : on entre dans le conduit.
+  const bouche = j.sol && j.sol.bouche;
+  if (bouche && cmd.bas && !m.attente && Math.abs(j.x + LARGEUR / 2 - (bouche.x + bouche.w / 2)) < bouche.w / 2 + 6) {
+    m.passage = { t: 0, duree: PASSAGE.duree, de: { x: j.x, y: j.y }, vers: { x: bouche.vers.x, y: bouche.vers.y } };
+    j.accroupi = true;
+    evenements.push({ type: 'conduit' });
+  }
   if (frappee && !frappee.frappee) {
     frappee.frappee = true;
     frappee.choc = 0.25;
@@ -962,7 +1457,22 @@ function sousPas(m, dtPas, cmdBrut, evenements) {
     frappee.choc = 0.15;
   }
   m.boites.forEach((b) => { if (b.choc > 0) b.choc -= dt; });
-  if (j.sol && !j.sol.flottante && !j.sol.boite && !j.sol.fragile && !j.sol.mobile && j.sol.type !== 'benne') m.dernierSol = j.sol;
+  // Ressort : posé dessus, le livreur est renvoyé très haut (jamais pendant l'attente de reprise).
+  const ressorts = m.ressorts || [];
+  for (let i = 0; i < ressorts.length; i += 1) {
+    const r = ressorts[i];
+    if (r.comp > 0) r.comp = Math.max(0, r.comp - dt * 3);
+    if (!m.attente && j.sol && j.vy <= 0 && Math.abs(j.y - r.y) < 0.5 && j.x + LARGEUR > r.x + 2 && j.x < r.x + r.w - 2) {
+      j.vy = cmd.sautTenu ? RESSORT_TENU : RESSORT;
+      j.sol = null;
+      j.enSaut = false;
+      j.coyote = 0;
+      j.tampon = 0;
+      r.comp = 1;
+      evenements.push({ type: 'ressort' });
+    }
+  }
+  if (j.sol && !j.sol.flottante && !j.sol.boite && !j.sol.fragile && !j.sol.mobile && j.sol.type !== 'benne' && j.sol.type !== 'bassin') m.dernierSol = j.sol;
 
   // Colis (attirés par l'aimant).
   const C = TAILLES.colis;
@@ -1091,4 +1601,22 @@ export function genererFond(niveau, longueur) {
     x += w + 4 + rng() * 20;
   }
   return fond;
+}
+
+/**
+ * Éléments de fond propres au monde du niveau (grues, bateaux, enseignes,
+ * sapins...), au loin : positions calculées une fois par niveau, reproductibles.
+ */
+export function genererElementsMonde(niveau, longueur) {
+  const { monde } = decorNiveau(niveau);
+  const types = mondeParId(monde).elements;
+  if (!types.length) return [];
+  const rng = alea(niveau * 7349 + 3);
+  const liste = [];
+  let x = -200 + rng() * 120;
+  while (x < longueur * 0.2 + 900) {
+    liste.push({ id: liste.length, type: types[Math.floor(rng() * types.length)], x: Math.round(x), w: 60, h: 40 + Math.round(rng() * 50), v: rng() });
+    x += 170 + rng() * 160;
+  }
+  return liste;
 }
