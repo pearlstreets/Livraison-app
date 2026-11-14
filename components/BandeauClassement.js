@@ -26,6 +26,8 @@ import { chargerRecord } from '../utils/jeuxRecords';
 
 const OR = '#F2B705';
 const VERT = '#16A34A';
+const ROUGE = '#DC2626';
+const DUREE_HORS_LIGNE_MS = 3000;
 
 export function formaterNombre(n) {
   const v = Math.max(0, Math.floor(Number(n) || 0));
@@ -38,9 +40,10 @@ function cleCache(jeu, id) {
 
 /** Données du bandeau : { rang, record, top: { nom, score } | null, pret }. */
 export function useDonneesBandeau(jeu, idLivreur, rafraichir) {
-  const [d, setD] = useState({ rang: null, record: 0, top: null, pret: false });
+  const [d, setD] = useState({ rang: null, record: 0, top: null, pret: false, horsLigne: false });
+  const minuterie = useRef(null);
   const monte = useRef(true);
-  useEffect(() => () => { monte.current = false; }, []);
+  useEffect(() => () => { monte.current = false; clearTimeout(minuterie.current); }, []);
 
   useEffect(() => {
     let vivant = true;
@@ -73,8 +76,16 @@ export function useDonneesBandeau(jeu, idLivreur, rafraichir) {
         };
         setD(suivant);
         AsyncStorage.setItem(cleCache(jeu, idLivreur), JSON.stringify(suivant)).catch(() => {});
-      } catch {
-        // Hors ligne : on garde le cache.
+      } catch (e) {
+        // Hors ligne : on garde le cache, bandeau rouge 3 s (le score reste gardé
+        // sur le téléphone et part plus tard, utils/jeuxRecords.js).
+        if (e?.isNetworkError && vivant && monte.current) {
+          setD((x) => ({ ...x, horsLigne: true }));
+          clearTimeout(minuterie.current);
+          minuterie.current = setTimeout(() => {
+            if (monte.current) setD((x) => ({ ...x, horsLigne: false }));
+          }, DUREE_HORS_LIGNE_MS);
+        }
       }
     })();
     return () => { vivant = false; };
@@ -103,6 +114,17 @@ function BandeauClassement({ jeu, idLivreur, score = 0, rafraichir = 0, t, color
   if (top1) droite = t('jeuxBandeauTop1Vous');
   else if (d.top) droite = t('jeuxBandeauTop', { nom: d.top.nom, n: formaterNombre(d.top.score) });
 
+  if (d.horsLigne) {
+    return (
+      <View pointerEvents="none" style={[styles.ligne, style]}>
+        <View style={[styles.pastille, styles.rouge]}>
+          <Ionicons name="cloud-offline" size={13} color="#fff" />
+          <Text style={[styles.texte, styles.blanc]} numberOfLines={1}>{t('jeuxBandeauHorsLigne')}</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View pointerEvents="none" style={[styles.ligne, style]}>
       <View style={[styles.pastille, nouveauRecord && styles.vert]}>
@@ -126,6 +148,7 @@ const makeStyles = (c) => StyleSheet.create({
     backgroundColor: c.card, borderWidth: 1, borderColor: c.border,
   },
   vert: { backgroundColor: VERT, borderColor: VERT },
+  rouge: { backgroundColor: ROUGE, borderColor: ROUGE },
   texte: { flex: 1, color: c.text, fontSize: 12, fontWeight: '800' },
   blanc: { color: '#fff' },
 });
