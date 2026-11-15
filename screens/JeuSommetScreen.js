@@ -2,8 +2,9 @@
  * Mini-jeu « Livraison au sommet », pour patienter entre deux courses.
  *
  * Le livreur grimpe la façade d'un immeuble en rebondissant tout seul de
- * balcon en balcon. Le doigt posé et glissé vers la gauche ou la droite
- * l'emmène de ce côté ; doigt levé (ou simple appui), il repart tout droit.
+ * balcon en balcon. Le doigt posé sur la moitié gauche ou droite de l'écran
+ * l'emmène de ce côté ; un balayage lance un grand écart ; doigt levé ou
+ * arrêté, il repart tout droit.
  * Sortir d'un bord fait revenir par l'autre. Aucune flèche à l'écran. Tomber
  * sous le bas de l'écran, un pot de fleurs ou un pigeon (sauf par le
  * dessus) arrête la tournée. Score = étages + 5 points par colis.
@@ -29,7 +30,7 @@
  * milieu de l'écran.
  */
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, PanResponder } from 'react-native';
+import { View, Text, StyleSheet, Pressable, PanResponder, Dimensions } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexts/AuthContext';
@@ -53,7 +54,7 @@ import ClassementJeu from '../components/ClassementJeu';
 import { chargerRecord, envoyerRecordEnAttente, finDePartie } from '../utils/jeuxRecords';
 import {
   MONDE_L, ETAGE, JOUEUR_L, JOUEUR_H, PLAT_H, VX_MAX, POINTS_COLIS, BONUS, TYPES_BONUS,
-  partieNeuve, avancer, bonusActifs, restaurerBonus, doigtPose, doigtGlisse, doigtLeve,
+  partieNeuve, avancer, bonusActifs, restaurerBonus, doigtPose, doigtGlisse, doigtLeve, doigtAvance,
 } from '../utils/jeuSommet';
 
 // Vibration légère : module natif facultatif, le jeu marche sans.
@@ -335,6 +336,7 @@ export default function JeuSommetScreen({ navigation }) {
   const [nbParties, setNbParties] = useState(0);
   const partieRef = useRef(null);
   const dirRef = useRef(0);
+  const doigtRef = useRef(null);
   const banniereRef = useRef(null);
   const suiviRef = useRef(null); // paliers et record annoncés pendant la partie
   const bullesRef = useRef([]); // « +5 » des colis : { id, x, y, t0 }
@@ -381,6 +383,7 @@ export default function JeuSommetScreen({ navigation }) {
   const pause = useCallback(() => {
     if (uiRef.current !== 'jeu') return;
     dirRef.current = 0;
+    doigtRef.current = null;
     sauver();
     changerUi('pause');
   }, [changerUi, sauver]);
@@ -397,6 +400,7 @@ export default function JeuSommetScreen({ navigation }) {
 
   const terminer = useCallback((e) => {
     dirRef.current = 0;
+    doigtRef.current = null;
     const base = {
       score: e.score, etage: e.etage, colis: e.colis, cause: e.cause, nouveauRecord: false,
       etoiles: etoilesPour(e.score, meilleurRef.current, PALIERS),
@@ -426,6 +430,7 @@ export default function JeuSommetScreen({ navigation }) {
     annonceBonusRef.current = null;
     banniereRef.current?.cacher();
     dirRef.current = 0;
+    doigtRef.current = null;
     setResultat(null);
     setReprise(null);
     effacerPartie(JEU, user?.id).catch(() => {});
@@ -449,6 +454,7 @@ export default function JeuSommetScreen({ navigation }) {
     bullesRef.current = [];
     annonceBonusRef.current = null;
     dirRef.current = 0;
+    doigtRef.current = null;
     setReprise(null);
     setResultat(null);
     changerUi('jeu');
@@ -470,7 +476,7 @@ export default function JeuSommetScreen({ navigation }) {
       }
       const dt = avant == null ? 0 : (ts - avant) / 1000;
       avant = ts;
-      const evts = avancer(e, dt, dirRef.current);
+      const evts = avancer(e, dt, doigtRef.current ? doigtAvance(doigtRef.current, dt) : dirRef.current);
       for (let i = 0; i < evts.length; i += 1) {
         const ev = evts[i];
         if (ev === 'colis' || ev === 'trampo' || ev === 'monte' || ev === 'pigeon' || ANNONCES_BONUS[ev]) vibrer(ev === 'protege');
@@ -518,19 +524,20 @@ export default function JeuSommetScreen({ navigation }) {
     setTaille((x) => (Math.round(x.l) === Math.round(width) && Math.round(x.h) === Math.round(height) ? x : { l: width, h: height }));
   }, []);
 
-  // Commande au doigt, comme une direction tenue : le doigt posé glisse à
-  // gauche ou à droite, le livreur suit ; doigt levé ou simple appui, il
+  // Commande au doigt : doigt posé sur un côté de l'écran, le livreur part de
+  // ce côté ; un balayage lance un grand écart ; doigt levé ou arrêté, il
   // repart tout droit. Aucune flèche à l'écran.
   const enJeuRef = useRef(false);
   enJeuRef.current = ui === 'jeu';
-  const doigtRef = useRef(null);
   const balayage = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => enJeuRef.current,
     onMoveShouldSetPanResponder: () => enJeuRef.current,
     onPanResponderTerminationRequest: () => false,
-    onPanResponderGrant: () => {
-      doigtRef.current = doigtPose();
-      dirRef.current = 0;
+    onPanResponderGrant: (_e, g) => {
+      // Appui sur la moitié gauche : à gauche ; sur la moitié droite : à droite.
+      const cote = g.x0 < Dimensions.get('window').width / 2 ? -1 : 1;
+      doigtRef.current = doigtPose(0, cote);
+      dirRef.current = cote;
     },
     onPanResponderMove: (_e, g) => {
       if (!enJeuRef.current || !doigtRef.current) return;
@@ -538,11 +545,9 @@ export default function JeuSommetScreen({ navigation }) {
     },
     onPanResponderRelease: () => {
       dirRef.current = doigtLeve(doigtRef.current);
-      doigtRef.current = null;
     },
     onPanResponderTerminate: () => {
       dirRef.current = doigtLeve(doigtRef.current);
-      doigtRef.current = null;
     },
   }), []);
 
