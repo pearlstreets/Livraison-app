@@ -364,7 +364,9 @@ export function avancer(e, dtBrut, dir) {
     if (e.casque > 0) e.casque = Math.max(0, e.casque - h);
     if (e.filet > 0) e.filet = Math.max(0, e.filet - h);
     if (e.invuln > 0) e.invuln = Math.max(0, e.invuln - h);
-    pasJoueur(j, e.phase === 'jeu' ? dir : 0, h, e.phase === 'jeu' ? e.vent : 0);
+    // Vent retiré du livreur (15/11/2026) : il le faisait partir seul d'un côté,
+    // et glisser longtemps doigt arrêté. e.vent reste calculé pour le décor.
+    pasJoueur(j, e.phase === 'jeu' ? dir : 0, h, 0);
     if (e.annonce > 0) e.annonce -= h;
     if (e.phase === 'chute') j.rot += 500 * h;
 
@@ -534,7 +536,8 @@ export function avancer(e, dtBrut, dir) {
  *   doigtGlisse(d, g.dx);           // à chaque mouvement, rend -1, 0 ou 1
  *   doigtLeve(d);                   // au relâché, rend 0
  */
-export const SEUIL_DOIGT = 18;
+// 30 points (au lieu de 18) : un simple frôlement ne lance plus le livreur d'un côté.
+export const SEUIL_DOIGT = 30;
 
 export function doigtPose(x = 0) {
   return { ancre: x, dir: 0 };
