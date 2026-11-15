@@ -526,32 +526,63 @@ export function avancer(e, dtBrut, dir) {
 }
 
 /**
- * Commande au doigt, comme une direction tenue. Tant que le doigt est posé,
- * le livreur va du côté où il a glissé ; doigt levé (ou simple appui), il
- * repart tout droit : rien ne garde le cap. Le point d'ancrage suit le doigt
- * à `SEUIL_DOIGT` points : revenir un peu en arrière redresse, revenir plus
- * franchement change de côté, sans lever le doigt.
+ * Commande au doigt. Doigt posé sur la moitié gauche de l'écran (`cote` -1)
+ * ou droite (1) : le livreur part aussitôt de ce côté, tant que le doigt reste
+ * posé ; doigt levé, tout droit. Un balayage à gauche ou à droite lance un grand écart :
+ * le livreur part de ce côté pendant au moins `ELAN_DOIGT` secondes, même si
+ * le doigt se lève aussitôt. Tant que le doigt glisse, il continue de ce
+ * côté ; une fois l'élan fini, doigt levé OU doigt arrêté plus de
+ * `IMMOBILE_DOIGT` secondes (ou simple appui), il repart tout droit.
+ * Le point d'ancrage suit le doigt à `SEUIL_DOIGT` points : revenir un peu en
+ * arrière redresse, revenir plus franchement change de côté (nouvel élan).
  *
- *   const d = doigtPose();          // au contact
+ *   const d = doigtPose(0, cote);   // au contact, cote -1, 0 ou 1
  *   doigtGlisse(d, g.dx);           // à chaque mouvement, rend -1, 0 ou 1
- *   doigtLeve(d);                   // au relâché, rend 0
+ *   doigtLeve(d);                   // au relâché
+ *   doigtAvance(d, dt);             // à chaque image : direction à appliquer
  */
-// 30 points (au lieu de 18) : un simple frôlement ne lance plus le livreur d'un côté.
+// 30 (15 points pour partir) : à 18, un frôlement de 9 points au premier
+// appui lançait déjà le grand écart (15/11/2026).
 export const SEUIL_DOIGT = 30;
+export const ELAN_DOIGT = 0.35;
+export const IMMOBILE_DOIGT = 0.15;
 
-export function doigtPose(x = 0) {
-  return { ancre: x, dir: 0 };
+export function doigtPose(x = 0, cote = 0) {
+  return { ancre: x, dir: cote, cote, pose: true, elan: 0, dernierX: x, immobile: 0 };
 }
 
 export function doigtGlisse(d, x, seuil = SEUIL_DOIGT) {
+  // Appui sur un côté : un petit tremblement ne change rien, un vrai glissé prend la main.
+  if (d.cote) {
+    if (Math.abs(x - d.ancre) < seuil) return d.dir;
+    d.cote = 0;
+    d.dir = 0; // le glissé lance son propre grand écart, même du côté de l'appui
+  }
+  if (Math.abs(x - d.dernierX) >= 2) {
+    d.dernierX = x;
+    d.immobile = 0;
+  }
   if (x - d.ancre > seuil) d.ancre = x - seuil;
   else if (d.ancre - x > seuil) d.ancre = x + seuil;
   const ecart = x - d.ancre;
-  d.dir = ecart >= seuil / 2 ? 1 : ecart <= -seuil / 2 ? -1 : 0;
+  const dir = ecart >= seuil / 2 ? 1 : ecart <= -seuil / 2 ? -1 : 0;
+  if (dir !== 0 && dir !== d.dir) d.elan = ELAN_DOIGT;
+  d.dir = dir;
   return d.dir;
 }
 
 export function doigtLeve(d) {
-  if (d) d.dir = 0;
-  return 0;
+  if (!d) return 0;
+  d.pose = false;
+  if (d.cote || d.elan <= 0) d.dir = 0;
+  return d.dir;
+}
+
+export function doigtAvance(d, dt) {
+  if (!d) return 0;
+  if (d.cote) return d.pose ? d.dir : 0;
+  if (d.elan > 0) d.elan -= dt;
+  d.immobile += dt;
+  if (d.elan <= 0 && (!d.pose || d.immobile > IMMOBILE_DOIGT)) d.dir = 0;
+  return d.dir;
 }
