@@ -218,10 +218,11 @@ test('doigt : appui simple tout droit, glissé dirige, retour en arrière redres
   assert.equal(S.doigtLeve(d), 0);
   const g = S.doigtPose();
   assert.equal(S.doigtGlisse(g, 4), 0, 'petit tremblement ignoré');
+  assert.equal(S.doigtGlisse(g, 12), 0, 'frôlement 12 ignoré');
   assert.equal(S.doigtGlisse(g, 40), 1);
   assert.equal(S.doigtGlisse(g, 40), 1, 'doigt immobile : direction tenue');
-  assert.equal(S.doigtGlisse(g, 30), 0, 'léger retour : tout droit');
-  assert.equal(S.doigtGlisse(g, 5), -1, 'retour franc : autre côté');
+  assert.equal(S.doigtGlisse(g, 22), 0, 'léger retour : tout droit');
+  assert.equal(S.doigtGlisse(g, -10), -1, 'retour franc : autre côté');
   assert.equal(S.doigtGlisse(g, -60), -1);
   assert.equal(S.doigtLeve(g), 0);
   assert.equal(g.dir, 0);
@@ -252,4 +253,14 @@ test('geste gauche puis relâché ne continue pas à gauche', () => {
   const pose = j.x;
   courir(j, apres, 3);
   assert.ok(Math.abs(S.dxBoucle(pose, j.x)) < 1, 'plus aucune dérive ensuite');
+});
+
+test('doigt arrêté : aucun vent ne fait glisser le livreur', () => {
+  const e = S.partieNeuve(640, () => 0.5);
+  e.phase = 'jeu';
+  e.palier = 5;
+  const x0 = e.joueur.x;
+  for (let i = 0; i < 60; i += 1) S.avancer(e, 1 / 60, 0);
+  assert.ok(Math.abs(e.joueur.vx) < 1e-6, `vitesse latérale ${e.joueur.vx}`);
+  assert.ok(Math.abs(S.dxBoucle(x0, e.joueur.x)) < 1e-6, 'aucune dérive');
 });
