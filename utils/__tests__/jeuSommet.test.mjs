@@ -218,13 +218,14 @@ test('doigt : appui simple tout droit, glissé dirige, retour en arrière redres
   assert.equal(S.doigtLeve(d), 0);
   const g = S.doigtPose();
   assert.equal(S.doigtGlisse(g, 4), 0, 'petit tremblement ignoré');
-  assert.equal(S.doigtGlisse(g, 12), 0, 'frôlement 12 ignoré');
+  assert.equal(S.doigtGlisse(g, 12), 0, 'frôlement au premier appui ignoré');
   assert.equal(S.doigtGlisse(g, 40), 1);
-  assert.equal(S.doigtGlisse(g, 40), 1, 'doigt immobile : direction tenue');
+  assert.equal(S.doigtGlisse(g, 40), 1, 'doigt à peine arrêté : direction tenue');
   assert.equal(S.doigtGlisse(g, 22), 0, 'léger retour : tout droit');
   assert.equal(S.doigtGlisse(g, -10), -1, 'retour franc : autre côté');
   assert.equal(S.doigtGlisse(g, -60), -1);
-  assert.equal(S.doigtLeve(g), 0);
+  assert.equal(S.doigtLeve(g), -1, 'levé pendant l élan : le grand écart continue');
+  assert.equal(S.doigtAvance(g, S.ELAN_DOIGT), 0, 'élan fini : tout droit');
   assert.equal(g.dir, 0);
 });
 
@@ -236,23 +237,64 @@ test('relâché = tout droit, aucune dérive', () => {
   assert.equal(j.vx, 0);
 });
 
-test('geste gauche puis relâché ne continue pas à gauche', () => {
+test('balayage rapide : grand écart de ce côté, puis tout droit', () => {
   const j = livreurAuCentre();
   const d = S.doigtPose();
-  const dir = S.doigtGlisse(d, -50);
-  assert.equal(dir, -1);
-  courir(j, dir, 0.4);
-  assert.ok(j.vx < -100, 'le livreur part bien à gauche tant que le doigt est posé');
-  const auRelache = j.x;
-  const apres = S.doigtLeve(d);
-  assert.equal(apres, 0);
-  courir(j, apres, 1);
+  assert.equal(S.doigtGlisse(d, -50), -1);
+  S.doigtLeve(d);
+  const depart = j.x;
+  for (let t = 0; t < 1.5; t += 1 / 60) S.pasJoueur(j, S.doigtAvance(d, 1 / 60), 1 / 60);
+  const ecart = S.dxBoucle(depart, j.x);
+  assert.ok(ecart > 100, `grand écart ${ecart}`);
+  assert.equal(S.doigtAvance(d, 0.1), 0, 'élan fini : tout droit');
   assert.ok(Math.abs(j.vx) < 1, `vitesse latérale résiduelle ${j.vx}`);
-  const glisse = Math.abs(S.dxBoucle(auRelache, j.x));
-  assert.ok(glisse < S.VX_MAX / 6, `glissade après relâché ${glisse}`);
   const pose = j.x;
-  courir(j, apres, 3);
+  courir(j, S.doigtAvance(d, 0.1), 3);
   assert.ok(Math.abs(S.dxBoucle(pose, j.x)) < 1, 'plus aucune dérive ensuite');
+});
+
+test('doigt tenu puis levé après l élan : tout droit aussitôt', () => {
+  const d = S.doigtPose();
+  S.doigtGlisse(d, 50);
+  for (let t = 0; t < 1; t += 0.05) {
+    S.doigtGlisse(d, 50 + t * 100);
+    assert.equal(S.doigtAvance(d, 0.05), 1, 'doigt qui glisse : il continue');
+  }
+  assert.equal(S.doigtLeve(d), 0);
+  assert.equal(S.doigtAvance(d, 1 / 60), 0);
+});
+
+test('long glissé puis doigt arrêté mais posé : tout droit, puis repart si le doigt reglisse', () => {
+  const d = S.doigtPose();
+  for (let x = 0; x > -200; x -= 5) {
+    S.doigtGlisse(d, x);
+    S.doigtAvance(d, 1 / 60);
+  }
+  assert.equal(d.dir, -1, 'pendant le glissé : à gauche');
+  for (let i = 0; i < 6; i += 1) S.doigtAvance(d, 1 / 60);
+  assert.equal(d.dir, -1, 'arrêt très court toléré');
+  for (let i = 0; i < 12; i += 1) S.doigtAvance(d, 1 / 60);
+  assert.equal(d.dir, 0, 'doigt arrêté : tout droit');
+  assert.equal(S.doigtGlisse(d, -210), -1, 'il reglisse : repart à gauche');
+  assert.equal(S.doigtAvance(d, 1 / 60), -1);
+});
+
+test('appui sur un côté : part aussitôt de ce côté, doigt levé tout droit', () => {
+  const d = S.doigtPose(0, -1);
+  assert.equal(S.doigtAvance(d, 1 / 60), -1, 'aussitôt à gauche');
+  assert.equal(S.doigtGlisse(d, 3), -1, 'tremblement ignoré');
+  for (let i = 0; i < 120; i += 1) assert.equal(S.doigtAvance(d, 1 / 60), -1, 'doigt tenu immobile : il continue');
+  assert.equal(S.doigtLeve(d), 0);
+  assert.equal(S.doigtAvance(d, 1 / 60), 0);
+  const j = livreurAuCentre();
+  const dr = S.doigtPose(0, 1);
+  const depart = j.x;
+  for (let i = 0; i < 12; i += 1) S.pasJoueur(j, S.doigtAvance(dr, 1 / 60), 1 / 60);
+  assert.ok(j.x > depart + 10, 'appui à droite : il part à droite');
+  assert.equal(S.doigtGlisse(dr, -40), -1, 'un vrai glissé prend la main');
+  const meme = S.doigtPose(0, 1);
+  S.doigtGlisse(meme, 40);
+  assert.equal(S.doigtLeve(meme), 1, 'balayage du côté de l appui : grand écart gardé');
 });
 
 test('doigt arrêté : aucun vent ne fait glisser le livreur', () => {
