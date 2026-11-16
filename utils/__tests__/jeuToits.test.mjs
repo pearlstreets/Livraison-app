@@ -199,7 +199,7 @@ test('chrono de plus en plus serré, jamais intenable, plafond au niveau 20', ()
   const r40 = reglagesNiveau(40);
   assert.deepEqual(r40, { ...r20, n: 40 });
   assert.deepEqual(reglagesNiveau(60), { ...r20, n: 60 });
-  assert.ok(r40.probGeneur <= 0.8 + 1e-9 && r40.vitesseGeneurs <= 1.45 + 1e-9 && r40.ratioMax <= 0.72);
+  assert.ok(r40.probGeneur <= 0.92 + 1e-9 && r40.vitesseGeneurs <= 1.55 + 1e-9 && r40.ratioMax <= 0.72);
 });
 
 test('niveaux 16 à 24 : toujours faisables, gêneurs hors atterrissage', () => {
@@ -298,7 +298,7 @@ test('la difficulté monte dès le niveau 1, chaque niveau plus dur que le préc
     assert.ok(b.ratioMax > a.ratioMax, `${ctx} : trous`);
     assert.ok(b.probMobile > a.probMobile && b.probFragile > a.probFragile, `${ctx} : nacelles et toits fragiles`);
     assert.ok(b.limite / b.longueur < a.limite / a.longueur, `${ctx} : chrono`);
-    if (n < 10) {
+    if (n < 8) {
       assert.ok(b.diff > a.diff && b.ratioMin > a.ratioMin && b.largeurMax < a.largeurMax, `${ctx} : difficulté`);
       assert.ok(b.longueur > a.longueur, `${ctx} : longueur`);
     }
@@ -650,4 +650,88 @@ test('bouche d\'aération : glisser vers le bas mène au bout du conduit, sans d
     assert.ok(!m.passage);
   });
   assert.ok(vus >= 2, 'aucune bouche');
+});
+
+// ---- Plus dur et plus varié (comme l'app client, demande du 16/11 : « trop simple, toujours la même chose ») ----
+
+test('courbe raide : dur dès les niveaux 3 et 4, chaque niveau plus dur que le précédent', () => {
+  const r1 = reglagesNiveau(1);
+  const r4 = reglagesNiveau(4);
+  const r9 = reglagesNiveau(9);
+  // Ancien niveau 4 : diff 0,65, trous jusqu'à 0,61 de la portée.
+  assert.ok(r4.diff >= 0.8 && r4.probGeneur >= 0.65 && r4.ratioMax >= 0.67, `niveau 4 : ${r4.diff} ${r4.probGeneur} ${r4.ratioMax}`);
+  // Ancien niveau 9 : gêneurs 0,72, vitesse 1,29, chrono facteur 1,91.
+  assert.ok(r9.probGeneur >= 0.8 && r9.vitesseGeneurs >= 1.35 && r9.facteur < 1.75, `niveau 9 : ${r9.probGeneur} ${r9.vitesseGeneurs} ${r9.facteur}`);
+  assert.ok(r1.diff >= 0.5 && r1.defis === 0 && r4.defis >= 2);
+  for (let n = 1; n < 20; n += 1) {
+    const a = reglagesNiveau(n);
+    const b = reglagesNiveau(n + 1);
+    assert.ok(b.repitFragile <= a.repitFragile && b.probEnchaine > a.probEnchaine && b.defis >= a.defis, `niveau ${n} puis ${n + 1}`);
+    assert.ok(b.repitFragile >= 0.6, `niveau ${n + 1} : toit fragile trop rapide`);
+  }
+  // Partie courte : les 8 premiers niveaux tiennent en quelques minutes de course, aucun chrono au-delà de 4 min.
+  let course = 0;
+  for (let n = 1; n <= 8; n += 1) {
+    const niv = genererNiveau(n, 5);
+    course += niv.longueur / VITESSE;
+    assert.ok(niv.limite <= 240, `niveau ${n} : chrono ${niv.limite} s`);
+  }
+  assert.ok(course < 6 * 60, `course cumulée des niveaux 1 à 8 : ${Math.round(course)} s`);
+});
+
+test('variété : défis et combinaisons différents d\'un niveau à l\'autre et d\'une partie à l\'autre', () => {
+  const vus = new Set();
+  for (let n = 3; n <= 12; n += 1) {
+    const sig = new Set();
+    [1, 2, 3, 4].forEach((g) => {
+      const niv = genererNiveau(n, g * 97 + n);
+      niv.segments.forEach((s) => vus.add(s));
+      sig.add(niv.segments.join(','));
+    });
+    assert.ok(sig.size >= 3, `niveau ${n} : ${sig.size} enchaînements pour 4 parties`);
+  }
+  ['mixte', 'gardes', 'nacelles'].forEach((s) => assert.ok(vus.has(s), `${s} jamais posé`));
+  // Chaque niveau élevé mêle au moins 6 sortes de passages.
+  [6, 9, 12, 18].forEach((n) => [3, 77].forEach((g) => {
+    const sortes = new Set(genererNiveau(n, g * 131 + n).segments);
+    assert.ok(sortes.size >= 6, `niveau ${n} graine ${g} : ${[...sortes].join(' ')}`);
+  }));
+});
+
+test('toits gardés : au moins deux gêneurs, hors atterrissage ; jamais une nacelle à attendre sur un toit fragile', () => {
+  let gardes = 0;
+  for (let n = 3; n <= 24; n += 1) {
+    [3, 77, 2026, 9].forEach((g) => {
+      const niv = genererNiveau(n, g * 131 + n);
+      const P = niv.plateformes;
+      P.filter((p) => p.garde).forEach((p) => {
+        gardes += 1;
+        const sur = niv.geneurs.filter((e) => e.y >= p.y - 0.5 && e.y < p.y + 60 && e.x >= p.x && e.x <= p.x + p.w);
+        assert.ok(sur.length >= 2, `niveau ${n} graine ${g} : toit gardé avec ${sur.length} gêneur(s)`);
+        sur.forEach((e) => assert.ok(zoneGeneur(e)[0] >= p.x + DEGAGEMENT_ATTERRISSAGE - 0.5));
+      });
+      for (let i = 0; i + 1 < P.length; i += 1) {
+        assert.ok(!(P[i].fragile && P[i + 1].mobile), `niveau ${n} graine ${g} plateforme ${i} : nacelle après un toit fragile`);
+      }
+    });
+  }
+  assert.ok(gardes >= 8, `${gardes} toits gardés seulement`);
+});
+
+test('niveaux 3 à 14 sur 10 graines : chaque saut faisable, même déclenché tôt', () => {
+  for (let n = 3; n <= 14; n += 1) {
+    [11, 23, 57, 101, 404, 808, 1234, 5555, 7777, 90001].forEach((g) => {
+      const niv = genererNiveau(n, g);
+      const P = niv.plateformes;
+      for (let i = 0; i + 1 < P.length; i += 1) {
+        const ctx = `niveau ${n} graine ${g} plateforme ${i}`;
+        if (P[i + 1].gouttiere) { assert.ok(peutGrimper(P[i], P[i + 1]), `${ctx} : gouttière`); continue; }
+        etatsSortie(P[i]).forEach((a) => etatsEntree(P[i + 1]).forEach((b) => {
+          assert.ok(b.x - (a.x + a.w) <= ECART_MAX + 0.5, `${ctx} : trou`);
+          assert.ok(Math.abs(b.y - hautDe(a)) <= MONTEE_MAX + 0.5, `${ctx} : marche`);
+          assert.ok(simulerSaut(a, b, MARGE_SAUT, null, niv.boites), `${ctx} : saut impossible`);
+        }));
+      }
+    });
+  }
 });

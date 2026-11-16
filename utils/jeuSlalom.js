@@ -35,6 +35,17 @@
  * fréquence des objets est réglée pour rester très en dessous de 21 points
  * par mètre (voir pointsMaxObjets), même plafond que le jeu de l'app client.
  * L'état de course est modifié sur place (boucle à 60 images par seconde).
+ *
+ * Difficulté (16/11/2026, jeu jugé trop simple et répétitif, même courbe
+ * que le jeu de l'app client) : voir difficulte() et pression(). En bref :
+ * départ à 13 m/s (10 avant), 33 m/s au plus (27 avant) ; tous les motifs
+ * de base ouverts vers 1,3 km (niveau 3, 2,4 km avant) ; puis la pression
+ * monte jusqu'au niveau 9 : rangées plus serrées, combinaisons plus
+ * fréquentes, moins de rangées faciles, nouveaux motifs et enchaînements
+ * (SUITES) débloqués niveau après niveau. Une voie reste toujours
+ * franchissable (rangeeFranchissable) et chaque rangée garde une voie au
+ * passage tolérant (rangeeSure) ; l'écart entre deux rangées ne descend
+ * jamais sous ECART_MIN secondes.
  */
 export const VERSION = 3;
 export const VOIES = 3;
@@ -70,11 +81,13 @@ export const BONUS = ['turbo', 'superSaut', 'double', 'aimant', 'casque'];
 const DEPART = 45; // premiers mètres sans obstacle
 const PROBA_ETOILE = 0.3; // part des files d'objets qui contiennent une étoile (une seule par file)
 
-const V0 = 10;
-const KV = 0.32;
-const VMAX = 27;
+const V0 = 13;
+const KV = 0.316;
+export const VMAX = 33;
+export const ECART_MIN = 0.62; // s : écart le plus court entre deux rangées (temps de réaction)
+export const RATIO_MAX = 1; // vitesse relative maximale d'un véhicule en face
 
-/** Vitesse de base (m/s) selon la distance : 10 au départ, 27 au plus. */
+/** Vitesse de base (m/s) selon la distance : 13 au départ, 33 au plus (à 4 km, début du niveau 9). */
 export function vitessePour(d) {
   return Math.min(VMAX, V0 + KV * Math.sqrt(Math.max(0, d)));
 }
@@ -153,6 +166,79 @@ const MOTIFS = [
   [0.5, 2, ['barriere', 'echafaudage', 'barrierePied']],
   [0.55, 2, ['voitureMobile', 'camionnetteMobile', 'echafaudage']],
 ];
+// Motifs débloqués par la pression (niveau 3 et au-delà) : [pression
+// minimale, poids, voies]. Chacun garde une voie au passage tolérant.
+const MOTIFS_PRESSION = [
+  [0, 2, ['convoi', 'convoi', 'libre']],
+  [0, 2, ['plot', 'plot', 'plot']],
+  [0, 2, ['barrierePied', 'barrierePied', 'barrierePied']],
+  [0.1, 2, ['echafaudage', 'barriere', 'echafaudage']],
+  [0.15, 2, ['camionnette', 'convoi', 'camionnette']],
+  [0.2, 2, ['voitureMobile', 'libre', 'voitureMobile']],
+  [0.25, 2, ['mamie', 'mamie', 'barriere']],
+  [0.3, 2, ['camionnette', 'barrierePied', 'camionnette']],
+  [0.35, 2, ['ouvrier', 'echafaudage', 'ouvrier']],
+  [0.4, 2, ['camionnetteMobile', 'echafaudage', 'camionnette']],
+  [0.5, 2, ['camionnette', 'plot', 'camionnetteMobile']],
+  [0.55, 2, ['passant', 'barrierePied', 'passant']],
+  [0.65, 2, ['camionnetteMobile', 'barriere', 'camionnetteMobile']],
+  [0.75, 2, ['ouvrier', 'camionnetteRampe', 'camionnette']],
+  [0.85, 2, ['camionnette', 'echafaudage', 'camionnetteMobile']],
+];
+
+// Enchaînements : plusieurs rangées dessinées ensemble, à écart serré.
+// [pression minimale, rangées] ; tirés au hasard, parfois en miroir.
+const SUITES = [
+  [0, [
+    ['libre', 'camionnette', 'camionnette'],
+    ['camionnette', 'libre', 'camionnette'],
+    ['camionnette', 'camionnette', 'libre'],
+    ['camionnette', 'libre', 'camionnette'],
+  ]],
+  [0.15, [
+    ['barriere', 'barriere', 'barriere'],
+    ['echafaudage', 'echafaudage', 'echafaudage'],
+    ['plot', 'plot', 'plot'],
+    ['barrierePied', 'barrierePied', 'barrierePied'],
+  ]],
+  [0.3, [
+    ['mamie', 'passant', 'libre'],
+    ['passant', 'plot', 'mamie'],
+    ['barrierePied', 'mamie', 'passant'],
+    ['passant', 'barriere', 'passant'],
+  ]],
+  [0.45, [
+    ['camionnetteRampe', 'camionnette', 'barriere'],
+    ['camionnette', 'convoi', 'camionnette'],
+    ['barrierePied', 'camionnette', 'camionnetteRampe'],
+    ['camionnette', 'plot', 'camionnette'],
+  ]],
+  [0.55, [
+    ['voitureMobile', 'voiture', 'plot'],
+    ['barrierePied', 'barriere', 'voitureMobile'],
+    ['plot', 'voitureMobile', 'barriere'],
+    ['echafaudage', 'plot', 'voiture'],
+  ]],
+  [0.7, [
+    ['ouvrier', 'echafaudage', 'camionnette'],
+    ['camionnette', 'barrierePied', 'ouvrier'],
+    ['echafaudage', 'camionnette', 'barriere'],
+    ['plot', 'ouvrier', 'camionnette'],
+    ['camionnette', 'barriere', 'echafaudage'],
+  ]],
+  [0.85, [
+    ['camionnette', 'libre', 'camionnette'],
+    ['barriere', 'barrierePied', 'barriere'],
+    ['libre', 'camionnette', 'camionnette'],
+    ['echafaudage', 'echafaudage', 'barriere'],
+    ['camionnette', 'camionnette', 'plot'],
+    ['passant', 'mamie', 'barrierePied'],
+  ]],
+];
+
+// Voies au passage tolérant : on y passe sans viser un instant très court
+// (pas un ouvrier ni un passant, trop hauts pour un saut ordinaire).
+const SURES = ['libre', 'plot', 'barriere', 'barrierePied', 'echafaudage', 'voiture', 'convoi', 'camionnetteRampe', 'mamie', 'voitureTraverse'];
 const BLOQUANTS = ['camionnette', 'camionnetteMobile'];
 // Pas d'objets à ramasser dans une voie où passe un véhicule ou un piéton.
 const SANS_OBJETS = ['camionnette', 'camionnetteMobile', 'voitureMobile', 'mamie', 'passant', 'voitureTraverse', 'ouvrier'];
@@ -173,9 +259,25 @@ export function gravitePour(v, hauteur = HAUTEUR_SAUT) {
   return (8 * hauteur) / (t * t);
 }
 
-/** Difficulté de 0 à 1 selon la distance (au maximum vers 2,4 km). */
+/**
+ * Difficulté de 0 à 1 selon la distance : elle ouvre les motifs de base.
+ * Niveau 1 : de 0 à 0,36, déjà des combinaisons à deux voies. Niveau 2 :
+ * jusqu'à 0,76, véhicules en face et camionnettes. Au maximum vers 1,3 km
+ * (début du niveau 3). La suite passe par pression().
+ */
 export function difficulte(d) {
-  return Math.max(0, Math.min(1, (d - DEPART) / 2400));
+  return Math.max(0, Math.min(1, (d - DEPART) / 1255));
+}
+
+/**
+ * Pression de 0 à 1, du niveau 3 (1 km) au niveau 9 (4 km) : elle resserre
+ * les rangées (jamais sous ECART_MIN), rend les combinaisons et les
+ * enchaînements plus fréquents, raréfie les rangées faciles et débloque un
+ * nouveau motif ou un nouvel enchaînement à chaque niveau. Un joueur moyen
+ * perd entre les niveaux 5 et 8 ; tout reste faisable.
+ */
+export function pression(d) {
+  return Math.max(0, Math.min(1, (d - 1000) / 3000));
 }
 
 /** Niveau atteint (1 au départ, +1 tous les 500 m). */
@@ -212,21 +314,42 @@ function choisir(liste, hasard) {
   return liste[Math.min(liste.length - 1, Math.floor(hasard() * liste.length))];
 }
 
-/** Motif d'une rangée (3 voies), tiré selon la difficulté. */
-export function motifPour(diff, hasard) {
+/**
+ * Motif d'une rangée (3 voies), tiré selon la difficulté et la pression.
+ * Les motifs faciles s'effacent quand la pression monte ; `eviter` (clé du
+ * motif précédent) n'est pas retiré deux fois de suite si possible.
+ */
+export function motifPour(diff, hasard, p = 0, eviter = null) {
   const possibles = MOTIFS.filter(m => diff >= m[0]);
-  const poids = possibles.map(m => m[1] * (m[0] === 0 ? Math.max(0.25, 1 - diff) : 1));
+  if (diff >= 1) MOTIFS_PRESSION.forEach(m => p >= m[0] && possibles.push(m));
+  const poids = possibles.map(m => {
+    if (eviter && m[2].slice().sort().join() === eviter) return 0;
+    if (m[0] === 0 && MOTIFS.includes(m)) return m[1] * Math.max(0.25, 1 - diff) * Math.max(0.1, 1 - 0.9 * p);
+    // Les derniers motifs débloqués sortent plus souvent : chaque niveau change.
+    if (!MOTIFS.includes(m)) return m[1] * (1 + 1.5 * p) * (p - m[0] < 0.2 ? 1.6 : 1);
+    return m[1];
+  });
   const total = poids.reduce((s, p) => s + p, 0);
   let tirage = hasard() * total;
   let motif = possibles[0][2];
   for (let i = 0; i < possibles.length; i += 1) {
     tirage -= poids[i];
-    if (tirage <= 0) {
+    if (poids[i] > 0 && tirage <= 0) {
       motif = possibles[i][2];
       break;
     }
   }
   return melanger(motif, hasard);
+}
+
+/** Vrai si une voie au moins se passe sans viser un instant très court. */
+export function rangeeSure(motif) {
+  return motif.some(m => SURES.includes(m));
+}
+
+/** Toutes les rangées possibles (motifs et enchaînements), pour les tests. */
+export function toutesRangees() {
+  return [...MOTIFS, ...MOTIFS_PRESSION].map(m => m[2]).concat(...SUITES.map(s => s[1]));
 }
 
 /** Vrai si au moins une voie de la rangée se franchit. */
@@ -235,7 +358,17 @@ export function rangeeFranchissable(motif) {
 }
 
 export function creerGenerateur(graine) {
-  return {hasard: hasardGraine(graine), z: DEPART, rangee: 0, reserve: [0, 0, 0], prochainBonus: 260, dernier: null};
+  return {
+    hasard: hasardGraine(graine),
+    z: DEPART,
+    rangee: 0,
+    reserve: [0, 0, 0],
+    prochainBonus: 260,
+    dernier: null,
+    cle: null, // motif tiré à la rangée d'avant (pas deux fois de suite)
+    suite: [], // rangées restantes de l'enchaînement en cours
+    derniereSuite: -1,
+  };
 }
 
 function obstacle(id, type, voie, z, r, variante) {
@@ -287,9 +420,29 @@ export function genererRangee(gen, sortie) {
   const hasard = gen.hasard;
   const z = gen.z;
   const diff = difficulte(z);
+  const p = pression(z);
   const v = vitessePour(z);
   const base = gen.rangee * 32;
-  let motif = motifPour(diff, hasard);
+  // Enchaînement : à partir du niveau 3, de plus en plus souvent.
+  if (!gen.suite.length && diff >= 1 && hasard() < 0.07 + 0.25 * p) {
+    const ouvertes = SUITES.map((s, i) => i).filter(i => p >= SUITES[i][0] && i !== gen.derniereSuite);
+    if (ouvertes.length) {
+      // Le dernier enchaînement débloqué sort une fois sur deux.
+      const i = hasard() < 0.5 ? ouvertes[ouvertes.length - 1] : choisir(ouvertes, hasard);
+      const miroir = hasard() < 0.5;
+      gen.suite = SUITES[i][1].map(r => (miroir ? r.slice().reverse() : r.slice()));
+      gen.derniereSuite = i;
+    }
+  }
+  const enSuite = gen.suite.length > 0;
+  let motif = enSuite ? gen.suite.shift() : motifPour(diff, hasard, p, gen.cle);
+  // Clé sans l'ordre des voies (motifPour les mélange).
+  gen.cle = enSuite ? null : motif.slice().sort().join();
+  // Plus la pression monte, plus les voies libres se garnissent d'un plot
+  // ou d'une barrière (toujours franchissables d'un saut).
+  if (p > 0 && !motif.includes('voitureTraverse')) {
+    motif = motif.map(m => (m === 'libre' && hasard() < 0.45 * p ? (hasard() < 0.5 ? 'plot' : 'barriere') : m));
+  }
   // Voie réservée (un véhicule en face la remonte) : rien dedans.
   motif = motif.map((m, voie) => (gen.reserve[voie] > z ? 'libre' : m));
   // La voiture qui traverse occupe toute la rue : le reste de la rangée est libre.
@@ -303,7 +456,7 @@ export function genererRangee(gen, sortie) {
     return m === 'voitureMobile' ? 'voiture' : 'libre';
   });
   gen.dernier = motif;
-  const ratio = 0.35 + 0.45 * diff + hasard() * 0.15;
+  const ratio = Math.min(RATIO_MAX, 0.35 + 0.45 * diff + 0.15 * p + hasard() * 0.15);
   let longueurMax = 0;
   let n = 0;
   motif.forEach((m, voie) => {
@@ -346,8 +499,13 @@ export function genererRangee(gen, sortie) {
   });
 
   // Écart jusqu'à la rangée suivante : serré en combinaison quand c'est dur.
-  const combo = diff > 0.3 && hasard() < 0.35 * diff;
-  const tempsEcart = combo ? 0.62 : (1.35 - 0.6 * diff) * (0.9 + hasard() * 0.3);
+  // Plus serré avec la pression, jamais sous ECART_MIN (temps de réaction).
+  const combo = diff > 0.2 && hasard() < 0.45 * diff + 0.35 * p;
+  const tempsEcart = enSuite
+    ? Math.max(ECART_MIN, 0.74 - 0.12 * p)
+    : combo
+      ? ECART_MIN
+      : Math.max(ECART_MIN, (1.2 - 0.5 * diff - 0.35 * p) * (0.9 + hasard() * 0.3));
   const espace = longueurMax + v * tempsEcart;
 
   // Sacs d'achat : une file dans une voie franchissable, au sol, en arc
