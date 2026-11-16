@@ -1,12 +1,11 @@
 /**
  * Logique pure du mini-jeu « Mémoire du livreur » (screens/JeuMemoireScreen.js).
  *
- * Jeu de paires : niveaux enchaînés, facile au début (2 paires, grille 2x2),
- * puis de plus en plus de cartes (jusqu'à 15 paires) et un chrono de plus en
- * plus serré, sans palier plat. À partir du niveau 5, des cartes cachées
- * changent de place après une erreur (1 échange, 2 dès le niveau 10, 3 dès le 14) ;
- * les motifs se ressemblent de plus en plus (même icône, 2 à 4 couleurs) et
- * une mauvaise paire reste visible de moins en moins longtemps.
+ * Jeu de paires : niveaux enchaînés et vite durs, pour qu'une bonne partie
+ * dure quelques minutes (durci le 16/11/2026, jeu jugé trop simple et trop
+ * répétitif). À partir du niveau 5, des cartes cachées changent de place
+ * après une erreur (1 échange, 2 dès le niveau 10). Voir
+ * parametresNiveau pour la courbe.
  *
  * Paires bonus (cadre doré, dès le niveau 2) : trouver la paire déclenche
  * son effet ; loupe (toutes les cartes visibles un instant), sablier
@@ -15,19 +14,21 @@
  * Aucun appel à React ici : tout est testable avec node.
  */
 
-// Paires par niveau ; au-delà du dernier, on reste à 15 paires (30 cartes,
-// grille 5x6 : 6 lignes comme les 24 cartes, donc des cartes de même taille).
-export const PAIRES_PAR_NIVEAU = [2, 3, 4, 6, 8, 10, 12, 12, 12];
-export const PAIRES_MAX = 15;
+// Paires par niveau ; au-delà du dernier, on reste à 18 paires (36 cartes,
+// grille 6x6, cartes encore assez grandes sur un petit téléphone).
+export const PAIRES_PAR_NIVEAU = [3, 6, 8, 10, 12, 15, 15, 18];
+export const PAIRES_MAX = 18;
 
-// Chrono : secondes par paire, de moins en moins. Jusqu'au niveau 9 : -0,5 s
-// par niveau (7 s puis 3 s) ; ensuite -0,1 s par niveau jusqu'au plancher.
-const SECONDES_PAR_PAIRE_DEPART = 7;
-const SECONDES_PAR_PAIRE_PERTE = 0.5;
-const NIVEAU_FIN_PERTE_RAPIDE = 9;
-const SECONDES_PAR_PAIRE_PERTE_LENTE = 0.1;
+// Chrono : secondes par paire, de moins en moins. Valeurs des premiers
+// niveaux, puis -0,02 s par niveau jusqu'au plancher (calé pour qu'un joueur
+// rapide à la mémoire parfaite finisse toujours le niveau).
+const SECONDES_PAR_PAIRE = [4.5, 3.5, 2.9, 2.6, 2.4, 2.25, 2.15, 2.1];
+const SECONDES_PAR_PAIRE_PERTE_LENTE = 0.02;
 const SECONDES_PAR_PAIRE_MIN = 2;
-const SECONDES_FIXES = 4;
+const SECONDES_FIXES = 2;
+// Secondes par paire rendues selon le nombre d'échanges après erreur (0 à 2,
+// cartes à réapprendre), sinon les niveaux hauts deviennent un mur.
+const SECONDES_ECHANGES = [0, 0.2, 0.45];
 
 // Points. Les points d'une paire montent jusqu'au niveau 10 puis restent fixes
 // (le serveur plafonne le score de ce jeu).
@@ -85,8 +86,30 @@ export const MOTIFS = [
   { icone: 'basket', couleur: '#16A085' },
 ];
 
-// Couleurs des variantes d'une même icône (niveaux à motifs proches).
+// Couleurs des variantes d'une même icône (niveaux à motifs proches), aussi
+// fond commun de plusieurs icônes différentes (piège « teintes »).
 export const COULEURS_VARIANTES = ['#E63946', '#1E88E5', '#2E9E5B', '#F2B705'];
+
+// Pièges de la donne, du plus doux au plus dur :
+// - 'distincts' : icônes toutes différentes, chacune avec sa couleur ;
+// - 'sosies' : mêmes icônes déclinées en plusieurs couleurs ;
+// - 'teintes' : icônes toutes différentes mais sur quelques couleurs
+//   communes, la couleur ne sert plus de repère ;
+// - 'mixte' : sosies et teintes mêlés, sur les mêmes couleurs.
+export const PIEGES = ['distincts', 'sosies', 'teintes', 'mixte'];
+// Piège et nombre de couleurs des niveaux 1 à 9 (ensuite : tirage par niveau).
+const PIEGES_DEBUT = [
+  ['distincts', 1],
+  ['distincts', 1],
+  ['sosies', 2],
+  ['teintes', 4],
+  ['sosies', 3],
+  ['mixte', 4],
+  ['teintes', 3],
+  ['sosies', 4],
+  ['mixte', 3],
+];
+const PIEGES_HAUTS = [['sosies', 4], ['teintes', 2], ['mixte', 3], ['teintes', 3], ['mixte', 2]];
 
 /** Nombre de paires du niveau (1, 2, 3...). */
 export function pairesNiveau(niveau) {
@@ -97,42 +120,70 @@ export function pairesNiveau(niveau) {
 /** Secondes du chrono par paire au niveau donné. */
 export function secondesParPaire(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
-  if (n <= NIVEAU_FIN_PERTE_RAPIDE) return SECONDES_PAR_PAIRE_DEPART - SECONDES_PAR_PAIRE_PERTE * (n - 1);
-  const base = SECONDES_PAR_PAIRE_DEPART - SECONDES_PAR_PAIRE_PERTE * (NIVEAU_FIN_PERTE_RAPIDE - 1);
-  return Math.max(SECONDES_PAR_PAIRE_MIN, base - SECONDES_PAR_PAIRE_PERTE_LENTE * (n - NIVEAU_FIN_PERTE_RAPIDE));
+  if (n <= SECONDES_PAR_PAIRE.length) return SECONDES_PAR_PAIRE[n - 1];
+  const base = SECONDES_PAR_PAIRE[SECONDES_PAR_PAIRE.length - 1];
+  return Math.max(SECONDES_PAR_PAIRE_MIN, base - SECONDES_PAR_PAIRE_PERTE_LENTE * (n - SECONDES_PAR_PAIRE.length));
 }
 
-/** Nombre de paires bonus du niveau : 0 au niveau 1, 1 aux niveaux 2-4, 2 aux niveaux 5-9, 3 ensuite. */
+/** Nombre de paires bonus du niveau : 0 au niveau 1, 1 aux niveaux 2 à 5, 2 ensuite. */
 export function nombreBonus(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
-  if (n >= 10) return 3;
-  if (n >= 5) return 2;
+  if (n >= 6) return 2;
   if (n >= 2) return 1;
   return 0;
 }
 
+/** Piège du niveau : [nom, couleurs]. Jamais deux fois le même d'affilée. */
+export function piegeNiveau(niveau) {
+  const n = Math.max(1, Math.floor(niveau) || 1);
+  if (n <= PIEGES_DEBUT.length) return PIEGES_DEBUT[n - 1];
+  // Tirage reproductible par niveau, différent du niveau précédent.
+  const precedent = piegeNiveau(n - 1);
+  const alea = creerAlea(n * 7919 + 17);
+  for (let essai = 0; essai < 8; essai += 1) {
+    const choix = PIEGES_HAUTS[Math.floor(alea() * PIEGES_HAUTS.length)];
+    if (choix[0] !== precedent[0]) return choix;
+  }
+  return PIEGES_HAUTS.find((c) => c[0] !== precedent[0]);
+}
+
 /**
- * Paramètres d'un niveau.
+ * Paramètres d'un niveau. Courbe durcie le 16/11/2026 :
+ * - Niveau 1 : 3 paires toutes différentes, 4,5 s par paire.
+ * - Niveau 2 : 6 paires, 3,5 s par paire, première paire bonus.
+ * - Niveau 3 : 8 paires, 2,9 s par paire et premier piège (mêmes icônes en
+ *   2 couleurs).
+ * - Niveaux 4 à 8 : 10, 12, 15, 15 puis 18 paires, chrono de 2,6 s à 2,1 s
+ *   par paire, et un piège différent à chaque niveau (sosies, teintes, mixte).
+ *   Dès le niveau 5, des cartes cachées changent de place après une erreur.
+ * - Au-delà : 18 paires, chrono qui baisse encore jusqu'au plancher de 2 s
+ *   par paire, piège tiré par niveau, jamais le même deux fois de suite,
+ *   2 échanges après une erreur dès le niveau 10.
+ * Le chrono compte 2 s de plus en tout, en plus des secondes par paire, et
+ * 0,2 s par paire de plus avec 1 échange, 0,45 s avec 2.
+ * Une mauvaise paire reste visible 700 ms, 550 ms dès le niveau 3, 450 ms
+ * dès le 6. Chaque niveau reste faisable par un joueur rapide à la mémoire
+ * parfaite (vérifié par les tests).
+ * Champs rendus :
  * - duree : secondes du chrono ;
  * - melange : 'aucun' ou 'echange' (cartes cachées échangées après une erreur) ;
- * - echanges : nombre d'échanges après une erreur (0, puis 1 à 3) ;
- * - variantes : couleurs par icône (1 = motifs tous différents, 2 à 4 =
- *   mêmes icônes en couleurs différentes) ;
+ * - echanges : nombre d'échanges après une erreur (0, puis 1 ou 2) ;
+ * - piege : 'distincts', 'sosies', 'teintes' ou 'mixte' ;
+ * - variantes : couleurs utilisées par le piège (1 = motifs tous différents) ;
  * - delaiErreur : temps pendant lequel une mauvaise paire reste visible ;
  * - bonus : nombre de paires bonus ; loupe : durée de la loupe (ms).
  */
 export function parametresNiveau(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
   const paires = pairesNiveau(n);
-  const duree = Math.round(paires * secondesParPaire(n) + SECONDES_FIXES);
-  const echanges = n < 5 ? 0 : n < 10 ? 1 : n < 14 ? 2 : 3;
-  let variantes = 1;
-  if (n >= 13) variantes = 4;
-  else if (n >= 9) variantes = 3;
-  else if (n >= 6) variantes = 2;
+  // 2 échanges au plus : avec 36 cartes, 3 échanges par erreur rendent le
+  // niveau impossible même avec une mémoire parfaite.
+  const echanges = n < 5 ? 0 : n < 10 ? 1 : 2;
+  const duree = Math.round(paires * (secondesParPaire(n) + SECONDES_ECHANGES[echanges]) + SECONDES_FIXES);
+  const [piege, variantes] = piegeNiveau(n);
   let delaiErreur = DELAI_ERREUR;
-  if (n >= 12) delaiErreur = DELAI_ERREUR_EXPRESS;
-  else if (n >= 7) delaiErreur = DELAI_ERREUR_RAPIDE;
+  if (n >= 6) delaiErreur = DELAI_ERREUR_EXPRESS;
+  else if (n >= 3) delaiErreur = DELAI_ERREUR_RAPIDE;
   return {
     niveau: n,
     paires,
@@ -140,6 +191,7 @@ export function parametresNiveau(niveau) {
     duree,
     melange: echanges > 0 ? 'echange' : 'aucun',
     echanges,
+    piege,
     variantes,
     delaiErreur,
     bonus: nombreBonus(n),
@@ -186,21 +238,42 @@ export function melanger(liste, alea) {
   return copie;
 }
 
-/** Motifs (icône + couleur) des paires d'un niveau. */
-export function motifsNiveau(niveau, alea) {
-  const p = parametresNiveau(niveau);
-  if (p.variantes <= 1) {
-    return melanger(MOTIFS, alea).slice(0, p.paires).map((m) => ({ icone: m.icone, couleur: m.couleur }));
-  }
-  // Motifs proches : peu d'icônes, chacune déclinée en plusieurs couleurs.
-  const nbIcones = Math.ceil(p.paires / p.variantes);
-  const icones = melanger(MOTIFS, alea).slice(0, nbIcones);
+// Sosies : peu d'icônes, chacune déclinée en `k` couleurs (celles de `palette` si donnée).
+function motifsSosies(icones, nb, k, alea, palette = null) {
   const motifs = [];
-  for (const m of icones) {
-    const couleurs = melanger(COULEURS_VARIANTES, alea).slice(0, p.variantes);
+  for (const m of icones.slice(0, Math.ceil(nb / k))) {
+    const couleurs = palette || melanger(COULEURS_VARIANTES, alea).slice(0, k);
     for (const c of couleurs) motifs.push({ icone: m.icone, couleur: c });
   }
-  return melanger(motifs, alea).slice(0, p.paires);
+  return melanger(motifs, alea).slice(0, nb);
+}
+
+// Teintes : icônes toutes différentes, couleurs prises parmi `k` couleurs communes.
+function motifsTeintes(icones, nb, k, alea, palette = null) {
+  const couleurs = palette || melanger(COULEURS_VARIANTES, alea).slice(0, k);
+  return icones.slice(0, nb).map((m, i) => ({ icone: m.icone, couleur: couleurs[i % k] }));
+}
+
+/** Motifs (icône + couleur) des paires d'un niveau, tous différents deux à deux. */
+export function motifsNiveau(niveau, alea) {
+  const p = parametresNiveau(niveau);
+  const icones = melanger(MOTIFS, alea);
+  const k = Math.max(1, Math.min(COULEURS_VARIANTES.length, p.variantes));
+  let motifs;
+  if (p.piege === 'sosies') motifs = motifsSosies(icones, p.paires, k, alea);
+  else if (p.piege === 'teintes') motifs = motifsTeintes(icones, p.paires, k, alea);
+  else if (p.piege === 'mixte') {
+    // Moitié sosies, moitié teintes, sur des icônes différentes.
+    const nbSosies = Math.floor(p.paires / 2);
+    const nbIconesSosies = Math.ceil(nbSosies / k);
+    const palette = melanger(COULEURS_VARIANTES, alea).slice(0, k);
+    motifs = motifsSosies(icones, nbSosies, k, alea, palette).concat(
+      motifsTeintes(icones.slice(nbIconesSosies), p.paires - nbSosies, k, alea, palette),
+    );
+  } else {
+    motifs = icones.slice(0, p.paires).map((m) => ({ icone: m.icone, couleur: m.couleur }));
+  }
+  return melanger(motifs, alea);
 }
 
 /**
