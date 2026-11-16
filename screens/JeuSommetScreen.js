@@ -441,7 +441,9 @@ export default function JeuSommetScreen({ navigation }) {
   // Reprise : le livreur repart du trottoir en gardant étages et colis.
   const reprendrePartie = useCallback(() => {
     const sauvee = reprise;
-    const e = partieNeuve(visibleRef.current);
+    // Hauteur déjà montée : la course reprise garde la difficulté de son niveau.
+    const base = sauvee ? Math.max(0, Math.floor(sauvee.etage || 0)) * ETAGE : 0;
+    const e = partieNeuve(visibleRef.current, Math.random, base);
     if (sauvee) {
       e.etageBase = Math.max(0, Math.floor(sauvee.etage || 0));
       e.colis = Math.max(0, Math.floor(sauvee.colis || 0));

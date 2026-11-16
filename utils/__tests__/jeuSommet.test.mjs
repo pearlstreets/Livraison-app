@@ -34,13 +34,14 @@ test('pièges de plus en plus durs, sans jamais devenir impossibles', () => {
     assert.ok(r.vitessePot >= avant.vitessePot - 1e-9, ctx);
     assert.ok(r.vitessePigeon >= avant.vitessePigeon - 1e-9, ctx);
     assert.ok(r.vent >= avant.vent - 1e-9, ctx);
-    assert.ok(r.alertePot >= 0.6 - 1e-9, `${ctx} : alerte trop courte`);
-    assert.ok(r.intervallePot >= 2 / (1 + SURCHARGE_MAX) - 1e-9, ctx);
+    assert.ok(r.alertePot >= S.ALERTE_MIN - 1e-9, `${ctx} : alerte trop courte`);
+    assert.ok(r.intervallePot >= 1.9 / (1 + SURCHARGE_MAX) - 1e-9, ctx);
+    assert.ok(r.intervallePigeon >= 2.4 / (1 + SURCHARGE_MAX) - 1e-9, ctx);
+    assert.ok(r.vitesseNacelle <= S.V_NACELLE_MAX + 1e-9 && S.V_NACELLE_MAX < S.VX_MAX, ctx);
     avant = r;
   }
   assert.equal(surcharge(0), 0);
-  assert.equal(surcharge(4), 0);
-  assert.ok(surcharge(5) > 0);
+  assert.ok(surcharge(1) > 0, 'surcharge dès le niveau 2');
   assert.equal(surcharge(100), SURCHARGE_MAX);
   assert.equal(ventMax(0), 0);
   assert.equal(ventMax(1), VENT_MAX);
@@ -48,7 +49,11 @@ test('pièges de plus en plus durs, sans jamais devenir impossibles', () => {
 });
 
 test('le plus grand écart reste atteignable même contre le vent le plus fort', () => {
-  const gap = ecarts(1).max;
+  const gap = ecarts(1, 100).max;
+  [0, 90, MONDE_L / 2].forEach((dx) => {
+    assert.ok(peutAtteindre(gap, dx, S.largeurPlateforme('balcon', ['etroit']), 0), `balcon étroit dx ${dx}`);
+    assert.ok(peutAtteindre(gap, dx, S.largeurPlateforme('store', ['etroit']), 0), `store étroit dx ${dx}`);
+  });
   const vent = ventMax(1000);
   [0, 90, MONDE_L / 2].forEach((dx) => {
     assert.ok(peutAtteindre(gap, dx, LARGEURS.balcon, 0), `sans vent dx ${dx}`);
@@ -81,7 +86,7 @@ test('bonus : réguliers, espacés, variés, posés au-dessus d\'un balcon de la
       vus.add(b.type);
       assert.ok(TYPES_BONUS.includes(b.type));
       assert.ok(b.y - 40 >= BONUS[b.type].des, `graine ${g} : ${b.type} trop bas`);
-      const support = e.plateformes.find((p) => p.chaine && p.type === 'balcon' && p.y === b.y - 40 && Math.abs(p.x + p.l / 2 - b.x) < 1e-6);
+      const support = e.plateformes.find((p) => p.chaine && p.type === 'balcon' && Math.abs(p.y - (b.y - 40)) < 1e-6 && Math.abs(p.x + p.l / 2 - b.x) < 1e-6);
       assert.ok(support, `graine ${g} : bonus ${i} sans balcon`);
       if (i > 0) {
         assert.ok(b.y - liste[i - 1].y >= BONUS_ECART_MIN - 1e-6, `graine ${g} : bonus trop proches`);
@@ -200,6 +205,142 @@ test('partie neuve accessible : premier bonus vers le 11e étage, aucun gêneur 
   const e = partieNeuve(640, hasardGraine(11));
   assert.ok(e.bonusListe.every((x) => x.y >= 650));
   assert.equal(e.bonusListe[0]?.type, 'aimant');
+  for (let i = 0; i < 60; i += 1) avancer(e, 1 / 60, 0);
+  assert.equal(e.pots.length, 0);
+  assert.equal(e.pigeons.length, 0);
+});
+
+const PAL = S.ETAGE * S.ETAGES_PALIER; // hauteur d'un niveau
+
+test('niveau N+1 plus dur que N, nettement plus dur qu avant dès le niveau 3', () => {
+  for (let pal = 0; pal < 15; pal += 1) {
+    const a = reglagesPieges(pal * PAL + PAL / 2);
+    const b = reglagesPieges((pal + 1) * PAL + PAL / 2);
+    const ctx = `niveau ${pal + 1}`;
+    // Pression : pots et pigeons par seconde ; au moins un réglage strictement plus dur.
+    const pa = a.nbPots / a.intervallePot + a.nbPigeons / a.intervallePigeon;
+    const pb = b.nbPots / b.intervallePot + b.nbPigeons / b.intervallePigeon;
+    if (pal < 7) assert.ok(pb > pa, `${ctx} : pression ${pa} puis ${pb}`);
+    else assert.ok(pb >= pa - 1e-9, ctx);
+    assert.ok(b.vitessePot >= a.vitessePot - 1e-9 && b.vitessePigeon >= a.vitessePigeon - 1e-9, ctx);
+    assert.ok(b.ecarts.min >= a.ecarts.min - 1e-9, ctx);
+  }
+  // Niveau 3 : déjà plus d'un pot toutes les 2 s.
+  const n3 = reglagesPieges(2 * PAL + PAL / 2);
+  assert.ok(n3.nbPots / n3.intervallePot > 1 / 2, 'niveau 3 trop doux');
+  assert.ok(S.probasTypes(1, 9 * PAL, []).pTrampo < S.probasTypes(1, 1000, []).pTrampo, 'moins de matelas en haut');
+});
+
+test('accents : aucun au niveau 1, jamais le même mélange deux niveaux de suite, tous utilisés', () => {
+  GRAINES.forEach((g) => {
+    const ordre = S.ordreAccents(hasardGraine(g));
+    assert.deepEqual([...ordre].sort(), [...S.ACCENTS].sort());
+    assert.deepEqual(S.accentsNiveau(0, ordre), []);
+    const vus = new Set();
+    let avant = null;
+    for (let pal = 1; pal < 40; pal += 1) {
+      const acc = S.accentsNiveau(pal, ordre);
+      assert.ok(acc.length >= 1 && acc.length <= 3);
+      assert.equal(new Set(acc).size, acc.length);
+      const cle = [...acc].sort().join(',');
+      assert.notEqual(cle, avant, `graine ${g} niveau ${pal + 1}`);
+      avant = cle;
+      acc.forEach((a) => vus.add(a));
+    }
+    assert.equal(vus.size, S.ACCENTS.length);
+  });
+  assert.notDeepEqual(S.ordreAccents(hasardGraine(1)), S.ordreAccents(hasardGraine(2)));
+});
+
+test('chaîne toujours faisable avec chaque accent, toutes graines, très haut', () => {
+  S.ACCENTS.forEach((accent) => {
+    GRAINES.forEach((g) => {
+      const e = partieNeuve(640, hasardGraine(g));
+      e.ordre = Array(8).fill(accent);
+      genererJusqua(e, 40000);
+      const chaine = e.plateformes.filter((p) => p.chaine).sort((a, b) => a.y - b.y);
+      for (let i = 1; i < chaine.length; i += 1) {
+        const ecart = chaine[i].y - chaine[i - 1].y;
+        assert.ok(ecart <= ECART_MAX_RATIO * H_SAUT + 1e-6, `${accent} graine ${g} : écart ${ecart}`);
+        assert.ok(peutAtteindre(ecart, S.dxBoucle(chaine[i - 1].x + chaine[i - 1].l / 2, chaine[i].x + chaine[i].l / 2), chaine[i].l), `${accent} graine ${g} : plateforme ${i}`);
+      }
+      e.plateformes.filter((p) => p.type === 'nacelle').forEach((p) => assert.ok(Math.abs(p.vx) <= S.V_NACELLE_MAX + 1e-9));
+    });
+  });
+});
+
+test('variété : la chaîne ne se ressemble pas d un niveau à l autre, sur plusieurs graines', () => {
+  GRAINES.forEach((graine) => {
+    const e = partieNeuve(640, hasardGraine(graine));
+    genererJusqua(e, 10 * PAL);
+    const mix = [];
+    for (let pal = 1; pal < 10; pal += 1) {
+      const ps = e.plateformes.filter((p) => p.chaine && p.y >= pal * PAL && p.y < (pal + 1) * PAL);
+      const part = (t) => ps.filter((p) => p.type === t).length / ps.length;
+      mix.push([part('balcon'), part('store'), part('nacelle')].map((v) => Math.round(v * 10)).join(','));
+    }
+    assert.ok(new Set(mix).size >= 4, `graine ${graine}, mélanges : ${mix.join(' | ')}`);
+  });
+});
+
+function simulerPieges(accent, pal, secondes, graine) {
+  const e = partieNeuve(640, hasardGraine(graine));
+  e.ordre = Array(8).fill(accent);
+  e.plateformes = [];
+  e.prochainY = 1e9;
+  e.hBase = pal * PAL;
+  e.hautMax = 2000;
+  e.cam = 1700;
+  e.invuln = 1e9; // invincible : on observe les pièges
+  const pots = new Map(); // id : [image d'apparition, pot]
+  const pigeons = new Map();
+  let image = 0;
+  for (let t = 0; t < secondes; t += 1 / 60) {
+    e.joueur.y = 2000;
+    e.joueur.vy = 0;
+    avancer(e, 1 / 60, 0);
+    image += 1;
+    e.pots.forEach((p) => { if (!pots.has(p.id)) pots.set(p.id, [image, p]); });
+    e.pigeons.forEach((p) => { if (!pigeons.has(p.id)) pigeons.set(p.id, p); });
+  }
+  return { pots: [...pots.values()], pigeons: [...pigeons.values()] };
+}
+
+test('rideau de pots : toujours un trou assez large, préavis allongé', () => {
+  GRAINES.forEach((g) => {
+    const { pots } = simulerPieges('rideau', 8, 20, g);
+    const vagues = new Map();
+    pots.forEach(([img, p]) => {
+      if (!vagues.has(img)) vagues.set(img, []);
+      vagues.get(img).push(p);
+    });
+    const rideaux = [...vagues.values()].filter((l) => l.length === 6);
+    assert.ok(rideaux.length > 0, `graine ${g} : aucun rideau`);
+    rideaux.forEach((l) => {
+      const xs = l.map((p) => p.x).sort((a, b) => a - b);
+      let vide = xs[0] + S.MONDE_L - xs[xs.length - 1];
+      for (let i = 1; i < xs.length; i += 1) vide = Math.max(vide, xs[i] - xs[i - 1]);
+      assert.ok(vide - 2 * (S.JOUEUR_L / 2 + 12 - 4) >= 80, `graine ${g} : trou trop étroit`);
+      l.forEach((p) => assert.ok(p.alerte >= S.ALERTE_RIDEAU - 1e-9 || p.alerte <= 0));
+    });
+  });
+  assert.ok(S.ALERTE_RIDEAU >= S.ALERTE_MIN);
+});
+
+test('pigeons : nuées des deux côtés et vols qui ondulent selon l accent', () => {
+  const nuee = simulerPieges('nuee', 8, 20, 3).pigeons;
+  assert.ok(nuee.some((p) => p.vx > 0) && nuee.some((p) => p.vx < 0));
+  const vague = simulerPieges('vague', 8, 20, 3).pigeons;
+  assert.ok(vague.some((p) => p.amp > 0));
+  assert.ok(vague.every((p) => Math.abs(p.vx) <= reglagesPieges(1e6).vitessePigeon + 1e-9));
+});
+
+test('reprise : la course reprise garde la difficulté de son niveau, avec le répit du départ', () => {
+  const e = partieNeuve(640, hasardGraine(5), 400 * S.ETAGE);
+  assert.equal(e.hBase, 400 * S.ETAGE);
+  const chaine = e.plateformes.filter((p) => p.chaine && p.y > 300).sort((a, b) => a.y - b.y);
+  const ecart = chaine[1].y - chaine[0].y;
+  assert.ok(ecart > ecarts(0).max, `écart ${ecart} : difficulté du niveau gardée`);
   for (let i = 0; i < 60; i += 1) avancer(e, 1 / 60, 0);
   assert.equal(e.pots.length, 0);
   assert.equal(e.pigeons.length, 0);
