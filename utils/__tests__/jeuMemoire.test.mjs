@@ -4,16 +4,18 @@ import assert from 'node:assert/strict';
 import {
   parametresNiveau, creerDonne, creerAlea, melangerCachees, paireAimant, bonusDuNiveau, nombreBonus,
   scoreMaxNiveau, secondesParPaire, dispositionGrille, TYPES_BONUS, BONUS, PAIRES_MAX, secondesCombo,
+  motifsNiveau, PIEGES, MOTIFS, SCORE_MAX_SERVEUR,
 } from '../jeuMemoire.js';
 
 const NIVEAUX = Array.from({ length: 30 }, (_, i) => i + 1);
 
-test('début inchangé et accessible : niveau 1 = 2 paires en 18 s, sans bonus ni mélange', () => {
+test('début court mais déjà pas trivial : niveau 1 = 3 paires en 16 s, sans bonus ni mélange', () => {
   const p = parametresNiveau(1);
-  assert.equal(p.paires, 2);
-  assert.equal(p.duree, 18);
+  assert.equal(p.paires, 3);
+  assert.equal(p.duree, 16);
   assert.equal(p.echanges, 0);
   assert.equal(p.bonus, 0);
+  assert.equal(p.piege, 'distincts');
 });
 
 test('difficulté croissante : jamais plus facile d un niveau au suivant', () => {
@@ -23,17 +25,73 @@ test('difficulté croissante : jamais plus facile d un niveau au suivant', () =>
     assert.ok(b.paires >= a.paires, `paires ${n}`);
     assert.ok(secondesParPaire(n + 1) <= secondesParPaire(n), `secondes par paire ${n}`);
     assert.ok(b.echanges >= a.echanges, `échanges ${n}`);
-    assert.ok(b.variantes >= a.variantes, `variantes ${n}`);
     assert.ok(b.delaiErreur <= a.delaiErreur, `délai ${n}`);
     assert.ok(b.loupe <= a.loupe, `loupe ${n}`);
+    // Plus dur : plus de cartes ou moins de secondes par paire, jusqu au plafond.
+    if (n < 13) {
+      assert.ok(
+        b.paires > a.paires || secondesParPaire(n + 1) < secondesParPaire(n),
+        `niveau ${n + 1} pas plus dur que ${n}`,
+      );
+    }
   }
 });
 
-test('pas de mur impossible : au moins 2 s par paire, 15 paires au plus, cartes assez grandes', () => {
+test('courbe raide : 15 paires dès le niveau 6, 18 dès le 8, chrono serré', () => {
+  assert.equal(parametresNiveau(6).paires, 15);
+  assert.equal(parametresNiveau(8).paires, 18);
+  assert.ok(secondesParPaire(4) <= 3);
+  assert.ok(secondesParPaire(9) <= 2.1);
+  assert.equal(parametresNiveau(6).delaiErreur, 450);
+});
+
+test('variété : un piège dès le niveau 3, jamais le même deux niveaux de suite', () => {
+  for (let n = 3; n <= 60; n += 1) {
+    const a = parametresNiveau(n);
+    assert.notEqual(a.piege, 'distincts', `niveau ${n}`);
+    assert.ok(PIEGES.includes(a.piege));
+    if (n > 3) assert.notEqual(a.piege, parametresNiveau(n - 1).piege, `niveau ${n}`);
+  }
+  const vus = new Set(NIVEAUX.map((n) => parametresNiveau(n).piege));
+  assert.equal(vus.size, 4);
+});
+
+test('motifs : jamais deux paires identiques à l oeil, piège respecté, sur plusieurs graines', () => {
+  NIVEAUX.forEach((n) => [1, 7, 42, 999, 31337].forEach((g) => {
+    const p = parametresNiveau(n);
+    const m = motifsNiveau(n, creerAlea(g * 17 + n));
+    assert.equal(m.length, p.paires);
+    const cles = new Set(m.map((x) => `${x.icone}|${x.couleur}`));
+    assert.equal(cles.size, p.paires, `doublon niveau ${n} graine ${g}`);
+    const icones = new Set(m.map((x) => x.icone));
+    const couleurs = new Set(m.map((x) => x.couleur));
+    if (p.piege === 'distincts') assert.equal(icones.size, p.paires);
+    if (p.piege === 'sosies') assert.ok(icones.size < p.paires);
+    if (p.piege === 'teintes') {
+      assert.equal(icones.size, p.paires);
+      assert.ok(couleurs.size <= p.variantes);
+    }
+    if (p.piege === 'mixte') {
+      assert.ok(icones.size < p.paires);
+      assert.ok(couleurs.size <= p.variantes);
+    }
+  }));
+});
+
+test('donnes variées : deux graines donnent rarement les mêmes motifs', () => {
+  [3, 8, 15].forEach((n) => {
+    const vues = new Set([1, 2, 3, 4, 5, 6, 7, 8].map((g) => motifsNiveau(n, creerAlea(g))
+      .map((x) => `${x.icone}|${x.couleur}`).sort().join(',')));
+    assert.ok(vues.size >= 6, `niveau ${n} : ${vues.size} donnes différentes sur 8`);
+  });
+});
+
+test('pas de mur impossible : au moins 2 s par paire, 18 paires au plus, cartes assez grandes', () => {
   NIVEAUX.forEach((n) => {
     const p = parametresNiveau(n);
     assert.ok(secondesParPaire(n) >= 2, `niveau ${n}`);
     assert.ok(p.paires <= PAIRES_MAX);
+    assert.ok(p.paires <= MOTIFS.length);
     assert.ok(p.echanges <= 5);
     const g = dispositionGrille(p.cartes, 343, 430, 10);
     assert.ok(g.largeur >= 44, `niveau ${n} : cartes de ${g.largeur} px`);
@@ -63,7 +121,7 @@ test('donne : chaque paire en 2 exemplaires, bonus sur des paires entières, nom
 
 test('bonus sans doublon tant que possible', () => {
   const t = bonusDuNiveau(12, creerAlea(5));
-  assert.equal(new Set(t).size, 3);
+  assert.equal(new Set(t).size, 2);
   assert.deepEqual(bonusDuNiveau(2, creerAlea(5)), ['loupe']);
 });
 
@@ -87,10 +145,10 @@ test('échanges après erreur : les cartes trouvées ne bougent pas, aucune cart
   assert.ok(apres.some((c, i) => c !== d[i]));
 });
 
-test('score : sous le plafond serveur (10 000) jusqu au niveau 15 même en partie parfaite', () => {
+test('score : sous le plafond serveur (10 000) jusqu au niveau 13 même en partie parfaite', () => {
   let total = 0;
-  for (let n = 1; n <= 15; n += 1) total += scoreMaxNiveau(n);
-  assert.ok(total < 10000, `total ${total}`);
+  for (let n = 1; n <= 13; n += 1) total += scoreMaxNiveau(n);
+  assert.ok(total < SCORE_MAX_SERVEUR, `total ${total}`);
 });
 
 // Joueur à mémoire parfaite (oublie seulement les cartes déplacées), `parCarte` s par carte retournée, sans bonus.
@@ -135,12 +193,19 @@ function reussite(n, parCarte, donnes = 150) {
   return ok / donnes;
 }
 
-test('pas de mur : joueur à mémoire parfaite, au moins 50 % jusqu au niveau 13, jamais 0 ensuite, baisse progressive', () => {
-  for (let n = 1; n <= 13; n += 1) assert.ok(reussite(n, 0.45) >= 0.5, `niveau ${n} : ${reussite(n, 0.45)}`);
-  const haut = reussite(19, 0.45);
-  assert.ok(haut > 0, `niveau 19 : ${haut}`);
-  assert.ok(haut < reussite(10, 0.45), 'plus dur au niveau 19 qu au niveau 10');
-  assert.ok(reussite(19, 0.35) >= 0.2, 'niveau 19 encore jouable pour un joueur rapide');
+test('toujours faisable : joueur rapide à mémoire parfaite, au moins 50 % à chaque niveau jusqu au 30', () => {
+  for (let n = 1; n <= 30; n += 1) {
+    const r = reussite(n, 0.45, 100);
+    assert.ok(r >= 0.5, `niveau ${n} : ${r}`);
+  }
+});
+
+test('plus serré : tout le monde passe le niveau 1, un joueur posé (0,7 s par carte) cale vers 5 à 8, un lent (1 s) dès le 5', () => {
+  assert.ok(reussite(1, 1) === 1, 'niveau 1 pour tous');
+  assert.ok(reussite(4, 0.7, 100) >= 0.8, 'niveau 4 à 0,7 s');
+  const moyen = reussite(8, 0.7, 100);
+  assert.ok(moyen > 0.1 && moyen < 0.7, `niveau 8 à 0,7 s : ${moyen}`);
+  assert.ok(reussite(5, 1, 100) < 0.3, `niveau 5 à 1 s : ${reussite(5, 1, 100)}`);
 });
 
 test('loupe : au moins 1,3 s (retournement compris) à tous les niveaux', () => {

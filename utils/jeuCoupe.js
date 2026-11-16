@@ -27,12 +27,24 @@
  *              pardonné (la partie continue).
  * Les minuteurs n'avancent qu'en jeu (pause = figés) et sont sauvegardés.
  *
- * Difficulté : au début facile, après de plus en plus difficile, sans fin.
- * Vagues 1 à 3 : un seul fruit, très lent, aucun colis fragile. Ensuite, un
- * fruit de plus toutes les 3 vagues (8 au plus), vols de plus en plus
- * courts (3,4 s, 1,9 s à la vague 25, 1,55 s à la 60, 1,4 s à la 120),
- * départs plus serrés, salves plus fréquentes, colis fragiles à partir de la
- * vague 6, de plus en plus fréquents et nombreux (4 au plus).
+ * Difficulté (16/11, le jeu était trop simple et toujours pareil) : courbe
+ * raide pour qu'une partie ne dure que quelques minutes, chaque vague restant
+ * faisable. Vague 1 : trois fruits, vol de 2,3 s, aucun colis fragile. Un
+ * fruit de plus à chaque vague jusqu'à 8 (vague 6), puis jusqu'à 10 ; vols
+ * de 1,75 s à la vague 8, 1,5 s à la 20, 1,4 s à la 40 et après ; colis
+ * fragiles dès la vague 2, vite fréquents et nombreux (5 au plus) ; pauses
+ * de plus en plus courtes. Aucun objet ne vole jamais en moins de
+ * DUREE_VOL_MIN secondes (temps de réaction), et chaque colis ne part que
+ * s'il laisse à chaque fruit un moment où le trancher sans risque.
+ *
+ * Variété : chaque vague suit un motif de départs, jamais le même deux fois
+ * de suite, un nouveau motif étant imposé la première fois qu'il apparaît.
+ * Pluie (départs échelonnés), salve (tout part ensemble, vague 2), balayage
+ * (d'un bord à l'autre, vague 3), croisés (des deux bords vers l'autre,
+ * vague 4), éventail (du centre vers tout l'écran, vague 5), escorte (chaque
+ * colis vole à côté d'un fruit, à distance sûre, vague 6), double salve
+ * (vague 7), éclair (arcs bas et rapides, vague 9). Dès la vague 12, une
+ * vague sur quatre environ (de plus en plus souvent) part aussi plus vite.
  *
  * Score borné à SCORE_MAX (plafond du serveur pour 'coupe').
  */
@@ -52,6 +64,8 @@ export const VAGUES_ENTRE_BONUS = 2; // au moins 2 vagues entre deux bonus
 export const DUREE_RALENTI = 5; // s de jeu
 export const FACTEUR_RALENTI = 0.5;
 export const DUREE_DOUBLE = 7; // s de jeu
+export const DUREE_VOL_MIN = 1.28; // s : aucun vol plus court (borne de temps de réaction)
+export const ECART_ESCORTE = 180; // distance entre un fruit et le colis qui l'escorte
 export const SCORE_MAX = 50000; // plafond du serveur (DeliveryApp/views_jeux.py)
 // Tolérance de la lame : un peu généreuse sur les fruits, indulgente sur les colis.
 const MARGE_FRUIT = 1.12;
@@ -97,28 +111,125 @@ function borner(v, min, max) {
   return Math.max(min, Math.min(max, v));
 }
 
+// Motifs de départs et vague où chacun apparaît.
+export const MOTIFS = [
+  { nom: 'pluie', des: 1 },
+  { nom: 'salve', des: 2 },
+  { nom: 'balayage', des: 3 },
+  { nom: 'croises', des: 4 },
+  { nom: 'eventail', des: 5 },
+  { nom: 'escorte', des: 6 },
+  { nom: 'double', des: 7 },
+  { nom: 'eclair', des: 9 },
+];
+
 /**
  * Réglages d'une vague (numérotées à partir de 1).
  * duree : temps de vol d'un objet (montée + descente jusqu'au bas de l'écran).
  * fruits : nombre de fruits. probaFragile / maxFragiles : colis fragiles.
  * etalement : écart maximal entre deux départs d'une même vague (s).
  * pause : attente entre la fin d'une vague et la suivante (s).
+ * motifs : motifs de départs possibles. rapide : chance que la vague parte
+ * aussi plus vite (vols 12 % plus courts, jamais sous DUREE_VOL_MIN).
  */
 export function reglagesVague(v) {
   const n = Math.max(1, Math.floor(v));
-  const p = borner((n - 1) / 24, 0, 1);
-  const p2 = borner((n - 25) / 35, 0, 1);
-  const p3 = borner((n - 60) / 60, 0, 1);
+  const p = borner((n - 1) / 7, 0, 1);
+  const p2 = borner((n - 8) / 12, 0, 1);
+  const p3 = borner((n - 20) / 20, 0, 1);
   return {
-    // 3,4 s au départ, 1,9 s à la vague 25, 1,55 s à la 60, 1,4 s à la 120 et après
-    duree: 3.4 - 1.5 * p - 0.35 * p2 - 0.15 * p3,
-    fruits: Math.min(8, 1 + Math.floor((n - 1) / 3)),
-    probaFragile: n < 6 ? 0 : Math.min(0.92, 0.2 + (n - 6) * 0.035),
-    maxFragiles: n < 6 ? 0 : Math.min(4, 1 + Math.floor((n - 6) / 9)),
-    etalement: Math.max(0.15, 0.9 - 0.025 * n),
-    pause: Math.max(0.3, 1.3 - 0.03 * n),
-    salve: n <= 3 ? 0 : 0.35 + 0.25 * p2, // chance que tout parte presque ensemble
+    // 2,3 s au départ, 1,75 s à la vague 8, 1,5 s à la 20, 1,4 s à la 40 et après
+    duree: 2.3 - 0.55 * p - 0.25 * p2 - 0.1 * p3,
+    fruits: n <= 6 ? 2 + n : Math.min(10, 8 + Math.floor((n - 6) / 4)),
+    probaFragile: n < 2 ? 0 : Math.min(0.95, 0.4 + (n - 2) * 0.08),
+    maxFragiles: n < 2 ? 0 : Math.min(5, 1 + Math.floor((n - 2) / 3)),
+    etalement: Math.max(0.12, 0.55 - 0.04 * n),
+    pause: Math.max(0.25, 0.75 - 0.06 * n),
+    motifs: MOTIFS.filter((x) => x.des <= n).map((x) => x.nom),
+    rapide: n < 12 ? 0 : Math.min(0.6, 0.25 + 0.35 * borner((n - 12) / 40, 0, 1)),
   };
+}
+
+/** Motif de la vague : le nouveau la première fois, sinon jamais le précédent. */
+export function choisirMotif(m, n) {
+  const neuf = MOTIFS.find((x) => x.des === n);
+  if (neuf) return neuf.nom;
+  const r = reglagesVague(n);
+  const choix = r.motifs.filter((x) => x !== m.motif);
+  const liste = choix.length ? choix : r.motifs;
+  return liste[Math.floor(aleatoire(m) * liste.length)];
+}
+
+/** Départs des fruits selon le motif : [{ delai, type, x0?, xFin?, sommet?, vol? }]. */
+function departsFruits(m, r, motif, nb, vol) {
+  const l = m.largeur;
+  const bord = Math.min(RAYON_FRUIT + 6, l / 2);
+  const utile = Math.max(0, l - 2 * bord);
+  const d = [];
+  if (motif === 'balayage') {
+    const gauche = aleatoire(m) < 0.5;
+    const pas = 0.1 + aleatoire(m) * 0.06;
+    for (let i = 0; i < nb; i += 1) {
+      const f = nb > 1 ? i / (nb - 1) : 0.5;
+      const x0 = bord + utile * (gauche ? f : 1 - f);
+      d.push({ delai: i * pas, x0, xFin: x0 + (aleatoire(m) - 0.5) * 0.1 * l });
+    }
+  } else if (motif === 'croises') {
+    let delai = 0;
+    for (let i = 0; i < nb; i += 1) {
+      if (i > 0 && i % 2 === 0) delai += 0.25 + aleatoire(m) * r.etalement;
+      const a = bord + aleatoire(m) * 0.15 * l;
+      const b = l - bord - aleatoire(m) * 0.15 * l;
+      d.push(i % 2 === 0 ? { delai, x0: a, xFin: b } : { delai, x0: b, xFin: a });
+    }
+  } else if (motif === 'eventail') {
+    const pas = 0.14 + aleatoire(m) * 0.06;
+    const gauche = aleatoire(m) < 0.5;
+    for (let i = 0; i < nb; i += 1) {
+      const f = nb > 1 ? i / (nb - 1) : 0.5;
+      d.push({
+        delai: i * pas,
+        x0: l / 2 + (aleatoire(m) - 0.5) * 0.1 * l,
+        xFin: bord + utile * (gauche ? f : 1 - f),
+      });
+    }
+  } else if (motif === 'salve' || motif === 'double') {
+    const moitie = motif === 'double' ? Math.ceil(nb / 2) : nb;
+    let delai = 0;
+    for (let i = 0; i < nb; i += 1) {
+      if (i === moitie) delai += 0.55 + aleatoire(m) * 0.25;
+      else if (i > 0) delai += aleatoire(m) * 0.08;
+      d.push({ delai });
+    }
+  } else {
+    // pluie, escorte, éclair : départs échelonnés.
+    let delai = 0;
+    for (let i = 0; i < nb; i += 1) {
+      if (i > 0) delai += 0.08 + aleatoire(m) * r.etalement;
+      d.push(motif === 'eclair' ? { delai, sommet: 0.4 + aleatoire(m) * 0.2, vol: 0.85 } : { delai });
+    }
+  }
+  return d.map((x) => ({ ...x, type: 'fruit', vol: (x.vol || 0.92 + aleatoire(m) * 0.16) * vol }));
+}
+
+/**
+ * Escorte : le colis vole à côté du fruit, même départ, même arc, même
+ * durée, à ECART_ESCORTE unités (moins sur un écran étroit, toujours bien
+ * au-delà de la portée de la lame) : le fruit reste tranchable.
+ */
+function escorter(m, depart) {
+  const l = m.largeur;
+  const bord = Math.min(RAYON_FRUIT + 6, l / 2);
+  const ecart = Math.max(0, Math.min(ECART_ESCORTE, l - 2 * bord));
+  const gauche = bord + aleatoire(m) * Math.max(0, l - 2 * bord - ecart);
+  const droite = gauche + ecart;
+  const fruitAGauche = aleatoire(m) < 0.5;
+  const derive = (aleatoire(m) - 0.5) * 2 * Math.min(gauche - bord, l - bord - droite);
+  depart.x0 = fruitAGauche ? gauche : droite;
+  depart.xFin = depart.x0 + derive;
+  depart.sommet = depart.sommet || 0.52 + aleatoire(m) * 0.33;
+  const x0 = fruitAGauche ? droite : gauche;
+  return { delai: depart.delai, type: 'fragile', x0, xFin: x0 + derive, sommet: depart.sommet, vol: depart.vol };
 }
 
 /**
@@ -178,7 +289,7 @@ export function creerMonde(largeur, graine = Date.now()) {
     vagueBonus: -99, // dernière vague où un bonus est parti
     objets: [], // fruits et colis fragiles entiers
     morceaux: [], // moitiés de fruits qui retombent
-    file: [], // départs prévus de la vague en cours { delai, type }
+    file: [], // départs prévus de la vague en cours { delai, type, trajet }
     tVague: 0,
     vagueCoeur: -99, // dernière vague où un cœur est parti
     attente: 0.8, // avant la première vague
@@ -193,23 +304,96 @@ export function changerLargeur(m, largeur) {
   m.largeur = Math.max(300, largeur || m.largeur);
 }
 
-/** Prépare la vague suivante (file de départs). */
+function rayonType(type) {
+  return type === 'fragile' ? RAYON_FRAGILE : type === 'coeur' ? RAYON_COEUR : estBonus(type) ? RAYON_BONUS : RAYON_FRUIT;
+}
+
+/** Tire ce qui manque au trajet (mêmes lois que lancer), pour le connaître d'avance. */
+function completerTrajet(m, d, r) {
+  const l = m.largeur;
+  const debutant = m.vague <= 1;
+  const bord = Math.min(rayonType(d.type) + 6, l / 2);
+  d.x0 = borner(d.x0 ?? l * (debutant ? 0.3 + aleatoire(m) * 0.4 : 0.12 + aleatoire(m) * 0.76), bord, l - bord);
+  d.xFin = borner(d.xFin ?? l * (debutant ? 0.35 + aleatoire(m) * 0.3 : 0.1 + aleatoire(m) * 0.8), bord, l - bord);
+  d.sommet = d.sommet ?? 0.52 + aleatoire(m) * 0.33;
+  d.vol = d.vol ?? 0.92 + aleatoire(m) * 0.16;
+  d.duree = Math.max(DUREE_VOL_MIN, r.duree * d.vol);
+  return d;
+}
+
+/** Position (unités) d'un départ complété au temps de vague t, null hors vol. */
+function positionDepart(d, t) {
+  const u = t - d.delai;
+  if (u < 0 || u > d.duree) return null;
+  const demi = d.duree / 2;
+  const s = HAUTEUR * d.sommet;
+  const g = (2 * s) / (demi * demi);
+  return {
+    x: d.x0 + ((d.xFin - d.x0) / d.duree) * u,
+    y: HAUTEUR + rayonType(d.type) - (g * demi * u - (g * u * u) / 2),
+  };
+}
+
+// Fruit tranchable : bien visible, à plus de la portée de la lame (marges
+// comprises, plus une aisance) de tout colis, pendant au moins FENETRE_SURE s.
+const PORTEE_SURE = RAYON_FRUIT * MARGE_FRUIT + RAYON_FRAGILE * MARGE_FRAGILE + 25;
+export const FENETRE_SURE = 0.3;
+
+function fruitsTranchables(fruits, colis) {
+  const pas = 1 / 60;
+  return fruits.every((f) => {
+    let suite = 0;
+    for (let u = 0; u <= f.duree; u += pas) {
+      const t = f.delai + u;
+      const p = positionDepart(f, t);
+      const visible = p && p.y > 120 && p.y < 930;
+      const libre = visible && colis.every((c) => {
+        const q = positionDepart(c, t);
+        return !q || Math.hypot(q.x - p.x, q.y - p.y) > PORTEE_SURE;
+      });
+      suite = libre ? suite + pas : 0;
+      if (suite >= FENETRE_SURE) return true;
+    }
+    return false;
+  });
+}
+
+/** Prépare la vague suivante (file de départs, triée par délai). */
 export function nouvelleVague(m, ev) {
   m.vague += 1;
   m.tVague = 0;
   m.attente = null;
   const r = reglagesVague(m.vague);
-  const types = Array.from({ length: r.fruits }, () => 'fruit');
-  if (r.maxFragiles > 0 && aleatoire(m) < r.probaFragile) {
-    const nb = 1 + Math.floor(aleatoire(m) * r.maxFragiles);
-    for (let i = 0; i < nb; i += 1) types.push('fragile');
+  const motif = choisirMotif(m, m.vague);
+  m.motif = motif;
+  let nbFragiles = 0;
+  if (r.maxFragiles > 0 && aleatoire(m) < r.probaFragile) nbFragiles = 1 + Math.floor(aleatoire(m) * r.maxFragiles);
+  if (motif === 'escorte') nbFragiles = Math.max(1, Math.min(nbFragiles, r.fruits));
+  const vol = aleatoire(m) < r.rapide ? 0.88 : 1;
+  const fruits = departsFruits(m, r, motif, r.fruits, vol);
+  const escortes = motif === 'escorte' ? fruits.slice(0, nbFragiles).map((f) => escorter(m, f)) : [];
+  const fin0 = fruits.reduce((a, x) => Math.max(a, x.delai), 0) + 0.2;
+  fruits.forEach((f) => completerTrajet(m, f, r));
+  // Colis : chacun gardé seulement s'il laisse à chaque fruit un moment
+  // tranchable, sinon redessiné (8 essais) puis abandonné.
+  const colis = [];
+  for (let i = 0; i < nbFragiles; i += 1) {
+    for (let essai = 0; essai < 8; essai += 1) {
+      const c = completerTrajet(m, escortes[i] || { type: 'fragile', delai: aleatoire(m) * fin0 }, r);
+      if (fruitsTranchables(fruits, colis.concat([c]))) {
+        colis.push(c);
+        break;
+      }
+      if (escortes[i]) break;
+    }
   }
+  const autres = colis.slice();
   if (
     m.vague - m.vagueCoeur > VAGUES_ENTRE_COEURS
     && !m.objets.some((o) => o.type === 'coeur')
     && aleatoire(m) < probaCoeur(m.vague, m.vies)
   ) {
-    types.push('coeur');
+    autres.push({ type: 'coeur' });
     m.vagueCoeur = m.vague;
   }
   const possibles = bonusPossibles(m);
@@ -219,37 +403,32 @@ export function nouvelleVague(m, ev) {
     && !m.objets.some((o) => estBonus(o.type))
     && aleatoire(m) < probaBonus(m.vague)
   ) {
-    types.push(possibles[Math.floor(aleatoire(m) * possibles.length)]);
+    autres.push({ type: possibles[Math.floor(aleatoire(m) * possibles.length)] });
     m.vagueBonus = m.vague;
   }
-  // Mélange (le colis peut partir avant, pendant ou après les fruits).
-  for (let i = types.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(aleatoire(m) * (i + 1));
-    [types[i], types[j]] = [types[j], types[i]];
-  }
-  // Salve (tout part presque ensemble) ou départs échelonnés.
-  const salve = aleatoire(m) < r.salve;
-  let delai = 0;
-  m.file = types.map((type, i) => {
-    if (i > 0) delai += salve ? aleatoire(m) * 0.08 : 0.08 + aleatoire(m) * r.etalement;
-    return { delai, type };
-  });
+  // Cœur et bonus : n'importe quand pendant la vague.
+  for (const x of autres) if (x.delai == null) x.delai = aleatoire(m) * fin0;
+  m.file = fruits.concat(autres).sort((a, b) => a.delai - b.delai);
   ev.push({ type: 'vague', n: m.vague });
 }
 
-/** Lance un objet du bas de l'écran, en arc, pour retomber dans l'écran. */
-export function lancer(m, type) {
+/**
+ * Lance un objet du bas de l'écran, en arc, pour retomber dans l'écran.
+ * `trajet` (facultatif, donné par le motif) : x0, xFin en unités, sommet en
+ * part de la hauteur, vol en multiple de la durée de la vague.
+ */
+export function lancer(m, type, trajet = {}) {
   const r = reglagesVague(m.vague);
   const l = m.largeur;
-  const debutant = m.vague <= 2;
+  const debutant = m.vague <= 1; // départs resserrés au centre, première vague seulement
   const rayon = type === 'fragile' ? RAYON_FRAGILE : type === 'coeur' ? RAYON_COEUR : estBonus(type) ? RAYON_BONUS : RAYON_FRUIT;
   // Départ et arrivée bornés : l'objet entier reste dans la largeur de l'écran.
   const bord = Math.min(rayon + 6, l / 2);
-  const x0 = borner(l * (debutant ? 0.3 + aleatoire(m) * 0.4 : 0.12 + aleatoire(m) * 0.76), bord, l - bord);
-  const xFin = borner(l * (debutant ? 0.35 + aleatoire(m) * 0.3 : 0.1 + aleatoire(m) * 0.8), bord, l - bord);
-  // Sommet entre 52 % et 85 % de la hauteur (mesuré depuis le bas).
-  const sommet = HAUTEUR * (0.52 + aleatoire(m) * 0.33);
-  const duree = r.duree * (0.92 + aleatoire(m) * 0.16);
+  const x0 = borner(trajet.x0 ?? l * (debutant ? 0.3 + aleatoire(m) * 0.4 : 0.12 + aleatoire(m) * 0.76), bord, l - bord);
+  const xFin = borner(trajet.xFin ?? l * (debutant ? 0.35 + aleatoire(m) * 0.3 : 0.1 + aleatoire(m) * 0.8), bord, l - bord);
+  // Sommet entre 52 % et 85 % de la hauteur (mesuré depuis le bas), sauf motif.
+  const sommet = HAUTEUR * (trajet.sommet ?? 0.52 + aleatoire(m) * 0.33);
+  const duree = Math.max(DUREE_VOL_MIN, r.duree * (trajet.vol ?? 0.92 + aleatoire(m) * 0.16));
   const demi = duree / 2;
   const g = (2 * sommet) / (demi * demi);
   const o = {
@@ -455,7 +634,8 @@ export function avancer(m, dtBrut) {
   if (m.file.length) {
     m.tVague += dm;
     while (m.file.length && m.file[0].delai <= m.tVague) {
-      lancer(m, m.file.shift().type);
+      const depart = m.file.shift();
+      lancer(m, depart.type, depart);
       changement = true;
     }
   } else if (m.objets.length === 0) {
