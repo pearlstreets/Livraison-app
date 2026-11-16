@@ -86,25 +86,63 @@ function borner(v, min, max) {
 }
 
 /**
- * Réglages selon le nombre de passages déjà franchis. Début inchangé
- * (passage d'environ 3 fois la hauteur du drone), puis de plus en plus dur
- * sur trois étapes : 0-60 passages (environ 1 min 15), 60-150 (environ
- * 2 min 40), 150-350 (environ 5 min 30) ; au-delà, réglages figés au plus dur.
- * Passages plus serrés, plus rapprochés, plus rapides et plus mobiles, la
- * marge verticale restant toujours calculée (ecartAtteignable).
+ * Réglages selon le nombre de passages déjà franchis (10 passages par niveau).
+ * Courbe raide pour que la partie reste courte : le niveau 1 sert de prise en
+ * main mais bouge déjà (obstacles mobiles dès le 2e passage), les niveaux 2 et
+ * 3 accélèrent nettement, les niveaux 4 à 6 deviennent durs, les niveaux 7 à
+ * 12 approchent du plus dur, puis les niveaux 13 à 24 relèvent encore le
+ * plafond (obstacles mobiles plus fréquents). Au-delà, réglages figés au plus
+ * dur. Les motifs (voir MOTIFS) changent la forme des séries d'obstacles d'un
+ * niveau à l'autre. La marge verticale reste toujours calculée
+ * (ecartAtteignable) : chaque passage reste faisable.
  */
 export function reglages(passes) {
-  const p = borner(passes / 60, 0, 1);
-  const p2 = borner((passes - 60) / 90, 0, 1);
-  const p3 = borner((passes - 150) / 200, 0, 1);
+  const p1 = borner(passes / 10, 0, 1);
+  const p2 = borner((passes - 10) / 20, 0, 1);
+  const p3 = borner((passes - 30) / 30, 0, 1);
+  const p4 = borner((passes - 60) / 60, 0, 1);
+  const p5 = borner((passes - 120) / 120, 0, 1);
   return {
-    vitesse: 330 + 90 * p + 40 * p2 + 40 * p3,
-    ecart: 290 - 40 * p - 10 * p2 - 10 * p3, // hauteur du passage libre (290 au départ, 230 au plus dur)
-    espacement: 480 - 60 * p - 10 * p2 - 20 * p3, // distance entre deux obstacles (480 puis 390)
-    probaMouvement: passes < 8 ? 0 : Math.min(0.55, 0.2 + (passes - 8) * 0.01) + 0.15 * p3,
-    amplitude: passes < 8 ? 0 : Math.min(40, 18 + (passes - 8) * 0.6) + 15 * p3,
-    omega: 1 + 0.3 * p2 + 0.3 * p3, // vitesse de balancement des obstacles mobiles
+    vitesse: 370 + 70 * p1 + 60 * p2 + 50 * p3 + 40 * p4, // 370 au départ, 590 au plus dur
+    ecart: 225 - 15 * p1 - 15 * p2 - 10 * p3 - 10 * p4, // hauteur du passage libre (225 puis 175)
+    espacement: 460 - 25 * p1 - 20 * p2 - 20 * p3 - 15 * p4, // distance entre deux obstacles (460 puis 380)
+    // Part minimale du plus grand écart de hauteur atteignable entre deux passages.
+    franc: 0.55 + 0.05 * p1 + 0.05 * p2 + 0.05 * p3 + 0.05 * p4,
+    probaMouvement: passes < 2 ? 0 : 0.3 + 0.1 * p2 + 0.1 * p3 + 0.05 * p4 + 0.05 * p5, // 0,3 au 2e passage, 0,6 au plus dur
+    amplitude: passes < 2 ? 0 : 24 + 8 * p2 + 8 * p3 + 6 * p4, // 24 puis 46
+    omega: 1.1 + 0.2 * p2 + 0.15 * p3 + 0.05 * p4, // vitesse de balancement des obstacles mobiles
   };
+}
+
+/**
+ * Motifs : séries de 3 à 6 obstacles qui changent la forme du parcours, tirés
+ * au hasard parmi ceux débloqués (rang du premier obstacle), jamais deux fois
+ * de suite le même. Mêmes immeubles qu'avant, assemblés autrement :
+ * - libre : hauteurs franches, le plus souvent en alternance ;
+ * - zigzag : toujours à l'opposé, au plus grand écart atteignable ;
+ * - escalier : passages fixes toujours dans le même sens (montée ou
+ *   descente en marches), jusqu'au bord de l'écran ;
+ * - vague : obstacles mobiles à la suite, balancements décalés en vague ;
+ * - serre : immeubles rapprochés, passages fixes, marches plus petites,
+ *   rythme plus rapide ;
+ * - large : immeubles espacés mais tous mobiles et plus amples.
+ */
+export const MOTIFS = {
+  libre: 0,
+  zigzag: 0,
+  escalier: 8,
+  vague: 12,
+  serre: 20,
+  large: 40,
+};
+const SERRE = 0.85; // part de l'espacement normal dans le motif serre
+const LARGE = 1.2; // part de l'espacement normal dans le motif large
+const AMPLE = 1.25; // amplitude des obstacles du motif large (bornée à 46)
+
+function tirerMotif(m, rang) {
+  const ouverts = Object.keys(MOTIFS).filter((k) => rang >= MOTIFS[k] && k !== m.motif);
+  m.motif = ouverts[Math.floor(aleatoire(m) * ouverts.length)] || 'libre';
+  m.motifReste = 3 + Math.floor(aleatoire(m) * 4);
 }
 
 /** Abscisse fixe du drone (unités). */
@@ -139,6 +177,9 @@ export function creerMonde(largeur, graine = Date.now()) {
     invincible: 0, // secondes restantes après un choc encaissé
     bonusPris: 0,
     dernierBonus: -99, // rang du dernier obstacle portant un bonus
+    motif: 'libre', // forme de la série d'obstacles en cours (voir MOTIFS)
+    motifReste: 3, // obstacles restants dans le motif en cours
+    dernierPhi: 0, // balancement du dernier obstacle (motif vague)
   };
 }
 
@@ -195,16 +236,54 @@ export function bornesCentre(ecart, amp) {
 export function nouvelObstacle(m) {
   const r = reglages(m.passes + m.obstacles.filter((o) => !o.franchi).length);
   const precedent = m.obstacles[m.obstacles.length - 1];
-  const x = precedent ? precedent.x + r.espacement : m.largeur + 60;
-  const mobile = r.probaMouvement > 0 && aleatoire(m) < r.probaMouvement;
-  const amp = mobile ? r.amplitude : 0;
-  const { montee, descente } = ecartAtteignable(r.espacement, r.vitesse, r.ecart);
-  // Les obstacles mobiles réduisent la marge (le livreur peut attendre le bon moment, d'où 0.6).
-  const reserve = 0.6 * (amp + m.dernierAmp);
+  const rangObs = m.passes + m.obstacles.length;
+  if (!(m.motifReste > 0) || !Object.prototype.hasOwnProperty.call(MOTIFS, m.motif)) {
+    tirerMotif(m, rangObs);
+  }
+  const motif = m.motif;
+  m.motifReste -= 1;
+  // Serre : seulement derrière un passage fixe (sortir d'un obstacle mobile
+  // demande le temps normal).
+  const serre = motif === 'serre' && !(precedent && precedent.amp);
+  const espace = r.espacement * (serre ? SERRE : motif === 'large' ? LARGE : 1);
+  const x = precedent ? precedent.x + espace : m.largeur + 60;
+  const mobile =
+    r.probaMouvement > 0 &&
+    motif !== 'serre' &&
+    motif !== 'escalier' &&
+    (motif === 'vague' || motif === 'large' || aleatoire(m) < r.probaMouvement);
+  const amp = mobile ? (motif === 'large' ? Math.min(46, r.amplitude * AMPLE) : r.amplitude) : 0;
+  const { montee, descente } = ecartAtteignable(espace, r.vitesse, r.ecart);
+  // Les obstacles mobiles réduisent la marge de toute leur amplitude (pire moment du balancement).
+  const reserve = amp + (m.dernierAmp || 0);
+  const limMontee = Math.max(20, montee - reserve);
+  const limDescente = Math.max(20, descente - reserve);
   const b = bornesCentre(r.ecart, amp);
-  const bas = Math.max(b.min, m.dernierCentre - Math.max(20, montee - reserve));
-  const haut = Math.min(b.max, m.dernierCentre + Math.max(20, descente - reserve));
-  const centre = bas <= haut ? bas + aleatoire(m) * (haut - bas) : borner(m.dernierCentre, b.min, b.max);
+  const depart = borner(Number.isFinite(m.dernierCentre) ? m.dernierCentre : m.yDepart, b.min, b.max);
+  // Hauteurs franches : le plus souvent à l'opposé du passage précédent
+  // (en haut puis en bas), d'au moins `franc` fois le plus grand écart atteignable.
+  const place = (sens) => (sens < 0 ? Math.min(limMontee, depart - b.min) : Math.min(limDescente, b.max - depart));
+  const tirageSens = aleatoire(m);
+  const garder = motif === 'escalier' ? 1 : motif === 'zigzag' ? 0 : 0.2; // chance de garder le sens
+  let sens = m.dernierSens ? (tirageSens < garder ? m.dernierSens : -m.dernierSens) : tirageSens < 0.5 ? -1 : 1;
+  // L'escalier tourne plus tôt, loin des bords (on n'arrive pas collé au toit).
+  const assez = motif === 'escalier' ? 1 : 0.5;
+  if (place(sens) < assez * (sens < 0 ? limMontee : limDescente)) {
+    sens = -sens;
+    if (motif === 'escalier') m.motifReste = 0; // bout de l'escalier : motif suivant
+  }
+  const maxi = Math.max(0, place(sens));
+  const franc = motif === 'zigzag' ? Math.max(r.franc, 0.85) : r.franc;
+  // Serre : marches plus petites (couloir sinueux). Escalier : marches
+  // régulières, plus de la moitié de l'écart atteignable.
+  const tiragePart = aleatoire(m);
+  const part =
+    motif === 'serre'
+      ? 0.3 + 0.3 * tiragePart
+      : motif === 'escalier'
+        ? 0.5 + 0.3 * tiragePart
+        : franc + (1 - franc) * tiragePart;
+  const centre = depart + sens * maxi * part;
   const rang = m.passes + m.obstacles.length;
   const tirage = aleatoire(m);
   const client = rang >= 4 && tirage < 0.13;
@@ -224,8 +303,11 @@ export function nouvelObstacle(m) {
     centre,
     ecart: r.ecart,
     amp,
-    omega: (r.omega || 1) * (1.0 + aleatoire(m) * 0.5),
-    phi: aleatoire(m) * Math.PI * 2,
+    omega:
+      motif === 'vague'
+        ? (r.omega || 1) * 1.25 // même cadence pour toute la vague
+        : (r.omega || 1) * (1.0 + aleatoire(m) * 0.5),
+    phi: motif === 'vague' ? (Number(m.dernierPhi) || 0) + 0.9 + aleatoire(m) * 0.4 : aleatoire(m) * Math.PI * 2,
     haut: TYPES_HAUT[Math.floor(aleatoire(m) * TYPES_HAUT.length)],
     teinte: Math.floor(aleatoire(m) * 4),
     colis,
@@ -239,6 +321,8 @@ export function nouvelObstacle(m) {
   m.prochainId += 1;
   m.dernierCentre = centre;
   m.dernierAmp = amp;
+  m.dernierSens = sens;
+  m.dernierPhi = o.phi;
   m.obstacles.push(o);
   return o;
 }

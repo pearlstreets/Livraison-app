@@ -16,6 +16,7 @@
  * pièges plus fréquents et plus rapides, vent dès le palier 1 et un peu plus
  * fort à chaque palier), puis au-delà du palier 4 une « surcharge » accélère
  * encore pots, pigeons et nacelles, plafonnée pour rester jouable.
+ * Durcie et variée le 16/11/2026 : voir l'en-tête de `difficulte`.
  * Bonus ramassables (un tous les 13 à 22 étages environ, posés au-dessus
  * d'un balcon de la chaîne, donc toujours atteignables) : aimant à colis,
  * casque (protège d'un pot ou d'un pigeon) et filet de sécurité (rattrape
@@ -55,7 +56,14 @@ export const V_AIMANT = 520;
 export const BONUS_ECART_MIN = 800;
 export const BONUS_ECART_MAX = 1300;
 export const INVULNERABLE = 0.8; // secondes protégées après un coup paré par le casque
-export const SURCHARGE_MAX = 0.35;
+export const SURCHARGE_MAX = 0.9;
+// Une nacelle ne file jamais plus vite que 80 % de la course du livreur : on la rattrape toujours.
+export const V_NACELLE_MAX = 0.8 * VX_MAX;
+export const ALERTE_MIN = 0.6; // préavis minimal d'un pot (temps de jeu)
+export const ALERTE_RIDEAU = 0.8; // préavis d'un rideau de pots : le temps d'aller jusqu'au trou
+export const ECART_MIN_MAX_RATIO = 0.78; // l'écart minimal ne dépasse jamais 0,78 saut
+export const DEBUT_POTS = 450;
+export const DEBUT_PIGEONS = 800;
 export const VENT_BONUS_MAX = 0.3;
 
 export const LARGEURS = { sol: MONDE_L, balcon: 74, nacelle: 70, store: 80, trampo: 74, monte: 84 };
@@ -65,14 +73,103 @@ export function hauteurSaut(v = V_SAUT) {
 }
 const H_SAUT = hauteurSaut(V_SAUT);
 
-/** Difficulté 0 (début) vers 1 (très haut), progressive. */
+/**
+ * Difficulté 0 (début) vers 1, progressive à l'intérieur d'une course.
+ *
+ * Refonte du 16/11/2026 (jeu jugé trop simple et toujours pareil), reprise de
+ * l'app cliente. La difficulté se règle maintenant surtout par niveau (palier
+ * de 50 étages) et chaque niveau a son propre mélange de pièges :
+ * - Niveau 1 : prise en main courte, mais pots dès 450 de haut (900 avant) et
+ *   pigeons dès 800 (1400 avant) ; la difficulté de base monte bien plus vite
+ *   (échelle 1100 au lieu de 2600).
+ * - Dès le niveau 2, une « surcharge » accélère pots, pigeons et nacelles de
+ *   15 % par niveau, jusqu'à +90 % au niveau 7 (avant : rien avant le niveau 6,
+ *   plafond à +35 %). Pots par deux dès le niveau 3, par trois dès le niveau 6 ;
+ *   pigeons par deux dès le niveau 3, par trois dès le niveau 7.
+ * - Chaque niveau tire un ou plusieurs « accents » (un aux niveaux 2 et 3,
+ *   deux aux niveaux 4 à 6, trois ensuite), dans un ordre mélangé à chaque
+ *   course, jamais le même ensemble deux niveaux de suite : rideau de pots
+ *   avec un seul trou, pots qui visent le livreur, nuées de pigeons des deux
+ *   côtés à la fois, pigeons qui ondulent, chaîne de nacelles rapides, chaîne
+ *   de stores qui se déchirent, balcons en zigzag d'un bord à l'autre,
+ *   balcons et stores plus étroits. Les premiers accents reviennent aussi en
+ *   petite dose aux niveaux suivants.
+ * - Plus haut : écarts minimaux plus grands, moins de matelas, plus de
+ *   nacelles et de stores dans la chaîne.
+ * Ce qui reste garanti, à tous les niveaux : écart de la chaîne au plus
+ * ECART_MAX_RATIO saut, préavis d'un pot au moins ALERTE_MIN (ALERTE_RIDEAU
+ * pour un rideau, dont le trou laisse toujours passer le livreur), nacelles
+ * plus lentes que le livreur (V_NACELLE_MAX), intervalles entre pièges
+ * bornés par SURCHARGE_MAX. Une course reprise garde la difficulté de son
+ * niveau (hauteur de base ajoutée), avec le même répit au départ.
+ */
 export function difficulte(hauteur) {
-  return 1 - Math.exp(-Math.max(0, hauteur) / 2600);
+  return 1 - Math.exp(-Math.max(0, hauteur) / 1100);
 }
 
-/** Accélération des pièges au-delà du palier 4 : 0 puis +7 % par palier, plafonnée. */
+/** Accélération des pièges dès le niveau 2 : +15 % par niveau, plafonnée. */
 export function surcharge(palier) {
-  return Math.min(SURCHARGE_MAX, Math.max(0, palier - 4) * 0.07);
+  return Math.min(SURCHARGE_MAX, Math.max(0, palier) * 0.15);
+}
+
+/** Accents possibles d'un niveau (tous dessinés avec le décor existant). */
+export const ACCENTS = ['rideau', 'visee', 'nuee', 'vague', 'nacelles', 'fragile', 'zigzag', 'etroit'];
+
+/** Ordre des accents mélangé pour une course. */
+export function ordreAccents(hasard = Math.random) {
+  const o = ACCENTS.slice();
+  for (let i = o.length - 1; i > 0; i -= 1) {
+    const k = Math.floor(hasard() * (i + 1));
+    [o[i], o[k]] = [o[k], o[i]];
+  }
+  return o;
+}
+
+/** Accents d'un niveau : aucun au niveau 1, puis 1, 2 ou 3, jamais le même ensemble deux niveaux de suite. */
+export function accentsNiveau(palier, ordre = ACCENTS) {
+  if (palier < 1) return [];
+  const n = ordre.length;
+  const nb = palier < 3 ? 1 : palier < 6 ? 2 : 3;
+  const depart = palier < 3 ? palier - 1 : palier < 6 ? 2 + (palier - 3) * 2 : palier * 3;
+  const out = [];
+  for (let i = 0; i < nb; i += 1) out.push(ordre[(depart + i) % n]);
+  return out;
+}
+
+// Accents qui reviennent en petite dose : [palier d'arrivée, dose de fond, dose en accent].
+const DOSES = {
+  visee: [2, 0.25, 0.7],
+  vague: [3, 0.25, 0.8],
+  zigzag: [3, 0.25, 0.8],
+  rideau: [4, 0.12, 0.4],
+  nuee: [5, 0.2, 0.6],
+  nacelles: [99, 0, 1],
+  fragile: [99, 0, 1],
+  etroit: [99, 0, 1],
+};
+
+/** Probabilité qu'un accent joue à ce palier, avec la liste d'accents du niveau. */
+export function dose(accent, palier, accents = []) {
+  const [des, fond, fort] = DOSES[accent];
+  if (accents.includes(accent)) return fort;
+  return palier >= des ? fond : 0;
+}
+
+/** Largeur d'une plateforme : balcons et stores plus étroits avec l'accent « etroit ». */
+export function largeurPlateforme(type, accents = []) {
+  if (accents.includes('etroit')) {
+    if (type === 'balcon') return 58;
+    if (type === 'store') return 64;
+  }
+  return LARGEURS[type];
+}
+
+/** Nombre de pots par chute et de pigeons par vol selon le palier. */
+export function nbPots(palier) {
+  return palier >= 5 ? 3 : palier >= 2 ? 2 : 1;
+}
+export function nbPigeons(palier) {
+  return palier >= 6 ? 3 : palier >= 2 ? 2 : 1;
 }
 
 /** Force maximale du vent selon le palier : nulle au palier 0, +6 % par palier, plafonnée. */
@@ -89,13 +186,15 @@ export function reglagesPieges(hauteur) {
   return {
     d,
     palier: pal,
-    ecarts: ecarts(d),
-    intervallePot: lerp(6, 2, d) / (1 + k),
-    vitessePot: lerp(300, 520, d) * (1 + k * 0.5),
-    alertePot: lerp(0.9, 0.6, d),
-    intervallePigeon: lerp(8, 2.8, d) / (1 + k),
-    vitessePigeon: lerp(130, 250, d) * (1 + k * 0.5),
-    vitesseNacelle: lerp(70, 190, d) * (pal >= 4 ? 1.25 : 1) * (1 + k * 0.5),
+    ecarts: ecarts(d, pal),
+    intervallePot: lerp(4.5, 1.9, d) / (1 + k),
+    vitessePot: lerp(340, 560, d) * (1 + k * 0.5),
+    alertePot: Math.max(ALERTE_MIN, lerp(0.9, 0.6, d)),
+    intervallePigeon: lerp(6, 2.4, d) / (1 + k),
+    vitessePigeon: lerp(150, 270, d) * (1 + k * 0.4),
+    vitesseNacelle: Math.min(V_NACELLE_MAX, lerp(80, 190, d) * (pal >= 4 ? 1.25 : 1) * (1 + k * 0.5)),
+    nbPots: nbPots(pal),
+    nbPigeons: nbPigeons(pal),
     vent: ventMax(pal),
   };
 }
@@ -109,10 +208,11 @@ function lerp(a, b, k) {
   return a + (b - a) * k;
 }
 
-/** Écart vertical entre deux plateformes de la chaîne, selon la difficulté. */
-export function ecarts(d) {
+/** Écart vertical entre deux plateformes de la chaîne, selon la difficulté et le palier. */
+export function ecarts(d, palier = 0) {
+  const haut = Math.min(ECART_MIN_MAX_RATIO, 0.68 + 0.02 * Math.max(0, palier));
   return {
-    min: lerp(48, 0.62 * H_SAUT, d),
+    min: lerp(48, haut * H_SAUT, d),
     max: Math.min(ECART_MAX_RATIO * H_SAUT, lerp(84, ECART_MAX_RATIO * H_SAUT, d)),
   };
 }
@@ -135,12 +235,27 @@ export function dxBoucle(a, b) {
   return Math.min(d, MONDE_L - d);
 }
 
-function choisirType(d, hauteur, r) {
-  const x = r();
+/** Probabilités des types de la chaîne (sert au jeu et aux tests). */
+export function probasTypes(d, hauteur, accents = []) {
+  const pal = palierDe(hauteur);
   const pMonte = hauteur > 1500 ? 0.01 : 0;
-  const pTrampo = hauteur > 400 ? 0.04 : 0;
-  const pStore = hauteur > 300 ? lerp(0.08, 0.36, d) : 0;
-  const pNacelle = hauteur > 200 ? lerp(0.08, 0.34, d) : 0;
+  const pTrampo = hauteur > 400 ? Math.max(0.015, 0.04 - 0.005 * pal) : 0;
+  let pStore = hauteur > 300 ? Math.min(0.45, lerp(0.08, 0.36, d) + 0.03 * pal) : 0;
+  let pNacelle = hauteur > 200 ? Math.min(0.45, lerp(0.08, 0.34, d) + 0.03 * pal) : 0;
+  if (accents.includes('fragile')) pStore = Math.max(pStore, 0.6);
+  if (accents.includes('nacelles')) pNacelle = Math.max(pNacelle, 0.6);
+  const reste = 0.92 - pMonte - pTrampo;
+  if (pStore + pNacelle > reste) {
+    const f = reste / (pStore + pNacelle);
+    pStore *= f;
+    pNacelle *= f;
+  }
+  return { pMonte, pTrampo, pStore, pNacelle };
+}
+
+function choisirType(d, hauteur, r, accents) {
+  const x = r();
+  const { pMonte, pTrampo, pStore, pNacelle } = probasTypes(d, hauteur, accents);
   if (x < pMonte) return 'monte';
   if (x < pMonte + pTrampo) return 'trampo';
   if (x < pMonte + pTrampo + pStore) return 'store';
@@ -148,15 +263,21 @@ function choisirType(d, hauteur, r) {
   return 'balcon';
 }
 
-function creerPlateforme(e, type, x, y, chaine) {
-  const l = LARGEURS[type];
+/** Accents du niveau à une hauteur (base de reprise comprise). */
+function accentsA(e, hEff) {
+  return accentsNiveau(palierDe(hEff), e.ordre || ACCENTS);
+}
+
+function creerPlateforme(e, type, x, y, chaine, hEff = y, accents = [], l = LARGEURS[type]) {
   const p = { id: e.idSuivant++, type, x, y, l, chaine, dechire: false, vy: 0, rot: 0 };
   if (type === 'nacelle') {
-    const d = difficulte(y);
-    const amplitude = lerp(60, 130, d) + e.hasard() * 30;
+    const d = difficulte(hEff);
+    const fort = accents.includes('nacelles');
+    const amplitude = (fort ? lerp(100, 170, d) : lerp(60, 130, d)) + e.hasard() * 30;
     p.xMin = Math.max(0, x - amplitude);
     p.xMax = Math.min(MONDE_L - l, x + amplitude);
-    p.vx = (e.hasard() < 0.5 ? -1 : 1) * reglagesPieges(y).vitesseNacelle;
+    const v = Math.min(V_NACELLE_MAX, reglagesPieges(hEff).vitesseNacelle * (fort ? 1.15 : 1));
+    p.vx = (e.hasard() < 0.5 ? -1 : 1) * v;
   }
   e.plateformes.push(p);
   return p;
@@ -167,11 +288,25 @@ export function genererJusqua(e, yMax) {
   const r = e.hasard;
   while (e.prochainY < yMax) {
     const y = e.prochainY;
-    const d = difficulte(y);
-    const type = choisirType(d, y, r);
-    const l = LARGEURS[type];
-    const x = r() * (MONDE_L - l);
-    const p = creerPlateforme(e, type, x, y, true);
+    const hEff = y + (e.hBase || 0);
+    const d = difficulte(hEff);
+    const pal = palierDe(hEff);
+    const acc = accentsA(e, hEff);
+    // Bonus attendu : balcon fixe d'office, pour garder un bonus tous les 13 à 22 étages.
+    const bonusDu = y >= e.prochainBonus && TYPES_BONUS.some((k) => y >= BONUS[k].des && k !== e.dernierBonus);
+    const tire = choisirType(d, hEff, r, acc);
+    const type = bonusDu ? 'balcon' : tire;
+    const l = largeurPlateforme(type, acc);
+    let x = r() * (MONDE_L - l);
+    // Zigzag : la plateforme suivante part loin de l'autre côté (toujours atteignable, la façade boucle).
+    const pZig = dose('zigzag', pal, acc);
+    if (pZig > 0 && e.dernierCentre != null && r() < pZig) {
+      const decal = (110 + r() * 70) * (r() < 0.5 ? -1 : 1);
+      const centre = (((e.dernierCentre + decal) % MONDE_L) + MONDE_L) % MONDE_L;
+      x = Math.max(0, Math.min(MONDE_L - l, centre - l / 2));
+    }
+    const p = creerPlateforme(e, type, x, y, true, hEff, acc, l);
+    e.dernierCentre = x + l / 2;
     const dispo = type === 'balcon' && y >= e.prochainBonus
       ? TYPES_BONUS.filter((k) => y >= BONUS[k].des && k !== e.dernierBonus)
       : [];
@@ -184,15 +319,16 @@ export function genererJusqua(e, yMax) {
     } else if ((type === 'balcon' || type === 'nacelle') && r() < 0.12) {
       e.colisListe.push({ id: e.idSuivant++, x: p.x + l / 2, y: y + 34, pris: false });
     }
-    const { min, max } = ecarts(d);
+    const { min, max } = ecarts(d, pal);
     const ecart = lerp(min, max, r());
-    // Leurre ou appui de plus entre deux plateformes de la chaîne.
+    // Leurre ou appui de plus entre deux plateformes de la chaîne (que des stores avec « fragile »).
     if (ecart > 55 && r() < lerp(0.3, 0.6, d)) {
-      const leurre = r() < lerp(0.4, 0.85, d) ? 'store' : 'balcon';
-      const ll = LARGEURS[leurre];
+      const leurre = r() < lerp(0.4, 0.85, d) || acc.includes('fragile') ? 'store' : 'balcon';
+      const ll = largeurPlateforme(leurre, acc);
       let lx = r() * (MONDE_L - ll);
       if (Math.abs(lx - x) < ll + 12) lx = (x + MONDE_L / 2) % (MONDE_L - ll);
-      creerPlateforme(e, leurre, lx, y + ecart * lerp(0.35, 0.65, r()), false);
+      const ly = y + ecart * lerp(0.35, 0.65, r());
+      creerPlateforme(e, leurre, lx, ly, false, ly + (e.hBase || 0), acc, ll);
     }
     // Colis isolé en l'air, à aller chercher.
     if (y > 500 && r() < 0.05) {
@@ -202,9 +338,15 @@ export function genererJusqua(e, yMax) {
   }
 }
 
-/** Partie neuve : le livreur part du trottoir. `visibleH` : hauteur d'écran en unités. */
-export function partieNeuve(visibleH = 640, hasard = Math.random) {
+/**
+ * Partie neuve : le livreur part du trottoir. `visibleH` : hauteur d'écran en unités.
+ * `hBase` : hauteur déjà montée avant une reprise (garde la difficulté du niveau).
+ */
+export function partieNeuve(visibleH = 640, hasard = Math.random, hBase = 0) {
   const e = {
+    hBase: Math.max(0, Number(hBase) || 0),
+    ordre: ordreAccents(hasard),
+    dernierCentre: null,
     phase: 'jeu', // jeu | chute | fin
     joueur: { x: MONDE_L / 2, y: 0, vx: 0, vy: V_SAUT, regard: 1, rot: 0 },
     cam: 0,
@@ -459,37 +601,76 @@ export function avancer(e, dtBrut, dir) {
     }
     for (const g of e.pigeons) {
       if (g.mort) { g.vyMort -= GRAVITE * h; g.y += g.vyMort * h; }
-      else g.x += g.vx * h;
+      else {
+        g.x += g.vx * h;
+        // Pigeon qui ondule (accent « vague »).
+        if (g.amp) g.y = g.y0 + g.amp * Math.sin(g.w * e.t + g.phase);
+      }
     }
     if (e.phase === 'jeu') {
-      const reg = reglagesPieges(e.hautMax);
-      if (e.hautMax > 900) {
+      // Réglages selon la hauteur réelle du niveau (base de reprise comprise) ;
+      // le répit du départ, lui, se compte depuis le trottoir.
+      const hEff = e.hautMax + (e.hBase || 0);
+      const reg = reglagesPieges(hEff);
+      const acc = accentsA(e, hEff);
+      if (e.hautMax > DEBUT_POTS) {
         e.minPot -= h;
         if (e.minPot <= 0) {
           e.minPot = reg.intervallePot * (0.7 + r() * 0.6);
-          const nb = e.palier >= 3 ? 2 : 1; // palier 3 : rafales de pots
-          for (let k = 0; k < nb; k += 1) {
-            e.pots.push({ id: e.idSuivant++, x: 24 + r() * (MONDE_L - 48), y: haut + 30, vy: -reg.vitessePot, alerte: reg.alertePot, casse: false });
+          const pRideau = dose('rideau', reg.palier, acc);
+          if (pRideau > 0 && r() < pRideau) {
+            // Rideau : 8 pots en ligne, deux voisins manquent, le trou laisse passer le livreur.
+            const trou = Math.floor(r() * 8);
+            for (let k = 0; k < 8; k += 1) {
+              if (k === trou || k === (trou + 1) % 8) continue;
+              e.pots.push({ id: e.idSuivant++, x: 22.5 + 45 * k, y: haut + 30, vy: -reg.vitessePot, alerte: Math.max(ALERTE_RIDEAU, reg.alertePot), casse: false });
+            }
+            e.minPot *= 1.3;
+          } else {
+            const pVisee = dose('visee', reg.palier, acc);
+            for (let k = 0; k < reg.nbPots; k += 1) {
+              const vise = k === 0 && pVisee > 0 && r() < pVisee;
+              const x = vise
+                ? Math.max(24, Math.min(MONDE_L - 24, j.x + (r() - 0.5) * 50))
+                : 24 + r() * (MONDE_L - 48);
+              e.pots.push({ id: e.idSuivant++, x, y: haut + 30, vy: -reg.vitessePot, alerte: reg.alertePot, casse: false });
+            }
           }
         }
       }
-      if (e.hautMax > 1400) {
+      if (e.hautMax > DEBUT_PIGEONS) {
         e.minPigeon -= h;
         if (e.minPigeon <= 0) {
           e.minPigeon = reg.intervallePigeon * (0.7 + r() * 0.6);
-          const gauche = r() < 0.5;
-          const nb = e.palier >= 2 ? 2 : 1; // palier 2 : escadrilles de pigeons
-          for (let k = 0; k < nb; k += 1) {
-            e.pigeons.push({
-              id: e.idSuivant++,
-              x: (gauche ? -30 : MONDE_L + 30) + (gauche ? -1 : 1) * k * 70,
-              y: e.cam + e.visibleH * lerp(0.5, 0.85, r()),
-              vx: (gauche ? 1 : -1) * reg.vitessePigeon,
-              regard: gauche ? 1 : -1,
-              mort: false,
-              vyMort: 0,
-            });
-          }
+          const pNuee = dose('nuee', reg.palier, acc);
+          const pVague = dose('vague', reg.palier, acc);
+          const nuee = pNuee > 0 && r() < pNuee;
+          const gaucheD = r() < 0.5;
+          // Nuée : un vol de chaque côté à la fois, à deux hauteurs bien séparées.
+          const vols = nuee ? [gaucheD, !gaucheD] : [gaucheD];
+          const nb = nuee ? Math.max(1, reg.nbPigeons - 1) : reg.nbPigeons;
+          vols.forEach((gauche, v) => {
+            const yv = e.cam + e.visibleH * (nuee ? (v === 0 ? lerp(0.5, 0.6, r()) : lerp(0.75, 0.85, r())) : lerp(0.5, 0.85, r()));
+            const vague = pVague > 0 && r() < pVague;
+            for (let k = 0; k < nb; k += 1) {
+              const g = {
+                id: e.idSuivant++,
+                x: (gauche ? -30 : MONDE_L + 30) + (gauche ? -1 : 1) * k * 70,
+                y: yv,
+                vx: (gauche ? 1 : -1) * reg.vitessePigeon,
+                regard: gauche ? 1 : -1,
+                mort: false,
+                vyMort: 0,
+              };
+              if (vague) {
+                g.y0 = yv;
+                g.amp = 35 + r() * 25;
+                g.w = 2 + r();
+                g.phase = k * 1.2;
+              }
+              e.pigeons.push(g);
+            }
+          });
         }
       }
     }
