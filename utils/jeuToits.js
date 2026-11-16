@@ -522,8 +522,8 @@ export function mondeParId(id) {
 }
 
 /**
- * Terrains : chaque niveau a son terrain (8, puis on recommence le tour en
- * mêlant dès le niveau 9 les passages obligés d'un second terrain). `poids` :
+ * Terrains : chaque niveau a son terrain (8, puis on recommence le tour), et
+ * dès le niveau 4 un ou deux passages obligés d'un second terrain s'y ajoutent. `poids` :
  * part de chaque passage dans le tirage ; `obligatoires` : passages posés à
  * coup sûr dans le niveau ; `gue` : pierres de gué du terrain ; `eau` : genre
  * de bassin ; `hautMax` : hauteur maximale des immeubles.
@@ -563,61 +563,79 @@ export const TERRAINS = [
   },
 ];
 
-/** Terrain d'un niveau et passages obligés (ceux d'un second terrain s'y ajoutent dès le niveau 9). */
+/**
+ * Terrain d'un niveau et passages obligés. Un passage d'un second terrain
+ * s'y ajoute dès le niveau 4 (deux dès le niveau 9), pris dans un terrain qui
+ * change à chaque tour de 8 niveaux : les combinaisons ne se répètent pas.
+ */
 export function terrainNiveau(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
   const k = (n - 1) % TERRAINS.length;
   const terrain = TERRAINS[k];
-  let obligatoires = terrain.obligatoires.slice();
-  if (n > TERRAINS.length) {
-    const autre = TERRAINS[(k + 3) % TERRAINS.length];
-    obligatoires = obligatoires.concat(autre.obligatoires.filter((o) => o !== 'etage'));
+  const obligatoires = terrain.obligatoires.slice();
+  if (n >= 4) {
+    const tour = Math.floor((n - 1) / TERRAINS.length);
+    // Décalage impair : jamais le terrain du niveau lui-même.
+    const autre = TERRAINS[(k + 3 + 2 * tour) % TERRAINS.length];
+    // Un passage de cet autre terrain (deux dès le niveau 9), pris à tour de rôle : le niveau reste court.
+    const extras = autre.obligatoires.filter((o) => o !== 'etage' && !obligatoires.includes(o));
+    const nb = Math.min(extras.length, n >= 9 ? 2 : 1);
+    for (let i = 0; i < nb; i += 1) obligatoires.push(extras[(n + i) % extras.length]);
   }
   return { terrain, obligatoires };
 }
 
 /**
- * Difficulté progressive dès le niveau 1, jamais impossible : `diff` monte de
- * 0,35 (niveau 1) à 1 (niveau 10), chaque niveau plus dur que le précédent,
- * puis `plus` ajoute une pente douce jusqu'au niveau 20, et c'est le plafond.
- * Trous plus larges, toits plus étroits, gêneurs plus nombreux et plus
- * rapides, plus de nacelles, de toits fragiles et de sauts enchaînés, chrono
- * plus serré. Trous et marches restent sous les bornes mesurées : chaque
- * niveau reste faisable.
+ * Difficulté raide et variée, jamais impossible. `diff` monte de 0,5 (niveau 1)
+ * à 1 (niveau 8) : le niveau 1 est une prise en main courte mais déjà pas
+ * triviale, dès les niveaux 3 et 4 le parcours devient dur, un joueur moyen
+ * s'arrête vers les niveaux 5 à 8. Ensuite `plus` ajoute une pente jusqu'au
+ * niveau 20, et c'est le plafond. Chaque niveau est plus dur que le précédent :
+ * trous plus larges, toits plus étroits, gêneurs plus nombreux et plus rapides,
+ * plus de nacelles, de toits fragiles (qui cèdent plus vite) et de sauts
+ * enchaînés, plus de défis combinés (enchaînements mêlés, toits gardés, deux
+ * nacelles de suite), chrono plus serré. Les niveaux sont plus courts qu'avant :
+ * une bonne partie dure quelques minutes. Trous et marches restent sous les
+ * bornes mesurées (RATIO_MAX, MONTEE_MAX, portée réelle du saut) : chaque
+ * niveau reste faisable, mais exigeant.
  */
 export function reglagesNiveau(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
-  const k = Math.min(1, (n - 1) / 9);
-  const diff = 0.35 + 0.65 * (1 - (1 - k) ** 1.5);
-  const plus = Math.min(1, Math.max(0, (n - 10) / 10));
-  const longueur = Math.min(6400, 1900 + (n - 1) * 330);
-  const facteur = 2.5 - 0.6 * diff - 0.3 * plus;
+  const k = Math.min(1, (n - 1) / 7);
+  const diff = 0.5 + 0.5 * (1 - (1 - k) ** 2);
+  const plus = Math.min(1, Math.max(0, (n - 8) / 12));
+  const longueur = Math.min(4300, 1700 + (n - 1) * 220);
+  const facteur = 2.3 - 0.55 * diff - 0.25 * plus;
   return {
     n,
     diff,
     dur: plus,
     longueur,
     // Trous en part de la portée réelle du saut, jamais plus de RATIO_MAX.
-    ratioMin: 0.24 + 0.28 * diff,
-    ratioMax: Math.min(RATIO_MAX, 0.46 + 0.24 * diff + 0.02 * plus),
+    ratioMin: 0.3 + 0.3 * diff + 0.04 * plus,
+    ratioMax: Math.min(RATIO_MAX, 0.54 + 0.16 * diff + 0.02 * plus),
     // Marches (montée ou descente) entre deux plateformes.
-    marche: Math.round(MONTEE_MAX * (0.5 + 0.5 * diff)),
+    marche: Math.round(MONTEE_MAX * (0.65 + 0.35 * diff)),
     // Largeur des toits : de plus en plus étroits.
-    largeurMin: Math.max(120, 200 - 70 * diff),
-    largeurMax: Math.max(190, 330 - 120 * diff),
-    probMobile: 0.05 + 0.12 * diff + 0.03 * plus,
-    probFragile: 0.05 + 0.12 * diff + 0.03 * plus,
-    probEnchaine: 0.12 + 0.12 * diff,
-    probGeneur: Math.min(0.8, 0.45 + 0.27 * diff + 0.08 * plus),
+    largeurMin: Math.max(110, 190 - 75 * diff - 5 * plus),
+    largeurMax: Math.max(190, 330 - 110 * diff),
+    probMobile: 0.1 + 0.15 * diff + 0.05 * plus,
+    probFragile: 0.1 + 0.15 * diff + 0.05 * plus,
+    probEnchaine: 0.18 + 0.18 * diff + 0.05 * plus,
+    probGeneur: Math.min(0.92, 0.45 + 0.35 * diff + 0.12 * plus),
     // Sections à étages (passerelles empilées et ressort) : une par niveau au moins, plus souvent ensuite.
     probEtage: 0.1 + 0.08 * diff,
     etagesMax: n >= 3 ? 3 : 2,
-    vitesseGeneurs: 0.9 + 0.4 * diff + 0.15 * plus,
+    vitesseGeneurs: 1 + 0.35 * diff + 0.2 * plus,
+    // Toits fragiles : répit après la traversée, de plus en plus court.
+    repitFragile: Math.round((0.9 - 0.25 * diff - 0.05 * plus) * 100) / 100,
     probCaisse: PROB_CAISSE,
     types: ['chien', ...(n >= 2 ? ['pigeon'] : []), ...(n >= 3 ? ['trottinette'] : [])],
+    // Défis tirés au hasard en plus des passages obligés du terrain (combinaisons, voir genererNiveau).
+    defis: n >= 2 ? Math.min(4, 1 + Math.floor((n - 1) / 3)) : 0,
     // Chrono : le temps de course sans faute, fois un facteur qui se resserre
     // (genererNiveau ajoute le temps des ascenseurs, bassins et gouttières).
-    limite: Math.round((longueur / VITESSE) * facteur + 15),
+    limite: (longueur / VITESSE) * facteur + 15,
     facteur,
   };
 }
@@ -811,7 +829,7 @@ export function genererNiveau(niveau, graine) {
         delete cand.fragile;
       } else {
         // Temps de traverser, plus une bonne seconde de répit.
-        cand.retard = Math.round((cand.w / VITESSE + 0.9) * 100) / 100;
+        cand.retard = Math.round((cand.w / VITESSE + r.repitFragile) * 100) / 100;
         cand.tombe = 0;
         cand.effondre = false;
         cand.chute = 0;
@@ -842,6 +860,31 @@ export function genererNiveau(niveau, graine) {
     ratio: ratio(),
     ...extra,
   });
+  // Petit toit d'un enchaînement, toit fragile, pierre de gué et nacelle : les briques des passages.
+  const petit = () => colonne({
+    w: entre(rng, 78 - 8 * diff, 104 - 12 * diff),
+    y: borner(prec.y + entre(rng, -30 - 25 * diff, 30 + 25 * diff), 0, Math.min(170, terrain.hautMax)),
+  });
+  const cedant = () => colonne({ fragile: true, w: entre(rng, 90 - 10 * diff, 120 - 10 * diff), y: borner(prec.y + entre(rng, -25, 30 + 15 * diff), 25, Math.min(170, terrain.hautMax)) });
+  const pierre = () => ajouter({
+    flottante: true,
+    type: terrain.gue[Math.floor(rng() * terrain.gue.length)],
+    w: entre(rng, 80, 110 - diff * 16),
+    y: borner(prec.y + entre(rng, -25, 35), 50, Math.max(185, terrain.hautMax)),
+    ratio: ratio(),
+  });
+  const poserNacelle = (part) => {
+    const axe = rng() < 0.6 ? 'x' : 'y';
+    const amp = axe === 'x' ? entre(rng, 35, 60 + 10 * diff) : entre(rng, 20, 26);
+    return ajouter({
+      flottante: true,
+      type: 'nacelle',
+      mobile: { axe, amp, vit: entre(rng, 1, 1.3 + diff * 0.6), phase: rng() * 6.28, x0: 0, y0: 0 },
+      w: entre(rng, 76 - 6 * diff, 96 - 8 * diff),
+      y: borner(prec.y + entre(rng, -10, 30), 40, 150),
+      ratio: ratio() * part,
+    });
+  };
   // Toit de départ simple et sûr pour les passages spéciaux.
   const fixe = (p) => !p.flottante && !p.mobile && !p.sorties && !p.fragile && p.type !== 'benne' && p.type !== 'bassin';
   const aide = (extra) => colonne({ w: entre(rng, 180, 240), ...extra });
@@ -849,50 +892,61 @@ export function genererNiveau(niveau, graine) {
   // Passages : chacun rend vrai s'il est posé, faux s'il a d'abord posé un toit d'aide.
   const passages = {
     enchaine() {
-      // Sauts enchaînés : petits toits rapprochés.
-      const k = 2 + Math.floor(rng() * (1 + diff * 1.5));
-      for (let i = 0; i < k; i += 1) {
-        colonne({ w: entre(rng, 80, 104), y: borner(prec.y + entre(rng, -30, 30), 0, Math.min(170, terrain.hautMax)) });
-      }
+      // Sauts enchaînés : petits toits rapprochés, plus nombreux, plus étroits et plus décalés au fil des niveaux.
+      const k = 2 + Math.floor(rng() * (1 + diff * 2.5));
+      for (let i = 0; i < k; i += 1) petit();
       colonne({ w: entre(rng, 180, 260) });
       return true;
     },
     nacelle() {
       // Nacelle : plateforme mobile, horizontale ou verticale.
-      const axe = rng() < 0.6 ? 'x' : 'y';
-      const amp = axe === 'x' ? entre(rng, 35, 60) : entre(rng, 20, 26);
-      const p = ajouter({
-        flottante: true,
-        type: 'nacelle',
-        mobile: { axe, amp, vit: entre(rng, 1, 1.3 + diff * 0.5), phase: rng() * 6.28, x0: 0, y0: 0 },
-        w: entre(rng, 76, 96),
-        y: borner(prec.y + entre(rng, -10, 30), 40, 150),
-        ratio: ratio() * 0.85,
-      });
+      const p = poserNacelle(0.85);
       colonne({ w: entre(rng, 170, 250), y: prec.y });
       return !!p.mobile;
     },
+    nacelles() {
+      // Deux nacelles de suite : on attend la seconde debout sur la première.
+      const a = poserNacelle(0.8);
+      const b = poserNacelle(0.75);
+      colonne({ w: entre(rng, 170, 250), y: prec.y });
+      return !!(a.mobile || b.mobile);
+    },
     fragile() {
-      // Toits fragiles : ils s'effondrent un peu après qu'on s'y est posé.
-      const k = 1 + (diff > 0.5 && rng() < 0.5 ? 1 : 0);
-      for (let i = 0; i < k; i += 1) {
-        colonne({ fragile: true, w: entre(rng, 90, 120), y: borner(prec.y + entre(rng, -25, 30), 25, Math.min(170, terrain.hautMax)) });
-      }
+      // Toits fragiles : ils s'effondrent un peu après qu'on s'y est posé (jusqu'à trois de suite).
+      const k = 1 + (diff > 0.5 && rng() < 0.5 + 0.3 * diff ? 1 : 0) + (diff > 0.85 && rng() < 0.4 ? 1 : 0);
+      for (let i = 0; i < k; i += 1) cedant();
       colonne({ w: entre(rng, 170, 240) });
+      return true;
+    },
+    mixte() {
+      // Enchaînement sans répit : petits toits, toits fragiles, pierres de gué et nacelles mêlés,
+      // dans un ordre tiré au hasard (jamais une nacelle juste après un toit fragile : on ne peut pas l'attendre).
+      const k = 3 + Math.floor(rng() * (1 + diff * 2));
+      let avant = null;
+      for (let i = 0; i < k; i += 1) {
+        const choix = ['petit', 'fragile', 'pierre', ...(n >= 3 && avant !== 'fragile' ? ['nacelle'] : [])].filter((c) => c !== avant);
+        const c = choix[Math.floor(rng() * choix.length)];
+        if (c === 'petit') petit();
+        else if (c === 'fragile') cedant();
+        else if (c === 'pierre') pierre();
+        else poserNacelle(0.8);
+        avant = c;
+      }
+      colonne({ w: entre(rng, 180, 250) });
+      return true;
+    },
+    gardes() {
+      // Toit gardé : deux gêneurs (trois dès le niveau 7) qui patrouillent côte à côte, puis des sauts enchaînés.
+      colonne({ w: n >= 7 ? entre(rng, 345, 365) : entre(rng, 280, 345), garde: true });
+      const k = 1 + Math.floor(rng() * (1 + diff * 1.5));
+      for (let i = 0; i < k; i += 1) petit();
+      colonne({ w: entre(rng, 180, 250) });
       return true;
     },
     gue() {
       // Pierres de gué au-dessus d'un trou : auvents, échafaudages, balcons, conduits.
-      const k = 1 + Math.floor(rng() * (1 + diff * 1.5));
-      for (let i = 0; i < k; i += 1) {
-        ajouter({
-          flottante: true,
-          type: terrain.gue[Math.floor(rng() * terrain.gue.length)],
-          w: entre(rng, 80, 110 - diff * 16),
-          y: borner(prec.y + entre(rng, -25, 35), 50, Math.max(185, terrain.hautMax)),
-          ratio: ratio(),
-        });
-      }
+      const k = 1 + Math.floor(rng() * (1 + diff * 2));
+      for (let i = 0; i < k; i += 1) pierre();
       colonne({ w: entre(rng, 180, 280) });
       return true;
     },
@@ -980,18 +1034,47 @@ export function genererNiveau(niveau, graine) {
     ['eau', 0.5 * (P.eau || 0)],
     ['gouttiere', 0.4 * (P.gouttiere || 0)],
     ['bouche', 0.3 * (P.bouche || 0)],
+    // Combinaisons : enchaînement mêlé, toit gardé, deux nacelles de suite.
+    ['mixte', n >= 2 ? 0.2 + 0.6 * diff : 0],
+    ['gardes', n >= 3 ? 0.15 + 0.5 * diff : 0],
+    ['nacelles', n >= 5 ? 0.1 + 0.4 * diff : 0],
   ];
-  const total = 1.6 + table.reduce((s, [, w]) => s + w, 0);
+  // Couleur du niveau : un passage mis en avant, un autre presque absent, tirés au hasard,
+  // pour que deux niveaux (ou deux parties) ne se ressemblent pas.
+  const accents = ['enchaine', 'nacelle', 'fragile', 'gue', 'benne', 'ascenseur', 'gouttiere', 'mixte', 'gardes'];
+  const vedette = accents[Math.floor(rng() * accents.length)];
+  const discret = accents[Math.floor(rng() * accents.length)];
+  table.forEach((t) => {
+    if (t[0] === vedette) t[1] *= 2.5;
+    else if (t[0] === discret) t[1] *= 0.3;
+  });
+  // Toits simples de moins en moins fréquents.
+  const simple = Math.max(0.6, 1.6 - 2 * (diff - 0.5));
+  const total = simple + table.reduce((s, [, w]) => s + w, 0);
   const probEtage = r.probEtage * (terrain.obligatoires.includes('etage') ? 2 : 1);
   // Passages obligés, répartis sur le niveau.
   const obliges = obligatoires.filter((o) => o !== 'etage');
   // Dès le niveau 2, un toit fragile par niveau ; dès le 3, une nacelle.
   if (n >= 2 && !obliges.includes('fragile')) obliges.splice(Math.ceil(obliges.length / 2), 0, 'fragile');
   if (n >= 3 && !obliges.includes('nacelle')) obliges.splice(1, 0, 'nacelle');
+  // Défis tirés au hasard (un dès le niveau 2, jusqu'à quatre) : la combinaison change à chaque niveau.
+  // Ils s'intercalent un coup sur deux, les passages obligés restent tous posés (le niveau s'allonge si besoin).
+  const defis = [];
+  const reserve = [
+    'enchaine', 'fragile', 'gue', 'mixte',
+    ...(n >= 3 ? ['gardes', 'nacelle'] : []),
+    ...(n >= 5 ? ['nacelles', 'mixte'] : []),
+    ...(n >= 7 ? ['gardes'] : []),
+  ];
+  for (let i = 0; i < r.defis && reserve.length; i += 1) {
+    const nom = reserve.splice(Math.floor(rng() * reserve.length), 1)[0];
+    if (!defis.includes(nom)) defis.push(nom);
+  }
+  let apresDefi = false;
   const aPoser = obliges.map((nom, i) => ({ nom, x: longueur * (0.15 + (0.7 * (i + 0.5)) / obliges.length) }));
 
   // Les passages obligés encore à poser prolongent un peu le niveau si besoin.
-  while (prec.x + prec.w < longueur || (aPoser.length && prec.x + prec.w < longueur * 2.2)) {
+  while (prec.x + prec.w < longueur || (aPoser.length && prec.x + prec.w < longueur * 4)) {
     // Section à étages : au moins une par niveau (dès le premier quart), puis au hasard.
     const forcerEtage = sections.length === 0 && prec.x > longueur * 0.22;
     const du = aPoser.length && prec.x + prec.w >= aPoser[0].x;
@@ -1011,11 +1094,20 @@ export function genererNiveau(niveau, graine) {
       colonne();
       continue;
     }
+    // Défi encore à poser : il passe une fois sur deux, entre deux passages obligés
+    // comme entre deux tirages (jamais deux fois de suite le même passage) ; les obligés restent tous posés.
+    const kd = defis.findIndex((d) => d !== segments[segments.length - 1]);
+    if (kd >= 0 && !apresDefi && prec.x + prec.w < longueur * 1.5) {
+      apresDefi = true;
+      tenter(defis.splice(kd, 1)[0]);
+      continue;
+    }
+    apresDefi = false;
     if (du) {
       if (tenter(aPoser[0].nom)) aPoser.shift();
       continue;
     }
-    let tirage = rng() * total - 1.6;
+    let tirage = rng() * total - simple;
     let choix = null;
     for (let i = 0; i < table.length && tirage >= 0; i += 1) {
       if (tirage < table[i][1]) choix = table[i][0];
@@ -1100,13 +1192,16 @@ export function genererNiveau(niveau, graine) {
       }
       let geneurPose = false;
       // Gêneurs : jamais sur les DEGAGEMENT_ATTERRISSAGE premières unités (on y atterrit).
-      if (i > 0 && suivante && !p.calme && p.w >= LARGEUR_MIN_GENEUR && rng() < r.probGeneur) {
-        const nb = p.w >= 380 && n >= 4 ? 3 : p.w >= 250 && n >= 2 ? 2 : 1;
+      if (i > 0 && suivante && !p.calme && p.w >= LARGEUR_MIN_GENEUR && (p.garde || rng() < r.probGeneur)) {
+        // Toit gardé : deux gêneurs, trois dès le niveau 7.
+        const nb = p.garde ? (n >= 7 && p.w >= 345 ? 3 : 2) : p.w >= 380 && n >= 4 ? 3 : p.w >= 250 && n >= 2 ? 2 : 1;
         const zx1 = p.x + DEGAGEMENT_ATTERRISSAGE;
         const zx2 = p.x + p.w - 30;
         for (let k = 0; k < nb; k += 1) {
           const type = r.types[Math.floor(rng() * r.types.length)];
           const t = TAILLES[type];
+          // Allure propre à chaque gêneur : jamais deux patrouilles au même rythme.
+          const allure = r.vitesseGeneurs * entre(rng, 0.85, 1.15);
           const x1 = zx1 + (k * (zx2 - zx1)) / nb;
           const x2 = zx1 + ((k + 1) * (zx2 - zx1)) / nb - t.w - (k < nb - 1 ? 8 : 0);
           if (x2 - x1 < 30) continue;
@@ -1116,10 +1211,10 @@ export function genererNiveau(niveau, graine) {
             const haut = 46 - Math.min(12, diff * 16);
             geneurs.push({
               type, x, y: p.y + haut, base: p.y + haut, cx: (x1 + x2) / 2, amp: (x2 - x1) / 2,
-              vitesse: (1.1 + diff * 0.8) * r.vitesseGeneurs, phase: rng() * 6.28, w: t.w, h: t.h, dir: -1,
+              vitesse: (1.1 + diff * 0.8) * allure, phase: rng() * 6.28, w: t.w, h: t.h, dir: -1,
             });
           } else {
-            const v = (type === 'chien' ? 45 + diff * 45 : 90 + diff * 50) * r.vitesseGeneurs;
+            const v = (type === 'chien' ? 45 + diff * 45 : 90 + diff * 50) * allure;
             geneurs.push({ type, x, y: p.y, x1, x2, vx: -v, w: t.w, h: t.h, dir: -1 });
           }
         }
@@ -1154,7 +1249,7 @@ export function genererNiveau(niveau, graine) {
   // Chrono : du temps en plus pour attendre l'ascenseur, nager et grimper.
   const nbAsc = plateformes.filter((p) => p.mobile && p.mobile.ascenseur).length;
   const course = Math.round(((fin.x + fin.w) / VITESSE) * r.facteur + 15);
-  const limite = Math.max(r.limite, course) + 6 * nbAsc + 3 * eaux.length + 3 * gouttieres.length;
+  const limite = Math.round(Math.max(r.limite, course)) + 6 * nbAsc + 3 * eaux.length + 3 * gouttieres.length;
 
   const { decor, motif, monde } = decorNiveau(n);
   return {
