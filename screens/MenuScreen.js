@@ -296,8 +296,8 @@ export default function MenuScreen({ navigation }) {
       <View style={s.divider} />
 
       <View style={s.section}>
-        <MenuItem icon="log-out-outline" label={t('logout')} onPress={confirmLogout} color="#e74c3c" />
         <MenuItem icon="download-outline" label={t('myDataMenu')} onPress={exporterMesDonnees} />
+        <MenuItem icon="log-out-outline" label={t('logout')} onPress={confirmLogout} color="#e74c3c" />
         <MenuItem icon="trash-outline" label={t('deleteAccount')} onPress={confirmDeleteAccount} color="#e74c3c" />
       </View>
 
