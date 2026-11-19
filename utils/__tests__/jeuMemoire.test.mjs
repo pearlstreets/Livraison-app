@@ -1,11 +1,37 @@
 // node --experimental-detect-module --test utils/__tests__/jeuMemoire.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
+import { register } from 'node:module';
+
+// utils/jeux/memoire.js (logique identique à AppUser) importe AsyncStorage et
+// ./commun (records du téléphone) : sous node, AsyncStorage est remplacé par un
+// faux stockage vide et ./commun par ses deux fonctions pures utilisées ici.
+const FAUX_STOCKAGE = 'export default { getItem: async () => null, setItem: async () => {}, removeItem: async () => {} };';
+const FAUX_COMMUN = `
+export function cleSauvegardeJeu(jeu, idUser) {
+  const suffixe = idUser != null && idUser !== '' ? String(idUser) : 'local';
+  return 'USER_JEU_' + String(jeu).toUpperCase() + '_V1_' + suffixe;
+}
+export function entierJeu(x, min = 0) {
+  const n = Math.floor(Number(x));
+  return Number.isFinite(n) && n >= min ? n : min;
+}`;
+register('data:text/javascript,' + encodeURIComponent(`
+export async function resolve(specifier, context, next) {
+  if (specifier === '@react-native-async-storage/async-storage') {
+    return { shortCircuit: true, url: 'data:text/javascript,' + encodeURIComponent(${JSON.stringify(FAUX_STOCKAGE)}) };
+  }
+  if (specifier === './commun' && String(context.parentURL || '').endsWith('/utils/jeux/memoire.js')) {
+    return { shortCircuit: true, url: 'data:text/javascript,' + encodeURIComponent(${JSON.stringify(FAUX_COMMUN)}) };
+  }
+  return next(specifier, context);
+}`));
+
+const {
   parametresNiveau, creerDonne, creerAlea, melangerCachees, paireAimant, bonusDuNiveau, nombreBonus,
   scoreMaxNiveau, secondesParPaire, dispositionGrille, TYPES_BONUS, BONUS, PAIRES_MAX, secondesCombo,
-  motifsNiveau, PIEGES, MOTIFS, SCORE_MAX_SERVEUR,
-} from '../jeuMemoire.js';
+  motifsNiveau, PIEGES, MOTIFS, SCORE_MAX_SERVEUR, cleSauvegarde, nettoyerRecords, majRecords,
+} = await import('../jeux/memoire.js');
 
 const NIVEAUX = Array.from({ length: 30 }, (_, i) => i + 1);
 
@@ -42,7 +68,7 @@ test('courbe raide : 15 paires dès le niveau 6, 18 dès le 8, chrono serré', (
   assert.equal(parametresNiveau(8).paires, 18);
   assert.ok(secondesParPaire(4) <= 3);
   assert.ok(secondesParPaire(9) <= 2.1);
-  assert.equal(parametresNiveau(6).delaiErreur, 450);
+  assert.equal(parametresNiveau(6).delaiErreur, 400);
 });
 
 test('variété : un piège dès le niveau 3, jamais le même deux niveaux de suite', () => {
@@ -136,7 +162,15 @@ test('aimant : préfère une paire cachée sans bonus, rien s il ne reste rien',
   assert.equal(paireAimant(cartes.slice(0, 2), creerAlea(3)), null);
 });
 
-test('échanges après erreur : les cartes trouvées ne bougent pas, aucune carte perdue', () => {
+test('les cartes ne changent jamais de place (comme AppUser, depuis le 15/11/2026)', () => {
+  for (let n = 1; n <= 60; n += 1) {
+    const p = parametresNiveau(n);
+    assert.equal(p.melange, 'aucun', `niveau ${n}`);
+    assert.equal(p.echanges, 0, `niveau ${n}`);
+  }
+});
+
+test('mélange des cartes cachées (fonction gardée) : les cartes trouvées ne bougent pas, aucune carte perdue', () => {
   const d = creerDonne(17, 77).map((c, i) => (i < 6 ? { ...c, trouvee: true } : c));
   const apres = melangerCachees(d, 'echange', creerAlea(9), 5);
   assert.equal(apres.length, d.length);
@@ -145,7 +179,7 @@ test('échanges après erreur : les cartes trouvées ne bougent pas, aucune cart
   assert.ok(apres.some((c, i) => c !== d[i]));
 });
 
-test('score : sous le plafond serveur (10 000) jusqu au niveau 13 même en partie parfaite', () => {
+test('score : sous le plafond serveur (50 000) jusqu au niveau 13 même en partie parfaite', () => {
   let total = 0;
   for (let n = 1; n <= 13; n += 1) total += scoreMaxNiveau(n);
   assert.ok(total < SCORE_MAX_SERVEUR, `total ${total}`);
@@ -200,14 +234,25 @@ test('toujours faisable : joueur rapide à mémoire parfaite, au moins 50 % à c
   }
 });
 
-test('plus serré : tout le monde passe le niveau 1, un joueur posé (0,7 s par carte) cale vers 5 à 8, un lent (1 s) dès le 5', () => {
+test('plus serré : tout le monde passe le niveau 1, un joueur moyen (0,85 s par carte) cale vers 8 à 10, un lent (1 s) dès le 8', () => {
   assert.ok(reussite(1, 1) === 1, 'niveau 1 pour tous');
   assert.ok(reussite(4, 0.7, 100) >= 0.8, 'niveau 4 à 0,7 s');
-  const moyen = reussite(8, 0.7, 100);
-  assert.ok(moyen > 0.1 && moyen < 0.7, `niveau 8 à 0,7 s : ${moyen}`);
-  assert.ok(reussite(5, 1, 100) < 0.3, `niveau 5 à 1 s : ${reussite(5, 1, 100)}`);
+  const moyen = reussite(10, 0.85, 100);
+  assert.ok(moyen > 0.1 && moyen < 0.7, `niveau 10 à 0,85 s : ${moyen}`);
+  const lent = reussite(8, 1, 100);
+  assert.ok(lent < 0.3, `niveau 8 à 1 s : ${lent}`);
 });
 
 test('loupe : au moins 1,3 s (retournement compris) à tous les niveaux', () => {
   NIVEAUX.forEach((n) => assert.ok(parametresNiveau(n).loupe >= 1300, `niveau ${n}`));
+});
+
+test('records du téléphone : clé par compte, valeurs abîmées remplacées, plafond serveur livreur (50 000)', () => {
+  assert.equal(SCORE_MAX_SERVEUR, 50000);
+  assert.equal(cleSauvegarde(12), 'USER_JEU_MEMOIRE_V1_12');
+  assert.equal(cleSauvegarde(null), 'USER_JEU_MEMOIRE_V1_local');
+  assert.deepEqual(nettoyerRecords(null), { meilleurScore: 0, meilleurNiveau: 1 });
+  assert.deepEqual(nettoyerRecords({ meilleurScore: 'x', meilleurNiveau: -3 }), { meilleurScore: 0, meilleurNiveau: 1 });
+  assert.deepEqual(majRecords({ meilleurScore: 500, meilleurNiveau: 4 }, 300, 6), { meilleurScore: 500, meilleurNiveau: 6 });
+  assert.deepEqual(majRecords(null, 99999, 2), { meilleurScore: SCORE_MAX_SERVEUR, meilleurNiveau: 2 });
 });

@@ -1,11 +1,32 @@
 // node --experimental-detect-module --test utils/__tests__/jeuDrone.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
+import { register } from 'node:module';
+
+// utils/jeux/drone.js importe AsyncStorage (records) et ./commun (compte,
+// couleurs, contextes React) : sous node, ces deux modules sont remplacés
+// par un faux stockage vide et les deux petites fonctions pures utilisées.
+const FAUX_STOCKAGE = 'export default { getItem: async () => null, setItem: async () => {}, removeItem: async () => {} };';
+const FAUX_COMMUN = [
+  'export function cleSauvegardeJeu(jeu, idUser) { const s = idUser != null && idUser !== "" ? String(idUser) : "local"; return "USER_JEU_" + String(jeu).toUpperCase() + "_V1_" + s; }',
+  'export function entierJeu(x, min = 0) { const n = Math.floor(Number(x)); return Number.isFinite(n) && n >= min ? n : min; }',
+].join('\n');
+register('data:text/javascript,' + encodeURIComponent(`
+export async function resolve(specifier, context, next) {
+  if (specifier === '@react-native-async-storage/async-storage') {
+    return { shortCircuit: true, url: 'data:text/javascript,' + encodeURIComponent(${JSON.stringify(FAUX_STOCKAGE)}) };
+  }
+  if (specifier === './commun' && String(context.parentURL || '').endsWith('/utils/jeux/drone.js')) {
+    return { shortCircuit: true, url: 'data:text/javascript,' + encodeURIComponent(${JSON.stringify(FAUX_COMMUN)}) };
+  }
+  return next(specifier, context);
+}`));
+
+const {
   HAUTEUR, SOL, DRONE_DX, DRONE_DY, LARGEUR_OBSTACLE, MARGE, POINTS_COLIS, POINTS_CLIENT, IMPULSION,
   DUREE_AIMANT, DUREE_DOUBLE, BONUS_RANG_MIN, BONUS_ECART, BONUS, PALIER, MOTIFS,
   reglages, ecartAtteignable, bornesCentre, creerMonde, avancer, impulsion, nouvelObstacle, centreObstacle, bonusActifs, multiplicateur,
-} from '../jeuDrone.js';
+} = await import('../jeux/drone.js');
 
 const GRAINES = [1, 7, 42, 999, 31337, 123456];
 
@@ -337,4 +358,26 @@ test('plafond serveur 200 000 hors de portée : plus de 1 h 30 de partie parfait
   const heures = 200000 / (passagesParS * pointsParPassage) / 3600;
   assert.ok(heures > 1.5, `${heures.toFixed(1)} h`);
   assert.ok(centreObstacle({ centre: 1, amp: 0 }, 0) === 1);
+});
+
+test('records locaux et reprise : valeurs abîmées corrigées, partie terminée jamais reprise', async () => {
+  const { recordsApres, nettoyerRecords, nettoyerMonde, niveauJeu, cleSauvegarde } = await import('../jeux/drone.js');
+  assert.deepEqual(nettoyerRecords(null), { meilleurScore: 0, meilleurNiveau: 1 });
+  assert.deepEqual(nettoyerRecords({ meilleurScore: -4, meilleurNiveau: 'x' }), { meilleurScore: 0, meilleurNiveau: 1 });
+  assert.deepEqual(recordsApres({ meilleurScore: 30, meilleurNiveau: 2 }, 12, 35), { meilleurScore: 30, meilleurNiveau: niveauJeu(35) });
+  assert.equal(niveauJeu(0), 1);
+  assert.equal(niveauJeu(PALIER), 2);
+  assert.equal(cleSauvegarde(42), 'USER_JEU_DRONE_V1_42');
+  assert.equal(cleSauvegarde(null), 'USER_JEU_DRONE_V1_local');
+
+  const m = creerMonde(500, 7);
+  impulsion(m);
+  for (let i = 0; i < 30; i += 1) avancer(m, 1 / 60);
+  const relu = nettoyerMonde(JSON.parse(JSON.stringify(m)));
+  assert.ok(relu, 'monde en vol relu');
+  assert.equal(relu.score, m.score);
+  assert.equal(relu.obstacles.length, m.obstacles.length);
+  assert.equal(nettoyerMonde({ ...m, phase: 'fini' }), null, 'partie terminée : pas de reprise');
+  assert.equal(nettoyerMonde({ ...m, drone: { x: NaN, y: 0 } }), null, 'monde abîmé : pas de reprise');
+  assert.ok(nettoyerMonde({ ...m, score: 10 ** 9 }).score < 10 ** 9, 'score impossible plafonné');
 });

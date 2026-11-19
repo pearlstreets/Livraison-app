@@ -189,7 +189,7 @@ export default {
     jeuxDroneToucherReprendre: 'タップして再開',
     jeuxDroneFin: '配達中断',
     jeuxDroneNouveauRecord: '新記録！',
-    jeuxDroneRejouer: 'もう一度',
+    jeuxDroneRejouer: 'もう一度プレイ',
     jeuxDroneLivre: 'お届け完了',
     jeuxDroneBronze: '銅メダル',
     jeuxDroneArgent: '銀メダル',
