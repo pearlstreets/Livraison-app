@@ -886,11 +886,8 @@ export default function JeuDroneScreen({navigation}) {
                     color={C.marque}
                   />
                   <Text style={styles.titre}>{t('jeuxDroneTitre')}</Text>
-                  <Text style={styles.texte}>{t('jeuxDroneRegle')}</Text>
-                  <Text style={styles.texteDiscret}>{t('jeuxDroneBonus')}</Text>
-                  <Text style={styles.texteDiscret}>
-                    {t('jeuxDroneBonusSpeciaux')}
-                  </Text>
+                  <Text style={styles.texte}>{t('jeuxDroneRegleCourte')}</Text>
+                  <Text style={styles.texteDiscret}>{t('jeuxDroneResume')}</Text>
                   <Records records={records} t={t} />
                   <Bouton
                     texte={t('jeuJouer')}
