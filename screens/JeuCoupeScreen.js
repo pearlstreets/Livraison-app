@@ -94,21 +94,17 @@ import {
   recordsApres,
 } from '../utils/jeux/coupe';
 
-// Vibration légère : module natif facultatif, le jeu marche sans.
-let Haptics = null;
+// Vibration légère (Android) : facultative, le jeu marche sans.
+let haptique = null;
 try {
   // eslint-disable-next-line global-require
-  Haptics = require('expo-haptics');
+  haptique = require('../utils/jeux/haptique');
 } catch (e) {
-  Haptics = null;
+  haptique = null;
 }
 function vibrer(fort) {
   try {
-    if (!Haptics) return;
-    const promesse = fort
-      ? Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-      : Haptics.selectionAsync();
-    promesse?.catch?.(() => {});
+    haptique?.vibrer?.(fort ? [0, 40, 50, 40] : [0, 12]);
   } catch (e) {
     // Sans vibration.
   }
