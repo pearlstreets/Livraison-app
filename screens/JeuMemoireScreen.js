@@ -653,7 +653,7 @@ export default function JeuMemoireScreen({navigation}) {
   const grilleVisible = phase === 'jeu' || phase === 'palier';
   const grille = useMemo(() => dispositionGrille(cartes.length || 4, zone.l, Math.max(0, zone.h - ECART), ECART), [cartes.length, zone]);
   const largeurGrille = grille.colonnes * grille.largeur + (grille.colonnes - 1) * ECART;
-  const fenetre = phase !== 'jeu' && !classementOuvert && !reprise.proposition && !alerteCourse;
+  const fenetre = phase !== 'jeu' && !reprise.proposition && !alerteCourse;
   const meilleur = records?.meilleurScore || 0;
 
   return (
@@ -716,8 +716,8 @@ export default function JeuMemoireScreen({navigation}) {
           <View style={styles.carte}>
             {phase === 'accueil' && (
               <>
-                <ReglagesSon />
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeau?.rang} record={bandeau?.record} top1={bandeau?.top1} />
+                <ReglagesSon />
                 <Ionicons name="albums" size={46} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuxMemoireTitre')}</Text>
                 <Text style={styles.texte}>{t('jeuxMemoireRegleCourte')}</Text>
@@ -753,8 +753,8 @@ export default function JeuMemoireScreen({navigation}) {
             )}
             {phase === 'pause' && (
               <>
-                <ReglagesSon />
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeau?.rang} record={bandeau?.record} top1={bandeau?.top1} />
+                <ReglagesSon />
                 <Ionicons name="pause-circle" size={44} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                 <Text style={styles.texte}>{t('jeuScore', {n: score})}</Text>

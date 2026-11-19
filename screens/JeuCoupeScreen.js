@@ -1064,14 +1064,13 @@ export default function JeuCoupeScreen({navigation}) {
 
       {/* Fenêtres : accueil, pause, fin */}
       {(phase === 'accueil' || phase === 'pause' || phase === 'fin') &&
-        !classementOuvert &&
         !reprise.proposition && (
           <View style={styles.voile}>
             <View style={styles.carte}>
               {phase === 'accueil' && (
                 <>
-                  <ReglagesSon />
                   <BoutonClassement onPress={ouvrirClassement} rang={bandeau?.rang} record={bandeau?.record} top1={bandeau?.top1} />
+                  <ReglagesSon />
                   <Text style={styles.grosEmoji}>🍉</Text>
                   <Text style={styles.titre}>{t('jeuxCoupeTitre')}</Text>
                   <Text style={styles.texte}>{t('jeuxCoupeRegleCourte')}</Text>
@@ -1093,8 +1092,8 @@ export default function JeuCoupeScreen({navigation}) {
               )}
               {phase === 'pause' && (
                 <>
-                  <ReglagesSon />
                   <BoutonClassement onPress={ouvrirClassement} rang={bandeau?.rang} record={bandeau?.record} top1={bandeau?.top1} />
+                  <ReglagesSon />
                   <Ionicons name="pause-circle" size={44} color={C.marque} />
                   <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                   <Text style={styles.texte}>
