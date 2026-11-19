@@ -24,43 +24,15 @@
  * vie, sirene, sifflet, niveau, perdu, plus les anciens (piece, bonus, tap,
  * palier, rebond, ok, rate).
  */
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const CLE = 'jeux_son_v1';
-let reglages = { musique: true, bruitages: true };
-let charge = false;
-const abonnes = new Set();
-
-export async function chargerReglagesSon() {
-  if (charge) return reglages;
-  try {
-    const brut = await AsyncStorage.getItem(CLE);
-    if (brut) {
-      const r = JSON.parse(brut);
-      reglages = { musique: r.musique !== false, bruitages: r.bruitages !== false };
-    }
-  } catch {
-    // Réglages par défaut.
-  }
-  charge = true;
-  return reglages;
-}
-
-export function reglagesSon() {
-  return reglages;
-}
-
-export function changerReglageSon(cle, valeur) {
-  reglages = { ...reglages, [cle]: !!valeur };
-  charge = true;
-  AsyncStorage.setItem(CLE, JSON.stringify(reglages)).catch(() => {});
-  abonnes.forEach((f) => { try { f(reglages); } catch { /* rien */ } });
-}
-
-export function ecouterReglagesSon(f) {
-  abonnes.add(f);
-  return () => abonnes.delete(f);
-}
+// Réglages partagés avec le moteur AppUser (utils/jeux/sonJeux.js, même clé
+// jeux_son_v1) : un seul état, un seul écouteur. Ce fichier garde l'ancien
+// moteur (choisir, musique(bool)) pour components/SonJeux.js (Basket).
+export {
+  chargerReglagesSon,
+  reglagesSon,
+  changerReglageSon,
+  ecouterReglagesSon,
+} from './jeux/sonJeux';
 
 export const JEUX_MUSIQUE = ['coupe', 'memoire', 'drone', 'toits', 'sommet', 'slalom', 'basket'];
 export const BRUITAGES = ['saut', 'accroupi', 'ramasse', 'booster', 'choc', 'record', 'tranche', 'carte', 'vie', 'sirene', 'sifflet', 'niveau', 'perdu'];

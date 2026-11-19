@@ -1,12 +1,36 @@
 // node --experimental-detect-module --test utils/__tests__/jeuSommet.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
+import { register } from 'node:module';
+
+// utils/jeux/sommet.js importe AsyncStorage (partie enregistrée) et ./commun
+// (compte, couleurs, contextes React) : sous node, ces deux modules sont
+// remplacés par un faux stockage en mémoire et les deux petites fonctions pures utilisées.
+const FAUX_STOCKAGE = [
+  'const m = new Map();',
+  'export default { getItem: async (k) => (m.has(k) ? m.get(k) : null), setItem: async (k, v) => { m.set(k, String(v)); }, removeItem: async (k) => { m.delete(k); } };',
+].join('\n');
+const FAUX_COMMUN = [
+  'export function cleSauvegardeJeu(jeu, idUser) { const s = idUser != null && idUser !== "" ? String(idUser) : "local"; return "USER_JEU_" + String(jeu).toUpperCase() + "_V1_" + s; }',
+  'export function entierJeu(x, min = 0) { const n = Math.floor(Number(x)); return Number.isFinite(n) && n >= min ? n : min; }',
+].join('\n');
+register('data:text/javascript,' + encodeURIComponent(`
+export async function resolve(specifier, context, next) {
+  if (specifier === '@react-native-async-storage/async-storage') {
+    return { shortCircuit: true, url: 'data:text/javascript,' + encodeURIComponent(${JSON.stringify(FAUX_STOCKAGE)}) };
+  }
+  if (specifier === './commun' && String(context.parentURL || '').endsWith('/utils/jeux/sommet.js')) {
+    return { shortCircuit: true, url: 'data:text/javascript,' + encodeURIComponent(${JSON.stringify(FAUX_COMMUN)}) };
+  }
+  return next(specifier, context);
+}`));
+
+const S = await import('../jeux/sommet.js');
+const {
   MONDE_L, V_SAUT, V_MONTE, JOUEUR_H, ECART_MAX_RATIO, LARGEURS, BONUS, TYPES_BONUS, BONUS_ECART_MIN,
   SURCHARGE_MAX, VENT_MAX, difficulte, ecarts, hauteurSaut, peutAtteindre, surcharge, ventMax,
   reglagesPieges, partieNeuve, genererJusqua, avancer, hasardGraine, bonusActifs, restaurerBonus,
-} from '../jeuSommet.js';
-import * as S from '../jeuSommet.js';
+} = S;
 
 const GRAINES = [1, 7, 42, 999, 31337];
 const H_SAUT = hauteurSaut(V_SAUT);
@@ -446,4 +470,47 @@ test('doigt arrêté : aucun vent ne fait glisser le livreur', () => {
   for (let i = 0; i < 60; i += 1) S.avancer(e, 1 / 60, 0);
   assert.ok(Math.abs(e.joueur.vx) < 1e-6, `vitesse latérale ${e.joueur.vx}`);
   assert.ok(Math.abs(S.dxBoucle(x0, e.joueur.x)) < 1e-6, 'aucune dérive');
+});
+
+test('sauvegarde : valeurs abîmées nettoyées, partie en cours reprise en pause', () => {
+  assert.deepEqual(S.nettoyerSauvegarde(null), S.sauvegardeNeuve());
+  assert.deepEqual(S.nettoyerSauvegarde([1, 2]), S.sauvegardeNeuve());
+  const propre = S.nettoyerSauvegarde({
+    phase: 'jeu', meilleurScore: 'abc', meilleurNiveau: -4,
+    course: {etage: 120.7, colis: 3, bonus: {aimant: 999, casque: 'x'}},
+  });
+  assert.equal(propre.phase, 'pause');
+  assert.equal(propre.course.etage, 120);
+  assert.equal(propre.course.score, 120 + 3 * S.POINTS_COLIS);
+  assert.equal(propre.course.bonus.aimant, BONUS.aimant.duree);
+  assert.equal(propre.course.bonus.casque, 0);
+  assert.ok(propre.meilleurScore >= propre.course.score);
+  // Pause sans course : retour à l'accueil.
+  assert.equal(S.nettoyerSauvegarde({phase: 'pause', course: null}).phase, 'accueil');
+});
+
+test('reprise : le livreur repart avec ses étages, colis et bonus', () => {
+  const e = S.reprendreCourse({etage: 80, colis: 4, bonus: {casque: 1}}, 640, hasardGraine(3));
+  assert.equal(e.etage, 80);
+  assert.equal(e.colis, 4);
+  assert.equal(e.score, 80 + 4 * S.POINTS_COLIS);
+  const inst = S.instantaneCourse(e);
+  assert.equal(inst.etage, 80);
+  assert.equal(inst.colis, 4);
+  assert.equal(S.instantaneCourse(null), null);
+});
+
+test('enregistrement puis relecture de la partie, clé par compte', async () => {
+  const cle = S.cleSauvegarde(42);
+  assert.equal(cle, 'USER_JEU_SOMMET_V1_42');
+  assert.deepEqual(await S.chargerPartie(cle), S.sauvegardeNeuve());
+  const etat = {...S.sauvegardeNeuve({meilleurScore: 500, meilleurNiveau: 2}), phase: 'accueil'};
+  await S.enregistrerPartie(cle, etat);
+  const relu = await S.chargerPartie(cle);
+  assert.equal(relu.meilleurScore, 500);
+  assert.equal(relu.meilleurNiveau, 2);
+});
+
+test('pigeon tout juste apparu : délai de grâce avant de blesser', () => {
+  assert.ok(S.PIGEON_VU_MIN > 0 && S.PIGEON_VU_MIN < 1);
 });
