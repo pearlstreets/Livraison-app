@@ -707,8 +707,8 @@ export default function JeuSommetScreen({navigation}) {
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeauClassement?.rang} record={bandeauClassement?.record} top1={bandeauClassement?.top1} />
                 <Ionicons name="business" size={42} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuxSommetTitre')}</Text>
-                <Text style={styles.texte}>{t('jeuxSommetRegle')}</Text>
-                <Text style={styles.texteDiscret}>{t('jeuxSommetRegle2')}</Text>
+                <Text style={styles.texte}>{t('jeuxSommetRegleCourte')}</Text>
+                <Text style={styles.texteDiscret}>{t('jeuxSommetResume')}</Text>
                 <Records etat={etat} t={t} />
                 <Bouton texte={t('jeuJouer')} onPress={jouer} />
                 <Bouton secondaire texte={t('jeuQuitter')} onPress={quitter} />

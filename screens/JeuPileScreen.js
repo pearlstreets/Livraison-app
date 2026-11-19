@@ -524,9 +524,8 @@ export default function JeuPileScreen({navigation}) {
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeau?.rang} record={bandeau?.record} top1={bandeau?.top1} />
                 <Ionicons name="gift" size={42} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuPile.titre')}</Text>
-                <Text style={styles.texte}>{t('jeuPile.regle')}</Text>
-                <Text style={styles.texteDiscret}>{t('jeuPile.regleParfait')}</Text>
-                <Text style={styles.texteDiscret}>{t('jeuPile.regleVies')}</Text>
+                <Text style={styles.texte}>{t('jeuPile.regleCourte')}</Text>
+                <Text style={styles.texteDiscret}>{t('jeuPile.resume')}</Text>
                 <Records etat={etat} t={t} />
                 <Bouton texte={t('jeux.jouer')} onPress={demarrer} />
                 <Bouton secondaire texte={t('jeux.quitter')} onPress={quitter} />

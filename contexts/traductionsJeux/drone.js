@@ -1,6 +1,8 @@
 // Mini-jeu « Drone express » (screens/JeuDroneScreen.js).
 export default {
   fr: {
+    jeuxDroneRegleCourte: 'Touchez l\'écran pour faire monter le drone.',
+    jeuxDroneResume: 'Passez entre les obstacles et attrapez les colis.',
     jeuxDroneTitre: 'Drone express',
     jeuxDroneTexte: 'Guidez le drone entre les immeubles et les grues.',
     jeuxDroneRegle: 'Touchez l\'écran pour faire monter le drone. Passez entre les obstacles sans rien toucher.',
@@ -21,6 +23,8 @@ export default {
     jeuxDroneBonusSpeciaux: 'Bonus : bouclier (encaisse un choc), aimant (colis et clients attrapés à toute hauteur, 8 s), points doublés (10 s). Plus vous allez loin, plus c\'est dur.',
   },
   en: {
+    jeuxDroneRegleCourte: 'Tap the screen to make the drone climb.',
+    jeuxDroneResume: 'Fly between the obstacles and catch the parcels.',
     jeuxDroneTitre: 'Drone express',
     jeuxDroneTexte: 'Steer the drone between buildings and cranes.',
     jeuxDroneRegle: 'Tap the screen to lift the drone. Fly through the gaps without touching anything.',
@@ -41,6 +45,8 @@ export default {
     jeuxDroneBonusSpeciaux: 'Bonuses: shield (absorbs one hit), magnet (parcels and customers caught at any height, 8 s), double points (10 s). The further you go, the harder it gets.',
   },
   es: {
+    jeuxDroneRegleCourte: 'Toque la pantalla para que el dron suba.',
+    jeuxDroneResume: 'Pase entre los obstáculos y atrape los paquetes.',
     jeuxDroneTitre: 'Dron exprés',
     jeuxDroneTexte: 'Guíe el dron entre los edificios y las grúas.',
     jeuxDroneRegle: 'Toque la pantalla para que el dron suba. Pase entre los obstáculos sin tocar nada.',
@@ -61,6 +67,8 @@ export default {
     jeuxDroneBonusSpeciaux: 'Bonus: escudo (aguanta un choque), imán (paquetes y clientes atrapados a cualquier altura, 8 s), puntos dobles (10 s). Cuanto más lejos llegue, más difícil será.',
   },
   zh: {
+    jeuxDroneRegleCourte: '点击屏幕让无人机上升。',
+    jeuxDroneResume: '从障碍之间穿过，并接住包裹。',
     jeuxDroneTitre: '无人机快递',
     jeuxDroneTexte: '引导无人机穿过楼房和吊车之间。',
     jeuxDroneRegle: '点击屏幕让无人机上升。从障碍物之间穿过，不要碰到任何东西。',
@@ -81,6 +89,8 @@ export default {
     jeuxDroneBonusSpeciaux: '奖励：护盾（抵挡一次撞击），磁铁（任意高度都能接住包裹并服务客户，8 秒），双倍积分（10 秒）。您飞得越远，难度越高。',
   },
   ar: {
+    jeuxDroneRegleCourte: 'المس الشاشة لرفع الطائرة المسيّرة.',
+    jeuxDroneResume: 'مرّ بين العقبات والتقط الطرود.',
     jeuxDroneTitre: 'درون إكسبرس',
     jeuxDroneTexte: 'وجّهوا الطائرة المسيّرة بين المباني والرافعات.',
     jeuxDroneRegle: 'المسوا الشاشة لرفع الطائرة. مرّوا بين العوائق دون لمس أي شيء.',
@@ -101,6 +111,8 @@ export default {
     jeuxDroneBonusSpeciaux: 'المكافآت: درع (يتحمل صدمة واحدة)، مغناطيس (التقاط الطرود وخدمة الزبائن على أي ارتفاع، 8 ث)، نقاط مضاعفة (10 ث). كلما تقدمتم أكثر، أصبح الأمر أصعب.',
   },
   de: {
+    jeuxDroneRegleCourte: 'Tippen Sie auf den Bildschirm, damit die Drohne steigt.',
+    jeuxDroneResume: 'Fliegen Sie zwischen den Hindernissen hindurch und fangen Sie die Pakete.',
     jeuxDroneTitre: 'Drohnen-Express',
     jeuxDroneTexte: 'Steuern Sie die Drohne zwischen Gebäuden und Kränen hindurch.',
     jeuxDroneRegle: 'Tippen Sie auf den Bildschirm, damit die Drohne steigt. Fliegen Sie durch die Lücken, ohne etwas zu berühren.',
@@ -121,6 +133,8 @@ export default {
     jeuxDroneBonusSpeciaux: 'Boni: Schild (fängt einen Aufprall ab), Magnet (Pakete und Kunden in jeder Höhe, 8 s), doppelte Punkte (10 s). Je weiter Sie kommen, desto schwerer wird es.',
   },
   nl: {
+    jeuxDroneRegleCourte: 'Tik op het scherm om de drone te laten stijgen.',
+    jeuxDroneResume: 'Vlieg tussen de obstakels door en vang de pakketjes.',
     jeuxDroneTitre: 'Drone express',
     jeuxDroneTexte: 'Stuur de drone tussen de gebouwen en kranen door.',
     jeuxDroneRegle: 'Tik op het scherm om de drone te laten stijgen. Vlieg door de openingen zonder iets te raken.',
@@ -141,6 +155,8 @@ export default {
     jeuxDroneBonusSpeciaux: 'Bonussen: schild (vangt één botsing op), magneet (pakketten en klanten op elke hoogte, 8 s), dubbele punten (10 s). Hoe verder u komt, hoe moeilijker het wordt.',
   },
   it: {
+    jeuxDroneRegleCourte: 'Tocchi lo schermo per far salire il drone.',
+    jeuxDroneResume: 'Passi tra gli ostacoli e afferri i pacchi.',
     jeuxDroneTitre: 'Drone express',
     jeuxDroneTexte: 'Guidi il drone tra palazzi e gru.',
     jeuxDroneRegle: 'Tocchi lo schermo per far salire il drone. Passi tra gli ostacoli senza toccare nulla.',
@@ -161,6 +177,8 @@ export default {
     jeuxDroneBonusSpeciaux: 'Bonus: scudo (assorbe un urto), calamita (pacchi e clienti presi a qualsiasi altezza, 8 s), punti doppi (10 s). Più va avanti, più diventa difficile.',
   },
   pt: {
+    jeuxDroneRegleCourte: 'Toque no ecrã para fazer subir o drone.',
+    jeuxDroneResume: 'Passe entre os obstáculos e apanhe as encomendas.',
     jeuxDroneTitre: 'Drone expresso',
     jeuxDroneTexte: 'Guie o drone entre os prédios e os guindastes.',
     jeuxDroneRegle: 'Toque no ecrã para fazer o drone subir. Passe entre os obstáculos sem tocar em nada.',
@@ -181,6 +199,8 @@ export default {
     jeuxDroneBonusSpeciaux: 'Bónus: escudo (aguenta um choque), íman (encomendas e clientes apanhados a qualquer altura, 8 s), pontos a dobrar (10 s). Quanto mais longe for, mais difícil fica.',
   },
   ja: {
+    jeuxDroneRegleCourte: '画面をタップしてドローンを上昇させます。',
+    jeuxDroneResume: '障害物の間を抜けて、荷物をキャッチしてください。',
     jeuxDroneTitre: 'ドローン速達',
     jeuxDroneTexte: 'ビルとクレーンの間をドローンで抜けましょう。',
     jeuxDroneRegle: '画面をタップするとドローンが上昇します。何にも触れずに障害物の間を通り抜けてください。',
@@ -201,6 +221,8 @@ export default {
     jeuxDroneBonusSpeciaux: 'ボーナス：シールド（衝突を1回防ぐ）、マグネット（どの高さでも荷物とお客様をキャッチ、8 秒）、ポイント2倍（10 秒）。進むほど難しくなります。',
   },
   th: {
+    jeuxDroneRegleCourte: 'แตะหน้าจอเพื่อให้โดรนบินขึ้น',
+    jeuxDroneResume: 'บินผ่านระหว่างสิ่งกีดขวางและเก็บพัสดุ',
     jeuxDroneTitre: 'โดรนด่วน',
     jeuxDroneTexte: 'บังคับโดรนผ่านระหว่างตึกและเครน',
     jeuxDroneRegle: 'แตะหน้าจอเพื่อให้โดรนบินขึ้น บินผ่านช่องว่างโดยไม่ชนสิ่งใด',
@@ -221,6 +243,8 @@ export default {
     jeuxDroneBonusSpeciaux: 'โบนัส: โล่ (กันการชนได้หนึ่งครั้ง) แม่เหล็ก (รับพัสดุและส่งของให้ลูกค้าได้ทุกระดับความสูง 8 วินาที) คะแนนสองเท่า (10 วินาที) ยิ่งไปไกล ยิ่งยากขึ้น',
   },
   sv: {
+    jeuxDroneRegleCourte: 'Tryck på skärmen för att få drönaren att stiga.',
+    jeuxDroneResume: 'Flyg mellan hindren och fånga paketen.',
     jeuxDroneTitre: 'Drönarexpress',
     jeuxDroneTexte: 'Styr drönaren mellan husen och kranarna.',
     jeuxDroneRegle: 'Tryck på skärmen för att få drönaren att stiga. Flyg genom luckorna utan att nudda något.',
@@ -241,6 +265,8 @@ export default {
     jeuxDroneBonusSpeciaux: 'Bonusar: sköld (tar emot en krock), magnet (paket och kunder på alla höjder, 8 s), dubbla poäng (10 s). Ju längre du kommer, desto svårare blir det.',
   },
   ru: {
+    jeuxDroneRegleCourte: 'Касайтесь экрана, чтобы дрон поднимался.',
+    jeuxDroneResume: 'Пролетайте между препятствиями и ловите посылки.',
     jeuxDroneTitre: 'Дрон-экспресс',
     jeuxDroneTexte: 'Проведите дрон между домами и кранами.',
     jeuxDroneRegle: 'Касайтесь экрана, чтобы дрон поднимался. Пролетайте между препятствиями, ничего не задевая.',
