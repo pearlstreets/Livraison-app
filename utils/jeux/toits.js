@@ -1,7 +1,7 @@
 /**
- * Mini-jeu « Tournée des toits » : logique pure (sans React), testable sous node.
- * Même logique que l'app client (AppUser, src/utils/jeux/toits.js), sans la
- * sauvegarde (ici : utils/partieSauvegardee.js, côté écran).
+ * Mini-jeu « Tournée des toits » (clé toits) : logique pure (sans React), testée par
+ * utils/__tests__/jeuToits.test.mjs. Copie de l'app client (AppUser, utils/jeux/toits.js),
+ * avec la sauvegarde de la partie en fin de fichier.
  *
  * Monde en unités de jeu : x vers la droite, y vers le HAUT, y = 0 au niveau
  * du trottoir. Le livreur est une boîte (x, y) = coin bas gauche, LARGEUR x HAUTEUR.
@@ -34,7 +34,16 @@
  * le bas dessus : on passe dans le conduit et on ressort plus loin), conduits
  * et balcons en hauteur. Difficulté (`reglagesNiveau`) : douce mais nette dès
  * le niveau 1, en hausse à chaque niveau, plafonnée (jamais impossible).
+ *
+ * Plus de choses à faire en course (15/11) : chats de gouttière qui
+ * patrouillent en bondissant (on passe dessous pendant le bond, ou on les
+ * écarte en leur sautant dessus), bâches tendues sur un toit large (elles
+ * renvoient le livreur assez haut pour une rangée de colis hors de portée
+ * d'un saut), et colis en arc au-dessus des trous, sur la courbe du saut.
  */
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {cleSauvegardeJeu, entierJeu} from './commun';
 
 export const JEU_TOITS = 'toits';
 
@@ -67,6 +76,13 @@ export const RESSORT_TENU = 1060;
 export const TAILLE_RESSORT = { w: 24, h: 14 };
 // Étages : passerelles empilées au-dessus d'un toit, une marche franchissable d'un saut entre deux.
 export const MARCHE_ETAGE = 70;
+// Bâche tendue sur un toit large : renvoi plus haut qu'un saut, assez court pour retomber sur le même toit.
+export const BACHE = 820;
+export const TAILLE_BACHE = { w: 30, h: 10 };
+export const DEGAGEMENT_BACHE = 150; // de chaque côté de la bâche : la retombée reste sur le toit
+export const HAUT_COLIS_BACHE = 178; // colis au-dessus de la bâche : hors de portée d'un saut normal
+// Chat de gouttière : il patrouille en bondissant ; pendant le bond, on passe dessous.
+export const CHAT_SAUT = 40;
 const CHUTE_VOL = 110;
 const PLAFOND_VOL = 330;
 
@@ -78,6 +94,17 @@ export const NAGE = {
 export const GRIMPE = 420; // geste vers le haut contre une gouttière : le livreur grimpe
 const GLISSE = 60; // contre une gouttière, il glisse lentement au lieu de tomber
 export const PASSAGE = { duree: 0.7, sortie: 380 }; // bouche d'aération : durée du conduit, élan à la sortie
+// Plongée (bassin profond entre deux immeubles) : tout entier sous l'eau, le livreur remonte
+// lentement (poussée nette `flotte`) ; ouvertures des murs d'algues d'au moins `ouvertureMin` ;
+// entrée et sortie du bassin toujours libres (`zoneEntree`, `zoneSortie`).
+export const PLONGEE = { flotte: 140, profondeurMin: 150, ouvertureMin: 64, zoneEntree: 70, zoneSortie: 80, hautMin: 130 };
+// Oxygène : il baisse tête sous l'eau (plein en `duree` secondes), remonte vite à la surface.
+export const OXYGENE = { duree: 9, recharge: 2.5 };
+// Plaque de glace (monde hiver) : on accélère et on freine moins bien, sans jamais filer au bord.
+export const GLACE = { accel: 0.45, frein: 0.25, bord: 120 };
+// Tornade (monde désert) : annoncée `alerte` secondes, elle pousse le livreur posé au sol, jamais au-delà du bord.
+export const TORNADE = { w: 56, h: 260, poussee: 70, alerte: 1.8, duree: 8 };
+export const TAILLES_POISSONS = { poisson: { w: 22, h: 12 }, requin: { w: 54, h: 22 } };
 
 export const SOL_ECRAN = 40; // marge sous le trottoir à l'écran
 export const LIMITE_CHUTE = -70; // en dessous : vie perdue
@@ -87,17 +114,25 @@ export const MARGE_SAUT = 24; // saut faisable même déclenché 24 unités trop
 
 export const PALIER_PIECES = 10; // tous les 10 colis : une vie, sinon un aimant
 export const INVUL_REPRISE = 2; // secondes d'invincibilité après la reprise
-export const DUREES = { aimant: 8, vol: 5, etoile: 6, double: 10 };
+export const DUREES = { aimant: 8, vol: 5, etoile: 6, double: 10, sprint: 6, doubleSaut: 10 };
 export const BONUS_CAISSE = ['taille', 'vol', 'etoile', 'chrono', 'double'];
+// Ordre des caisses : les pouvoirs forts (drone, étoile) une caisse sur quatre seulement.
+const ORDRE_CAISSE = ['taille', 'chrono', 'double', 'vol', 'taille', 'etoile', 'chrono', 'double'];
+// Boîte aux lettres : jamais vide. Un colis le plus souvent, et de temps en temps un petit pouvoir
+// (sprint, double saut, aimant), chacun avec son objet qui jaillit de la boîte.
+export const RECOMPENSES_BOITE = ['colis', 'sprint', 'colis', 'doubleSaut', 'colis', 'aimant'];
+export const DUREE_SORTIE = 1.1; // secondes : objet qui jaillit d'une boîte ou d'une caisse
+export const SPRINT = 1.35; // vitesse et accélération multipliées pendant le sprint
+export const DOUBLE_SAUT = 0.92; // second saut en l'air : 92 % d'un saut normal
 export const BONUS_CHRONO = 10; // secondes ajoutées au chrono par la caisse « chrono »
-export const PROB_CAISSE = 0.38; // chance d'une caisse bonus sur un toit libre et assez large
+export const PROB_CAISSE = 0.45; // chance d'une caisse bonus sur un toit libre et assez large
 const RAYON_AIMANT = 120;
 
 // Reprise sûre et placement des gêneurs.
 export const BORD_SUR = 36; // jamais à moins de 36 unités d'un bord
 export const DISTANCE_SURE = 45; // aucun gêneur à moins de 45 unités
 export const DEGAGEMENT_ATTERRISSAGE = 110; // début de toit sans gêneur
-export const LARGEUR_MIN_GENEUR = 160;
+export const LARGEUR_MIN_GENEUR = 180;
 
 export const POINTS = {
   colis: 10,
@@ -106,6 +141,7 @@ export const POINTS = {
   chien: 100,
   pigeon: 120,
   trottinette: 150,
+  chat: 150,
   livraison: 500,
   seconde: 20,
 };
@@ -114,6 +150,7 @@ export const TAILLES = {
   chien: { w: 26, h: 20 },
   pigeon: { w: 22, h: 16 },
   trottinette: { w: 28, h: 24 },
+  chat: { w: 24, h: 18 },
   colis: 18,
   boite: 22,
   porte: { w: 34, h: 50 },
@@ -140,6 +177,7 @@ export function nouveauJoueur(x, y) {
   return {
     x, y, vx: 0, vy: 0, dir: 1, sol: null, coyote: 0, tampon: 0, tenue: 0,
     enSaut: false, recul: 0, course: 0, accroupi: false, vol: false,
+    sprint: false, doubleSaut: false, sautAir: false, sautDouble: false,
   };
 }
 
@@ -155,6 +193,7 @@ export function hautDe(s) {
  * Un pas de physique du livreur. `cmd` : { gauche, droite, sautTenu }.
  * Le saut demandé se pose avant via `j.tampon = TAMPON` (voir demanderSaut).
  * `j.vol` vrai : saut permis en l'air et descente planée.
+ * `j.sprint` vrai : course plus rapide ; `j.doubleSaut` vrai : un second saut en l'air.
  * Rend la boîte frappée par-dessous, sinon null.
  * `env` (facultatif) : { eaux, gouttieres } du niveau. Sans `env`, tout est sec
  * (les simulations de saut de la génération).
@@ -162,26 +201,36 @@ export function hautDe(s) {
 export function physiqueJoueur(j, plateformes, boites, cmd, dt, env) {
   const eau = env ? eauSous(j, env.eaux) : null;
   const gout = env && !j.sol && !eau ? gouttiereContre(j, env.gouttieres) : null;
+  const algues = (env && env.algues) || [];
   j.dansEau = !!eau;
+  j.eau = eau;
+  // Plaque de glace sous le livreur : moins d'adhérence, à l'accélération comme au freinage.
+  const cxGlace = j.x + LARGEUR / 2;
+  const glace = !!(j.sol && j.sol.glace && cxGlace >= j.sol.glace.x1 && cxGlace <= j.sol.glace.x2);
+  j.surGlace = glace;
   j.grimpe = false;
   const dir = (cmd.droite ? 1 : 0) - (cmd.gauche ? 1 : 0);
   if (j.recul > 0) j.recul -= dt;
   if (dir && j.recul <= 0) {
-    const acc = j.sol ? ACCEL_SOL : ACCEL_AIR;
+    const acc = (j.sol ? ACCEL_SOL : ACCEL_AIR) * (glace ? GLACE.accel : 1);
     // Demi-tour : freinage plus vif, plus nerveux.
     const bonus = Math.sign(j.vx) === -dir ? 1.6 : 1;
     let vmax = j.accroupi ? VITESSE * FREIN_ACCROUPI : VITESSE;
+    const elan = j.sprint && !j.accroupi && !eau ? SPRINT : 1;
+    vmax *= elan;
     if (eau) vmax = VITESSE * NAGE.vitesse;
-    j.vx = borner(j.vx + dir * acc * bonus * dt, -vmax, vmax);
+    j.vx = borner(j.vx + dir * acc * bonus * elan * dt, -vmax, vmax);
     j.dir = dir;
   } else {
-    const frein = (j.sol ? FREIN_SOL : FREIN_AIR * (eau ? 2 : 1)) * dt;
+    const frein = (j.sol ? FREIN_SOL * (glace ? GLACE.frein : 1) : FREIN_AIR * (eau ? 2 : 1)) * dt;
     j.vx = Math.abs(j.vx) <= frein ? 0 : j.vx - Math.sign(j.vx) * frein;
   }
   if (eau) j.vx = borner(j.vx, -VITESSE * NAGE.vitesse, VITESSE * NAGE.vitesse); // l'eau absorbe l'élan
 
   // Saut (avec tolérance au bord et à l'appui anticipé).
   if (j.sol) j.coyote = COYOTE; else j.coyote -= dt;
+  if (j.sol) j.sautAir = true; // posé : le second saut en l'air est rechargé
+  j.sautDouble = false;
   if (j.tampon > 0) j.tampon -= dt;
   if (eau && j.tampon > 0) {
     // Dans l'eau : tête dehors, on sort d'un vrai saut ; sous l'eau, une brasse fait remonter.
@@ -207,6 +256,14 @@ export function physiqueJoueur(j, plateformes, boites, cmd, dt, env) {
     j.tampon = 0;
     j.sol = null;
     j.enSaut = true;
+  } else if (j.tampon > 0 && j.doubleSaut && j.sautAir && !j.sol) {
+    // Double saut : un second élan en l'air, une fois par saut.
+    j.vy = Math.max(j.vy, SAUT * DOUBLE_SAUT);
+    j.sautAir = false;
+    j.sautDouble = true;
+    j.tenue = 0;
+    j.tampon = 0;
+    j.enSaut = true;
   }
   let g = GRAVITE;
   if (j.enSaut && j.vy > 0) {
@@ -222,7 +279,8 @@ export function physiqueJoueur(j, plateformes, boites, cmd, dt, env) {
   if (eau && !(j.enSaut && j.vy > 0)) {
     // Flottaison : la poussée grandit avec la part du livreur sous l'eau ; glisser vers le bas : il plonge.
     const im = borner((eau.eau - j.y) / HAUTEUR, 0, 1);
-    j.vy += (NAGE.poussee * im - NAGE.gravite) * dt;
+    // Bassin profond, tout entier sous l'eau : il remonte lentement, on a le temps de viser une ouverture.
+    j.vy += (eau.profond && im >= 1 ? PLONGEE.flotte : NAGE.poussee * im - NAGE.gravite) * dt;
     if (cmd.bas) j.vy -= NAGE.plongee * dt;
     j.vy -= j.vy * NAGE.trainee * dt;
     j.vy = Math.max(-NAGE.plongeeMax, j.vy);
@@ -245,6 +303,14 @@ export function physiqueJoueur(j, plateformes, boites, cmd, dt, env) {
     const b = boites[i];
     if (j.y < b.y + b.h - 0.01 && j.y + HAUTEUR > b.y + 0.01 && recouvreX(j, b, 0)) {
       if (j.x + LARGEUR / 2 < b.x + b.w / 2) j.x = b.x - LARGEUR; else j.x = b.x + b.w;
+      j.vx = 0;
+    }
+  }
+  // Murs d'algues : pleins, on bute dessus de côté comme sur une boîte.
+  for (let i = 0; i < algues.length; i += 1) {
+    const a = algues[i];
+    if (j.y < a.y + a.h - 0.01 && j.y + HAUTEUR > a.y + 0.01 && recouvreX(j, a, 0)) {
+      if (j.x + LARGEUR / 2 < a.x + a.w / 2) j.x = a.x - LARGEUR; else j.x = a.x + a.w;
       j.vx = 0;
     }
   }
@@ -285,6 +351,18 @@ export function physiqueJoueur(j, plateformes, boites, cmd, dt, env) {
         frappee = b;
         break;
       }
+    }
+  }
+  // Algues par-dessus ou par-dessous : on s'y arrête (sans s'y poser), la poussée de l'eau fait le reste.
+  for (let i = 0; i < algues.length; i += 1) {
+    const a = algues[i];
+    if (!recouvreX(j, a, 0)) continue;
+    if (j.vy <= 0 && avant >= a.y + a.h - 0.01 && j.y < a.y + a.h) {
+      j.y = a.y + a.h;
+      j.vy = 0;
+    } else if (j.vy > 0 && avant + HAUTEUR <= a.y + 0.01 && j.y + HAUTEUR > a.y) {
+      j.y = a.y - HAUTEUR;
+      j.vy = 0;
     }
   }
   if (j.sol && Math.abs(j.vx) > 1) j.course += Math.abs(j.vx) * dt; else if (j.sol) j.course = 0;
@@ -446,19 +524,157 @@ export function peutGrimper(a, b) {
   return false;
 }
 
+/** Oxygène après `dt` : il baisse tête sous l'eau d'un bassin profond, remonte ailleurs. */
+export function majOxygene(o, j, eau, dt) {
+  const sous = !!(eau && eau.profond && j.y + HAUTEUR * 0.8 < eau.eau);
+  return sous ? o - dt / OXYGENE.duree : Math.min(1, o + dt / OXYGENE.recharge);
+}
+
+/**
+ * Plongée de `a` (rebord) vers `b` (immeuble d'en face, `b.plongee` : le bassin).
+ * Livreur simulé avec la physique du jeu : il saute dans l'eau, reprend tout son
+ * souffle à la surface avant chaque mur à passer sous l'eau, vise l'ouverture
+ * (glisser vers le bas pour descendre, la poussée pour remonter), puis sort sur `b`
+ * d'un geste vers le haut. Rend { ok, temps, oxygeneMin }.
+ */
+export function peutPlonger(a, b) {
+  const pl = b && b.plongee;
+  if (!pl) return { ok: false, temps: 0, oxygeneMin: 0 };
+  const fond = { id: -1, x: pl.x, w: pl.w, y: pl.fond, flottante: false, type: 'fondPlongee' };
+  const eau = { x: pl.x, w: pl.w, y: pl.fond, eau: pl.eau, profond: true };
+  const env = { eaux: [eau], gouttieres: [], algues: pl.algues };
+  const liste = [a, fond, b];
+  const j = nouveauJoueur(a.x + a.w - LARGEUR - 40, hautDe(a));
+  j.sol = a;
+  const surface = pl.eau - 16;
+  const tete = () => j.y + HAUTEUR > pl.eau - 4;
+  let o = 1;
+  let oMin = 1;
+  let geste = -10;
+  const pret = new Set();
+  const dt = PAS_MAX;
+  for (let t = 0; t < 60; t += dt) {
+    const cmd = { gauche: false, droite: true, sautTenu: t - geste < 0.3, bas: false };
+    const k = pl.murs.findIndex((w) => j.x < w.x + w.w);
+    const mur = k >= 0 ? pl.murs[k] : null;
+    if (j.dansEau) {
+      if (mur && !mur.surface && !pret.has(k)) {
+        // Avant de passer sous un mur : à la surface, oxygène plein, sans coller au mur.
+        if (j.x + LARGEUR > mur.x - 30) cmd.droite = false;
+        if (j.y < surface - 30 && j.vy < 40 && !tete()) {
+          demanderSaut(j);
+          geste = t;
+        }
+        if (tete() && o >= 0.999) pret.add(k);
+      } else if (mur && !mur.surface) {
+        if (j.y > mur.cible + 3) cmd.bas = true;
+        else if (j.y < mur.cible - 40 && j.vy < 40 && !tete()) {
+          demanderSaut(j);
+          geste = t;
+        }
+      } else {
+        // Mur à passer en surface, ou plus de mur : on remonte, puis on sort contre `b`.
+        if (j.y < surface - 30 && j.vy < 40 && !tete()) {
+          demanderSaut(j);
+          geste = t;
+        }
+        if (!mur && tete() && j.x + LARGEUR > b.x - 40 && t - geste >= 0.4) {
+          demanderSaut(j);
+          geste = t;
+        }
+      }
+    }
+    cmd.sautTenu = t - geste < 0.3; // geste complet, comme à l'écran
+    physiqueJoueur(j, liste, [], cmd, dt, env);
+    o = majOxygene(o, j, j.eau, dt);
+    oMin = Math.min(oMin, o);
+    if (o <= 0) return { ok: false, temps: t, oxygeneMin: 0 };
+    if (j.sol === b) return { ok: true, temps: t, oxygeneMin: oMin };
+    if (j.y < LIMITE_CHUTE) return { ok: false, temps: t, oxygeneMin: oMin };
+  }
+  return { ok: false, temps: 60, oxygeneMin: oMin };
+}
+
+/**
+ * Murs d'algues, poissons et colis d'un bassin profond entre x0 et x1 (surface
+ * `eau`, fond `fond`). Murs : « fond » (on passe au-dessus, en surface),
+ * « surface » (on passe dessous, au ras du fond), « milieu » (ouverture à
+ * mi-hauteur). Poissons et requins patrouillent entre deux murs, jamais dans
+ * une ouverture, jamais à l'entrée ni à la sortie, jamais près de la surface.
+ */
+function construireBassin(rng, x0, x1, eau, fond, diff, n, nbMurs) {
+  const murs = [];
+  const algues = [];
+  const debut = x0 + PLONGEE.zoneEntree + 30;
+  const finUtile = x1 - PLONGEE.zoneSortie - 30;
+  const nb = Math.max(0, Math.min(nbMurs, Math.floor((finUtile - debut) / 120)));
+  const pas = nb ? (finUtile - debut) / nb : 0;
+  for (let k = 0; k < nb; k += 1) {
+    const w = Math.round(entre(rng, 16, 22));
+    const x = Math.round(debut + pas * (k + 0.5) + entre(rng, -0.15, 0.15) * pas - w / 2);
+    const tirage = rng();
+    const genre = k === 0 && n <= 2 ? 'fond' : tirage < 0.3 ? 'fond' : tirage < 0.65 ? 'surface' : 'milieu';
+    const ouv = Math.round(entre(rng, PLONGEE.ouvertureMin, PLONGEE.ouvertureMin + 18));
+    if (genre === 'fond') {
+      const haut = Math.round(Math.max(fond + 40, eau - entre(rng, 56, 90)));
+      murs.push({ x, w, genre, surface: true, cible: eau - 16 });
+      algues.push({ x, y: fond, w, h: haut - fond, depuis: 'fond' });
+    } else if (genre === 'surface') {
+      const bas = fond + ouv;
+      murs.push({ x, w, genre, surface: false, cible: fond });
+      algues.push({ x, y: bas, w, h: eau - 2 - bas, depuis: 'surface' });
+    } else {
+      const a = Math.round(entre(rng, fond + 30, Math.max(fond + 30, eau - 2 - ouv - 30)));
+      murs.push({ x, w, genre, surface: false, cible: a + (ouv - HAUTEUR) / 2 });
+      algues.push({ x, y: fond, w, h: a - fond, depuis: 'fond' });
+      algues.push({ x, y: a + ouv, w, h: eau - 2 - (a + ouv), depuis: 'surface' });
+    }
+  }
+  // Tronçons d'eau libre entre l'entrée, les murs et la sortie.
+  const bornes = [x0 + PLONGEE.zoneEntree];
+  murs.forEach((m) => bornes.push(m.x, m.x + m.w));
+  bornes.push(x1 - PLONGEE.zoneSortie);
+  const troncons = [];
+  for (let k = 0; k + 1 < bornes.length; k += 2) troncons.push([bornes[k], bornes[k + 1]]);
+  const poissons = [];
+  const colis = [];
+  const hautMax = eau - 30; // bande de surface toujours sans poisson : on y reprend son souffle
+  let requin = n >= 4 && rng() < 0.35 + 0.3 * diff;
+  troncons.forEach(([g, d]) => {
+    const largeur = d - g;
+    if (largeur >= 60) {
+      colis.push({ x: Math.round(g + largeur / 2 - TAILLES.colis / 2), y: Math.round(entre(rng, fond + 10, eau - 44)) });
+    }
+    const T = requin ? TAILLES_POISSONS.requin : TAILLES_POISSONS.poisson;
+    const xa = g + 12;
+    const xb = d - 12 - T.w;
+    if (xb - xa < 30 || rng() > (requin ? 1 : 0.45 + 0.3 * diff)) return;
+    const type = requin ? 'requin' : 'poisson';
+    requin = false;
+    const y = Math.round(entre(rng, fond + 8, hautMax - T.h - 4));
+    const vit = type === 'requin' ? entre(rng, 60, 80) : entre(rng, 35, 55);
+    poissons.push({
+      type, x: Math.round(entre(rng, xa, xb)), y, base: y, x1: Math.round(xa), x2: Math.round(xb), w: T.w, h: T.h,
+      dir: rng() < 0.5 ? 1 : -1, vit, phase: rng() * 6.28, charge: false, alerte: 0, repos: 0, temps: 0, actif: true,
+    });
+  });
+  return { murs, algues, poissons, colis };
+}
+
 // ---- Génération des niveaux ----
 function entre(rng, min, max) {
   return min + rng() * Math.max(0, max - min);
 }
 
 /**
- * Mondes : NIVEAUX_PAR_MONDE niveaux par monde, puis on passe au suivant (et on
- * recommence le tour après le dernier). Chaque monde : ambiance de base
+ * Mondes : un nouveau monde à chaque niveau (NIVEAUX_PAR_MONDE), choisi d'après
+ * le terrain du niveau (`TERRAINS[].mondes`, un par tour de 8 niveaux) : deux
+ * niveaux qui se suivent n'ont jamais le même monde. Chaque monde : ambiance de base
  * (`decor` : jour, soir, nuit, pluie, lue par la palette du décor), motifs des
  * toits (un par niveau du monde), couleurs propres (ciel, immeubles, toits) et
  * éléments de fond (`elements` : dessinés au loin ; `particules` : à l'écran).
  */
-export const NIVEAUX_PAR_MONDE = 2;
+export const NIVEAUX_PAR_MONDE = 1;
 export const MONDES = [
   { id: 'ville', decor: 'jour', motifs: ['tuiles', 'terrasse'], couleurs: {}, elements: [], particules: null },
   {
@@ -481,7 +697,7 @@ export const MONDES = [
       ciel: '#DCE8F2', cielHaut: '#B8CEE2', horizon: '#F2F6FA', fond: '#B9C9D8', fondHaut: '#EEF4F9',
       loin: '#D3DFE9', toitBord: '#F4F8FB', trottoir: '#C6D0D9', bordure: '#FFFFFF', astre: '#FFE9A8', nuage: '#FFFFFF',
     },
-    elements: ['sapin'], particules: 'neige',
+    elements: ['sapin'], particules: 'neige', glace: true,
   },
   {
     id: 'chantier', decor: 'jour', motifs: ['briques', 'terrasse'],
@@ -499,20 +715,40 @@ export const MONDES = [
     },
     elements: ['arbre'], particules: 'feuilles', lampions: true,
   },
+  {
+    // Désert : ciel brûlant, dunes, toits en pisé, tempêtes de sable et tornades.
+    id: 'desert', decor: 'jour', motifs: ['pise', 'terrasse'],
+    couleurs: {
+      ciel: '#F6C77A', cielHaut: '#E99A4B', horizon: '#FBE3B0', fond: '#D9A066', fondHaut: '#C98A55',
+      loin: '#E8BC85', toit: '#B9733F', toitBord: '#E3B07A', trottoir: '#D8B07C', bordure: '#F1D2A2',
+      astre: '#FFF3C4', nuage: '#FCEBD0', dune: '#E9B872', duneLoin: '#F2CD92',
+    },
+    elements: ['dune', 'cactus', 'palmier'], particules: 'sable', tornades: true, tempetes: true,
+  },
+  {
+    // Jungle : végétation dense, lianes, cascades, temples au loin, eau verte.
+    id: 'jungle', decor: 'jour', motifs: ['bambou', 'bois'],
+    couleurs: {
+      ciel: '#A8D8B0', cielHaut: '#6FB38A', horizon: '#D8F0C8', fond: '#3F7A4E', fondHaut: '#2F6640',
+      loin: '#5E9A6A', toit: '#6B4A2B', toitBord: '#8DB255', trottoir: '#6E8B4E', bordure: '#9CC46A',
+      astre: '#FFF6C9', nuage: '#E6F5E2',
+    },
+    elements: ['temple', 'cascade', 'palmier'], particules: 'lucioles', lianes: true, eauVerte: true,
+  },
 ];
 
 /** Monde, ambiance et motif des toits d'un niveau : le décor change à chaque niveau et à chaque monde. */
 export function decorNiveau(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
-  const rang = Math.floor((n - 1) / NIVEAUX_PAR_MONDE);
-  const monde = MONDES[rang % MONDES.length];
-  const k = (n - 1) % NIVEAUX_PAR_MONDE;
+  const terrain = TERRAINS[(n - 1) % TERRAINS.length];
+  const tour = Math.floor((n - 1) / TERRAINS.length);
+  const monde = mondeParId(terrain.mondes[tour % terrain.mondes.length]);
   return {
     decor: monde.decor,
-    motif: monde.motifs[k % monde.motifs.length],
+    motif: monde.motifs[tour % monde.motifs.length],
     monde: monde.id,
-    numeroMonde: rang + 1,
-    niveauDansMonde: k + 1,
+    numeroMonde: n,
+    niveauDansMonde: 1,
   };
 }
 
@@ -522,44 +758,46 @@ export function mondeParId(id) {
 }
 
 /**
- * Terrains : chaque niveau a son terrain (8, puis on recommence le tour), et
- * dès le niveau 4 un ou deux passages obligés d'un second terrain s'y ajoutent. `poids` :
+ * Terrains : chaque niveau a son terrain (8, puis on recommence le tour en
+ * mêlant dès le niveau 9 les passages obligés d'un second terrain). `poids` :
  * part de chaque passage dans le tirage ; `obligatoires` : passages posés à
  * coup sûr dans le niveau ; `gue` : pierres de gué du terrain ; `eau` : genre
- * de bassin ; `hautMax` : hauteur maximale des immeubles.
+ * de bassin ; `hautMax` : hauteur maximale des immeubles ; `mondes` : monde du
+ * niveau à chaque tour (le port pour le canal et les docks, la jungle et son
+ * eau verte pour plonger).
  */
 export const TERRAINS = [
   {
-    id: 'ruelles', poids: { enchaine: 0.5, gue: 0.5, benne: 0.5, eau: 0.5, bouche: 0.4 },
-    obligatoires: ['eau', 'etage'], gue: ['auvent', 'balcon'], eau: 'fontaine', hautMax: 150,
+    id: 'ruelles', mondes: ['ville', 'hiver'], poids: { enchaine: 0.5, gue: 0.5, benne: 0.5, eau: 0.5, bouche: 0.4 },
+    obligatoires: ['eau', 'plongee', 'etage'], gue: ['auvent', 'balcon'], eau: 'fontaine', hautMax: 150,
   },
   {
-    id: 'chantier', poids: { gue: 0.6, nacelle: 0.6, ascenseur: 0.8, benne: 0.6, fragile: 0.6 },
+    id: 'chantier', mondes: ['desert', 'chantier'], poids: { gue: 0.6, nacelle: 0.6, ascenseur: 0.8, benne: 0.6, fragile: 0.6 },
     obligatoires: ['ascenseur', 'etage'], gue: ['echafaudage'], eau: 'bassin', hautMax: 200,
   },
   {
-    id: 'canal', poids: { eau: 1.4, gue: 0.5, enchaine: 0.5, nacelle: 0.5 },
-    obligatoires: ['eau', 'eau', 'gouttiere'], gue: ['auvent', 'conduit'], eau: 'canal', hautMax: 170,
+    id: 'canal', mondes: ['port', 'jungle'], poids: { eau: 1.4, gue: 0.5, enchaine: 0.5, nacelle: 0.5 },
+    obligatoires: ['eau', 'plongee', 'eau', 'gouttiere'], gue: ['auvent', 'conduit'], eau: 'canal', hautMax: 170,
   },
   {
-    id: 'terrasses', poids: { eau: 0.8, enchaine: 0.6, fragile: 0.6, gue: 0.5 },
-    obligatoires: ['eau', 'bouche', 'etage'], gue: ['auvent'], eau: 'bassin', hautMax: 200,
+    id: 'terrasses', mondes: ['jungle', 'ville'], poids: { eau: 0.8, enchaine: 0.6, fragile: 0.6, gue: 0.5 },
+    obligatoires: ['eau', 'plongee', 'bouche', 'etage'], gue: ['auvent'], eau: 'bassin', hautMax: 200,
   },
   {
-    id: 'usine', poids: { gouttiere: 0.9, bouche: 0.8, gue: 0.6, fragile: 0.6 },
+    id: 'usine', mondes: ['pluie', 'neons'], poids: { gouttiere: 0.9, bouche: 0.8, gue: 0.6, fragile: 0.6 },
     obligatoires: ['gouttiere', 'bouche'], gue: ['conduit'], eau: 'inonde', hautMax: 230,
   },
   {
-    id: 'tours', poids: { ascenseur: 0.9, gouttiere: 0.8, enchaine: 0.6 },
+    id: 'tours', mondes: ['neons', 'desert'], poids: { ascenseur: 0.9, gouttiere: 0.8, enchaine: 0.6 },
     obligatoires: ['ascenseur', 'gouttiere', 'etage'], gue: ['balcon', 'echafaudage'], eau: 'bassin', hautMax: 280,
   },
   {
-    id: 'balcons', poids: { gue: 1.6, gouttiere: 0.7, fragile: 0.6, nacelle: 0.6 },
+    id: 'balcons', mondes: ['hiver', 'pluie'], poids: { gue: 1.6, gouttiere: 0.7, fragile: 0.6, nacelle: 0.6 },
     obligatoires: ['gouttiere', 'etage'], gue: ['balcon'], eau: 'inonde', hautMax: 240,
   },
   {
-    id: 'docks', poids: { eau: 0.9, nacelle: 0.7, ascenseur: 0.7, benne: 0.6 },
-    obligatoires: ['eau', 'ascenseur'], gue: ['conduit', 'auvent'], eau: 'canal', hautMax: 180,
+    id: 'docks', mondes: ['port', 'marche'], poids: { eau: 0.9, nacelle: 0.7, ascenseur: 0.7, benne: 0.6 },
+    obligatoires: ['eau', 'plongee', 'ascenseur'], gue: ['conduit', 'auvent'], eau: 'canal', hautMax: 180,
   },
 ];
 
@@ -572,7 +810,7 @@ export function terrainNiveau(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
   const k = (n - 1) % TERRAINS.length;
   const terrain = TERRAINS[k];
-  const obligatoires = terrain.obligatoires.slice();
+  let obligatoires = terrain.obligatoires.slice();
   if (n >= 4) {
     const tour = Math.floor((n - 1) / TERRAINS.length);
     // Décalage impair : jamais le terrain du niveau lui-même.
@@ -588,16 +826,14 @@ export function terrainNiveau(niveau) {
 /**
  * Difficulté raide et variée, jamais impossible. `diff` monte de 0,5 (niveau 1)
  * à 1 (niveau 8) : le niveau 1 est une prise en main courte mais déjà pas
- * triviale, dès les niveaux 3 et 4 le parcours devient dur, un joueur moyen
- * s'arrête vers les niveaux 5 à 8. Ensuite `plus` ajoute une pente jusqu'au
- * niveau 20, et c'est le plafond. Chaque niveau est plus dur que le précédent :
- * trous plus larges, toits plus étroits, gêneurs plus nombreux et plus rapides,
- * plus de nacelles, de toits fragiles (qui cèdent plus vite) et de sauts
- * enchaînés, plus de défis combinés (enchaînements mêlés, toits gardés, deux
- * nacelles de suite), chrono plus serré. Les niveaux sont plus courts qu'avant :
- * une bonne partie dure quelques minutes. Trous et marches restent sous les
- * bornes mesurées (RATIO_MAX, MONTEE_MAX, portée réelle du saut) : chaque
- * niveau reste faisable, mais exigeant.
+ * triviale, dès les niveaux 3 et 4 le parcours devient dur. Ensuite `plus`
+ * ajoute une pente jusqu'au niveau 20, et c'est le plafond. Chaque niveau est
+ * plus dur que le précédent : trous plus larges, toits plus étroits, gêneurs
+ * plus nombreux et plus rapides, plus de nacelles, de toits fragiles (qui
+ * cèdent plus vite) et de sauts enchaînés, chrono plus serré. Les niveaux sont
+ * plus courts qu'avant : une bonne partie dure quelques minutes. Trous et
+ * marches restent sous les bornes mesurées (RATIO_MAX, MONTEE_MAX, portée réelle
+ * du saut) : chaque niveau reste faisable, mais exigeant.
  */
 export function reglagesNiveau(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
@@ -618,19 +854,23 @@ export function reglagesNiveau(niveau) {
     marche: Math.round(MONTEE_MAX * (0.65 + 0.35 * diff)),
     // Largeur des toits : de plus en plus étroits.
     largeurMin: Math.max(110, 190 - 75 * diff - 5 * plus),
-    largeurMax: Math.max(190, 330 - 110 * diff),
+    // (assez larges en milieu de partie pour y loger un gêneur, voire deux)
+    largeurMax: Math.max(220, 330 - 110 * diff),
     probMobile: 0.1 + 0.15 * diff + 0.05 * plus,
     probFragile: 0.1 + 0.15 * diff + 0.05 * plus,
     probEnchaine: 0.18 + 0.18 * diff + 0.05 * plus,
-    probGeneur: Math.min(0.92, 0.45 + 0.35 * diff + 0.12 * plus),
+    probGeneur: Math.min(0.92, 0.15 + 0.65 * diff + 0.12 * plus),
     // Sections à étages (passerelles empilées et ressort) : une par niveau au moins, plus souvent ensuite.
-    probEtage: 0.1 + 0.08 * diff,
+    probEtage: 0.12 + 0.1 * diff,
     etagesMax: n >= 3 ? 3 : 2,
     vitesseGeneurs: 1 + 0.35 * diff + 0.2 * plus,
     // Toits fragiles : répit après la traversée, de plus en plus court.
     repitFragile: Math.round((0.9 - 0.25 * diff - 0.05 * plus) * 100) / 100,
     probCaisse: PROB_CAISSE,
-    types: ['chien', ...(n >= 2 ? ['pigeon'] : []), ...(n >= 3 ? ['trottinette'] : [])],
+    // Boîte aux lettres sur un toit large sans caisse ; colis en arc au-dessus d'un trou.
+    probBoite: 0.72 + 0.1 * diff,
+    probArc: 0.5 + 0.2 * diff,
+    types: ['chien', ...(n >= 2 ? ['pigeon', 'chat'] : []), ...(n >= 3 ? ['trottinette'] : [])],
     // Défis tirés au hasard en plus des passages obligés du terrain (combinaisons, voir genererNiveau).
     defis: n >= 2 ? Math.min(4, 1 + Math.floor((n - 1) / 3)) : 0,
     // Chrono : le temps de course sans faute, fois un facteur qui se resserre
@@ -702,7 +942,7 @@ export function zoneGeneur(g) {
  * Repli : le trottoir de départ, toujours sans gêneur.
  */
 export function pointDeReprise(m, xMort) {
-  const solides = m.plateformes.filter((p) => !p.flottante && !p.mobile && !p.fragile && p.type !== 'benne' && p.type !== 'bassin');
+  const solides = m.plateformes.filter((p) => !p.flottante && !p.mobile && !p.fragile && p.type !== 'benne' && p.type !== 'bassin' && p.type !== 'fondPlongee');
   let k = solides.indexOf(m.dernierSol);
   if (k < 0) {
     k = 0;
@@ -716,6 +956,7 @@ export function pointDeReprise(m, xMort) {
     });
   // Jamais sur un ressort : il renverrait le livreur en l'air pendant l'attente.
   (m.ressorts || []).forEach((r) => interdits.push([r.x - BORD_SUR, r.x + r.w + BORD_SUR]));
+  (m.baches || []).forEach((r) => interdits.push([r.x - BORD_SUR, r.x + r.w + BORD_SUR]));
   for (let i = k; i >= 0; i -= 1) {
     const p = solides[i];
     const lo = p.x + BORD_SUR;
@@ -728,6 +969,67 @@ export function pointDeReprise(m, xMort) {
   return { p: m.plateformes[0], x: m.depart.x };
 }
 
+/**
+ * Forme d'une section à étages (`nb` passerelles, numérotées dans l'ordre du
+ * chemin vers la droite) : escalier montant, escalier descendant, pyramide,
+ * zigzag, passerelles éparses ou petite tour. Chaque forme est vérifiée (on
+ * monte du toit à la première passerelle, puis de l'une à l'autre d'un saut,
+ * loin des bords du toit) ; repli : l'escalier montant d'origine.
+ * Rend { id, largeur (du toit), pile: [{ dx, dy, w }] }.
+ */
+const FORMES_ETAGES = ['montant', 'descendant', 'pyramide', 'zigzag', 'eparses', 'tour'];
+function formeEtages(rng, nb) {
+  const apres = (e, ecart) => e.dx + e.w + ecart;
+  const construire = (id) => {
+    const pile = [];
+    const ajout = (dx, dy, w) => pile.push({ dx: Math.round(dx), dy: Math.round(dy), w });
+    const x0 = entre(rng, 290, 320);
+    const w = (k) => (k === nb - 1 ? 130 : 120);
+    if (id === 'montant') {
+      for (let k = 0; k < nb; k += 1) ajout(k ? pile[k - 1].dx + entre(rng, 60, 85) : x0, MARCHE_ETAGE * (k + 1), w(k));
+    } else if (id === 'tour') {
+      for (let k = 0; k < nb; k += 1) ajout(k ? pile[k - 1].dx + entre(rng, 25, 40) : x0, MARCHE_ETAGE * (k + 1), 84);
+    } else if (id === 'descendant') {
+      const dys = nb === 3 ? [110, 75, 40] : [105, 55];
+      for (let k = 0; k < nb; k += 1) ajout(k ? apres(pile[k - 1], entre(rng, 0, 8)) : x0, dys[k], 110);
+    } else if (id === 'pyramide') {
+      ajout(x0, 70, 110);
+      ajout(pile[0].dx + 70, 140, 120);
+      if (nb === 3) ajout(apres(pile[1], entre(rng, 0, 8)), 70, 110);
+    } else if (id === 'zigzag') {
+      ajout(x0, 100, 110);
+      ajout(apres(pile[0], entre(rng, 0, 8)), 50, 110);
+      if (nb === 3) ajout(pile[1].dx + 70, 120, 120);
+    } else {
+      ajout(x0, entre(rng, 50, 105), 110);
+      for (let k = 1; k < nb; k += 1) {
+        const prec = pile[k - 1];
+        const monte = prec.dy < 80 || (prec.dy < 170 && rng() < 0.5);
+        if (monte) ajout(prec.dx + entre(rng, 55, 85), prec.dy + entre(rng, 40, 70), 115);
+        else ajout(apres(prec, entre(rng, 0, 8)), Math.max(40, prec.dy - entre(rng, 40, 60)), 115);
+      }
+    }
+    const droite = Math.max(...pile.map((e) => e.dx + e.w));
+    const largeur = Math.round(borner(droite + 110 + entre(rng, 10, 50), 620, 780));
+    return { id, largeur, pile };
+  };
+  const valide = (f) => {
+    const toit = { x: 0, w: f.largeur, y: 0, flottante: false };
+    const P = f.pile.map((e) => ({ x: e.dx, w: e.w, y: e.dy, flottante: true }));
+    if (P.some((e) => e.x < 290 || e.x + e.w > toit.w - 110)) return false;
+    if (!peutMonter(toit, P[0])) return false;
+    for (let k = 0; k + 1 < P.length; k += 1) if (!peutMonter(P[k], P[k + 1])) return false;
+    return true;
+  };
+  for (let essai = 0; essai < 4; essai += 1) {
+    const f = construire(FORMES_ETAGES[Math.floor(rng() * FORMES_ETAGES.length)]);
+    if (valide(f)) return f;
+  }
+  const pile = [];
+  for (let k = 0; k < nb; k += 1) pile.push({ dx: 300 + 70 * k, dy: MARCHE_ETAGE * (k + 1), w: k === nb - 1 ? 130 : 120 });
+  return { id: 'montant', largeur: nb === 3 ? 720 : 640, pile };
+}
+
 /** Niveau complet, reproductible pour un même (niveau, graine). */
 export function genererNiveau(niveau, graine) {
   const r = reglagesNiveau(niveau);
@@ -738,6 +1040,14 @@ export function genererNiveau(niveau, graine) {
   const plateformes = [];
   const sections = [];
   const segments = [];
+  // Plongées : fonds des bassins profonds, murs d'algues, poissons, colis sous l'eau.
+  const fonds = [];
+  let rallonge = 0; // largeur des bassins profonds : elle ne compte pas dans la longueur prévue
+  const plongees = [];
+  const alguesNiv = [];
+  const poissonsNiv = [];
+  const colisPlongee = [];
+  const mondeN = mondeParId(decorNiveau(n).monde);
   let id = 0;
   const depart = { id: id++, x: -240, w: 520, y: 0, type: 'sol', flottante: false };
   plateformes.push(depart);
@@ -937,7 +1247,7 @@ export function genererNiveau(niveau, graine) {
     },
     gardes() {
       // Toit gardé : deux gêneurs (trois dès le niveau 7) qui patrouillent côte à côte, puis des sauts enchaînés.
-      colonne({ w: n >= 7 ? entre(rng, 345, 365) : entre(rng, 280, 345), garde: true });
+      colonne({ w: entre(rng, n >= 7 ? 330 : 280, 345), garde: true });
       const k = 1 + Math.floor(rng() * (1 + diff * 1.5));
       for (let i = 0; i < k; i += 1) petit();
       colonne({ w: entre(rng, 180, 250) });
@@ -1009,7 +1319,8 @@ export function genererNiveau(niveau, graine) {
       if (!fixe(prec)) { aide(); return false; }
       const entree = colonne({ w: entre(rng, 230, 290) });
       const k = 2 + (rng() < 0.5 ? 1 : 0);
-      for (let i = 0; i < k; i += 1) colonne({ w: entre(rng, 100, 150) });
+      // Toits au-dessus du conduit : plus larges au fil des niveaux, avec des gêneurs (le conduit reste le chemin à l'abri).
+      for (let i = 0; i < k; i += 1) colonne({ w: entre(rng, 110, 160 + 80 * diff) });
       const sortie = colonne({ w: entre(rng, 200, 260) });
       entree.calme = true;
       sortie.calme = true;
@@ -1017,6 +1328,55 @@ export function genererNiveau(niveau, graine) {
       entree.bouche = { x: Math.round(entree.x + entree.w * 0.55), w: 30, vers: { x: sortie.x + 50, y: sortie.y } };
       return true;
     },
+  };
+  // Plongée : rebord assez haut, bassin profond et large jusqu'à l'immeuble d'en face (même hauteur).
+  // Murs d'algues, poissons et requins dedans ; la plongée simulée (peutPlonger) doit passer, sinon on retire des murs.
+  passages.plongee = () => {
+    if (!fixe(prec)) { aide(); return false; }
+    if (prec.y < PLONGEE.hautMin) { aide({ y: Math.min(terrain.hautMax, prec.y + r.marche) }); return false; }
+    const A = colonne({ w: entre(rng, 200, 260), y: borner(prec.y + entre(rng, -15, 25), PLONGEE.hautMin, Math.max(PLONGEE.hautMin, terrain.hautMax)) });
+    if (!fixe(A) || A.y < PLONGEE.hautMin) return false;
+    const eau = A.y - 8;
+    const fond = Math.round(Math.max(-36, eau - entre(rng, PLONGEE.profondeurMin, 210)));
+    if (eau - fond < PLONGEE.profondeurMin) return false;
+    const W = Math.round(entre(rng, 500, 560 + 340 * diff));
+    const x0 = A.x + A.w;
+    const x1 = x0 + W;
+    const B = { flottante: false, x: x1, w: Math.round(entre(rng, 200, 260)), y: A.y, type: typeColonne(A.y), id: id++ };
+    let nbMurs = 1 + Math.floor(diff * 2.2) + (rng() < 0.4 ? 1 : 0);
+    let bassin = null;
+    for (;;) {
+      bassin = construireBassin(rng, x0, x1, eau, fond, diff, n, nbMurs);
+      B.plongee = { x: x0, w: W, eau, fond, murs: bassin.murs, algues: bassin.algues };
+      const essai = peutPlonger(A, B);
+      if ((essai.ok && essai.oxygeneMin >= 0.3) || nbMurs <= 0) break;
+      nbMurs = Math.min(nbMurs, bassin.murs.length) - 1;
+    }
+    if (!bassin.murs.length) {
+      B.plongee.algues = [];
+      bassin.poissons.length = 0;
+    }
+    A.calme = true;
+    A.rebord = true;
+    const k = plongees.length;
+    const pid = `pl${k}`;
+    plongees.push({ id: pid, x: x0, w: W, fond, eau, vert: !!mondeN.eauVerte });
+    fonds.push({ id: 2000 + k, x: x0, w: W, y: fond, flottante: false, type: 'fondPlongee' });
+    bassin.algues.forEach((a) => alguesNiv.push({ ...a, id: `${pid}a${alguesNiv.length}` }));
+    bassin.poissons.forEach((f) => poissonsNiv.push({ ...f, id: `${pid}p${poissonsNiv.length}` }));
+    colisPlongee.push(...bassin.colis);
+    B.plongee.id = pid;
+    rallonge += W;
+    plateformes.push(B);
+    prec = B;
+    return true;
+  };
+  // Bâche tendue : toit large, la bâche au milieu, loin des deux bords (voir DEGAGEMENT_BACHE).
+  passages.bache = () => {
+    const toit = colonne({ w: entre(rng, 360, 420) });
+    toit.bache = true;
+    colonne({ w: entre(rng, 170, 240) });
+    return true;
   };
   const tenter = (nom) => {
     const ok = passages[nom]();
@@ -1030,10 +1390,12 @@ export function genererNiveau(niveau, graine) {
     ['fragile', r.probFragile * 5 * (P.fragile ?? 0.4)],
     ['gue', (0.3 + 0.2 * diff) * 3 * (P.gue ?? 0.5)],
     ['benne', 0.25 * (P.benne ?? 0.3)],
-    ['ascenseur', 0.4 * (P.ascenseur || 0)],
-    ['eau', 0.5 * (P.eau || 0)],
-    ['gouttiere', 0.4 * (P.gouttiere || 0)],
-    ['bouche', 0.3 * (P.bouche || 0)],
+    // Un peu de tout partout : les passages des autres terrains gardent une petite part.
+    ['ascenseur', 0.4 * (P.ascenseur ?? 0.3)],
+    ['eau', 0.5 * (P.eau ?? 0.24)],
+    ['gouttiere', 0.4 * (P.gouttiere ?? 0.3)],
+    ['bouche', 0.3 * (P.bouche ?? 0.33)],
+    ['plongee', P.plongee ?? 0.06],
     // Combinaisons : enchaînement mêlé, toit gardé, deux nacelles de suite.
     ['mixte', n >= 2 ? 0.2 + 0.6 * diff : 0],
     ['gardes', n >= 3 ? 0.15 + 0.5 * diff : 0],
@@ -1057,8 +1419,11 @@ export function genererNiveau(niveau, graine) {
   // Dès le niveau 2, un toit fragile par niveau ; dès le 3, une nacelle.
   if (n >= 2 && !obliges.includes('fragile')) obliges.splice(Math.ceil(obliges.length / 2), 0, 'fragile');
   if (n >= 3 && !obliges.includes('nacelle')) obliges.splice(1, 0, 'nacelle');
+  // Une bâche tendue par niveau dès le niveau 1, deux dès le niveau 6.
+  obliges.splice(Math.floor(obliges.length / 3), 0, 'bache');
+  if (n >= 6) obliges.push('bache');
   // Défis tirés au hasard (un dès le niveau 2, jusqu'à quatre) : la combinaison change à chaque niveau.
-  // Ils s'intercalent un coup sur deux, les passages obligés restent tous posés (le niveau s'allonge si besoin).
+  // Ils passent avant le tirage libre, jamais avant les passages obligés (qui restent tous posés).
   const defis = [];
   const reserve = [
     'enchaine', 'fragile', 'gue', 'mixte',
@@ -1070,22 +1435,35 @@ export function genererNiveau(niveau, graine) {
     const nom = reserve.splice(Math.floor(rng() * reserve.length), 1)[0];
     if (!defis.includes(nom)) defis.push(nom);
   }
+  // Jungle : des lianes à grimper (les gouttières y sont des lianes).
+  if (mondeN.lianes && !obliges.includes('gouttiere')) obliges.push('gouttiere');
+  // Ordre des passages obligés tiré au hasard, jamais deux fois le même de suite.
+  for (let i = obliges.length - 1; i > 0; i -= 1) {
+    const k = Math.floor(rng() * (i + 1));
+    [obliges[i], obliges[k]] = [obliges[k], obliges[i]];
+  }
+  for (let i = 1; i < obliges.length; i += 1) {
+    if (obliges[i] !== obliges[i - 1]) continue;
+    const k = obliges.findIndex((o, q) => q > i && o !== obliges[i]);
+    if (k > 0) [obliges[i], obliges[k]] = [obliges[k], obliges[i]];
+  }
   let apresDefi = false;
   const aPoser = obliges.map((nom, i) => ({ nom, x: longueur * (0.15 + (0.7 * (i + 0.5)) / obliges.length) }));
 
   // Les passages obligés encore à poser prolongent un peu le niveau si besoin.
-  while (prec.x + prec.w < longueur || (aPoser.length && prec.x + prec.w < longueur * 4)) {
+  while (prec.x + prec.w < longueur || (aPoser.length && prec.x + prec.w < longueur * 4 + rallonge)) {
     // Section à étages : au moins une par niveau (dès le premier quart), puis au hasard.
     const forcerEtage = sections.length === 0 && prec.x > longueur * 0.22;
     const du = aPoser.length && prec.x + prec.w >= aPoser[0].x;
-    if (fixe(prec) && (forcerEtage || (!du && sections.length < 3 && rng() < probEtage))) {
+    if (fixe(prec) && (forcerEtage || (!du && sections.length < 3 && segments[segments.length - 1] !== 'etage' && rng() < probEtage))) {
       const nb = Math.min(r.etagesMax, 2 + (r.etagesMax > 2 && rng() < 0.5 + diff * 0.3 ? 1 : 0));
+      const forme = formeEtages(rng, nb);
       const toit = colonne({
-        w: nb === 3 ? entre(rng, 700, 740) : entre(rng, 620, 660),
+        w: forme.largeur,
         y: borner(prec.y + entre(rng, -r.marche, r.marche), 0, 110),
       });
       toit.etage = true;
-      sections.push({ toit, nb });
+      sections.push({ toit, nb, forme });
       segments.push('etage');
       colonne({ w: entre(rng, 170, 240) });
       continue;
@@ -1094,16 +1472,18 @@ export function genererNiveau(niveau, graine) {
       colonne();
       continue;
     }
-    // Défi encore à poser : il passe une fois sur deux, entre deux passages obligés
-    // comme entre deux tirages (jamais deux fois de suite le même passage) ; les obligés restent tous posés.
-    const kd = defis.findIndex((d) => d !== segments[segments.length - 1]);
-    if (kd >= 0 && !apresDefi && prec.x + prec.w < longueur * 1.5) {
-      apresDefi = true;
-      tenter(defis.splice(kd, 1)[0]);
-      continue;
-    }
-    apresDefi = false;
     if (du) {
+      // Jamais deux fois de suite le même passage : un autre passage obligé passe devant si besoin.
+      if (aPoser[0].nom === segments[segments.length - 1]) {
+        const k = aPoser.findIndex((a) => a.nom !== aPoser[0].nom);
+        if (k > 0) [aPoser[0].nom, aPoser[k].nom] = [aPoser[k].nom, aPoser[0].nom];
+        else {
+          // Aucun autre passage à poser : un toit simple entre les deux.
+          colonne();
+          segments.push('toit');
+          continue;
+        }
+      }
       if (tenter(aPoser[0].nom)) aPoser.shift();
       continue;
     }
@@ -1112,6 +1492,21 @@ export function genererNiveau(niveau, graine) {
     for (let i = 0; i < table.length && tirage >= 0; i += 1) {
       if (tirage < table[i][1]) choix = table[i][0];
       tirage -= table[i][1];
+    }
+    // Défi encore à poser : il passe devant un tirage sur deux (jamais deux fois de suite le même passage).
+    const kd = defis.findIndex((d) => d !== segments[segments.length - 1]);
+    if (kd >= 0 && !apresDefi && prec.x + prec.w < longueur * 1.5) {
+      apresDefi = true;
+      tenter(defis.splice(kd, 1)[0]);
+      continue;
+    }
+    apresDefi = false;
+    // Jamais deux fois de suite le même passage : on prend le suivant de la table.
+    const dernier = segments[segments.length - 1];
+    if (choix && choix === dernier) {
+      const k = table.findIndex(([nom]) => nom === choix);
+      choix = table[(k + 1 + Math.floor(rng() * (table.length - 1))) % table.length][0];
+      if (choix === dernier) choix = null;
     }
     // Pas plus de 3 passages spéciaux du même genre en plus des obligés.
     if (choix && compte(choix) < 3 + (choix === 'enchaine' || choix === 'gue' ? 3 : 0)) {
@@ -1137,39 +1532,43 @@ export function genererNiveau(niveau, graine) {
   const etages = [];
   const ressorts = [];
   const colisEtages = [];
-  sections.forEach(({ toit, nb }) => {
-    let x = toit.x + 300;
-    for (let k = 0; k < nb; k += 1) {
-      const w = k === nb - 1 ? 130 : 120;
-      etages.push({
-        id: 1000 + etages.length, x: Math.round(x), w, y: toit.y + MARCHE_ETAGE * (k + 1),
-        flottante: true, type: 'passerelle', etage: k + 1, appui: toit.y,
-      });
-      x += 70;
-    }
-    const haut = etages[etages.length - 1];
+  sections.forEach(({ toit, nb, forme }) => {
+    const pile = forme.pile.map((e, k) => ({
+      id: 1000 + etages.length + k, x: Math.round(toit.x + e.dx), w: e.w, y: toit.y + e.dy,
+      flottante: true, type: 'passerelle', etage: k + 1, appui: toit.y, forme: forme.id,
+    }));
+    etages.push(...pile);
+    // Colis en récompense sur la passerelle la plus haute, un autre sur la deuxième plus haute.
+    const parHauteur = pile.slice().sort((a, b) => b.y - a.y);
+    const haut = parHauteur[0];
     const nbColis = nb === 3 ? 3 : 2;
     for (let k = 0; k < nbColis; k += 1) {
       colisEtages.push({ x: haut.x + haut.w / 2 - (nbColis * 28) / 2 + k * 28, y: haut.y + 40 });
     }
-    const milieu = etages[etages.length - 2];
+    const milieu = parHauteur[1];
     colisEtages.push({ x: milieu.x + 20, y: milieu.y + 40 });
     ressorts.push({ id: ressorts.length, x: toit.x + 230, y: toit.y, ...TAILLE_RESSORT, comp: 0 });
   });
 
   // Objets : colis, boîtes aux lettres, caisses bonus, gêneurs.
   const colis = [];
+  const baches = [];
   const boites = [];
   const geneurs = [];
   const C = TAILLES.colis;
   const B = TAILLES.boite;
   let nbCaisses = 0;
   const caisse = (x, y) => {
-    boites.push({ x: Math.round(x), y, w: B, h: B, boite: true, frappee: false, bonus: BONUS_CAISSE[(n + nbCaisses) % BONUS_CAISSE.length] });
+    boites.push({ x: Math.round(x), y, w: B, h: B, boite: true, frappee: false, bonus: ORDRE_CAISSE[(n + nbCaisses) % ORDRE_CAISSE.length] });
     nbCaisses += 1;
   };
-  // Une caisse bonus sur le trottoir de départ, à chaque niveau.
-  caisse(130, 66);
+  let nbBoites = 0;
+  const boite = (x, y) => {
+    boites.push({ x: Math.round(x), y, w: B, h: B, boite: true, frappee: false, recompense: RECOMPENSES_BOITE[(n + nbBoites) % RECOMPENSES_BOITE.length] });
+    nbBoites += 1;
+  };
+  // Une caisse bonus sur le trottoir de départ, à chaque niveau : un pouvoir doux, jamais le drone ni l'étoile.
+  boites.push({ x: 130, y: 66, w: B, h: B, boite: true, frappee: false, bonus: ['taille', 'chrono', 'double'][n % 3] });
   for (let i = 0; i < plateformes.length; i += 1) {
     const p = plateformes[i];
     const suivante = plateformes[i + 1];
@@ -1181,22 +1580,41 @@ export function genererNiveau(niveau, graine) {
       if (rng() < 0.7) colis.push({ x: p.x + p.w / 2 - C / 2, y: p.y + (p.eau - p.y) / 2 - C / 2 });
     } else if (p.flottante) {
       if (rng() < 0.5) colis.push({ x: p.x + p.w / 2 - C / 2, y: p.y + 34 });
+    } else if (p.bache) {
+      // Toit à bâche : la bâche au milieu, colis en hauteur au-dessus (seul le renvoi les atteint), rien d'autre.
+      const bx = Math.round(p.x + p.w / 2 - TAILLE_BACHE.w / 2);
+      baches.push({ id: baches.length, x: bx, y: p.y, ...TAILLE_BACHE, comp: 0 });
+      for (let k = 0; k < 3; k += 1) colis.push({ x: bx + 24 + k * 26, y: p.y + HAUT_COLIS_BACHE });
     } else if (p.etage) {
       // Toit à étages : colis au départ, ni gêneur ni boîte (le ressort et les passerelles y sont).
       colis.push({ x: p.x + 60, y: p.y + 40 }, { x: p.x + 88, y: p.y + 40 });
     } else if (p.type !== 'benne' && !p.arrivee && !p.fragile) {
+      const objetsAvant = colis.length + boites.length;
+      // Colis en rangée, en vague ou en petit escalier, au milieu ou décalés : jamais deux toits pareils.
+      const rangee = (centre, nb) => {
+        const forme = rng();
+        const x0 = centre - (nb * 28) / 2;
+        for (let k = 0; k < nb; k += 1) {
+          const dy = forme < 0.4 ? 0 : forme < 0.7 ? (k % 2) * 6 : k * 4;
+          colis.push({ x: x0 + k * 28, y: p.y + 40 + dy });
+        }
+      };
       if (largeurUtile >= 110 && rng() < 0.65) {
         const nb = largeurUtile >= 220 ? 3 : 2;
-        const x0 = debut + largeurUtile / 2 - (nb * 28) / 2;
-        for (let k = 0; k < nb; k += 1) colis.push({ x: x0 + k * 28, y: p.y + 40 });
+        const decale = largeurUtile >= 260 ? entre(rng, -0.12, 0.12) * largeurUtile : 0;
+        rangee(debut + largeurUtile / 2 + decale, nb);
+      }
+      // Hiver : plaque de glace au milieu d'un toit large, loin des deux bords.
+      if (mondeN.glace && i > 0 && suivante && !p.calme && !p.bouche && !p.gouttiere && !p.plongee && p.w >= 240 && rng() < 0.5) {
+        p.glace = { x1: p.x + GLACE.bord - 10, x2: p.x + p.w - GLACE.bord };
       }
       let geneurPose = false;
       // Gêneurs : jamais sur les DEGAGEMENT_ATTERRISSAGE premières unités (on y atterrit).
       if (i > 0 && suivante && !p.calme && p.w >= LARGEUR_MIN_GENEUR && (p.garde || rng() < r.probGeneur)) {
-        // Toit gardé : deux gêneurs, trois dès le niveau 7.
-        const nb = p.garde ? (n >= 7 && p.w >= 345 ? 3 : 2) : p.w >= 380 && n >= 4 ? 3 : p.w >= 250 && n >= 2 ? 2 : 1;
+        // Deux gêneurs sur un toit large dès le niveau 2, plus souvent dès le 3 ; toit gardé : deux, trois dès le niveau 7.
+        const nb = p.garde ? (n >= 7 && p.w >= 330 ? 3 : 2) : n >= 2 && p.w >= (n >= 3 ? 220 : 250) ? 2 : 1;
         const zx1 = p.x + DEGAGEMENT_ATTERRISSAGE;
-        const zx2 = p.x + p.w - 30;
+        const zx2 = p.x + p.w - 12; // patrouille jusqu'au bord de départ : on saute par-dessus pour repartir
         for (let k = 0; k < nb; k += 1) {
           const type = r.types[Math.floor(rng() * r.types.length)];
           const t = TAILLES[type];
@@ -1213,6 +1631,13 @@ export function genererNiveau(niveau, graine) {
               type, x, y: p.y + haut, base: p.y + haut, cx: (x1 + x2) / 2, amp: (x2 - x1) / 2,
               vitesse: (1.1 + diff * 0.8) * allure, phase: rng() * 6.28, w: t.w, h: t.h, dir: -1,
             });
+          } else if (type === 'chat') {
+            // Chat : patrouille comme le chien, en bondissant (bonds plus fréquents au fil des niveaux).
+            const v = (55 + diff * 40) * allure;
+            geneurs.push({
+              type, x, y: p.y, base: p.y, x1, x2, vx: -v, w: t.w, h: t.h, dir: -1,
+              bond: 2.4 + diff * 1.2, phase: rng() * 6.28,
+            });
           } else {
             const v = (type === 'chien' ? 45 + diff * 45 : 90 + diff * 50) * allure;
             geneurs.push({ type, x, y: p.y, x1, x2, vx: -v, w: t.w, h: t.h, dir: -1 });
@@ -1224,17 +1649,34 @@ export function genererNiveau(niveau, graine) {
         // Bouche d'aération et sortie du conduit : ni caisse ni boîte.
       } else if (i > 0 && suivante && !geneurPose && p.w >= 170 && rng() < r.probCaisse) {
         caisse(p.x + p.w / 2 - B / 2, p.y + 66);
-      } else if (i > 0 && suivante && largeurUtile >= 250 && rng() < 0.5) {
-        const bx = debut + 140 + rng() * (largeurUtile - 220 - B);
-        boites.push({ x: Math.round(bx), y: p.y + 66, w: B, h: B, boite: true, frappee: false });
+      } else if (i > 0 && suivante && largeurUtile >= 210 && rng() < r.probBoite) {
+        // Boîtes aux lettres plus nombreuses : dès 210 de large, loin de l'atterrissage et du bord de départ.
+        const bx = debut + 120 + rng() * Math.max(0, largeurUtile - 200 - B);
+        boite(bx, p.y + 66);
+      }
+      // Aucun toit vide : au moins deux colis, et un second groupe sur les toits larges.
+      if (colis.length + boites.length === objetsAvant && !geneurPose && largeurUtile >= 80) {
+        rangee(debut + largeurUtile / 2, 2);
+      }
+      if (largeurUtile >= 300 && rng() < 0.5) rangee(debut + largeurUtile * 0.8, 2);
+    }
+    // Colis sur la trajectoire d'un saut : un seul, ou en arc (3 à 5) au-dessus d'un trou assez large.
+    const trou = suivante ? suivante.x - (p.x + p.w) : 0;
+    if (suivante && !suivante.mobile && !suivante.plongee && trou >= 40 && rng() < 0.45 + 0.2 * diff) {
+      const base = Math.max(hautDe(p), suivante.y);
+      if (trou >= 60 && rng() < r.probArc) {
+        const nb = trou >= 85 ? 5 : trou >= 70 ? 4 : 3;
+        for (let k = 0; k < nb; k += 1) {
+          const u = (k + 0.5) / nb;
+          // Arc sous le sommet du saut mesuré : pris en sautant, sans détour.
+          colis.push({ x: p.x + p.w + u * trou - C / 2, y: base + 30 + Math.sin(Math.PI * u) * 46 });
+        }
+      } else {
+        colis.push({ x: (p.x + p.w + suivante.x) / 2 - C / 2, y: base + 52 });
       }
     }
-    // Colis sur la trajectoire d'un saut.
-    if (suivante && !suivante.mobile && suivante.x - (p.x + p.w) >= 40 && rng() < 0.45) {
-      colis.push({ x: (p.x + p.w + suivante.x) / 2 - C / 2, y: Math.max(hautDe(p), suivante.y) + 52 });
-    }
   }
-  colis.push(...colisEtages);
+  colis.push(...colisEtages, ...colisPlongee);
   colis.forEach((c, k) => { c.id = k; c.pris = false; });
   boites.forEach((b, k) => { b.id = k; b.choc = 0; });
   geneurs.forEach((g, k) => { g.id = k; g.actif = true; g.ecarte = 0; g.temps = 0; });
@@ -1244,12 +1686,36 @@ export function genererNiveau(niveau, graine) {
   plateformes.forEach((p, i) => {
     if (p.gouttiere) gouttieres.push({ x: p.x, bas: hautDe(plateformes[i - 1]), haut: p.y, id: p.id });
   });
-  const eaux = plateformes.filter((p) => p.type === 'bassin').map((p) => ({ x: p.x, w: p.w, y: p.y, eau: p.eau, variante: p.variante, id: p.id }));
+  const eaux = plateformes.filter((p) => p.type === 'bassin').map((p) => ({ x: p.x, w: p.w, y: p.y, eau: p.eau, variante: p.variante, id: p.id, vert: !!mondeN.eauVerte }));
+  plongees.forEach((pl) => eaux.push({ x: pl.x, w: pl.w, y: pl.fond, eau: pl.eau, profond: true, vert: pl.vert, id: pl.id }));
+  // Désert : tornades annoncées (elles partent quand le livreur passe le déclencheur) et tempêtes de sable.
+  const tornades = [];
+  const tempetes = [];
+  if (mondeN.tornades) {
+    const nbT = diff > 0.6 ? 2 : 1;
+    const candidats = plateformes.filter((p) => !p.flottante && !p.mobile && !p.fragile && !p.arrivee && p.type !== 'benne' && p.type !== 'bassin' && p.x > 300);
+    for (let k = 0; k < nbT && candidats.length; k += 1) {
+      const cible = fin.x * (nbT === 1 ? 0.5 : 0.3 + 0.4 * k) + entre(rng, -0.08, 0.08) * fin.x;
+      const p = candidats.reduce((a, b) => (Math.abs(b.x - cible) < Math.abs(a.x - cible) ? b : a));
+      if (tornades.some((t) => Math.abs(t.declencheur - (p.x + 40)) < 400)) continue;
+      tornades.push({
+        id: `tor${k}`, declencheur: p.x + 40, x: p.x + 40 + 380, y: hautDe(p), w: TORNADE.w, h: TORNADE.h,
+        dir: -1, vit: 45 + 20 * diff, duree: TORNADE.duree, etat: 'attente', age: 0,
+      });
+    }
+  }
+  if (mondeN.tempetes) {
+    tempetes.push({ debut: entre(rng, 10, 20), duree: 7, annoncee: false });
+    tempetes.push({ debut: entre(rng, 40, 55), duree: 7, annoncee: false });
+  }
   const bouches = plateformes.filter((p) => p.bouche).map((p) => ({ ...p.bouche, y: p.y, sol: p.id }));
   // Chrono : du temps en plus pour attendre l'ascenseur, nager et grimper.
   const nbAsc = plateformes.filter((p) => p.mobile && p.mobile.ascenseur).length;
   const course = Math.round(((fin.x + fin.w) / VITESSE) * r.facteur + 15);
-  const limite = Math.round(Math.max(r.limite, course)) + 6 * nbAsc + 3 * eaux.length + 3 * gouttieres.length;
+  const nbEauxSimples = eaux.filter((e) => !e.profond).length;
+  // Plongée : le temps d'attendre son souffle et de passer chaque mur d'algues.
+  const tempsPlongees = plateformes.filter((p) => p.plongee).reduce((t, p) => t + 6 + p.plongee.w / 30 + 3 * p.plongee.murs.length, 0);
+  const limite = Math.round(Math.max(r.limite, course) + 6 * nbAsc + 3 * nbEauxSimples + 3 * gouttieres.length + tempsPlongees);
 
   const { decor, motif, monde } = decorNiveau(n);
   return {
@@ -1258,6 +1724,7 @@ export function genererNiveau(niveau, graine) {
     plateformes,
     etages,
     ressorts,
+    baches,
     boites,
     colis,
     geneurs,
@@ -1273,6 +1740,12 @@ export function genererNiveau(niveau, graine) {
     gouttieres,
     eaux,
     bouches,
+    fonds,
+    plongees,
+    algues: alguesNiv,
+    poissons: poissonsNiv,
+    tornades,
+    tempetes,
   };
 }
 
@@ -1283,9 +1756,14 @@ export function creerMonde(niveau, report = {}, graine) {
   return {
     ...niv,
     // Physique : chaîne du niveau et passerelles des étages ; décor fixe : la chaîne seule.
-    plateformes: niv.plateformes.concat(niv.etages),
+    plateformes: niv.plateformes.concat(niv.etages, niv.fonds),
     plateformesDecor: niv.plateformes,
-    env: { eaux: niv.eaux, gouttieres: niv.gouttieres },
+    env: { eaux: niv.eaux, gouttieres: niv.gouttieres, algues: niv.algues },
+    poissons: niv.poissons.map((f) => ({ ...f })),
+    tornades: niv.tornades.map((t) => ({ ...t })),
+    tempetes: niv.tempetes.map((t) => ({ ...t })),
+    oxygene: 1,
+    tempete: 0,
     passage: null,
     joueur: nouveauJoueur(niv.depart.x, niv.depart.y),
     vies: report.vies != null ? report.vies : VIES,
@@ -1302,6 +1780,8 @@ export function creerMonde(niveau, report = {}, graine) {
     etoile: 0,
     aimant: 0,
     double: 0,
+    sprint: 0,
+    doubleSaut: 0,
     etat: 'jeu', // jeu | livre | perdu
     bonusTemps: 0,
     dernierSol: niv.plateformes[0],
@@ -1326,9 +1806,13 @@ const ANNONCES = {
   taille: { cle: 'bonusTaille', icone: 'shield-star', couleur: '#0A9A78' },
   vol: { cle: 'bonusVol', icone: 'quadcopter', couleur: '#2D7FD3', n: DUREES.vol },
   etoile: { cle: 'bonusEtoile', icone: 'star', couleur: '#E0A100', n: DUREES.etoile },
-  chrono: { cle: 'bonusChrono', icone: 'timer-plus-outline', couleur: '#16A34A', n: BONUS_CHRONO },
+  chrono: { cle: 'bonusChrono', icone: 'clock-plus-outline', couleur: '#16A34A', n: BONUS_CHRONO },
   double: { cle: 'bonusDouble', icone: 'numeric-2-circle', couleur: '#E8650F', n: DUREES.double },
+  sprint: { cle: 'bonusSprint', icone: 'run-fast', couleur: '#D6336C', n: DUREES.sprint },
+  doubleSaut: { cle: 'bonusDoubleSaut', icone: 'chevron-double-up', couleur: '#0E8C9C', n: DUREES.doubleSaut },
   encaisse: { cle: 'coupEncaisse', icone: 'shield-check', couleur: '#0A9A78' },
+  tornade: { cle: 'tornade', icone: 'weather-tornado', couleur: '#B7791F' },
+  tempete: { cle: 'tempeteSable', icone: 'weather-windy', couleur: '#C98A55' },
 };
 function annoncer(m, type) {
   m.annonce = { ...ANNONCES[type], type, age: 0, id: `${type}_${m.horloge.toFixed(3)}` };
@@ -1359,6 +1843,23 @@ function appliquerCaisse(m, b, evenements) {
   m.sorties.push({ type, x: b.x + b.w / 2, y: b.y + b.h, age: 0, id: `s${b.id}` });
   annoncer(m, type);
   evenements.push({ type: 'bonus' });
+}
+
+// Boîte aux lettres frappée : toujours un colis (points et compte), et parfois un petit pouvoir en plus.
+function appliquerBoite(m, b, evenements) {
+  const pts = points(m, POINTS.boite);
+  m.score += pts;
+  m.colisNiveau += 1;
+  popup(m, b.x + b.w / 2, b.y + b.h + 6, `+${pts}`);
+  const type = b.recompense && b.recompense !== 'colis' ? b.recompense : null;
+  m.sorties.push({ type: type || 'colis', x: b.x + b.w / 2, y: b.y + b.h, age: 0, id: `s${b.id}` });
+  evenements.push({ type: 'boite' });
+  gagnerPiece(m, evenements);
+  if (type) {
+    m[type] = DUREES[type];
+    annoncer(m, type);
+    evenements.push({ type: 'bonus' });
+  }
 }
 
 // Points d'un objet ramassé ou d'un gêneur écarté : doublés pendant le bonus « double ».
@@ -1403,6 +1904,7 @@ export function reapparaitre(m, xMort) {
   m.attenteArmee = false;
   m.invul = INVUL_REPRISE;
   m.vol = 0;
+  m.oxygene = 1;
 }
 
 const CMD_VIDE = { gauche: false, droite: false, sautTenu: false, sautAppui: false, bas: false };
@@ -1413,7 +1915,7 @@ const CMD_VIDE = { gauche: false, droite: false, sautTenu: false, sautAppui: fal
  * appui neuf, bas : accroupi demandé, geste : nouveau geste gauche, droite ou
  * haut ce tour-ci, il relance le livreur après une reprise).
  * Rend la liste des événements : colis, boite, bonus, ecarte, encaisse,
- * touche, chute, temps, livre, reprise, plouf, grimpe, conduit, sortieConduit.
+ * touche, chute, temps, livre, reprise, plouf, grimpe, conduit, sortieConduit, doubleSaut, ressort, noyade, tornade.
  */
 export function pas(m, dtBrut, cmd) {
   const evenements = [];
@@ -1435,7 +1937,7 @@ export function pas(m, dtBrut, cmd) {
   }
   for (let i = m.sorties.length - 1; i >= 0; i -= 1) {
     m.sorties[i].age += dtTotal;
-    if (m.sorties[i].age > 0.9) m.sorties.splice(i, 1);
+    if (m.sorties[i].age > DUREE_SORTIE) m.sorties.splice(i, 1);
   }
   if (m.annonce) {
     m.annonce.age += dtTotal;
@@ -1455,7 +1957,11 @@ function sousPas(m, dtPas, cmdBrut, evenements) {
   if (m.etoile > 0) m.etoile = Math.max(0, m.etoile - dt);
   if (m.aimant > 0) m.aimant = Math.max(0, m.aimant - dt);
   if (m.double > 0 && !m.attente) m.double = Math.max(0, m.double - dt);
+  if (m.sprint > 0 && !m.attente) m.sprint = Math.max(0, m.sprint - dt);
+  if (m.doubleSaut > 0 && !m.attente) m.doubleSaut = Math.max(0, m.doubleSaut - dt);
   j.vol = m.vol > 0;
+  j.sprint = m.sprint > 0;
+  j.doubleSaut = m.doubleSaut > 0;
   const avantY = j.y;
 
   // Plateformes mobiles (elles emportent le livreur) et toits qui s'effondrent.
@@ -1527,6 +2033,69 @@ function sousPas(m, dtPas, cmdBrut, evenements) {
   const etaitDansEau = !!j.dansEau;
   const frappee = physiqueJoueur(j, m.plateformes, m.boites, cmd, dt, m.env);
   if (j.dansEau && !etaitDansEau) evenements.push({ type: 'plouf' });
+  // Oxygène (bassin profond) : à zéro, une vie est perdue et on reprend hors de l'eau.
+  m.oxygene = majOxygene(m.oxygene == null ? 1 : m.oxygene, j, j.eau, dt);
+  if (m.oxygene <= 0) {
+    m.oxygene = 1;
+    perdreVie(m, evenements, 'noyade');
+    if (m.etat !== 'jeu') return;
+    reapparaitre(m, j.x);
+    return;
+  }
+  // Tempêtes de sable : le voile monte et redescend doucement, jamais opaque (rendu borné à l'écran).
+  const tempetes = m.tempetes || [];
+  let voile = 0;
+  for (let i = 0; i < tempetes.length; i += 1) {
+    const tp = tempetes[i];
+    const u = m.temps - tp.debut;
+    if (u < 0 || u > tp.duree) continue;
+    if (!tp.annoncee) {
+      tp.annoncee = true;
+      annoncer(m, 'tempete');
+    }
+    voile = Math.max(voile, Math.min(1, u / 1.2, (tp.duree - u) / 1.2));
+  }
+  m.tempete = voile;
+  // Tornades : annoncées quand le livreur passe le déclencheur, elles poussent de côté
+  // un livreur au sol sans jamais le faire tomber de son toit.
+  const tornades = m.tornades || [];
+  for (let i = 0; i < tornades.length; i += 1) {
+    const t = tornades[i];
+    if (t.etat === 'finie') continue;
+    t.age += dt;
+    if (t.etat === 'attente') {
+      if (j.x >= t.declencheur && !m.attente) {
+        t.etat = 'alerte';
+        t.age = 0;
+        annoncer(m, 'tornade');
+        evenements.push({ type: 'tornade' });
+      }
+      continue;
+    }
+    if (t.etat === 'alerte') {
+      if (t.age >= TORNADE.alerte) {
+        t.etat = 'active';
+        t.age = 0;
+      }
+      continue;
+    }
+    t.x += t.vit * t.dir * dt;
+    const dessous = m.plateformesDecor.find((p) => !p.flottante && !p.mobile && t.x >= p.x && t.x <= p.x + p.w);
+    t.y = dessous ? hautDe(dessous) : 0;
+    if (t.age >= t.duree) {
+      t.etat = 'finie';
+      t.age = 0;
+      continue;
+    }
+    const s = j.sol;
+    if (m.attente || !s || j.dansEau || Math.abs(j.x + LARGEUR / 2 - t.x) > t.w / 2 + 10 || Math.abs(j.y - t.y) > t.h) continue;
+    const lo = s.x + 6;
+    const hi = s.x + s.w - LARGEUR - 6;
+    const nx = j.x + TORNADE.poussee * t.dir * dt;
+    if (t.dir < 0 && j.x > lo) j.x = Math.max(lo, nx);
+    else if (t.dir > 0 && j.x < hi) j.x = Math.min(hi, nx);
+  }
+  if (j.sautDouble) evenements.push({ type: 'doubleSaut' });
   if (j.grimpe) evenements.push({ type: 'grimpe' });
   // Glisser vers le bas sur une bouche d'aération : on entre dans le conduit.
   const bouche = j.sol && j.sol.bouche;
@@ -1538,16 +2107,8 @@ function sousPas(m, dtPas, cmdBrut, evenements) {
   if (frappee && !frappee.frappee) {
     frappee.frappee = true;
     frappee.choc = 0.25;
-    if (frappee.bonus) {
-      appliquerCaisse(m, frappee, evenements);
-    } else {
-      const pts = points(m, POINTS.boite);
-      m.score += pts;
-      m.colisNiveau += 1;
-      popup(m, frappee.x + frappee.w / 2, frappee.y + frappee.h + 6, `+${pts}`);
-      evenements.push({ type: 'boite' });
-      gagnerPiece(m, evenements);
-    }
+    if (frappee.bonus) appliquerCaisse(m, frappee, evenements);
+    else appliquerBoite(m, frappee, evenements);
   } else if (frappee) {
     frappee.choc = 0.15;
   }
@@ -1567,7 +2128,22 @@ function sousPas(m, dtPas, cmdBrut, evenements) {
       evenements.push({ type: 'ressort' });
     }
   }
-  if (j.sol && !j.sol.flottante && !j.sol.boite && !j.sol.fragile && !j.sol.mobile && j.sol.type !== 'benne' && j.sol.type !== 'bassin') m.dernierSol = j.sol;
+  // Bâche tendue : même déclenchement que le ressort, renvoi fixe (on retombe sur le même toit).
+  const baches = m.baches || [];
+  for (let i = 0; i < baches.length; i += 1) {
+    const r = baches[i];
+    if (r.comp > 0) r.comp = Math.max(0, r.comp - dt * 3);
+    if (!m.attente && j.sol && j.vy <= 0 && Math.abs(j.y - r.y) < 0.5 && j.x + LARGEUR > r.x + 2 && j.x < r.x + r.w - 2) {
+      j.vy = BACHE;
+      j.sol = null;
+      j.enSaut = false;
+      j.coyote = 0;
+      j.tampon = 0;
+      r.comp = 1;
+      evenements.push({ type: 'ressort' });
+    }
+  }
+  if (j.sol && !j.sol.flottante && !j.sol.boite && !j.sol.fragile && !j.sol.mobile && j.sol.type !== 'benne' && j.sol.type !== 'bassin' && j.sol.type !== 'fondPlongee') m.dernierSol = j.sol;
 
   // Colis (attirés par l'aimant).
   const C = TAILLES.colis;
@@ -1618,6 +2194,8 @@ function sousPas(m, dtPas, cmdBrut, evenements) {
       if (e.x < e.x1) { e.x = e.x1; e.vx = Math.abs(e.vx); }
       if (e.x > e.x2) { e.x = e.x2; e.vx = -Math.abs(e.vx); }
       e.dir = e.vx >= 0 ? 1 : -1;
+      // Chat : bonds réguliers ; en haut du bond, le livreur passe dessous.
+      if (e.type === 'chat') e.y = e.base + Math.max(0, Math.sin(e.temps * (e.bond || 2.4) + (e.phase || 0))) * CHAT_SAUT;
     }
     if (m.joueur !== j || Math.abs(e.x - j.x) > 80 || !chevauche(j, e, 3)) continue;
     const parDessus = j.vy < 0 && avantY >= e.y + e.h - 10;
@@ -1637,6 +2215,52 @@ function sousPas(m, dtPas, cmdBrut, evenements) {
     } else if (m.invul <= 0) {
       if (m.grand) {
         // Grand livreur : il perd sa taille au lieu d'une vie, et reste en place.
+        m.grand = false;
+        m.invul = INVUL_REPRISE;
+        annoncer(m, 'encaisse');
+        evenements.push({ type: 'encaisse' });
+        continue;
+      }
+      perdreVie(m, evenements, 'touche');
+      if (m.etat !== 'jeu') return;
+      reapparaitre(m, j.x);
+      return;
+    }
+  }
+
+  // Poissons et requins du bassin profond. Le requin prévient (alerte) avant de foncer.
+  const poissons = m.poissons || [];
+  for (let i = 0; i < poissons.length; i += 1) {
+    const f = poissons[i];
+    if (!f.actif) continue;
+    f.temps += dt;
+    if (f.repos > 0) f.repos -= dt;
+    if (f.type === 'requin' && !f.charge) {
+      const devant = (j.x + LARGEUR / 2 - (f.x + f.w / 2)) * f.dir;
+      const voit = j.dansEau && !m.attente && f.repos <= 0 && Math.abs(j.y + HAUTEUR / 2 - (f.y + f.h / 2)) < 18 && devant > 0 && devant < 160;
+      f.alerte = voit ? Math.min(1, f.alerte + dt / 0.8) : Math.max(0, f.alerte - dt);
+      if (f.alerte >= 1) f.charge = true;
+    }
+    const v = f.vit * (f.charge ? 2.2 : f.alerte > 0 ? 0.3 : 1);
+    f.x += v * f.dir * dt;
+    const bord = f.x < f.x1 || f.x > f.x2;
+    if (f.x < f.x1) { f.x = f.x1; f.dir = 1; }
+    if (f.x > f.x2) { f.x = f.x2; f.dir = -1; }
+    if (bord && f.charge) {
+      f.charge = false;
+      f.alerte = 0;
+      f.repos = 1.5;
+    }
+    if (f.type === 'poisson') f.y = f.base + Math.sin(f.temps * 2 + f.phase) * 3;
+    if (m.joueur !== j || Math.abs(f.x - j.x) > 80 || !chevauche(j, f, 3)) continue;
+    if (m.etoile > 0) {
+      f.actif = false;
+      const pts = points(m, POINTS[f.type] || 100);
+      m.score += pts;
+      popup(m, f.x + f.w / 2, f.y + f.h, `+${pts}`);
+      evenements.push({ type: 'ecarte' });
+    } else if (m.invul <= 0) {
+      if (m.grand) {
         m.grand = false;
         m.invul = INVUL_REPRISE;
         annoncer(m, 'encaisse');
@@ -1714,4 +2338,96 @@ export function genererElementsMonde(niveau, longueur) {
     x += 170 + rng() * 160;
   }
   return liste;
+}
+
+// ---- Sauvegarde de la partie (une par compte client sur le téléphone) ----
+const VERSION = 1;
+const PHASES = ['accueil', 'jeu', 'pause', 'livre', 'perdu'];
+// Un niveau rapporte moins de 40 000 points, même tout doublé (test « plafond »).
+export const SCORE_MAX_PAR_NIVEAU = 40000;
+
+/** Report d'un niveau à l'autre : score, vies, colis, grand livreur. */
+export function reportPropre(brut = {}, niveau = 1) {
+  const plafond = SCORE_MAX_PAR_NIVEAU * Math.max(1, niveau);
+  return {
+    score: Math.min(plafond, entierJeu(brut?.score)),
+    vies: brut?.vies == null ? VIES : Math.max(1, Math.min(VIES, entierJeu(brut.vies, 1))),
+    pieces: entierJeu(brut?.pieces),
+    grand: !!brut?.grand,
+  };
+}
+
+/** Partie neuve, records gardés. `debut` : report au départ du niveau en cours. */
+export function partieNeuve(records = {}) {
+  return {
+    v: VERSION,
+    phase: 'accueil',
+    niveau: 1,
+    graine: 1,
+    debut: {score: 0, vies: VIES, pieces: 0, grand: false},
+    score: 0,
+    meilleurScore: entierJeu(records?.meilleurScore),
+    meilleurNiveau: Math.max(1, entierJeu(records?.meilleurNiveau, 1)),
+  };
+}
+
+/**
+ * Sauvegarde relue : valeurs bornées, jamais de plantage. Une partie en cours
+ * (ou un colis livré) revient en pause, au départ du niveau à jouer ; une
+ * partie perdue revient à l'accueil.
+ */
+export function nettoyerSauvegarde(brut) {
+  try {
+    if (!brut || typeof brut !== 'object' || Array.isArray(brut)) return partieNeuve();
+    const base = partieNeuve(brut);
+    let phase = PHASES.includes(brut.phase) ? brut.phase : 'accueil';
+    if (phase === 'jeu' || phase === 'livre') phase = 'pause';
+    if (phase === 'perdu') phase = 'accueil';
+    if (phase === 'accueil') return base;
+    const niveau = Math.max(1, entierJeu(brut.niveau, 1));
+    const debut = reportPropre(brut.debut, niveau);
+    return {
+      ...base,
+      phase,
+      niveau,
+      graine: entierJeu(brut.graine, 1),
+      debut,
+      score: debut.score,
+      meilleurScore: Math.max(base.meilleurScore, debut.score),
+      meilleurNiveau: Math.max(base.meilleurNiveau, niveau),
+    };
+  } catch (e) {
+    return partieNeuve();
+  }
+}
+
+/** Une partie par compte client sur le téléphone : USER_JEU_TOITS_V1_<idUser|local>. */
+export function cleSauvegarde(idUser) {
+  return cleSauvegardeJeu(JEU_TOITS, idUser);
+}
+
+export async function chargerPartie(cle) {
+  try {
+    const texte = await AsyncStorage.getItem(cle);
+    if (!texte) return partieNeuve();
+    let brut = null;
+    try {
+      brut = JSON.parse(texte);
+    } catch (e) {
+      brut = null;
+    }
+    const propre = nettoyerSauvegarde(brut);
+    if (!brut || typeof brut !== 'object') enregistrerPartie(cle, propre);
+    return propre;
+  } catch (e) {
+    return partieNeuve();
+  }
+}
+
+export async function enregistrerPartie(cle, etat) {
+  try {
+    await AsyncStorage.setItem(cle, JSON.stringify(etat));
+  } catch (e) {
+    // Mémoire pleine ou indisponible : la partie continue, nouvel essai à la pause suivante.
+  }
 }

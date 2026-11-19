@@ -1,12 +1,39 @@
 // node --experimental-detect-module --test utils/__tests__/jeuCoupe.test.mjs
+// Mini-jeu « Fruits express » (utils/jeux/coupe.js, logique pure, même fichier que l'app client).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
+import { register } from 'node:module';
+
+// utils/jeux/coupe.js importe AsyncStorage (records) et ./commun (React,
+// contexte du compte) : sous node, faux stockage vide et copie des deux
+// petites fonctions utilisées (cleSauvegardeJeu, entierJeu).
+const FAUX_STOCKAGE = 'export default { getItem: async () => null, setItem: async () => {}, removeItem: async () => {} };';
+const FAUX_COMMUN = `
+export function cleSauvegardeJeu(jeu, idUser) {
+  const suffixe = idUser != null && idUser !== '' ? String(idUser) : 'local';
+  return 'USER_JEU_' + String(jeu).toUpperCase() + '_V1_' + suffixe;
+}
+export function entierJeu(x, min = 0) {
+  const n = Math.floor(Number(x));
+  return Number.isFinite(n) && n >= min ? n : min;
+}`;
+register('data:text/javascript,' + encodeURIComponent(`
+export async function resolve(specifier, context, next) {
+  if (specifier === '@react-native-async-storage/async-storage') {
+    return { shortCircuit: true, url: 'data:text/javascript,' + encodeURIComponent(${JSON.stringify(FAUX_STOCKAGE)}) };
+  }
+  if (specifier === './commun' && String(context.parentURL || '').endsWith('/utils/jeux/coupe.js')) {
+    return { shortCircuit: true, url: 'data:text/javascript,' + encodeURIComponent(${JSON.stringify(FAUX_COMMUN)}) };
+  }
+  return next(specifier, context);
+}`));
+
+const {
   VIES, BONUS, SCORE_MAX, DUREE_RALENTI, DUREE_DOUBLE, VAGUE_PREMIER_BONUS,
   DUREE_VOL_MIN, ECART_ESCORTE, MOTIFS, choisirMotif, nouvelleVague,
   reglagesVague, probaBonus, bonusPossibles, creerMonde, avancer, lame, lancer,
   etatSauvegarde, mondeRepris, estBonus,
-} from '../jeuCoupe.js';
+} = await import('../jeux/coupe.js');
 
 // Joueur parfait : tranche chaque fruit, cœur et bonus quand il redescend, évite les colis.
 function partieParfaite(secondes, graine = 42, reprise = null, largeur = 500) {

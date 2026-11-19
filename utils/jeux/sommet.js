@@ -16,12 +16,26 @@
  * pièges plus fréquents et plus rapides, vent dès le palier 1 et un peu plus
  * fort à chaque palier), puis au-delà du palier 4 une « surcharge » accélère
  * encore pots, pigeons et nacelles, plafonnée pour rester jouable.
+ * Durcie le 15/11/2026 (jeu jugé trop facile) : difficulté qui monte plus
+ * vite (échelle de 1700 unités au lieu de 2600), écart minimal jusqu'à 0,68
+ * saut (0,62 avant), pots dès 600 et pigeons dès 1000 (900 et 1400 avant),
+ * pots en rafales dès le palier 2 (3 avant), pièges plus fréquents et plus
+ * rapides dès le départ, surcharge de +10 % par palier plafonnée à 50 %
+ * (7 % et 35 % avant). La borne ECART_MAX_RATIO ne change pas.
  * Durcie et variée le 16/11/2026 : voir l'en-tête de `difficulte`.
  * Bonus ramassables (un tous les 13 à 22 étages environ, posés au-dessus
  * d'un balcon de la chaîne, donc toujours atteignables) : aimant à colis,
  * casque (protège d'un pot ou d'un pigeon) et filet de sécurité (rattrape
  * une chute). Les anciens bonus restent : matelas, monte-charge, colis.
+ *
+ * Partie enregistrée dans AsyncStorage par compte livreur
+ * (records, phase et course en cours). Une course reprise repart du
+ * trottoir en gardant étages, colis et bonus actifs.
  */
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {cleSauvegardeJeu, entierJeu} from './commun';
+
+export const JEU_SOMMET = 'sommet';
 
 export const MONDE_L = 360;
 export const GRAVITE = 2200;
@@ -56,6 +70,9 @@ export const V_AIMANT = 520;
 export const BONUS_ECART_MIN = 800;
 export const BONUS_ECART_MAX = 1300;
 export const INVULNERABLE = 0.8; // secondes protégées après un coup paré par le casque
+// Un pigeon ne blesse qu'après ce temps à l'écran : né au bord, il touchait
+// parfois un livreur collé au bord avant d'être visible (temps de jeu, 0,36 s réelle).
+export const PIGEON_VU_MIN = 0.25;
 export const SURCHARGE_MAX = 0.9;
 // Une nacelle ne file jamais plus vite que 80 % de la course du livreur : on la rattrape toujours.
 export const V_NACELLE_MAX = 0.8 * VX_MAX;
@@ -76,15 +93,14 @@ const H_SAUT = hauteurSaut(V_SAUT);
 /**
  * Difficulté 0 (début) vers 1, progressive à l'intérieur d'une course.
  *
- * Refonte du 16/11/2026 (jeu jugé trop simple et toujours pareil), reprise de
- * l'app cliente. La difficulté se règle maintenant surtout par niveau (palier
- * de 50 étages) et chaque niveau a son propre mélange de pièges :
- * - Niveau 1 : prise en main courte, mais pots dès 450 de haut (900 avant) et
- *   pigeons dès 800 (1400 avant) ; la difficulté de base monte bien plus vite
- *   (échelle 1100 au lieu de 2600).
+ * Refonte du 16/11/2026 (jeu jugé trop simple et toujours pareil, même au
+ * niveau 9). La difficulté se règle maintenant surtout par niveau (palier de
+ * 50 étages) et chaque niveau a son propre mélange de pièges :
+ * - Niveau 1 : prise en main courte, mais pots dès 450 de haut et pigeons
+ *   dès 800 ; la difficulté de base monte plus vite (échelle 1100 au lieu de 1700).
  * - Dès le niveau 2, une « surcharge » accélère pots, pigeons et nacelles de
- *   15 % par niveau, jusqu'à +90 % au niveau 7 (avant : rien avant le niveau 6,
- *   plafond à +35 %). Pots par deux dès le niveau 3, par trois dès le niveau 6 ;
+ *   15 % par niveau, jusqu'à +90 % au niveau 8 (avant : rien avant le niveau 6,
+ *   plafond à +50 %). Pots par deux dès le niveau 3, par trois dès le niveau 6 ;
  *   pigeons par deux dès le niveau 3, par trois dès le niveau 7.
  * - Chaque niveau tire un ou plusieurs « accents » (un aux niveaux 2 et 3,
  *   deux aux niveaux 4 à 6, trois ensuite), dans un ordre mélangé à chaque
@@ -506,8 +522,8 @@ export function avancer(e, dtBrut, dir) {
     if (e.casque > 0) e.casque = Math.max(0, e.casque - h);
     if (e.filet > 0) e.filet = Math.max(0, e.filet - h);
     if (e.invuln > 0) e.invuln = Math.max(0, e.invuln - h);
-    // Vent retiré du livreur (15/11/2026) : il le faisait partir seul d'un côté,
-    // et glisser longtemps doigt arrêté. e.vent reste calculé pour le décor.
+    // Vent retiré du livreur (15/11/2026) : invisible, il le faisait glisser
+    // tout seul plusieurs secondes d'un côté dès que le doigt s'arrêtait.
     pasJoueur(j, e.phase === 'jeu' ? dir : 0, h, 0);
     if (e.annonce > 0) e.annonce -= h;
     if (e.phase === 'chute') j.rot += 500 * h;
@@ -555,7 +571,7 @@ export function avancer(e, dtBrut, dir) {
           j.y = Math.max(j.y, g.y);
           rebondir(e, V_SAUT);
           evts.push('pigeon');
-        } else if (toucheCorps(j, g.x, g.y, 16, 9)) {
+        } else if ((g.vu ?? PIGEON_VU_MIN) >= PIGEON_VU_MIN && toucheCorps(j, g.x, g.y, 16, 9)) {
           if (proteger(e, evts)) { g.mort = true; g.vyMort = 0; continue; }
           e.phase = 'chute';
           e.cause = 'pigeon';
@@ -605,6 +621,7 @@ export function avancer(e, dtBrut, dir) {
         g.x += g.vx * h;
         // Pigeon qui ondule (accent « vague »).
         if (g.amp) g.y = g.y0 + g.amp * Math.sin(g.w * e.t + g.phase);
+        if (g.vu !== undefined && g.x >= 0 && g.x <= MONDE_L) g.vu += h;
       }
     }
     if (e.phase === 'jeu') {
@@ -661,6 +678,7 @@ export function avancer(e, dtBrut, dir) {
                 regard: gauche ? 1 : -1,
                 mort: false,
                 vyMort: 0,
+                vu: 0,
               };
               if (vague) {
                 g.y0 = yv;
@@ -704,6 +722,117 @@ export function avancer(e, dtBrut, dir) {
   e.etage = Math.floor(e.hautMax / ETAGE) + (e.etageBase || 0);
   e.score = e.etage + e.colis * POINTS_COLIS;
   return evts;
+}
+
+// ---------------------------------------------------------------------------
+// Enregistrement de la partie
+// ---------------------------------------------------------------------------
+
+const PHASES = ['accueil', 'jeu', 'pause', 'fin'];
+/** Plafond de vraisemblance : 50 étages et au plus ~130 colis par niveau. */
+export const SCORE_MAX_PAR_NIVEAU = 700;
+
+/** Niveau affiché : un niveau par palier de 50 étages, à partir de 1. */
+export function niveauSommet(etage) {
+  return Math.floor(Math.max(0, Number(etage) || 0) / ETAGES_PALIER) + 1;
+}
+
+/** Ce qu'il faut garder d'une course pour la reprendre plus tard. */
+export function instantaneCourse(e) {
+  if (!e) return null;
+  return {etage: entierJeu(e.etage), colis: entierJeu(e.colis), score: entierJeu(e.score), bonus: bonusActifs(e)};
+}
+
+/** Reprise : le livreur repart du trottoir avec ses étages, colis et bonus. */
+export function reprendreCourse(sauvee, visibleH = 640, hasard = Math.random) {
+  const base = sauvee && typeof sauvee === 'object' ? entierJeu(sauvee.etage) * ETAGE : 0;
+  const e = partieNeuve(visibleH, hasard, base);
+  if (sauvee && typeof sauvee === 'object') {
+    e.etageBase = entierJeu(sauvee.etage);
+    e.colis = entierJeu(sauvee.colis);
+    e.etage = e.etageBase;
+    e.score = e.etageBase + e.colis * POINTS_COLIS;
+    restaurerBonus(e, sauvee.bonus);
+  }
+  return e;
+}
+
+/** Sauvegarde neuve (écran d'accueil), records gardés. */
+export function sauvegardeNeuve(records = {}) {
+  return {
+    phase: 'accueil',
+    course: null,
+    meilleurScore: entierJeu(records.meilleurScore),
+    meilleurNiveau: Math.max(1, entierJeu(records.meilleurNiveau, 1)),
+  };
+}
+
+/**
+ * Relit une sauvegarde : toute valeur abîmée est remplacée par une valeur
+ * sûre, jamais de plantage. Une partie en cours revient en pause.
+ */
+export function nettoyerSauvegarde(brut) {
+  try {
+    if (!brut || typeof brut !== 'object' || Array.isArray(brut)) return sauvegardeNeuve();
+    const base = sauvegardeNeuve(brut);
+    let phase = PHASES.includes(brut.phase) ? brut.phase : 'accueil';
+    if (phase === 'jeu') phase = 'pause';
+    let course = null;
+    const c = brut.course;
+    if ((phase === 'pause') && c && typeof c === 'object') {
+      const etage = entierJeu(c.etage);
+      const niveau = niveauSommet(etage);
+      const colis = Math.min(entierJeu(c.colis), Math.floor((SCORE_MAX_PAR_NIVEAU * niveau - etage) / POINTS_COLIS));
+      const bonus = {};
+      for (const k of TYPES_BONUS) {
+        const v = Number(c.bonus?.[k]);
+        bonus[k] = Number.isFinite(v) ? Math.max(0, Math.min(BONUS[k].duree, v)) : 0;
+      }
+      course = {etage, colis: Math.max(0, colis), score: etage + Math.max(0, colis) * POINTS_COLIS, bonus};
+    }
+    if (phase === 'pause' && !course) phase = 'accueil';
+    const score = course ? course.score : 0;
+    return {
+      ...base,
+      phase,
+      course,
+      meilleurScore: Math.max(base.meilleurScore, score),
+      meilleurNiveau: Math.max(base.meilleurNiveau, course ? niveauSommet(course.etage) : 1),
+    };
+  } catch (e) {
+    return sauvegardeNeuve();
+  }
+}
+
+/** Une partie par compte livreur sur le téléphone (clé de utils/jeux/commun.js). */
+export function cleSauvegarde(idUser) {
+  return cleSauvegardeJeu(JEU_SOMMET, idUser);
+}
+
+export async function chargerPartie(cle) {
+  try {
+    const texte = await AsyncStorage.getItem(cle);
+    if (!texte) return sauvegardeNeuve();
+    let brut = null;
+    try {
+      brut = JSON.parse(texte);
+    } catch (e) {
+      brut = null;
+    }
+    const propre = nettoyerSauvegarde(brut);
+    if (!brut || typeof brut !== 'object') enregistrerPartie(cle, propre);
+    return propre;
+  } catch (e) {
+    return sauvegardeNeuve();
+  }
+}
+
+export async function enregistrerPartie(cle, etat) {
+  try {
+    await AsyncStorage.setItem(cle, JSON.stringify(etat));
+  } catch (e) {
+    // Mémoire pleine ou indisponible : la partie continue, nouvel essai plus tard.
+  }
 }
 
 /**
