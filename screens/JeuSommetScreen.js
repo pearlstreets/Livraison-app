@@ -38,7 +38,6 @@ import HudJeu from '../components/jeux/HudJeu';
 import BandeauClassement, {formaterNombre} from '../components/jeux/BandeauClassement';
 import {CouchePopups, BanniereRecompense, RecapRecompenses, OR_FONCE} from '../components/jeux/RecompensesJeu';
 import FenetreReprise from '../components/jeux/FenetreReprise';
-import IndiceGestes from '../components/jeux/IndiceGestes';
 import SonJeux, {demarrerMusique, arreterMusique, bruit, ReglagesSon} from '../components/jeux/SonJeux';
 import {
   Etage,
@@ -103,7 +102,6 @@ const BandeauFige = memo(
     a.bandeau.top1?.score === b.bandeau.top1?.score &&
     a.bandeau.top1?.nom === b.bandeau.top1?.nom,
 );
-const IndiceFige = memo(IndiceGestes, (a, b) => a.jeu === b.jeu && a.actif === b.actif);
 
 
 // Vibration légère (Android seulement), le jeu marche sans.
@@ -555,7 +553,7 @@ export default function JeuSommetScreen({navigation}) {
   const ab = annonceBonusRef.current;
   const annonceBonus = avecCourse && ab && e.t < ab.fin ? ab : null;
   const decalageY = {transform: [{translateY: taille.h + cam * s}]};
-  const fenetre = !enJeu && !classementOuvert && !reprise.proposition && !alerteCourse;
+  const fenetre = !enJeu && !reprise.proposition && !alerteCourse;
   const nColis = avecCourse ? e.colis : 0;
   const objets = {
     n: nColis,
@@ -691,7 +689,6 @@ export default function JeuSommetScreen({navigation}) {
           )}
         </View>
 
-        <IndiceFige jeu={JEU} gestes={['gauche', 'droite', 'appui']} actif={enJeu} />
         <CouchePopups ref={popupsRef} />
         {/* Sous les annonces empilées (bonus, palier) : ne les recouvre pas */}
         <BanniereRecompense ref={banniereRef} style={styles.banniere} />
@@ -703,8 +700,8 @@ export default function JeuSommetScreen({navigation}) {
           <View style={styles.carte}>
             {phase === 'accueil' && (
               <>
-                <ReglagesSon />
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeauClassement?.rang} record={bandeauClassement?.record} top1={bandeauClassement?.top1} />
+                <ReglagesSon />
                 <Ionicons name="business" size={42} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuxSommetTitre')}</Text>
                 <Text style={styles.texte}>{t('jeuxSommetRegleCourte')}</Text>
@@ -716,8 +713,8 @@ export default function JeuSommetScreen({navigation}) {
             )}
             {phase === 'pause' && (
               <>
-                <ReglagesSon />
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeauClassement?.rang} record={bandeauClassement?.record} top1={bandeauClassement?.top1} />
+                <ReglagesSon />
                 <Ionicons name="pause-circle" size={44} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                 <Text style={styles.texte}>{t('jeuSauvegarde')}</Text>
@@ -730,8 +727,8 @@ export default function JeuSommetScreen({navigation}) {
             )}
             {phase === 'fin' && (
               <>
-                <ReglagesSon />
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeauClassement?.rang} record={bandeauClassement?.record} top1={bandeauClassement?.top1} />
+                <ReglagesSon />
                 <Ionicons name={fin?.record ? 'trophy' : 'alert-circle'} size={44} color={fin?.record ? C.or : C.danger} />
                 <Text style={styles.titre}>{t('jeuxSommetFinTitre')}</Text>
                 {fin?.record && <Text style={[styles.texte, styles.record]}>{t('jeuxSommetNouveauRecord')}</Text>}
