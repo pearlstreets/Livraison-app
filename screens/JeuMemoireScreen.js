@@ -50,21 +50,17 @@ import {
   SCORE_MAX_SERVEUR, cleSauvegarde, chargerRecords, enregistrerRecords, majRecords,
 } from '../utils/jeux/memoire';
 
-// Vibration légère : module natif facultatif (expo-haptics), le jeu marche sans.
-let Haptics = null;
+// Vibration légère (Android) : facultative, le jeu marche sans.
+let haptique = null;
 try {
   // eslint-disable-next-line global-require
-  Haptics = require('expo-haptics');
+  haptique = require('../utils/jeux/haptique');
 } catch (e) {
-  Haptics = null;
+  haptique = null;
 }
 function vibrer(fort) {
   try {
-    if (!Haptics) return;
-    const promesse = fort
-      ? Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
-      : Haptics.selectionAsync();
-    promesse?.catch?.(() => {});
+    haptique?.vibrer?.(fort ? [0, 30, 60, 30] : [0, 10]);
   } catch (e) {
     // Sans vibration.
   }
