@@ -1,17 +1,30 @@
 // node --experimental-detect-module --test utils/__tests__/jeuSlalom.test.mjs
 /**
- * Mini-jeu « Slalom urbain » (utils/jeuSlalom.js, logique pure) : courbe de
+ * Mini-jeu « Slalom urbain » (utils/jeux/slalom.js, logique pure) : courbe de
  * difficulté plus raide niveau après niveau, variété des rangées, et parcours
  * toujours faisable (une voie franchissable et tolérante, écart minimal tenu,
  * changement de voie possible à temps), sur plusieurs graines.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
+import { register } from 'node:module';
+
+// utils/jeux/slalom.js importe AsyncStorage (sauvegarde de partie) : sous
+// node, ce module React Native est remplacé par un faux stockage vide.
+const FAUX_STOCKAGE = 'export default { getItem: async () => null, setItem: async () => {}, removeItem: async () => {} };';
+register('data:text/javascript,' + encodeURIComponent(`
+export async function resolve(specifier, context, next) {
+  if (specifier === '@react-native-async-storage/async-storage') {
+    return { shortCircuit: true, url: 'data:text/javascript,' + encodeURIComponent(${JSON.stringify(FAUX_STOCKAGE)}) };
+  }
+  return next(specifier, context);
+}`));
+
+const {
   vitessePour, difficulte, pression, niveauPour, creerGenerateur, genererRangee, rangeeSure,
   rangeeFranchissable, toutesRangees, ECART_MIN, VMAX, RATIO_MAX, VITESSE_VOIE, OBSTACLES,
   LONGUEUR_NIVEAU, nouvelleCourse, reprendreCourse, instantaneCourse,
-} from '../jeuSlalom.js';
+} = await import('../jeux/slalom.js');
 
 const GRAINES = [1, 7, 42, 1234, 99991, 2026111, 31337, 555];
 const FIN = 9 * LONGUEUR_NIVEAU; // jusqu'au bout du niveau 9

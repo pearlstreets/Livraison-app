@@ -7,6 +7,8 @@
  * Classement du mois (14/11/2026) : un bouton ouvre le classement tous jeux
  * (GET driver/jeux/classement-mois/, relu à chaque retour, erreurs
  * silencieuses) et chaque jeu montre la place du mois et ses points.
+ * Liste = JEUX d'AppUser (utils/jeux/commun.js) ; les jeux les plus lancés sur
+ * ce téléphone remontent en tête (compteur local `CLE_USAGE`, égalité : ordre de JEUX).
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ScrollView, Switch, Image, Modal, ActivityIndicator } from 'react-native';
@@ -16,7 +18,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme, BRAND } from '../contexts/ThemeContext';
-import { chargerRecord } from '../utils/jeuxRecords';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { JEUX, entierJeu, lireMeilleurScore } from '../utils/jeux/commun';
 import { deliveryService } from '../services/deliveryService';
 import { formaterNombre } from '../components/BandeauClassement';
 import { peutSimuler } from '../utils/simulation';
@@ -25,15 +28,28 @@ import { chargerReglagesSon, changerReglageSon, reglagesSon } from '../utils/son
 const OR = '#F2B705';
 const MEDAILLES = { 1: '#F2B705', 2: '#A7B1BC', 3: '#CD7F32' };
 
-const LISTE = [
-  { id: 'slalom', image: require('../assets/images/jeux/slalom.webp'), route: 'JeuSlalom', icone: 'walk', couleur: '#FF6A13', titre: 'jeuxSlalomTitre', texte: 'jeuxSlalomTexte' },
-  { id: 'toits', image: require('../assets/images/jeux/toits.webp'), route: 'JeuToits', icone: 'bicycle', couleur: '#2E86DE', titre: 'jeuxToitsTitre', texte: 'jeuxToitsTexte' },
-  { id: 'sommet', image: require('../assets/images/jeux/sommet.webp'), route: 'JeuSommet', icone: 'business', couleur: '#8E44AD', titre: 'jeuxSommetTitre', texte: 'jeuxSommetTexte' },
-  { id: 'drone', image: require('../assets/images/jeux/drone.webp'), route: 'JeuDrone', icone: 'airplane', couleur: '#16A085', titre: 'jeuxDroneTitre', texte: 'jeuxDroneTexte' },
-  { id: 'coupe', image: require('../assets/images/jeux/coupe.webp'), route: 'JeuCoupe', icone: 'nutrition', couleur: '#E74C3C', titre: 'jeuxCoupeTitre', texte: 'jeuxCoupeTexte' },
-  { id: 'memoire', image: require('../assets/images/jeux/memoire.webp'), route: 'JeuMemoire', icone: 'albums', couleur: '#F2B705', titre: 'jeuxMemoireTitre', texte: 'jeuxMemoireTexte' },
-  { id: 'basket', image: require('../assets/images/jeux/basket.webp'), route: 'JeuBasket', icone: 'basketball', couleur: '#E67E22', titre: 'jeuxBasketTitre', texte: 'jeuxBasketTexte' },
-];
+// Nombre de lancements de chaque jeu sur ce téléphone : { [jeu]: n } (comme AppUser #9989).
+const CLE_USAGE = 'jeux_usage_v1';
+
+async function lireUsage() {
+  try {
+    const brut = await AsyncStorage.getItem(CLE_USAGE);
+    const u = brut ? JSON.parse(brut) : null;
+    return u && typeof u === 'object' ? u : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+async function compterLancement(jeu) {
+  const u = await lireUsage();
+  u[jeu] = entierJeu(u[jeu]) + 1;
+  try {
+    await AsyncStorage.setItem(CLE_USAGE, JSON.stringify(u));
+  } catch (e) {
+    // Mémoire indisponible : l'ordre ne bouge simplement pas.
+  }
+}
 
 export default function JeuxScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -42,6 +58,7 @@ export default function JeuxScreen({ navigation }) {
   const { user } = useAuth();
   const s = useMemo(() => makeStyles(colors, dark), [colors, dark]);
   const [records, setRecords] = useState({});
+  const [usage, setUsage] = useState({});
   const [son, setSon] = useState(reglagesSon());
   const [mois, setMois] = useState({ charge: true, erreur: false, donnees: null });
   const [details, setDetails] = useState(false);
@@ -61,13 +78,15 @@ export default function JeuxScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => {
     let vivant = true;
-    (async () => {
-      const r = {};
-      for (const j of LISTE) {
-        r[j.id] = (await chargerRecord(j.id, user?.id)).meilleur;
-      }
-      if (vivant) setRecords(r);
-    })();
+    Promise.all(JEUX.map((j) => lireMeilleurScore(j.jeu, user?.id != null ? String(user.id) : null)))
+      .then((scores) => {
+        if (!vivant) return;
+        const r = {};
+        JEUX.forEach((j, i) => { r[j.jeu] = scores[i]; });
+        setRecords(r);
+      })
+      .catch(() => {});
+    lireUsage().then((u) => { if (vivant) setUsage(u); });
     chargerMois(() => vivant);
     return () => { vivant = false; };
   }, [user?.id, chargerMois]));
@@ -75,6 +94,10 @@ export default function JeuxScreen({ navigation }) {
   const moi = mois.donnees?.moi && typeof mois.donnees.moi === 'object' ? mois.donnees.moi : null;
   const moisParJeu = moi?.jeux && typeof moi.jeux === 'object' ? moi.jeux : {};
   const liste = Array.isArray(mois.donnees?.classement) ? mois.donnees.classement : [];
+  // Le jeu le plus lancé en premier ; à égalité, l'ordre habituel.
+  const jeuxTries = JEUX.map((j, i) => ({ j, i, n: entierJeu(usage[j.jeu]) }))
+    .sort((a, b) => b.n - a.n || a.i - b.i)
+    .map((x) => x.j);
 
   return (
     <View style={[s.ecran, { paddingTop: insets.top + 8 }]}>
@@ -119,25 +142,28 @@ export default function JeuxScreen({ navigation }) {
           </View>
           <Ionicons name="chevron-forward" size={24} color={colors.textMuted} />
         </Pressable>
-        {LISTE.map((j) => (
+        {jeuxTries.map((j) => (
           <Pressable
-            key={j.id}
-            onPress={() => navigation.navigate(j.route)}
+            key={j.jeu}
+            onPress={() => {
+              compterLancement(j.jeu);
+              navigation.navigate(j.route);
+            }}
             style={({ pressed }) => [s.carte, pressed && { opacity: 0.85 }]}
-            accessibilityLabel={t(j.titre)}
+            accessibilityLabel={t(`${j.prefixe}Titre`)}
           >
             <View style={[s.pastille, { backgroundColor: j.couleur }]}>
               <Image source={j.image} style={s.illustration} resizeMode="cover" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={s.nom}>{t(j.titre)}</Text>
-              <Text style={s.texte}>{t(j.texte)}</Text>
-              {records[j.id] > 0 && (
-                <Text style={s.record}>{t('jeuxRecord', { n: records[j.id] })}</Text>
+              <Text style={s.nom}>{t(`${j.prefixe}Titre`)}</Text>
+              <Text style={s.texte}>{t(`${j.prefixe}Texte`)}</Text>
+              {records[j.jeu] > 0 && (
+                <Text style={s.record}>{t('jeuxRecord', { n: records[j.jeu] })}</Text>
               )}
-              {moisParJeu[j.id]?.rang > 0 && (
+              {moisParJeu[j.jeu]?.rang > 0 && (
                 <Text style={s.mois}>
-                  {t('moisCarte', { rang: moisParJeu[j.id].rang, points: formaterNombre(moisParJeu[j.id].points) })}
+                  {t('moisCarte', { rang: moisParJeu[j.jeu].rang, points: formaterNombre(moisParJeu[j.jeu].points) })}
                 </Text>
               )}
             </View>

@@ -1,15 +1,40 @@
 // node --experimental-detect-module --test utils/__tests__/jeuToits.test.mjs
-// Mêmes tests que l'app client (AppUser/__tests__/jeuToits.test.js), sans la sauvegarde.
+// Mini-jeu « Tournée des toits » (utils/jeux/toits.js, logique pure) : mêmes tests que
+// l'app client (AppUser/__tests__/jeuToits.test.js), sauvegarde comprise.
+//
+// utils/jeux/toits.js importe AsyncStorage et ./commun (React) : sous node, sans
+// node_modules, ces deux modules sont remplacés par des doublures (hook de chargement).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
+import { register } from 'node:module';
+
+const DOUBLURES = {
+  '@react-native-async-storage/async-storage':
+    'const m = new Map(); export default { getItem: async (k) => (m.has(k) ? m.get(k) : null), setItem: async (k, v) => { m.set(k, v); } };',
+  './commun':
+    "export function cleSauvegardeJeu(jeu, idUser) { const s = idUser != null && idUser !== '' ? String(idUser) : 'local'; return 'USER_JEU_' + String(jeu).toUpperCase() + '_V1_' + s; }\n"
+    + 'export function entierJeu(x, min = 0) { const n = Math.floor(Number(x)); return Number.isFinite(n) && n >= min ? n : min; }',
+};
+const HOOKS = `
+const D = ${JSON.stringify(DOUBLURES)};
+export async function resolve(spec, ctx, next) {
+  if (Object.prototype.hasOwnProperty.call(D, spec)) return { url: 'data:text/javascript,' + encodeURIComponent(D[spec]), shortCircuit: true };
+  return next(spec, ctx);
+}`;
+register('data:text/javascript,' + encodeURIComponent(HOOKS));
+
+const {
   SAUT_MESURE, ECART_MAX, MONTEE_MAX, LARGEUR, VIES, PALIER_PIECES, DISTANCE_SURE, BORD_SUR,
   DEGAGEMENT_ATTERRISSAGE, genererNiveau, creerMonde, pas, etatsEntree, etatsSortie, hautDe,
   peutSauter, simulerSaut, MARGE_SAUT, pointDeReprise, reapparaitre, zoneGeneur, reglagesNiveau,
-  BONUS_CAISSE, BONUS_CHRONO, DUREES, POINTS, RESSORT, MARCHE_ETAGE, peutMonter, decorNiveau,
-  mondeParId, MONDES, NIVEAUX_PAR_MONDE, genererElementsMonde, peutGrimper, physiqueJoueur,
-  nouveauJoueur, demanderSaut, NAGE, VITESSE, TERRAINS, terrainNiveau, HAUTEUR,
-} from '../jeuToits.js';
+  BONUS_CAISSE, BONUS_CHRONO, DUREES, POINTS, SCORE_MAX_PAR_NIVEAU,
+  partieNeuve, nettoyerSauvegarde, cleSauvegarde, JEU_TOITS,
+  RESSORT, MARCHE_ETAGE, peutMonter, decorNiveau, mondeParId, MONDES, NIVEAUX_PAR_MONDE,
+  genererElementsMonde, peutGrimper, physiqueJoueur, nouveauJoueur, demanderSaut, NAGE, VITESSE,
+  TERRAINS, terrainNiveau, HAUTEUR,
+  peutPlonger, PLONGEE, OXYGENE, majOxygene, GLACE, TORNADE, TAILLES_POISSONS,
+} = await import('../jeux/toits.js');
+
 
 const ECART = ECART_MAX;
 
@@ -35,6 +60,10 @@ test('chaque saut obligatoire est sous les bornes et faisable, même déclenché
         assert.ok(peutGrimper(P[i], P[i + 1]), `niveau ${n} graine ${g} plateforme ${i} : gouttière impossible`);
         continue;
       }
+      if (P[i + 1].plongee) {
+        assert.ok(peutPlonger(P[i], P[i + 1]).ok, `niveau ${n} graine ${g} plateforme ${i} : plongée impossible`);
+        continue;
+      }
       etatsSortie(P[i]).forEach((a) => etatsEntree(P[i + 1]).forEach((b) => {
         const ecart = b.x - (a.x + a.w);
         const dy = b.y - hautDe(a);
@@ -55,7 +84,7 @@ test('entre deux colonnes fixes, on peut toujours revenir en arrière', () => {
     for (let i = 0; i + 1 < P.length; i += 1) {
       const a = P[i];
       const b = P[i + 1];
-      if (!fixe(a) || !fixe(b)) continue;
+      if (!fixe(a) || !fixe(b) || b.plongee) continue; // plongée : on revient à la nage
       const mir = (p) => ({ ...p, x: -(p.x + p.w) });
       assert.ok(peutSauter(mir(b), mir(a)), `niveau ${n} graine ${g} : retour impossible ${i + 1} vers ${i}`);
     }
@@ -211,6 +240,10 @@ test('niveaux 16 à 24 : toujours faisables, gêneurs hors atterrissage', () => 
         assert.ok(peutGrimper(P[i], P[i + 1]), `niveau ${n} graine ${g} plateforme ${i} : gouttière impossible`);
         continue;
       }
+      if (P[i + 1].plongee) {
+        assert.ok(peutPlonger(P[i], P[i + 1]).ok, `niveau ${n} graine ${g} plateforme ${i} : plongée impossible`);
+        continue;
+      }
       etatsSortie(P[i]).forEach((a) => etatsEntree(P[i + 1]).forEach((b) => {
         const ctx = `niveau ${n} graine ${g} plateforme ${i}`;
         assert.ok(b.x - (a.x + a.w) <= ECART + 0.5, `${ctx} : trou`);
@@ -282,6 +315,51 @@ test('caisses bonus : les 5 bonus tournent au fil des niveaux', () => {
   assert.equal(vus.size, BONUS_CAISSE.length);
 });
 
+test('sauvegarde : partie en cours relue en pause au départ du niveau, bornée', () => {
+  const neuve = partieNeuve({meilleurScore: 1200, meilleurNiveau: 4});
+  assert.equal(neuve.phase, 'accueil');
+  assert.equal(neuve.meilleurScore, 1200);
+  assert.equal(neuve.meilleurNiveau, 4);
+  const relue = nettoyerSauvegarde({
+    phase: 'jeu', niveau: 3, graine: 42, score: 999999999,
+    debut: {score: 999999999, vies: 9, pieces: 12, grand: true}, meilleurScore: 10, meilleurNiveau: 1,
+  });
+  assert.equal(relue.phase, 'pause');
+  assert.equal(relue.niveau, 3);
+  assert.equal(relue.graine, 42);
+  assert.equal(relue.debut.score, SCORE_MAX_PAR_NIVEAU * 3);
+  assert.equal(relue.score, relue.debut.score);
+  assert.equal(relue.debut.vies, VIES);
+  assert.equal(relue.debut.pieces, 12);
+  assert.equal(relue.debut.grand, true);
+  assert.equal(relue.meilleurNiveau, 3);
+  assert.equal(nettoyerSauvegarde({phase: 'livre', niveau: 2, debut: {vies: 1}}).phase, 'pause');
+  assert.equal(nettoyerSauvegarde({phase: 'livre', niveau: 2, debut: {vies: 1}}).debut.vies, 1);
+  assert.equal(nettoyerSauvegarde({phase: 'perdu', niveau: 5, meilleurScore: 30}).phase, 'accueil');
+  assert.equal(nettoyerSauvegarde({phase: 'perdu', niveau: 5, meilleurScore: 30}).meilleurScore, 30);
+  assert.equal(nettoyerSauvegarde('abîmée').phase, 'accueil');
+  assert.equal(nettoyerSauvegarde(null).niveau, 1);
+});
+
+test('clé de sauvegarde par compte livreur', () => {
+  assert.equal(JEU_TOITS, 'toits');
+  // Format exact : utils/jeux/commun.js (cleSauvegardeJeu), simulé ici.
+  assert.ok(cleSauvegarde(12).includes('TOITS') && cleSauvegarde(12).endsWith('12'));
+  assert.notEqual(cleSauvegarde(12), cleSauvegarde(13));
+  assert.notEqual(cleSauvegarde(12), cleSauvegarde(null));
+});
+
+test('un niveau reste sous le plafond par niveau de la sauvegarde', () => {
+  [1, 8, 15, 30].forEach((n) => {
+    const m = creerMonde(n, {}, 9);
+    const max = 2 * (m.colis.length * 10 + m.boites.length * 50 + m.geneurs.length * 150)
+      + m.boites.length * 100 + POINTS.livraison + (m.limite + m.boites.length * BONUS_CHRONO) * POINTS.seconde;
+    assert.ok(max < SCORE_MAX_PAR_NIVEAU, `niveau ${n} : max ${max}`);
+  });
+});
+
+// ---- Difficulté plus rapide, étages, ressorts, mondes (demande du 13/11) ----
+
 test('la difficulté monte dès le niveau 1, chaque niveau plus dur que le précédent', () => {
   // Niveau 1 plus dur que l'ancien (trous 0,42, gêneurs 0,28, 1 600 de long, 44 s).
   const r1 = reglagesNiveau(1);
@@ -308,16 +386,18 @@ test('la difficulté monte dès le niveau 1, chaque niveau plus dur que le préc
     let trous = 0;
     let nbTrous = 0;
     let geneurs = 0;
-    GRAINES.forEach((g) => {
+    // 12 graines : la moyenne reste stable quand l'ordre des passages est tiré au hasard.
+    GRAINES.concat([2, 3, 5, 8, 13, 21]).forEach((g) => {
       const niv = genererNiveau(n, g * 97 + n);
       const P = niv.plateformes;
       for (let i = 0; i + 1 < P.length; i += 1) {
         const ecart = P[i + 1].x - (P[i].x + P[i].w);
-        if (P[i].mobile || P[i + 1].mobile || ecart < 1) continue;
+        if (P[i].mobile || P[i + 1].mobile || P[i + 1].plongee || ecart < 1) continue; // bassin profond : on nage, ce n'est pas un trou
         trous += ecart;
         nbTrous += 1;
       }
-      geneurs += niv.geneurs.length / niv.longueur;
+      // Densité sur les toits : la largeur des bassins profonds (on y nage) ne compte pas.
+      geneurs += niv.geneurs.length / (niv.longueur - niv.plongees.reduce((t, pl) => t + pl.w, 0));
     });
     return { trou: trous / nbTrous, geneurs };
   };
@@ -381,7 +461,9 @@ test('ressort : rebond bien plus haut qu\'un saut normal, retombée sans chute',
     const cmd = { droite: true, gauche: false, sautTenu: false, sautAppui: false, bas: false, geste: true };
     let haut = 0;
     let rebond = false;
-    for (let k = 0; k < 60 * 2; k += 1) {
+    for (let k = 0; k < 60 * 3; k += 1) {
+      // Les passerelles peuvent descendre en escalier : on lâche la droite pour se poser.
+      if (k === 90) cmd.droite = false;
       const ev = pas(m, 1 / 60, cmd);
       if (ev.some((e) => e.type === 'ressort')) rebond = true;
       assert.ok(!ev.some((e) => e.type === 'chute'), `niveau ${n} : chute après le ressort`);
@@ -406,6 +488,10 @@ test('niveaux 1 à 40 : toujours faisables (chaîne, étages, reprise hors resso
       for (let i = 0; i + 1 < P.length; i += 1) {
         if (P[i + 1].gouttiere) {
           assert.ok(peutGrimper(P[i], P[i + 1]), `${ctx0} plateforme ${i} : gouttière impossible`);
+          continue;
+        }
+        if (P[i + 1].plongee) {
+          assert.ok(peutPlonger(P[i], P[i + 1]).ok, `${ctx0} plateforme ${i} : plongée impossible`);
           continue;
         }
         etatsSortie(P[i]).forEach((a) => etatsEntree(P[i + 1]).forEach((b) => {
@@ -433,32 +519,56 @@ test('niveaux 1 à 40 : toujours faisables (chaîne, étages, reprise hors resso
   }
 });
 
-test('mondes : thème différent d\'un monde à l\'autre, motif différent d\'un niveau à l\'autre', () => {
-  assert.ok(MONDES.length >= 6);
+test('mondes : un monde et un terrain différents à chaque niveau, terrains assortis', () => {
+  assert.ok(MONDES.length >= 9);
   const ids = MONDES.map((x) => x.id);
   assert.equal(new Set(ids).size, ids.length);
-  for (let k = 0; k < MONDES.length; k += 1) {
-    const n = 1 + k * NIVEAUX_PAR_MONDE;
+  assert.equal(NIVEAUX_PAR_MONDE, 1);
+  const vus = new Set();
+  for (let n = 1; n <= 48; n += 1) {
     const d = decorNiveau(n);
-    assert.equal(d.monde, ids[k]);
-    assert.equal(decorNiveau(n + 1).monde, d.monde, 'deux niveaux par monde');
-    assert.notEqual(decorNiveau(n + 1).motif, d.motif, `monde ${d.monde} : même motif sur ses deux niveaux`);
-    assert.notEqual(decorNiveau(n + NIVEAUX_PAR_MONDE).monde, d.monde);
-    assert.equal(genererNiveau(n, 5).monde, d.monde);
+    const ctx = `niveaux ${n} et ${n + 1}`;
+    assert.notEqual(decorNiveau(n + 1).monde, d.monde, `${ctx} : même monde`);
+    assert.notEqual(terrainNiveau(n + 1).terrain.id, terrainNiveau(n).terrain.id, `${ctx} : même terrain`);
+    assert.ok(terrainNiveau(n).terrain.mondes.includes(d.monde), `niveau ${n} : monde ${d.monde} hors de son terrain`);
+    assert.ok(mondeParId(d.monde).motifs.includes(d.motif), `niveau ${n} : motif ${d.motif}`);
+    if (n <= 16) {
+      vus.add(d.monde);
+      assert.equal(genererNiveau(n, 5).monde, d.monde);
+    }
   }
+  ids.forEach((id) => assert.ok(vus.has(id), `monde ${id} absent des 16 premiers niveaux`));
   // Thèmes vraiment différents : ambiance, couleurs, éléments de fond.
   const signature = (id) => JSON.stringify([mondeParId(id).decor, mondeParId(id).couleurs, mondeParId(id).particules, mondeParId(id).elements]);
   assert.equal(new Set(ids.map(signature)).size, ids.length);
-  assert.notEqual(signature(decorNiveau(1).monde), signature(decorNiveau(3).monde));
-  // Le tour recommence après le dernier monde ; id inconnu : la ville.
-  assert.equal(decorNiveau(1 + MONDES.length * NIVEAUX_PAR_MONDE).monde, 'ville');
+  // Le tour recommence après 16 niveaux ; id inconnu : la ville.
+  assert.equal(decorNiveau(17).monde, 'ville');
   assert.equal(mondeParId('inconnu').id, 'ville');
+  // Chaque monde nouveau a son élément de jeu propre.
+  assert.ok(mondeParId('desert').tornades && mondeParId('desert').tempetes);
+  assert.ok(mondeParId('jungle').lianes && mondeParId('jungle').eauVerte);
+  assert.ok(mondeParId('hiver').glace);
   // Éléments de fond propres au monde, reproductibles.
-  const grues = genererElementsMonde(11, 4000);
+  const grues = genererElementsMonde(10, 4000);
   assert.ok(grues.length > 0 && grues.every((e) => e.type === 'grue'));
-  assert.deepEqual(genererElementsMonde(11, 4000), grues);
+  assert.deepEqual(genererElementsMonde(10, 4000), grues);
   assert.deepEqual(genererElementsMonde(1, 4000), []);
+  const desert = genererElementsMonde(2, 4000);
+  assert.ok(desert.length > 0 && desert.every((e) => ['dune', 'cactus', 'palmier'].includes(e.type)));
 });
+
+test('ancienne sauvegarde relue sans plantage, niveau rejoué dans son monde', () => {
+  const ancienne = { v: 1, phase: 'pause', niveau: 9, graine: 17, debut: { score: 1200, vies: 2, pieces: 3, grand: false }, meilleurScore: 1500, meilleurNiveau: 9 };
+  const e = nettoyerSauvegarde(ancienne);
+  assert.equal(e.phase, 'pause');
+  assert.equal(e.niveau, 9);
+  const m = creerMonde(e.niveau, e.debut, e.graine + e.niveau);
+  assert.equal(m.monde, decorNiveau(9).monde);
+  assert.ok(Array.isArray(m.ressorts) && Array.isArray(m.etages));
+  pas(m, 1 / 60, {});
+});
+
+// ---- Terrains, ascenseurs, bassins, gouttières, bouches d'aération (demande du 14/11) ----
 
 test('terrains : un terrain différent à chaque niveau, passages obligés posés', () => {
   const ids = TERRAINS.map((t) => t.id);
@@ -652,15 +762,239 @@ test('bouche d\'aération : glisser vers le bas mène au bout du conduit, sans d
   assert.ok(vus >= 2, 'aucune bouche');
 });
 
-// ---- Plus dur et plus varié (comme l'app client, demande du 16/11 : « trop simple, toujours la même chose ») ----
+// ---- Parcours varié, plongée, désert, jungle, neige (demande du 15/11) ----
+
+const NIVEAUX_PLONGEE = Array.from({ length: 24 }, (_, i) => i + 1);
+
+test('parcours varié : formes d\'étages diverses, jamais deux passages pareils de suite, aucun toit vide', () => {
+  const formes = new Set();
+  const suites = new Set();
+  NIVEAUX_PLONGEE.forEach((n) => [3, 77, 2026].forEach((g) => {
+    const niv = genererNiveau(n, g * 131 + n);
+    const ctx = `niveau ${n} graine ${g}`;
+    niv.etages.forEach((e) => formes.add(e.forme));
+    for (let i = 1; i < niv.segments.length; i += 1) assert.notEqual(niv.segments[i], niv.segments[i - 1], `${ctx} : ${niv.segments[i]} deux fois de suite`);
+    suites.add(niv.segments.join(','));
+    // Toits pleins ordinaires : toujours un colis, une boîte ou un gêneur dessus.
+    const P = niv.plateformes;
+    for (let i = 1; i + 1 < P.length; i += 1) {
+      const p = P[i];
+      if (p.flottante || p.mobile || p.fragile || p.arrivee || p.type === 'benne' || p.type === 'bassin' || p.w < 110) continue;
+      const dessus = (o) => o.x + 18 > p.x && o.x < p.x + p.w && o.y >= p.y - 1 && o.y < p.y + 220; // bâche : colis hauts
+      assert.ok(niv.colis.some(dessus) || niv.boites.some(dessus) || niv.geneurs.some(dessus), `${ctx} plateforme ${i} : toit vide`);
+    }
+  }));
+  ['montant', 'descendant', 'pyramide', 'zigzag', 'eparses', 'tour'].forEach((f) => assert.ok(formes.has(f), `forme ${f} jamais tirée`));
+  // Différent à chaque partie : la graine change l'ordre des passages.
+  const ordres = new Set([1, 2, 3, 4, 5, 6].map((g) => genererNiveau(4, g).segments.join(',')));
+  assert.ok(ordres.size >= 4, `${ordres.size} ordres seulement`);
+});
+
+test('plongée : toujours faisable, assez d\'oxygène, ouvertures assez hautes, aucun poisson dans un passage', () => {
+  let nb = 0;
+  NIVEAUX_PLONGEE.forEach((n) => [3, 77, 2026, 9].forEach((g) => {
+    const niv = genererNiveau(n, g * 131 + n);
+    const P = niv.plateformes;
+    P.forEach((b, i) => {
+      if (!b.plongee) return;
+      nb += 1;
+      const pl = b.plongee;
+      const ctx = `niveau ${n} graine ${g} bassin ${pl.id}`;
+      const r = peutPlonger(P[i - 1], b);
+      assert.ok(r.ok, `${ctx} : plongée impossible`);
+      assert.ok(r.oxygeneMin >= 0.3, `${ctx} : oxygène au plus bas ${r.oxygeneMin}`);
+      // Profondeur de 5 à 7 livreurs, largeur 500 à 900, même hauteur des deux côtés.
+      assert.ok(pl.eau - pl.fond >= PLONGEE.profondeurMin && pl.eau - pl.fond <= 7 * HAUTEUR + 2, `${ctx} : profondeur ${pl.eau - pl.fond}`);
+      assert.ok(pl.w >= 500 && pl.w <= 900, `${ctx} : largeur ${pl.w}`);
+      assert.equal(P[i - 1].y, b.y);
+      // Chaque mur laisse une ouverture d'au moins PLONGEE.ouvertureMin.
+      pl.murs.forEach((mur) => {
+        const pleins = pl.algues.filter((a) => a.x === mur.x).map((a) => [a.y, a.y + a.h]).sort((u, v) => u[0] - v[0]);
+        let bas = pl.fond;
+        let ouverture = 0;
+        pleins.forEach(([y1, y2]) => { ouverture = Math.max(ouverture, y1 - bas); bas = y2; });
+        ouverture = Math.max(ouverture, pl.eau + 40 - bas);
+        assert.ok(ouverture >= PLONGEE.ouvertureMin, `${ctx} : ouverture ${ouverture}`);
+      });
+      // Poissons : entre deux murs, loin de l'entrée, de la sortie et de la surface.
+      niv.poissons.filter((f) => f.id.startsWith(`${pl.id}p`)).forEach((f) => {
+        assert.ok(f.x1 >= pl.x + PLONGEE.zoneEntree && f.x2 + f.w <= pl.x + pl.w - PLONGEE.zoneSortie, `${ctx} : poisson à l'entrée ou à la sortie`);
+        pl.murs.forEach((mur) => assert.ok(f.x2 + f.w <= mur.x || f.x1 >= mur.x + mur.w, `${ctx} : poisson dans un passage`));
+        assert.ok(f.y + f.h + 3 <= pl.eau - 30, `${ctx} : poisson trop près de la surface`);
+        assert.ok(f.y >= pl.fond, `${ctx} : poisson sous le fond`);
+      });
+    });
+  }));
+  assert.ok(nb > 40, `${nb} plongées seulement`);
+});
+
+test('plongée : au moins une par niveau sur les terrains d\'eau, colis sous l\'eau, chrono rallongé', () => {
+  NIVEAUX_PLONGEE.forEach((n) => {
+    const t = terrainNiveau(n).terrain;
+    if (!t.obligatoires.includes('plongee')) return;
+    GRAINES.forEach((g) => {
+      const niv = genererNiveau(n, g * 97 + n);
+      assert.ok(niv.plongees.length >= 1, `niveau ${n} graine ${g} : pas de plongée`);
+      const pl = niv.plongees[0];
+      assert.ok(niv.colis.some((c) => c.x > pl.x && c.x < pl.x + pl.w && c.y < pl.eau && c.y > pl.fond), `niveau ${n} graine ${g} : aucun colis sous l'eau`);
+      assert.ok(niv.eaux.some((e) => e.profond && e.x === pl.x), 'bassin profond absent de la physique');
+    });
+  });
+  // Jungle : eau verte.
+  const jungle = genererNiveau(4, 5);
+  assert.equal(jungle.monde, 'jungle');
+  assert.ok(jungle.plongees.every((p) => p.vert) && jungle.eaux.every((e) => e.vert));
+});
+
+test('oxygène : il baisse sous l\'eau, une vie perdue à zéro, reprise jamais dans l\'eau', () => {
+  const eau = { x: 0, w: 600, y: 0, eau: 200, profond: true };
+  const j = nouveauJoueur(100, 50);
+  let o = 1;
+  o = majOxygene(o, j, eau, OXYGENE.duree / 2);
+  assert.ok(Math.abs(o - 0.5) < 1e-9);
+  j.y = 190;
+  assert.equal(majOxygene(0.5, j, eau, OXYGENE.recharge), 1);
+  // En jeu : laissé au fond d'une plongée, le livreur perd une vie puis reprend hors de l'eau.
+  const n = [1, 3, 4, 8, 9].find((k) => genererNiveau(k, 41).plongees.length);
+  const m = creerMonde(n, {}, 41);
+  const pl = m.plongees[0];
+  m.joueur = nouveauJoueur(pl.x + PLONGEE.zoneEntree + 5, pl.fond + 40);
+  m.poissons.forEach((f) => { f.actif = false; });
+  const cmd = { gauche: false, droite: false, sautTenu: false, sautAppui: false, bas: true };
+  let noyade = false;
+  for (let k = 0; k < 60 * (OXYGENE.duree + 3) && !noyade; k += 1) noyade = pas(m, 1 / 60, cmd).some((e) => e.type === 'noyade');
+  assert.ok(noyade, 'pas de noyade');
+  assert.equal(m.vies, VIES - 1);
+  assert.equal(m.oxygene, 1);
+  assert.ok(m.joueur.x + LARGEUR <= pl.x || m.joueur.x >= pl.x + pl.w, 'reprise dans le bassin');
+  // Pour toute position de chute au-dessus d'une plongée : jamais de reprise sur le fond ni dans l'eau.
+  NIVEAUX_PLONGEE.forEach((k) => {
+    const mk = creerMonde(k, {}, 7 * k);
+    mk.plongees.forEach((p) => {
+      for (let x = p.x - 100; x < p.x + p.w + 100; x += 25) {
+        mk.dernierSol = mk.plateformes[0];
+        const r = pointDeReprise(mk, x);
+        const cx = r.x + LARGEUR / 2;
+        assert.notEqual(r.p.type, 'fondPlongee', `niveau ${k} x ${x} : reprise au fond`);
+        assert.ok(cx < p.x || cx > p.x + p.w, `niveau ${k} x ${x} : reprise dans l'eau`);
+      }
+    });
+  });
+});
+
+test('requin : il prévient avant de foncer, puis se repose', () => {
+  const n = NIVEAUX_PLONGEE.find((k) => [1, 2, 3, 4, 5].some((g) => genererNiveau(k, g).poissons.some((f) => f.type === 'requin')));
+  const g = [1, 2, 3, 4, 5].find((q) => genererNiveau(n, q).poissons.some((f) => f.type === 'requin'));
+  const m = creerMonde(n, {}, g);
+  const f = m.poissons.find((x) => x.type === 'requin');
+  m.poissons.forEach((x) => { if (x !== f) x.actif = false; });
+  // Livreur devant le requin, à sa hauteur, dans l'eau : alerte d'abord, charge ensuite.
+  f.dir = 1;
+  f.x = f.x1;
+  const j = m.joueur;
+  j.x = f.x + f.w + 100;
+  j.y = f.y + f.h / 2 - HAUTEUR / 2;
+  j.dansEau = true;
+  m.invul = 99;
+  const pl = m.plongees.find((p) => f.x > p.x && f.x < p.x + p.w);
+  m.env = { ...m.env, eaux: [{ x: pl.x, w: pl.w, y: pl.fond, eau: pl.eau, profond: true }] };
+  let alerteAvant = false;
+  for (let k = 0; k < 120 && !f.charge; k += 1) {
+    j.x = f.x + f.w + 100;
+    j.y = f.y + f.h / 2 - HAUTEUR / 2;
+    j.vx = 0;
+    j.vy = 0;
+    pas(m, 1 / 60, { gauche: false, droite: false, sautTenu: false, sautAppui: false, bas: false });
+    if (f.alerte > 0.5 && !f.charge) alerteAvant = true;
+  }
+  assert.ok(f.charge && alerteAvant, 'pas d\'alerte avant la charge');
+});
+
+test('désert : tornade annoncée, elle pousse sans jamais faire tomber ; tempête jamais opaque', () => {
+  const desert = NIVEAUX_PLONGEE.filter((n) => decorNiveau(n).monde === 'desert');
+  assert.ok(desert.length >= 2);
+  desert.forEach((n) => GRAINES.slice(0, 3).forEach((g) => {
+    const ctx = `niveau ${n} graine ${g}`;
+    const niv = genererNiveau(n, g);
+    assert.ok(niv.tornades.length >= 1, `${ctx} : pas de tornade`);
+    assert.equal(niv.tempetes.length, 2);
+    // Livreur immobile sous la tornade : jamais de chute.
+    niv.tornades.forEach((t0, k) => {
+      const m = creerMonde(n, {}, g);
+      const t = m.tornades[k];
+      const toit = m.plateformesDecor.find((p) => !p.flottante && t.declencheur >= p.x && t.declencheur <= p.x + p.w);
+      m.joueur = nouveauJoueur(t.declencheur, hautDe(toit));
+      m.joueur.sol = toit;
+      m.geneurs.forEach((e) => { e.actif = false; });
+      m.invul = 999;
+      const vide = { gauche: false, droite: false, sautTenu: false, sautAppui: false, bas: false };
+      let annonce = false;
+      let pousse = false;
+      for (let q = 0; q < 60 * 14; q += 1) {
+        const avant = m.joueur.x;
+        const ev = pas(m, 1 / 60, vide);
+        if (ev.some((e) => e.type === 'tornade')) annonce = true;
+        if (m.joueur.x < avant - 0.01) pousse = true;
+        assert.ok(!ev.some((e) => e.type === 'chute'), `${ctx} : chute sous la tornade`);
+        assert.ok(m.joueur.sol, `${ctx} : livreur soulevé`);
+      }
+      assert.ok(annonce && m.annonce !== undefined, `${ctx} : tornade jamais annoncée`);
+      assert.equal(t.etat, 'finie');
+      assert.ok(pousse || m.joueur.x <= toit.x + 7, `${ctx} : la tornade ne pousse pas`);
+      assert.ok(m.joueur.x >= toit.x + 5, `${ctx} : poussé hors du toit`);
+    });
+    // Tempête : visibilité jamais nulle (voile au plus 1, rendu borné à l'écran).
+    const m = creerMonde(n, {}, g);
+    m.invul = 999;
+    let maxi = 0;
+    for (let q = 0; q < 60 * 70; q += 1) {
+      pas(m, 1 / 60, { gauche: false, droite: false, sautTenu: false, sautAppui: false, bas: false });
+      maxi = Math.max(maxi, m.tempete);
+      assert.ok(m.tempete >= 0 && m.tempete <= 1);
+    }
+    assert.ok(maxi > 0.9, `${ctx} : pas de tempête`);
+  }));
+  // On avance toujours contre la tornade.
+  assert.ok(VITESSE > TORNADE.poussee * 2);
+});
+
+test('neige : plaque de glace glissante mais jamais jusqu\'au bord', () => {
+  const freinage = (glace) => {
+    const toit = { id: 1, x: 0, w: 600, y: 0, flottante: false, glace: glace ? { x1: 0, x2: 600 } : null };
+    const j = nouveauJoueur(100, 0);
+    j.sol = toit;
+    j.vx = VITESSE;
+    const vide = { gauche: false, droite: false, sautTenu: false, sautAppui: false, bas: false };
+    const x0 = j.x;
+    for (let k = 0; k < 240; k += 1) physiqueJoueur(j, [toit], [], vide, 1 / 120, {});
+    return j.x - x0;
+  };
+  const normal = freinage(false);
+  const glisse = freinage(true);
+  assert.ok(glisse > normal * 2, `glisse ${glisse} contre ${normal}`);
+  assert.ok(glisse < GLACE.bord - 20, `glissade de ${glisse}`);
+  // Plaques posées dans le monde hiver seulement, loin des bords.
+  let plaques = 0;
+  NIVEAUX_PLONGEE.forEach((n) => [1, 2, 3, 4, 5, 6].forEach((g) => {
+    const niv = genererNiveau(n, g);
+    niv.plateformes.filter((p) => p.glace).forEach((p) => {
+      plaques += 1;
+      assert.equal(niv.monde, 'hiver');
+      assert.ok(p.glace.x1 >= p.x + 100 && p.glace.x2 <= p.x + p.w - GLACE.bord);
+    });
+  }));
+  assert.ok(plaques > 0, 'aucune plaque de glace');
+});
+
+// ---- Plus dur et plus varié (demande du 16/11 : « au niveau 9 c'est très simple, toujours la même chose ») ----
 
 test('courbe raide : dur dès les niveaux 3 et 4, chaque niveau plus dur que le précédent', () => {
   const r1 = reglagesNiveau(1);
   const r4 = reglagesNiveau(4);
   const r9 = reglagesNiveau(9);
-  // Ancien niveau 4 : diff 0,65, trous jusqu'à 0,61 de la portée.
+  // Ancien niveau 4 : diff 0,73, gêneurs 0,55, trous jusqu'à 0,65 de la portée.
   assert.ok(r4.diff >= 0.8 && r4.probGeneur >= 0.65 && r4.ratioMax >= 0.67, `niveau 4 : ${r4.diff} ${r4.probGeneur} ${r4.ratioMax}`);
-  // Ancien niveau 9 : gêneurs 0,72, vitesse 1,29, chrono facteur 1,91.
+  // Ancien niveau 9 : gêneurs 0,71, vitesse 1,29, chrono facteur 1,92.
   assert.ok(r9.probGeneur >= 0.8 && r9.vitesseGeneurs >= 1.35 && r9.facteur < 1.75, `niveau 9 : ${r9.probGeneur} ${r9.vitesseGeneurs} ${r9.facteur}`);
   assert.ok(r1.diff >= 0.5 && r1.defis === 0 && r4.defis >= 2);
   for (let n = 1; n < 20; n += 1) {
@@ -726,6 +1060,7 @@ test('niveaux 3 à 14 sur 10 graines : chaque saut faisable, même déclenché t
       for (let i = 0; i + 1 < P.length; i += 1) {
         const ctx = `niveau ${n} graine ${g} plateforme ${i}`;
         if (P[i + 1].gouttiere) { assert.ok(peutGrimper(P[i], P[i + 1]), `${ctx} : gouttière`); continue; }
+        if (P[i + 1].plongee) { assert.ok(peutPlonger(P[i], P[i + 1]).ok, `${ctx} : plongée`); continue; }
         etatsSortie(P[i]).forEach((a) => etatsEntree(P[i + 1]).forEach((b) => {
           assert.ok(b.x - (a.x + a.w) <= ECART_MAX + 0.5, `${ctx} : trou`);
           assert.ok(Math.abs(b.y - hautDe(a)) <= MONTEE_MAX + 0.5, `${ctx} : marche`);
