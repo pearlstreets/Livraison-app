@@ -811,9 +811,9 @@ export default function SlalomScreen({navigation}) {
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeauClassement?.rang} record={bandeauClassement?.record} top1={bandeauClassement?.top1} />
                 <Ionicons name="walk" size={42} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuxSlalomTitre')}</Text>
-                <Text style={styles.texte}>{t('jeuxSlalomRegle')}</Text>
+                <Text style={styles.texte}>{t('jeuxSlalomRegleCourte')}</Text>
                 <Legende t={t} />
-                <Text style={styles.texteDiscret}>{t('jeuxSlalomReglePolice')}</Text>
+                <Text style={styles.texteDiscret}>{t('jeuxSlalomResume')}</Text>
                 <Records etat={etat} t={t} />
                 <Bouton texte={t('jeuJouer')} onPress={jouer} />
                 <Bouton secondaire texte={t('jeuxSlalomQuitterJeu')} onPress={quitter} />
