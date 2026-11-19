@@ -857,11 +857,8 @@ export default function JeuToitsScreen({navigation}) {
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeau?.rang} record={bandeau?.record} top1={bandeau?.top1} />
                 <MaterialCommunityIcons name="home-roof" size={44} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuxToitsTitre')}</Text>
-                <Text style={styles.texte}>{t('jeuxToitsRegle')}</Text>
-                <Text style={styles.texteDiscret}>{t('jeuxToitsAstuce')}</Text>
-                <Text style={styles.texteDiscret}>{t('jeuxToitsAstuceDur')}</Text>
-                <Text style={styles.texteDiscret}>{t('jeuxToitsAstuceBonus')}</Text>
-                <Text style={styles.texteDiscret}>{t('jeuxToitsAstuceTerrain')}</Text>
+                <Text style={styles.texte}>{t('jeuxToitsRegleCourte')}</Text>
+                <Text style={styles.texteDiscret}>{t('jeuxToitsResume')}</Text>
                 <Records etat={etat} t={t} />
                 <Bouton texte={t('jeuJouer')} onPress={demarrer} />
                 <Bouton secondaire texte={t('jeuQuitter')} onPress={quitter} />
