@@ -720,10 +720,8 @@ export default function JeuMemoireScreen({navigation}) {
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeau?.rang} record={bandeau?.record} top1={bandeau?.top1} />
                 <Ionicons name="albums" size={46} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuxMemoireTitre')}</Text>
-                <Text style={styles.texte}>{t('jeuxMemoireRegle')}</Text>
-                <Text style={styles.texteDiscret}>{t('jeuxMemoireBonus')}</Text>
-                <Text style={styles.texteDiscret}>{t('jeuxMemoireComboRegle')}</Text>
-                <Text style={styles.texteDiscret}>{t('jeuxMemoireBonusCartes')}</Text>
+                <Text style={styles.texte}>{t('jeuxMemoireRegleCourte')}</Text>
+                <Text style={styles.texteDiscret}>{t('jeuxMemoireResume')}</Text>
                 <Records records={records} t={t} />
                 <Bouton texte={t('jeuJouer')} onPress={jouer} />
                 <Bouton secondaire texte={t('jeuQuitter')} onPress={quitter} />
