@@ -78,8 +78,22 @@ export const CouchePopups = memo(
       }),
       [],
     );
+    // Popup fini (opacité 0, invisible) : gardé tant qu'un autre est encore
+    // en vol, la couche se vide d'un coup quand tous sont finis. Un seul rendu
+    // React au lieu d'un par popup pendant les séries de ramassages.
+    const finis = useRef(new Set());
     const retirer = useCallback(n => {
-      if (monte.current) setListe(l => l.filter(p => p.n !== n));
+      if (!monte.current) return;
+      finis.current.add(n);
+      setListe(l => {
+        if (!l.length) {
+          finis.current.clear();
+          return l;
+        }
+        if (!l.every(p => finis.current.has(p.n))) return l;
+        finis.current.clear();
+        return [];
+      });
     }, []);
     if (!liste.length) return null;
     return (

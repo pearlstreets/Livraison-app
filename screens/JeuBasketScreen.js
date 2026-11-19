@@ -698,7 +698,7 @@ export default function JeuBasketScreen({ navigation }) {
       </View>
 
       {/* Fenêtres : accueil, pause, niveau réussi, fin */}
-      {(phase === 'accueil' || phase === 'pause' || phase === 'palier' || phase === 'fin') && !classementOuvert && (
+      {(phase === 'accueil' || phase === 'pause' || phase === 'palier' || phase === 'fin') && (
         <View style={styles.voile}>
           <View style={styles.carte}>
             {phase === 'accueil' && (

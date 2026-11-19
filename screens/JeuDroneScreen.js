@@ -41,7 +41,6 @@ import {COULEURS_JEUX as C, useCompteJeu, reprendreAncienRecord} from '../utils/
 import useEnvoiRecord from '../utils/jeux/useEnvoiRecord';
 import ClassementJeu from '../components/jeux/ClassementJeu';
 import HudJeu from '../components/jeux/HudJeu';
-import IndiceGestes from '../components/jeux/IndiceGestes';
 import SonJeux, {
   demarrerMusique,
   arreterMusique,
@@ -863,23 +862,17 @@ export default function JeuDroneScreen({navigation}) {
         <CouchePopups ref={popupsRef} />
         {/* Annonces en haut du terrain, jamais au milieu */}
         <BanniereRecompense ref={banniereRef} />
-        <IndiceGestes
-          jeu={JEU_DRONE}
-          gestes={['appui']}
-          actif={phase === 'pret'}
-        />
       </View>
 
       {/* Fenêtres : accueil, pause, fin */}
       {(phase === 'accueil' || phase === 'pause' || phase === 'fin') &&
-        !classementOuvert &&
         !reprise.proposition && (
           <View style={styles.voile}>
             <View style={styles.carte}>
               {phase === 'accueil' && (
                 <>
-                  <ReglagesSon />
                   <BoutonClassement onPress={ouvrirClassement} rang={bandeau?.rang} record={bandeau?.record} top1={bandeau?.top1} />
+                  <ReglagesSon />
                   <MaterialCommunityIcons
                     name="quadcopter"
                     size={46}
@@ -903,8 +896,8 @@ export default function JeuDroneScreen({navigation}) {
               )}
               {phase === 'pause' && (
                 <>
-                  <ReglagesSon />
                   <BoutonClassement onPress={ouvrirClassement} rang={bandeau?.rang} record={bandeau?.record} top1={bandeau?.top1} />
+                  <ReglagesSon />
                   <Ionicons name="pause-circle" size={44} color={C.marque} />
                   <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                   <Text style={styles.texte}>

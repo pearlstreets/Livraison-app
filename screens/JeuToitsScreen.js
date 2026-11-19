@@ -42,7 +42,6 @@ import HudJeu from '../components/jeux/HudJeu';
 import SonJeux, {demarrerMusique, arreterMusique, bruit, ReglagesSon} from '../components/jeux/SonJeux';
 import BandeauClassement, {formaterNombre} from '../components/jeux/BandeauClassement';
 import FenetreReprise from '../components/jeux/FenetreReprise';
-import IndiceGestes from '../components/jeux/IndiceGestes';
 import useBandeauClassement from '../utils/jeux/useBandeauClassement';
 import useReprise from '../utils/jeux/sauvegardePartie';
 import useRecompenses from '../utils/jeux/useRecompenses';
@@ -840,7 +839,6 @@ export default function JeuToitsScreen({navigation}) {
             </View>
           )}
         </View>
-        <IndiceGestes jeu={JEU_TOITS} gestes={['gauche', 'droite', 'haut', 'bas']} actif={enJeu} />
         {/* Couche des gestes : toute la scène */}
         <View {...balayage.panHandlers} style={StyleSheet.absoluteFill} />
         <CouchePopups ref={popupsRef} />
@@ -848,13 +846,13 @@ export default function JeuToitsScreen({navigation}) {
       </View>
 
       {/* Fenêtres : accueil, pause, colis livré, fin de partie */}
-      {etat.phase !== 'jeu' && !classementOuvert && !reprise.proposition && !alerteCourse && (
+      {etat.phase !== 'jeu' && !reprise.proposition && !alerteCourse && (
         <View style={styles.voile}>
           <View style={styles.carte}>
             {etat.phase === 'accueil' && (
               <>
-                <ReglagesSon />
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeau?.rang} record={bandeau?.record} top1={bandeau?.top1} />
+                <ReglagesSon />
                 <MaterialCommunityIcons name="home-roof" size={44} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuxToitsTitre')}</Text>
                 <Text style={styles.texte}>{t('jeuxToitsRegleCourte')}</Text>
@@ -866,8 +864,8 @@ export default function JeuToitsScreen({navigation}) {
             )}
             {etat.phase === 'pause' && (
               <>
-                <ReglagesSon />
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeau?.rang} record={bandeau?.record} top1={bandeau?.top1} />
+                <ReglagesSon />
                 <Ionicons name="pause-circle" size={44} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                 <Text style={styles.texte}>{t('jeuScore', {n: m.score})}</Text>
