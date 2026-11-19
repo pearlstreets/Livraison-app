@@ -2,6 +2,8 @@
 // cliente (locales jeuSommet.*).
 export default {
   fr: {
+    jeuxSommetRegleCourte: 'Glissez le doigt pour diriger le livreur, qui rebondit tout seul.',
+    jeuxSommetResume: 'Grimpez, ramassez les colis et évitez pots de fleurs et pigeons.',
     jeuxSommetTitre: 'Livraison au sommet',
     jeuxSommetTexte: 'Rebondissez de balcon en balcon pour livrer tout en haut.',
     jeuxSommetRegle: 'Le livreur rebondit tout seul. Gardez le doigt posé et glissez-le vers la gauche ou la droite pour le diriger, levez-le pour qu\'il reparte tout droit.',
@@ -31,6 +33,8 @@ export default {
     jeuxSommetSauveFilet: 'Le filet vous a rattrapé.',
   },
   en: {
+    jeuxSommetRegleCourte: 'Slide your finger to steer the bouncing courier.',
+    jeuxSommetResume: 'Climb, collect parcels and avoid flowerpots and pigeons.',
     jeuxSommetTitre: 'Rooftop delivery',
     jeuxSommetTexte: 'Bounce from balcony to balcony to deliver at the very top.',
     jeuxSommetRegle: 'The courier bounces on his own. Keep your finger on the screen and slide it left or right to steer him, lift it and he goes straight up again.',
@@ -60,6 +64,8 @@ export default {
     jeuxSommetSauveFilet: 'The net caught you.',
   },
   es: {
+    jeuxSommetRegleCourte: 'Deslice el dedo para guiar al repartidor, que rebota solo.',
+    jeuxSommetResume: 'Suba, recoja los paquetes y evite las macetas y las palomas.',
     jeuxSommetTitre: 'Entrega en la cima',
     jeuxSommetTexte: 'Rebote de balcón en balcón para entregar arriba del todo.',
     jeuxSommetRegle: 'El repartidor rebota solo. Mantenga el dedo en la pantalla y deslícelo a la izquierda o a la derecha para dirigirlo, levántelo para que vuelva a subir recto.',
@@ -89,6 +95,8 @@ export default {
     jeuxSommetSauveFilet: 'La red le ha recogido.',
   },
   zh: {
+    jeuxSommetRegleCourte: '滑动手指控制自动弹跳的快递员。',
+    jeuxSommetResume: '向上攀登，收集包裹，避开花盆和鸽子。',
     jeuxSommetTitre: '送到楼顶',
     jeuxSommetTexte: '在阳台之间弹跳，把包裹送到最高层。',
     jeuxSommetRegle: '配送员会自动弹跳。手指按住屏幕并向左或向右滑动来控制方向，松开手指，他就会重新笔直向上。',
@@ -118,6 +126,8 @@ export default {
     jeuxSommetSauveFilet: '安全网接住了您。',
   },
   ar: {
+    jeuxSommetRegleCourte: 'مرّر إصبعك لتوجيه عامل التوصيل الذي يقفز وحده.',
+    jeuxSommetResume: 'اصعد واجمع الطرود وتجنّب أصص الزهور والحمام.',
     jeuxSommetTitre: 'توصيل إلى القمة',
     jeuxSommetTexte: 'اقفزوا من شرفة إلى شرفة للتوصيل إلى أعلى المبنى.',
     jeuxSommetRegle: 'يقفز عامل التوصيل وحده. أبقوا إصبعكم على الشاشة واسحبوه إلى اليسار أو اليمين لتوجيهه، وارفعوه ليعود إلى الصعود مستقيمًا.',
@@ -147,6 +157,8 @@ export default {
     jeuxSommetSauveFilet: 'التقطتكم الشبكة.',
   },
   de: {
+    jeuxSommetRegleCourte: 'Bewegen Sie den Finger, um den Kurier zu lenken, der von selbst springt.',
+    jeuxSommetResume: 'Klettern Sie, sammeln Sie Pakete und weichen Sie Blumentöpfen und Tauben aus.',
     jeuxSommetTitre: 'Lieferung ganz oben',
     jeuxSommetTexte: 'Springen Sie von Balkon zu Balkon und liefern Sie ganz oben.',
     jeuxSommetRegle: 'Der Kurier springt von allein. Lassen Sie den Finger auf dem Bildschirm und ziehen Sie ihn nach links oder rechts, um ihn zu lenken, heben Sie ihn an, damit er wieder geradeaus springt.',
@@ -176,6 +188,8 @@ export default {
     jeuxSommetSauveFilet: 'Das Netz hat Sie aufgefangen.',
   },
   nl: {
+    jeuxSommetRegleCourte: 'Schuif met uw vinger om de bezorger te sturen, die vanzelf stuitert.',
+    jeuxSommetResume: 'Klim omhoog, verzamel pakketjes en ontwijk bloempotten en duiven.',
     jeuxSommetTitre: 'Bezorgen op de top',
     jeuxSommetTexte: 'Stuiter van balkon naar balkon om helemaal bovenaan te bezorgen.',
     jeuxSommetRegle: 'De bezorger stuitert vanzelf. Houd uw vinger op het scherm en schuif naar links of rechts om te sturen, til hem op en hij springt weer recht omhoog.',
@@ -205,6 +219,8 @@ export default {
     jeuxSommetSauveFilet: 'Het net heeft u opgevangen.',
   },
   it: {
+    jeuxSommetRegleCourte: 'Faccia scorrere il dito per guidare il fattorino, che rimbalza da solo.',
+    jeuxSommetResume: 'Salga, raccolga i pacchi ed eviti vasi di fiori e piccioni.',
     jeuxSommetTitre: 'Consegna in cima',
     jeuxSommetTexte: 'Rimbalzi di balcone in balcone per consegnare in cima.',
     jeuxSommetRegle: 'Il rider rimbalza da solo. Tenga il dito sullo schermo e lo faccia scorrere a sinistra o a destra per guidarlo, lo sollevi e torna a salire dritto.',
@@ -234,6 +250,8 @@ export default {
     jeuxSommetSauveFilet: 'La rete l\'ha ripresa.',
   },
   pt: {
+    jeuxSommetRegleCourte: 'Deslize o dedo para guiar o estafeta, que salta sozinho.',
+    jeuxSommetResume: 'Suba, apanhe as encomendas e evite vasos e pombos.',
     jeuxSommetTitre: 'Entrega no topo',
     jeuxSommetTexte: 'Salte de varanda em varanda para entregar lá no alto.',
     jeuxSommetRegle: 'O estafeta salta sozinho. Mantenha o dedo no ecrã e deslize-o para a esquerda ou para a direita para o dirigir, levante-o para que volte a subir a direito.',
@@ -263,6 +281,8 @@ export default {
     jeuxSommetSauveFilet: 'A rede apanhou-o.',
   },
   ja: {
+    jeuxSommetRegleCourte: '指を滑らせて、自動で跳ねる配達員を操作します。',
+    jeuxSommetResume: '登りながら荷物を集め、植木鉢とハトを避けてください。',
     jeuxSommetTitre: '屋上までお届け',
     jeuxSommetTexte: 'バルコニーからバルコニーへ跳ねて、いちばん上までお届けしましょう。',
     jeuxSommetRegle: '配達員は自動で跳ねます。画面に指を置いたまま左か右に動かすと進む向きを変えられ、指を離すとまっすぐ上に戻ります。',
@@ -292,6 +312,8 @@ export default {
     jeuxSommetSauveFilet: 'ネットが受け止めてくれました。',
   },
   th: {
+    jeuxSommetRegleCourte: 'เลื่อนนิ้วเพื่อบังคับคนส่งของที่เด้งเอง',
+    jeuxSommetResume: 'ปีนขึ้นไป เก็บพัสดุ และหลบกระถางต้นไม้กับนกพิราบ',
     jeuxSommetTitre: 'ส่งถึงดาดฟ้า',
     jeuxSommetTexte: 'กระโดดจากระเบียงสู่ระเบียงเพื่อส่งของถึงชั้นบนสุด',
     jeuxSommetRegle: 'ไรเดอร์กระโดดเอง วางนิ้วค้างไว้บนหน้าจอแล้วเลื่อนไปทางซ้ายหรือขวาเพื่อบังคับทิศทาง ยกนิ้วขึ้นแล้วไรเดอร์จะกลับมากระโดดตรงขึ้นไป',
@@ -321,6 +343,8 @@ export default {
     jeuxSommetSauveFilet: 'ตาข่ายรับคุณไว้แล้ว',
   },
   sv: {
+    jeuxSommetRegleCourte: 'Dra med fingret för att styra budet, som studsar av sig själv.',
+    jeuxSommetResume: 'Klättra, samla paket och undvik blomkrukor och duvor.',
     jeuxSommetTitre: 'Leverans på toppen',
     jeuxSommetTexte: 'Studsa från balkong till balkong och leverera högst upp.',
     jeuxSommetRegle: 'Budet studsar av sig självt. Håll fingret på skärmen och dra åt vänster eller höger för att styra, lyft fingret så hoppar det rakt upp igen.',
@@ -350,6 +374,8 @@ export default {
     jeuxSommetSauveFilet: 'Nätet fångade dig.',
   },
   ru: {
+    jeuxSommetRegleCourte: 'Ведите пальцем, чтобы управлять курьером, который прыгает сам.',
+    jeuxSommetResume: 'Поднимайтесь, собирайте посылки и избегайте цветочных горшков и голубей.',
     jeuxSommetTitre: 'Доставка на крышу',
     jeuxSommetTexte: 'Прыгайте с балкона на балкон, чтобы доставить заказ на самый верх.',
     jeuxSommetRegle: 'Курьер прыгает сам. Держите палец на экране и ведите его влево или вправо, чтобы направлять курьера, отпустите палец, и он снова прыгает прямо вверх.',

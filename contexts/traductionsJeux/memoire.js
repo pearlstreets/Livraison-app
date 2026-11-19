@@ -1,6 +1,8 @@
 // Mini-jeu « Mémoire du livreur » (screens/JeuMemoireScreen.js), textes repris d'AppUser (jeuMemoire.*).
 export default {
   fr: {
+    jeuxMemoireRegleCourte: 'Retournez deux cartes pour trouver les paires.',
+    jeuxMemoireResume: 'Allez vite et sans faute pour gagner plus de points.',
     jeuxMemoireTitre: 'Mémoire du livreur',
     jeuxMemoireTexte: 'Retrouvez les paires de cartes avant la fin du chrono.',
     jeuxMemoireRegle: 'Retournez deux cartes : si le motif est le même, elles restent visibles. Chaque niveau ajoute des cartes et réduit le temps.',
@@ -24,6 +26,8 @@ export default {
     jeuxMemoirePalier: 'Palier {n} points !',
   },
   en: {
+    jeuxMemoireRegleCourte: 'Turn over two cards to find the pairs.',
+    jeuxMemoireResume: 'Be quick and make no mistakes to earn more points.',
     jeuxMemoireTitre: 'Courier memory',
     jeuxMemoireTexte: 'Find the matching pairs before the timer runs out.',
     jeuxMemoireRegle: 'Turn over two cards: if they match, they stay face up. Each level adds cards and cuts the time.',
@@ -47,6 +51,8 @@ export default {
     jeuxMemoirePalier: '{n} points milestone!',
   },
   es: {
+    jeuxMemoireRegleCourte: 'Dé la vuelta a dos cartas para encontrar las parejas.',
+    jeuxMemoireResume: 'Sea rápido y no falle para ganar más puntos.',
     jeuxMemoireTitre: 'Memoria del repartidor',
     jeuxMemoireTexte: 'Encuentre las parejas de cartas antes de que acabe el tiempo.',
     jeuxMemoireRegle: 'Dé la vuelta a dos cartas: si el dibujo es el mismo, quedan visibles. Cada nivel añade cartas y reduce el tiempo.',
@@ -70,6 +76,8 @@ export default {
     jeuxMemoirePalier: '¡Hito de {n} puntos!',
   },
   zh: {
+    jeuxMemoireRegleCourte: '翻开两张卡片，找出配对。',
+    jeuxMemoireResume: '又快又准，就能获得更多分数。',
     jeuxMemoireTitre: '骑手记忆',
     jeuxMemoireTexte: '请您在倒计时结束前找出所有成对的卡片。',
     jeuxMemoireRegle: '请您翻开两张卡片：图案相同就会保持翻开。每一关都会增加卡片并缩短时间。',
@@ -93,6 +101,8 @@ export default {
     jeuxMemoirePalier: '达成{n}分！',
   },
   ar: {
+    jeuxMemoireRegleCourte: 'اقلب بطاقتين للعثور على الأزواج.',
+    jeuxMemoireResume: 'كن سريعًا وبلا أخطاء لتربح نقاطًا أكثر.',
     jeuxMemoireTitre: 'ذاكرة عامل التوصيل',
     jeuxMemoireTexte: 'اعثروا على أزواج البطاقات قبل انتهاء الوقت.',
     jeuxMemoireRegle: 'اقلبوا بطاقتين: إذا كان الرسم نفسه تبقيان ظاهرتين. كل مستوى يضيف بطاقات ويقلل الوقت.',
@@ -116,6 +126,8 @@ export default {
     jeuxMemoirePalier: 'إنجاز {n} نقطة!',
   },
   de: {
+    jeuxMemoireRegleCourte: 'Decken Sie zwei Karten auf, um die Paare zu finden.',
+    jeuxMemoireResume: 'Seien Sie schnell und fehlerfrei, um mehr Punkte zu holen.',
     jeuxMemoireTitre: 'Kurier-Memory',
     jeuxMemoireTexte: 'Finden Sie die Kartenpaare, bevor die Zeit abläuft.',
     jeuxMemoireRegle: 'Decken Sie zwei Karten auf: Zeigen sie dasselbe Motiv, bleiben sie offen. Jedes Level bringt mehr Karten und weniger Zeit.',
@@ -139,6 +151,8 @@ export default {
     jeuxMemoirePalier: 'Meilenstein {n} Punkte!',
   },
   nl: {
+    jeuxMemoireRegleCourte: 'Draai twee kaarten om en zoek de paren.',
+    jeuxMemoireResume: 'Wees snel en foutloos voor meer punten.',
     jeuxMemoireTitre: 'Bezorgersmemory',
     jeuxMemoireTexte: 'Vind de kaartparen voordat de tijd om is.',
     jeuxMemoireRegle: 'Draai twee kaarten om: hebben ze hetzelfde motief, dan blijven ze open liggen. Elk level brengt meer kaarten en minder tijd.',
@@ -162,6 +176,8 @@ export default {
     jeuxMemoirePalier: 'Mijlpaal {n} punten!',
   },
   it: {
+    jeuxMemoireRegleCourte: 'Giri due carte per trovare le coppie.',
+    jeuxMemoireResume: 'Sia veloce e non sbagli per ottenere più punti.',
     jeuxMemoireTitre: 'Memoria del rider',
     jeuxMemoireTexte: 'Trovi le coppie di carte prima che finisca il tempo.',
     jeuxMemoireRegle: 'Giri due carte: se il disegno è lo stesso, restano scoperte. Ogni livello aggiunge carte e riduce il tempo.',
@@ -185,6 +201,8 @@ export default {
     jeuxMemoirePalier: 'Traguardo {n} punti!',
   },
   pt: {
+    jeuxMemoireRegleCourte: 'Vire duas cartas para encontrar os pares.',
+    jeuxMemoireResume: 'Seja rápido e sem erros para ganhar mais pontos.',
     jeuxMemoireTitre: 'Memória do entregador',
     jeuxMemoireTexte: 'Encontre os pares de cartas antes que o tempo acabe.',
     jeuxMemoireRegle: 'Vire duas cartas: se o desenho for o mesmo, elas ficam visíveis. Cada nível acrescenta cartas e reduz o tempo.',
@@ -208,6 +226,8 @@ export default {
     jeuxMemoirePalier: 'Marco de {n} pontos!',
   },
   ja: {
+    jeuxMemoireRegleCourte: 'カードを2枚めくってペアを見つけます。',
+    jeuxMemoireResume: '素早く、ミスなく進めるほど高得点です。',
     jeuxMemoireTitre: '配達員の神経衰弱',
     jeuxMemoireTexte: '時間切れになる前にカードのペアを見つけてください。',
     jeuxMemoireRegle: 'カードを2枚めくってください。同じ絵柄なら表のまま残ります。レベルが上がるごとにカードが増え、時間が短くなります。',
@@ -231,6 +251,8 @@ export default {
     jeuxMemoirePalier: '{n}ポイント達成！',
   },
   th: {
+    jeuxMemoireRegleCourte: 'เปิดไพ่สองใบเพื่อหาคู่',
+    jeuxMemoireResume: 'ยิ่งเร็วและไม่พลาด ยิ่งได้คะแนนมาก',
     jeuxMemoireTitre: 'ความจำไรเดอร์',
     jeuxMemoireTexte: 'กรุณาหาคู่ไพ่ให้ครบก่อนหมดเวลา',
     jeuxMemoireRegle: 'กรุณาเปิดไพ่สองใบ หากลายเหมือนกัน ไพ่จะเปิดค้างไว้ ทุกด่านจะมีไพ่มากขึ้นและเวลาน้อยลง',
@@ -254,6 +276,8 @@ export default {
     jeuxMemoirePalier: 'ถึง {n} คะแนนแล้ว!',
   },
   sv: {
+    jeuxMemoireRegleCourte: 'Vänd två kort för att hitta paren.',
+    jeuxMemoireResume: 'Var snabb och gör inga fel för fler poäng.',
     jeuxMemoireTitre: 'Budets memory',
     jeuxMemoireTexte: 'Hitta kortparen innan tiden tar slut.',
     jeuxMemoireRegle: 'Vänd två kort: om motivet är detsamma ligger de kvar uppvända. Varje nivå ger fler kort och mindre tid.',
@@ -277,6 +301,8 @@ export default {
     jeuxMemoirePalier: 'Milstolpe {n} poäng!',
   },
   ru: {
+    jeuxMemoireRegleCourte: 'Переворачивайте по две карты, чтобы найти пары.',
+    jeuxMemoireResume: 'Действуйте быстро и без ошибок, чтобы набрать больше очков.',
     jeuxMemoireTitre: 'Память курьера',
     jeuxMemoireTexte: 'Найдите пары карточек, пока не закончилось время.',
     jeuxMemoireRegle: 'Переверните две карточки: если рисунок совпадает, они остаются открытыми. С каждым уровнем карточек больше, а времени меньше.',
