@@ -1,18 +1,25 @@
 /**
- * Logique pure du mini-jeu « Mémoire du livreur » (screens/JeuMemoireScreen.js).
+ * Logique pure du mini-jeu « Mémoire du livreur » (clé 'memoire', écran
+ * screens/JeuMemoireScreen.js), identique à AppUser (utils/jeux/memoire.js).
  *
  * Jeu de paires : niveaux enchaînés et vite durs, pour qu'une bonne partie
- * dure quelques minutes (durci le 16/11/2026, jeu jugé trop simple et trop
- * répétitif). À partir du niveau 5, des cartes cachées changent de place
- * après une erreur (1 échange, 2 dès le niveau 10). Voir
- * parametresNiveau pour la courbe.
+ * dure quelques minutes (durci le 16/11/2026, jeu encore jugé trop simple et
+ * trop répétitif). Les cartes ne changent jamais de place (échanges après une
+ * erreur supprimés le 15/11/2026). Voir parametresNiveau pour la courbe.
  *
  * Paires bonus (cadre doré, dès le niveau 2) : trouver la paire déclenche
  * son effet ; loupe (toutes les cartes visibles un instant), sablier
  * (secondes en plus) ou aimant (une autre paire trouvée d'office).
  *
- * Aucun appel à React ici : tout est testable avec node.
+ * Records (meilleur score, meilleur niveau) gardés sur le téléphone sous
+ * USER_JEU_MEMOIRE_V1_<idUser|local> (lu par l'écran Mini-jeux).
+ * Aucun appel à React ici : tout est testable avec node
+ * (utils/__tests__/jeuMemoire.test.mjs).
  */
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {cleSauvegardeJeu, entierJeu} from './commun';
+
+export const JEU_MEMOIRE = 'memoire';
 
 // Paires par niveau ; au-delà du dernier, on reste à 18 paires (36 cartes,
 // grille 6x6, cartes encore assez grandes sur un petit téléphone).
@@ -20,15 +27,12 @@ export const PAIRES_PAR_NIVEAU = [3, 6, 8, 10, 12, 15, 15, 18];
 export const PAIRES_MAX = 18;
 
 // Chrono : secondes par paire, de moins en moins. Valeurs des premiers
-// niveaux, puis -0,02 s par niveau jusqu'au plancher (calé pour qu'un joueur
+// niveaux, puis -0,03 s par niveau jusqu'au plancher (calé pour qu'un joueur
 // rapide à la mémoire parfaite finisse toujours le niveau).
 const SECONDES_PAR_PAIRE = [4.5, 3.5, 2.9, 2.6, 2.4, 2.25, 2.15, 2.1];
 const SECONDES_PAR_PAIRE_PERTE_LENTE = 0.02;
 const SECONDES_PAR_PAIRE_MIN = 2;
 const SECONDES_FIXES = 2;
-// Secondes par paire rendues selon le nombre d'échanges après erreur (0 à 2,
-// cartes à réapprendre), sinon les niveaux hauts deviennent un mur.
-const SECONDES_ECHANGES = [0, 0.2, 0.45];
 
 // Points. Les points d'une paire montent jusqu'au niveau 10 puis restent fixes
 // (le serveur plafonne le score de ce jeu).
@@ -37,9 +41,10 @@ export const POINTS_PAIRE_PAR_NIVEAU = 2;
 const NIVEAU_POINTS_MAX = 10;
 export const POINTS_PAR_SECONDE = 3;
 export const POINTS_SANS_ERREUR_PAR_PAIRE = 5;
-// Plafond serveur du score de ce jeu (Backend DeliveryApp/views_jeux.py) : le score
+// Plafond serveur du score de ce jeu (Backend DeliveryApp/views_jeux.py, 50 000
+// pour 'memoire', comme côté AppUser) : le score
 // affiché et envoyé ne le dépasse pas, sinon le record serait refusé (400).
-export const SCORE_MAX_SERVEUR = 10000;
+export const SCORE_MAX_SERVEUR = 50000;
 
 // Combo : paires trouvées d'affilée sans erreur.
 export const POINTS_COMBO = 5; // par paire d'affilée après la première
@@ -48,9 +53,9 @@ export const COMBO_TEMPS_DES = 3; // secondes offertes à partir de 3 paires d'a
 export const SECONDES_COMBO = 2;
 
 // Durées d'affichage (ms).
-export const DELAI_ERREUR = 700;
-export const DELAI_ERREUR_RAPIDE = 550;
-export const DELAI_ERREUR_EXPRESS = 450;
+export const DELAI_ERREUR = 600;
+export const DELAI_ERREUR_RAPIDE = 480;
+export const DELAI_ERREUR_EXPRESS = 400;
 
 // Paires bonus : type, niveau d'apparition, icône du badge.
 export const BONUS = {
@@ -64,7 +69,7 @@ const LOUPE_DEPART = 1400; // ms
 const LOUPE_PERTE = 40; // ms par niveau
 const LOUPE_MIN = 1300; // retournement (340 ms) compris : environ 1 s de face sur 30 cartes
 
-// Motifs métier : clé de l'illustration (components/FacesMemoire.js) et couleur du cadre.
+// Motifs métier : clé de l'illustration (components/jeux/DecorMemoire.js) et couleur du cadre.
 export const MOTIFS = [
   { icone: 'bicycle', couleur: '#FF6A13' },
   { icone: 'car', couleur: '#3D5A80' },
@@ -155,19 +160,16 @@ export function piegeNiveau(niveau) {
  *   2 couleurs).
  * - Niveaux 4 à 8 : 10, 12, 15, 15 puis 18 paires, chrono de 2,6 s à 2,1 s
  *   par paire, et un piège différent à chaque niveau (sosies, teintes, mixte).
- *   Dès le niveau 5, des cartes cachées changent de place après une erreur.
  * - Au-delà : 18 paires, chrono qui baisse encore jusqu'au plancher de 2 s
- *   par paire, piège tiré par niveau, jamais le même deux fois de suite,
- *   2 échanges après une erreur dès le niveau 10.
- * Le chrono compte 2 s de plus en tout, en plus des secondes par paire, et
- * 0,2 s par paire de plus avec 1 échange, 0,45 s avec 2.
- * Une mauvaise paire reste visible 700 ms, 550 ms dès le niveau 3, 450 ms
+ *   par paire, piège tiré par niveau, jamais le même deux fois de suite.
+ * Le chrono compte 2 s de plus en tout, en plus des secondes par paire.
+ * Une mauvaise paire reste visible 600 ms, 480 ms dès le niveau 3, 400 ms
  * dès le 6. Chaque niveau reste faisable par un joueur rapide à la mémoire
  * parfaite (vérifié par les tests).
  * Champs rendus :
  * - duree : secondes du chrono ;
- * - melange : 'aucun' ou 'echange' (cartes cachées échangées après une erreur) ;
- * - echanges : nombre d'échanges après une erreur (0, puis 1 ou 2) ;
+ * - melange : toujours 'aucun' (les cartes ne changent plus de place) ;
+ * - echanges : toujours 0 (gardé pour les parties et écrans existants) ;
  * - piege : 'distincts', 'sosies', 'teintes' ou 'mixte' ;
  * - variantes : couleurs utilisées par le piège (1 = motifs tous différents) ;
  * - delaiErreur : temps pendant lequel une mauvaise paire reste visible ;
@@ -176,10 +178,10 @@ export function piegeNiveau(niveau) {
 export function parametresNiveau(niveau) {
   const n = Math.max(1, Math.floor(niveau) || 1);
   const paires = pairesNiveau(n);
-  // 2 échanges au plus : avec 36 cartes, 3 échanges par erreur rendent le
-  // niveau impossible même avec une mémoire parfaite.
-  const echanges = n < 5 ? 0 : n < 10 ? 1 : 2;
-  const duree = Math.round(paires * (secondesParPaire(n) + SECONDES_ECHANGES[echanges]) + SECONDES_FIXES);
+  const duree = Math.round(paires * secondesParPaire(n) + SECONDES_FIXES);
+  // Cartes qui changent de place après une erreur : supprimé le 15/11/2026
+  // (jugé anormal par les joueurs), aucune carte ne bouge à aucun niveau.
+  const echanges = 0;
   const [piege, variantes] = piegeNiveau(n);
   let delaiErreur = DELAI_ERREUR;
   if (n >= 6) delaiErreur = DELAI_ERREUR_EXPRESS;
@@ -409,4 +411,44 @@ export function dispositionGrille(nbCartes, l, h, ecart = 10, rapport = 0.8) {
     }
   }
   return meilleure || { colonnes: 2, lignes: Math.ceil(nbCartes / 2), largeur: 0, hauteur: 0 };
+}
+
+/** Records du jeu sur le téléphone : USER_JEU_MEMOIRE_V1_<idUser|local>. */
+export function cleSauvegarde(idUser) {
+  return cleSauvegardeJeu(JEU_MEMOIRE, idUser);
+}
+
+/** Relit les records : toute valeur abîmée est remplacée par une valeur sûre. */
+export function nettoyerRecords(brut) {
+  const b = brut && typeof brut === 'object' && !Array.isArray(brut) ? brut : {};
+  return {
+    meilleurScore: Math.min(SCORE_MAX_SERVEUR, entierJeu(b.meilleurScore)),
+    meilleurNiveau: Math.max(1, entierJeu(b.meilleurNiveau, 1)),
+  };
+}
+
+/** Records après une partie (score atteint, dernier niveau joué). */
+export function majRecords(records, score, niveau) {
+  const r = nettoyerRecords(records);
+  return {
+    meilleurScore: Math.max(r.meilleurScore, Math.min(SCORE_MAX_SERVEUR, entierJeu(score))),
+    meilleurNiveau: Math.max(r.meilleurNiveau, Math.max(1, entierJeu(niveau, 1))),
+  };
+}
+
+export async function chargerRecords(cle) {
+  try {
+    const texte = await AsyncStorage.getItem(cle);
+    return nettoyerRecords(texte ? JSON.parse(texte) : null);
+  } catch (e) {
+    return nettoyerRecords(null);
+  }
+}
+
+export async function enregistrerRecords(cle, records) {
+  try {
+    await AsyncStorage.setItem(cle, JSON.stringify(nettoyerRecords(records)));
+  } catch (e) {
+    // Mémoire indisponible : nouvel essai à la partie suivante.
+  }
 }

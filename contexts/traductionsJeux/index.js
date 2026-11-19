@@ -14,5 +14,6 @@ import basket from './basket';
 import socle from './socle';
 import recompenses from './recompenses';
 import mois from './mois';
+import pile from './pile';
 
-export default [hub, toits, sommet, drone, slalom, coupe, memoire, basket, socle, recompenses, mois];
+export default [hub, toits, sommet, drone, slalom, coupe, memoire, basket, socle, recompenses, mois, pile];

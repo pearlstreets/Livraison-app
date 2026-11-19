@@ -78,6 +78,7 @@ import JeuSlalomScreen from './screens/JeuSlalomScreen';
 import JeuCoupeScreen from './screens/JeuCoupeScreen';
 import JeuMemoireScreen from './screens/JeuMemoireScreen';
 import JeuBasketScreen from './screens/JeuBasketScreen';
+import JeuPileScreen from './screens/JeuPileScreen';
 import { ecranDeplie, largeurMoitie } from './utils/deuxEcrans';
 import { createDeuxEcransNavigator, AuMilieu } from './navigation/DeuxEcransStack';
 import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli, noterEtatNavigation } from './utils/repliEcran';
@@ -301,6 +302,7 @@ function MenuStackScreen() {
       <MenuStack.Screen name="JeuCoupe" component={JeuCoupeScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="JeuMemoire" component={JeuMemoireScreen} options={{ headerShown: false }} />
       <MenuStack.Screen name="JeuBasket" component={JeuBasketScreen} options={{ headerShown: false }} />
+      <MenuStack.Screen name="JeuPile" component={JeuPileScreen} options={{ headerShown: false }} />
     </MenuStack.Navigator>
   );
 }
@@ -410,7 +412,7 @@ function Main() {
         }} />
       <Tab.Screen name="MessagesTab" component={DEPLIE ? InboxStackScreen : InboxScreen} options={{ headerShown: false, tabBarLabel: t('tabMessages') }} />
       <Tab.Screen name="Revenus" component={EarningsStackScreen} options={{ headerShown: false, tabBarLabel: t('tabEarnings') }} />
-      <Tab.Screen name="Profil" component={MenuStackScreen} options={({ route }) => ({ headerShown: false, tabBarLabel: t('tabProfile'), tabBarBadge: totalProfileNotifs > 0 ? totalProfileNotifs : undefined, tabBarBadgeStyle: { backgroundColor: '#e74c3c', fontSize: 10 }, ...(['JeuToits', 'JeuSommet', 'JeuDrone', 'JeuSlalom', 'JeuCoupe', 'JeuMemoire', 'JeuBasket'].includes(getFocusedRouteNameFromRoute(route)) ? { tabBarStyle: { display: 'none' } } : {}) })}
+      <Tab.Screen name="Profil" component={MenuStackScreen} options={({ route }) => ({ headerShown: false, tabBarLabel: t('tabProfile'), tabBarBadge: totalProfileNotifs > 0 ? totalProfileNotifs : undefined, tabBarBadgeStyle: { backgroundColor: '#e74c3c', fontSize: 10 }, ...(['JeuToits', 'JeuSommet', 'JeuDrone', 'JeuSlalom', 'JeuCoupe', 'JeuMemoire', 'JeuBasket', 'JeuPile'].includes(getFocusedRouteNameFromRoute(route)) ? { tabBarStyle: { display: 'none' } } : {}) })}
         listeners={({ navigation }) => ({
           tabPress: () => { navigation.navigate('Profil', { screen: 'MenuMain' }); },
         })}
