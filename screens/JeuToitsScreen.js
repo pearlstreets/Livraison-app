@@ -58,23 +58,18 @@ import {
   reportPropre, partieNeuve, nettoyerSauvegarde, cleSauvegarde, chargerPartie, enregistrerPartie,
 } from '../utils/jeux/toits';
 
-// Vibration légère (expo-haptics) : facultative, le jeu marche sans.
-let Haptics = null;
+// Vibration légère (Android) : facultative, le jeu marche sans.
+let haptique = null;
 try {
   // eslint-disable-next-line global-require
-  Haptics = require('expo-haptics');
+  haptique = require('../utils/jeux/haptique');
 } catch (e) {
-  Haptics = null;
+  haptique = null;
 }
+const MOTIFS = {perte: [0, 40, 50, 40], fort: [0, 25], leger: [0, 12], livre: [0, 30, 60, 30]};
 function vibrer(type) {
   try {
-    if (!Haptics) return;
-    let promesse;
-    if (type === 'perte') promesse = Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    else if (type === 'livre') promesse = Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    else if (type === 'fort') promesse = Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    else promesse = Haptics.selectionAsync();
-    promesse?.catch?.(() => {});
+    haptique?.vibrer?.(MOTIFS[type] || MOTIFS.leger);
   } catch (e) {
     // Sans vibration.
   }

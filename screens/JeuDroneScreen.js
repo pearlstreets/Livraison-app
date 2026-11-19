@@ -93,28 +93,23 @@ import {
   enregistrerRecords,
 } from '../utils/jeux/drone';
 
-// Vibration légère : module natif facultatif (expo-haptics), le jeu marche sans.
-let Haptics = null;
+// Vibration légère (Android) : facultative, le jeu marche sans.
+let haptique = null;
 try {
   // eslint-disable-next-line global-require
-  Haptics = require('expo-haptics');
+  haptique = require('../utils/jeux/haptique');
 } catch (e) {
-  Haptics = null;
+  haptique = null;
 }
-const VIBRE_LEGER = 'leger';
-const VIBRE_FORT = 'fort';
 function vibrer(motif) {
   try {
-    if (!Haptics) return;
-    const promesse =
-      motif === VIBRE_FORT
-        ? Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-        : Haptics.selectionAsync();
-    promesse?.catch?.(() => {});
+    haptique?.vibrer?.(motif);
   } catch (e) {
     // Sans vibration.
   }
 }
+const VIBRE_LEGER = [0, 12];
+const VIBRE_FORT = [0, 40, 60, 40];
 
 const IMAGE_MIN_MS = 15; // plafond d'environ 60 images par seconde (écrans 90 et 120 Hz)
 const COULEUR_MEDAILLE = {bronze: '#CD7F32', argent: '#C0C6CE', or: OR};
