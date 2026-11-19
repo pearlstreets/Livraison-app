@@ -2,6 +2,8 @@
 // (mêmes clés jeuPile.*, jeux.*, jeuxSocle.*, jeuxRecompenses.* que dans AppUser).
 export default {
   fr: {
+    "jeuPile.regleCourte": 'Touchez l\'écran pour lâcher le colis sur la pile.',
+    "jeuPile.resume": 'Visez juste : ce qui dépasse tombe.',
     "jeuPile.titre": "Pile de colis",
     "jeuPile.accroche": "Empilez les colis le plus haut possible, sans les faire tomber.",
     "jeuPile.regle": "Un colis glisse au-dessus de la pile. Touchez l'écran pour le lâcher : la partie qui dépasse tombe et la pile rétrécit.",
@@ -35,6 +37,8 @@ export default {
     "jeuxRecompenses.serieParfaite": "Série parfaite x{n} !",
   },
   en: {
+    "jeuPile.regleCourte": 'Tap the screen to drop the parcel on the stack.',
+    "jeuPile.resume": 'Aim well: whatever sticks out falls off.',
     "jeuPile.titre": "Parcel stack",
     "jeuPile.accroche": "Stack the parcels as high as you can without dropping them.",
     "jeuPile.regle": "A parcel slides above the stack. Tap the screen to drop it: the part that sticks out falls off and the stack gets narrower.",
@@ -68,6 +72,8 @@ export default {
     "jeuxRecompenses.serieParfaite": "Perfect streak x{n}!",
   },
   es: {
+    "jeuPile.regleCourte": 'Toque la pantalla para soltar el paquete sobre la pila.',
+    "jeuPile.resume": 'Apunte bien: lo que sobresale se cae.',
     "jeuPile.titre": "Pila de paquetes",
     "jeuPile.accroche": "Apile los paquetes lo más alto posible sin dejarlos caer.",
     "jeuPile.regle": "Un paquete se desliza sobre la pila. Toque la pantalla para soltarlo: la parte que sobresale se cae y la pila se estrecha.",
@@ -101,6 +107,8 @@ export default {
     "jeuxRecompenses.serieParfaite": "¡Racha perfecta x{n}!",
   },
   zh: {
+    "jeuPile.regleCourte": '点击屏幕，把包裹放到堆上。',
+    "jeuPile.resume": '请对准：超出的部分会掉落。',
     "jeuPile.titre": "包裹叠叠乐",
     "jeuPile.accroche": "请尽量把包裹叠高，不要让它们掉下来。",
     "jeuPile.regle": "包裹在堆顶上方来回滑动。请点击屏幕放下包裹：超出的部分会掉落，包裹堆会变窄。",
@@ -134,6 +142,8 @@ export default {
     "jeuxRecompenses.serieParfaite": "完美连击 x{n}！",
   },
   ar: {
+    "jeuPile.regleCourte": 'المس الشاشة لإسقاط الطرد على الكومة.',
+    "jeuPile.resume": 'صوّب جيدًا: ما يتجاوز الحافة يسقط.',
     "jeuPile.titre": "كومة الطرود",
     "jeuPile.accroche": "كدّسوا الطرود إلى أعلى ما يمكن دون أن تسقط.",
     "jeuPile.regle": "يتحرك طرد فوق الكومة. المسوا الشاشة لإسقاطه: الجزء الزائد يسقط وتصبح الكومة أضيق.",
@@ -167,6 +177,8 @@ export default {
     "jeuxRecompenses.serieParfaite": "سلسلة مثالية x{n}!",
   },
   de: {
+    "jeuPile.regleCourte": 'Tippen Sie auf den Bildschirm, um das Paket auf den Stapel fallen zu lassen.',
+    "jeuPile.resume": 'Zielen Sie genau: Was übersteht, fällt herunter.',
     "jeuPile.titre": "Paketstapel",
     "jeuPile.accroche": "Stapeln Sie die Pakete so hoch wie möglich, ohne sie fallen zu lassen.",
     "jeuPile.regle": "Ein Paket gleitet über den Stapel. Tippen Sie auf den Bildschirm, um es fallen zu lassen: Der überstehende Teil fällt herunter und der Stapel wird schmaler.",
@@ -200,6 +212,8 @@ export default {
     "jeuxRecompenses.serieParfaite": "Perfekte Serie x{n}!",
   },
   nl: {
+    "jeuPile.regleCourte": 'Tik op het scherm om het pakketje op de stapel te laten vallen.',
+    "jeuPile.resume": 'Mik goed: wat uitsteekt, valt eraf.',
     "jeuPile.titre": "Pakkettenstapel",
     "jeuPile.accroche": "Stapel de pakketten zo hoog mogelijk zonder ze te laten vallen.",
     "jeuPile.regle": "Een pakket schuift boven de stapel. Tik op het scherm om het los te laten: het deel dat uitsteekt valt eraf en de stapel wordt smaller.",
@@ -233,6 +247,8 @@ export default {
     "jeuxRecompenses.serieParfaite": "Perfecte reeks x{n}!",
   },
   it: {
+    "jeuPile.regleCourte": 'Tocchi lo schermo per lasciar cadere il pacco sulla pila.',
+    "jeuPile.resume": 'Miri bene: ciò che sporge cade.',
     "jeuPile.titre": "Pila di pacchi",
     "jeuPile.accroche": "Impili i pacchi il più in alto possibile senza farli cadere.",
     "jeuPile.regle": "Un pacco scorre sopra la pila. Tocchi lo schermo per lasciarlo cadere: la parte che sporge cade e la pila si restringe.",
@@ -266,6 +282,8 @@ export default {
     "jeuxRecompenses.serieParfaite": "Serie perfetta x{n}!",
   },
   pt: {
+    "jeuPile.regleCourte": 'Toque no ecrã para largar a encomenda na pilha.',
+    "jeuPile.resume": 'Aponte bem: o que sobra cai.',
     "jeuPile.titre": "Pilha de encomendas",
     "jeuPile.accroche": "Empilhe as encomendas o mais alto possível, sem as deixar cair.",
     "jeuPile.regle": "Uma encomenda desliza por cima da pilha. Toque no ecrã para a largar: a parte que sobra cai e a pilha fica mais estreita.",
@@ -299,6 +317,8 @@ export default {
     "jeuxRecompenses.serieParfaite": "Sequência perfeita x{n}!",
   },
   ja: {
+    "jeuPile.regleCourte": '画面をタップして荷物を積み上げます。',
+    "jeuPile.resume": '狙いを定めてください。はみ出た部分は落ちます。',
     "jeuPile.titre": "荷物タワー",
     "jeuPile.accroche": "荷物を落とさずに、できるだけ高く積み上げてください。",
     "jeuPile.regle": "荷物がタワーの上を左右に動きます。画面をタップすると荷物が落ちます。はみ出した部分は落ちて、タワーが細くなります。",
@@ -332,6 +352,8 @@ export default {
     "jeuxRecompenses.serieParfaite": "パーフェクト連続 x{n}！",
   },
   th: {
+    "jeuPile.regleCourte": 'แตะหน้าจอเพื่อปล่อยพัสดุลงบนกอง',
+    "jeuPile.resume": 'เล็งให้ตรง ส่วนที่ล้นออกมาจะหล่นไป',
     "jeuPile.titre": "กองพัสดุ",
     "jeuPile.accroche": "กรุณาวางพัสดุซ้อนกันให้สูงที่สุดโดยไม่ให้หล่น",
     "jeuPile.regle": "พัสดุจะเลื่อนไปมาอยู่เหนือกอง แตะหน้าจอเพื่อปล่อย ส่วนที่ยื่นออกมาจะหล่นลงและกองจะแคบลง",
@@ -365,6 +387,8 @@ export default {
     "jeuxRecompenses.serieParfaite": "ต่อเนื่องสมบูรณ์แบบ x{n}!",
   },
   sv: {
+    "jeuPile.regleCourte": 'Tryck på skärmen för att släppa paketet på högen.',
+    "jeuPile.resume": 'Sikta rätt: det som sticker ut ramlar av.',
     "jeuPile.titre": "Paketstapel",
     "jeuPile.accroche": "Stapla paketen så högt du kan utan att tappa dem.",
     "jeuPile.regle": "Ett paket glider över stapeln. Tryck på skärmen för att släppa det: den del som sticker ut ramlar av och stapeln blir smalare.",
@@ -398,6 +422,8 @@ export default {
     "jeuxRecompenses.serieParfaite": "Perfekt svit x{n}!",
   },
   ru: {
+    "jeuPile.regleCourte": 'Коснитесь экрана, чтобы опустить посылку на стопку.',
+    "jeuPile.resume": 'Цельтесь точно: всё, что выступает, падает.',
     "jeuPile.titre": "Стопка посылок",
     "jeuPile.accroche": "Сложите посылки как можно выше, не уронив их.",
     "jeuPile.regle": "Посылка скользит над стопкой. Коснитесь экрана, чтобы отпустить её: выступающая часть падает, и стопка становится уже.",

@@ -1074,42 +1074,8 @@ export default function JeuCoupeScreen({navigation}) {
                   <BoutonClassement onPress={ouvrirClassement} rang={bandeau?.rang} record={bandeau?.record} top1={bandeau?.top1} />
                   <Text style={styles.grosEmoji}>🍉</Text>
                   <Text style={styles.titre}>{t('jeuxCoupeTitre')}</Text>
-                  <Text style={styles.texte}>{t('jeuxCoupeRegle')}</Text>
-                  <View style={styles.ligneInfo}>
-                    <View style={styles.miniColis}>
-                      <MaterialCommunityIcons
-                        name="glass-fragile"
-                        size={16}
-                        color={ROUGE}
-                      />
-                    </View>
-                    <Text style={[styles.texteDiscret, styles.texteInfo]}>
-                      {t('jeuxCoupeFragile')}
-                    </Text>
-                  </View>
-                  <Text style={styles.texteDiscret}>
-                    {t('jeuxCoupeBonus', {n: POINTS_FRUIT})}
-                  </Text>
-                  <View style={styles.ligneInfo}>
-                    <Ionicons name="heart" size={20} color={OR_COEUR} />
-                    <Text style={[styles.texteDiscret, styles.texteInfo]}>
-                      {t('jeuxCoupeCoeur')}
-                    </Text>
-                  </View>
-                  <View style={styles.ligneInfo}>
-                    <View style={styles.iconesBonus}>
-                      <Ionicons name="snow" size={17} color={BLEU_GLACE} />
-                      <Ionicons name="star" size={17} color={OR_ETOILE} />
-                      <Ionicons
-                        name="shield-checkmark"
-                        size={17}
-                        color={VERT_BOUCLIER}
-                      />
-                    </View>
-                    <Text style={[styles.texteDiscret, styles.texteInfo]}>
-                      {t('jeuxCoupeBonusListe')}
-                    </Text>
-                  </View>
+                  <Text style={styles.texte}>{t('jeuxCoupeRegleCourte')}</Text>
+                  <Text style={styles.texteDiscret}>{t('jeuxCoupeResume')}</Text>
                   <Text style={styles.texteDiscret}>
                     {t('jeuMeilleurScore', {n: records.meilleurScore})}
                   </Text>

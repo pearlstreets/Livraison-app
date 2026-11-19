@@ -1,6 +1,8 @@
 // Mini-jeu « Slalom urbain » (screens/JeuSlalomScreen.js), textes repris de l'app client. Titre et texte de la carte : hub.js.
 export default {
   fr: {
+    jeuxSlalomRegleCourte: 'Glissez pour changer de voie, vers le haut pour sauter, vers le bas pour vous baisser.',
+    jeuxSlalomResume: 'Ramassez sacs et étoiles. Deux chocs coup sur coup et la police vous arrête.',
     jeuxSlalomRegle: "Glissez à gauche ou à droite pour changer de voie, vers le haut pour sauter et vers le bas pour vous baisser. Ramassez des sacs d'achat (5 points) et des étoiles (25 points).",
     jeuxSlalomReglePolice: "Premier choc : la police vous poursuit pendant 10 secondes. Un second choc pendant ce temps et vous êtes arrêté. Les boosters vous aident en chemin.",
     jeuxSlalomLegSac: "Sacs",
@@ -26,6 +28,8 @@ export default {
     jeuxSlalomBonusCasque: "Casque de protection",
   },
   en: {
+    jeuxSlalomRegleCourte: 'Swipe to change lanes, up to jump, down to duck.',
+    jeuxSlalomResume: 'Collect bags and stars. Two crashes in a row and the police stop you.',
     jeuxSlalomRegle: "Swipe left or right to change lane, up to jump and down to duck. Collect shopping bags (5 points) and stars (25 points).",
     jeuxSlalomReglePolice: "First crash: the police chase you for 10 seconds. A second crash during that time and you are arrested. Boosters help you along the way.",
     jeuxSlalomLegSac: "Bags",
@@ -51,6 +55,8 @@ export default {
     jeuxSlalomBonusCasque: "Safety helmet",
   },
   es: {
+    jeuxSlalomRegleCourte: 'Deslice para cambiar de carril, hacia arriba para saltar, hacia abajo para agacharse.',
+    jeuxSlalomResume: 'Recoja bolsas y estrellas. Dos choques seguidos y la policía le detiene.',
     jeuxSlalomRegle: "Deslice a la izquierda o a la derecha para cambiar de carril, hacia arriba para saltar y hacia abajo para agacharse. Recoja bolsas de compra (5 puntos) y estrellas (25 puntos).",
     jeuxSlalomReglePolice: "Primer choque: la policía le persigue durante 10 segundos. Un segundo choque en ese tiempo y queda detenido. Los potenciadores le ayudan por el camino.",
     jeuxSlalomLegSac: "Bolsas",
@@ -76,6 +82,8 @@ export default {
     jeuxSlalomBonusCasque: "Casco de protección",
   },
   zh: {
+    jeuxSlalomRegleCourte: '左右滑动换道，向上滑动跳跃，向下滑动下蹲。',
+    jeuxSlalomResume: '收集购物袋和星星。连续撞两次，警察就会拦下您。',
     jeuxSlalomRegle: "向左或向右滑动换道，向上滑动跳跃，向下滑动蹲下。收集购物袋（5分）和星星（25分）。",
     jeuxSlalomReglePolice: "第一次碰撞：警察会追您10秒。这段时间内再次碰撞，您就会被逮捕。道具会在途中帮助您。",
     jeuxSlalomLegSac: "购物袋",
@@ -101,6 +109,8 @@ export default {
     jeuxSlalomBonusCasque: "安全头盔",
   },
   ar: {
+    jeuxSlalomRegleCourte: 'اسحب لتغيير المسار، وللأعلى للقفز، وللأسفل للانحناء.',
+    jeuxSlalomResume: 'اجمع الأكياس والنجوم. اصطدامان متتاليان وتوقفك الشرطة.',
     jeuxSlalomRegle: "اسحبوا إلى اليسار أو اليمين لتغيير المسار، وإلى الأعلى للقفز وإلى الأسفل للانحناء. اجمعوا أكياس التسوق (5 نقاط) والنجوم (25 نقطة).",
     jeuxSlalomReglePolice: "أول اصطدام: تطاردكم الشرطة لمدة 10 ثوانٍ. وإذا اصطدمتم مرة ثانية خلال هذا الوقت يتم القبض عليكم. تساعدكم المعززات في الطريق.",
     jeuxSlalomLegSac: "الأكياس",
@@ -126,6 +136,8 @@ export default {
     jeuxSlalomBonusCasque: "خوذة واقية",
   },
   de: {
+    jeuxSlalomRegleCourte: 'Wischen Sie zum Spurwechsel, nach oben zum Springen, nach unten zum Ducken.',
+    jeuxSlalomResume: 'Sammeln Sie Taschen und Sterne. Zwei Zusammenstöße kurz hintereinander und die Polizei hält Sie an.',
     jeuxSlalomRegle: "Wischen Sie nach links oder rechts, um die Spur zu wechseln, nach oben zum Springen und nach unten zum Ducken. Sammeln Sie Einkaufstüten (5 Punkte) und Sterne (25 Punkte).",
     jeuxSlalomReglePolice: "Erster Zusammenstoß: Die Polizei verfolgt Sie 10 Sekunden lang. Ein zweiter Zusammenstoß in dieser Zeit und Sie werden festgenommen. Booster helfen Ihnen unterwegs.",
     jeuxSlalomLegSac: "Tüten",
@@ -151,6 +163,8 @@ export default {
     jeuxSlalomBonusCasque: "Schutzhelm",
   },
   nl: {
+    jeuxSlalomRegleCourte: 'Veeg om van rijstrook te wisselen, omhoog om te springen, omlaag om te bukken.',
+    jeuxSlalomResume: 'Verzamel tassen en sterren. Twee botsingen kort na elkaar en de politie houdt u aan.',
     jeuxSlalomRegle: "Veeg naar links of rechts om van baan te wisselen, omhoog om te springen en omlaag om te bukken. Verzamel boodschappentassen (5 punten) en sterren (25 punten).",
     jeuxSlalomReglePolice: "Eerste botsing: de politie zit u 10 seconden achterna. Een tweede botsing in die tijd en u wordt gearresteerd. Boosters helpen u onderweg.",
     jeuxSlalomLegSac: "Tassen",
@@ -176,6 +190,8 @@ export default {
     jeuxSlalomBonusCasque: "Veiligheidshelm",
   },
   it: {
+    jeuxSlalomRegleCourte: 'Scorra per cambiare corsia, verso l\'alto per saltare, verso il basso per abbassarsi.',
+    jeuxSlalomResume: 'Raccolga borse e stelle. Due urti di fila e la polizia la ferma.',
     jeuxSlalomRegle: "Scorra a sinistra o a destra per cambiare corsia, verso l'alto per saltare e verso il basso per abbassarsi. Raccolga borse della spesa (5 punti) e stelle (25 punti).",
     jeuxSlalomReglePolice: "Primo urto: la polizia la insegue per 10 secondi. Un secondo urto in quel tempo e viene arrestato. I potenziamenti la aiutano lungo il percorso.",
     jeuxSlalomLegSac: "Borse",
@@ -201,6 +217,8 @@ export default {
     jeuxSlalomBonusCasque: "Casco protettivo",
   },
   pt: {
+    jeuxSlalomRegleCourte: 'Deslize para mudar de faixa, para cima para saltar, para baixo para se baixar.',
+    jeuxSlalomResume: 'Apanhe sacos e estrelas. Dois choques seguidos e a polícia apanha-o.',
     jeuxSlalomRegle: "Deslize para a esquerda ou para a direita para mudar de faixa, para cima para saltar e para baixo para se abaixar. Apanhe sacos de compras (5 pontos) e estrelas (25 pontos).",
     jeuxSlalomReglePolice: "Primeira colisão: a polícia persegue-o durante 10 segundos. Uma segunda colisão nesse tempo e fica detido. Os potenciadores ajudam-no pelo caminho.",
     jeuxSlalomLegSac: "Sacos",
@@ -226,6 +244,8 @@ export default {
     jeuxSlalomBonusCasque: "Capacete de proteção",
   },
   ja: {
+    jeuxSlalomRegleCourte: 'スワイプで車線変更、上でジャンプ、下でしゃがみます。',
+    jeuxSlalomResume: '袋と星を集めてください。続けて2回ぶつかると警察に止められます。',
     jeuxSlalomRegle: "左右にスワイプしてレーンを変え、上にスワイプでジャンプ、下にスワイプでしゃがみます。買い物袋（5ポイント）と星（25ポイント）を集めてください。",
     jeuxSlalomReglePolice: "最初にぶつかると、警察が10秒間追いかけてきます。その間にもう一度ぶつかると逮捕され、ゲームオーバーです。ブースターが道中でお役に立ちます。",
     jeuxSlalomLegSac: "買い物袋",
@@ -251,6 +271,8 @@ export default {
     jeuxSlalomBonusCasque: "ヘルメット",
   },
   th: {
+    jeuxSlalomRegleCourte: 'ปัดเพื่อเปลี่ยนเลน ปัดขึ้นเพื่อกระโดด ปัดลงเพื่อก้มหลบ',
+    jeuxSlalomResume: 'เก็บถุงและดาว ชนติดกันสองครั้งตำรวจจะจับคุณ',
     jeuxSlalomRegle: "ปัดซ้ายหรือขวาเพื่อเปลี่ยนเลน ปัดขึ้นเพื่อกระโดด และปัดลงเพื่อก้มตัว เก็บถุงช้อปปิ้ง (5 คะแนน) และดาว (25 คะแนน)",
     jeuxSlalomReglePolice: "ชนครั้งแรก ตำรวจจะไล่ตามคุณ 10 วินาที หากชนอีกครั้งในช่วงนั้น คุณจะถูกจับและแพ้ บูสเตอร์จะช่วยคุณระหว่างทาง",
     jeuxSlalomLegSac: "ถุง",
@@ -276,6 +298,8 @@ export default {
     jeuxSlalomBonusCasque: "หมวกนิรภัย",
   },
   sv: {
+    jeuxSlalomRegleCourte: 'Svep för att byta fil, uppåt för att hoppa, nedåt för att ducka.',
+    jeuxSlalomResume: 'Samla påsar och stjärnor. Två krockar i rad och polisen stoppar dig.',
     jeuxSlalomRegle: "Svep åt vänster eller höger för att byta fil, uppåt för att hoppa och nedåt för att ducka. Samla shoppingpåsar (5 poäng) och stjärnor (25 poäng).",
     jeuxSlalomReglePolice: "Första kraschen: polisen jagar dig i 10 sekunder. En andra krasch under tiden och du blir gripen. Boosters hjälper dig på vägen.",
     jeuxSlalomLegSac: "Påsar",
@@ -301,6 +325,8 @@ export default {
     jeuxSlalomBonusCasque: "Skyddshjälm",
   },
   ru: {
+    jeuxSlalomRegleCourte: 'Проведите пальцем, чтобы сменить полосу, вверх, чтобы прыгнуть, вниз, чтобы пригнуться.',
+    jeuxSlalomResume: 'Собирайте пакеты и звёзды. Два столкновения подряд, и полиция вас остановит.',
     jeuxSlalomRegle: "Проведите пальцем влево или вправо, чтобы сменить полосу, вверх, чтобы прыгнуть, и вниз, чтобы пригнуться. Собирайте пакеты с покупками (5 очков) и звёзды (25 очков).",
     jeuxSlalomReglePolice: "Первое столкновение: полиция преследует вас 10 секунд. Второе столкновение за это время, и вас задержат. Усилители помогут вам в пути.",
     jeuxSlalomLegSac: "Пакеты",
