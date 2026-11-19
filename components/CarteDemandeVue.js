@@ -31,6 +31,14 @@ function LightStatusBarWhileFocused({ dark }) {
 // Heatmap (Google Maps seulement). Chaque zone y est dessinée en deux cercles
 // (halo + cœur) aux couleurs de la légende, selon son nombre de commandes
 // rapporté à celui de la zone la plus chargée.
+// Dégradé de la heatmap (Android), même objet à chaque rendu : un nouvel
+// objet faisait reconstruire la heatmap native à chaque redessin de l'accueil.
+const DEGRADE_HEATMAP = {
+  colors: ['#0000ff', '#00ff00', '#ffff00', '#ff8800', '#ff0000'],
+  startPoints: [0.01, 0.1, 0.3, 0.6, 1.0],
+  colorMapSize: 256,
+};
+
 const ZONE_RGB = { high: '255, 0, 0', medium: '255, 170, 0', low: '0, 170, 255' };
 
 function zoneCircles(points) {
@@ -138,11 +146,7 @@ export default function CarteDemandeVue({ navigation, onHome, onList, onStatusPr
               points={heatmapPoints}
               radius={40}
               opacity={0.7}
-              gradient={{
-                colors: ['#0000ff', '#00ff00', '#ffff00', '#ff8800', '#ff0000'],
-                startPoints: [0.01, 0.1, 0.3, 0.6, 1.0],
-                colorMapSize: 256,
-              }}
+              gradient={DEGRADE_HEATMAP}
             />
           )}
           {mapReady && zones.map((z) => (
