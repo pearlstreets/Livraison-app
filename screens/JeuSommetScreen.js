@@ -106,21 +106,11 @@ const BandeauFige = memo(
 const IndiceFige = memo(IndiceGestes, (a, b) => a.jeu === b.jeu && a.actif === b.actif);
 
 
-// Vibration légère (expo-haptics), le jeu marche sans.
-let Haptics = null;
-try {
-  // eslint-disable-next-line global-require
-  Haptics = require('expo-haptics');
-} catch (e) {
-  Haptics = null;
-}
+// Vibration légère (Android seulement), le jeu marche sans.
 function vibrer(fort) {
   try {
-    if (!Haptics) return;
-    const promesse = fort
-      ? Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
-      : Haptics.selectionAsync();
-    promesse?.catch?.(() => {});
+    // eslint-disable-next-line global-require
+    require('../utils/jeux/haptique').vibrer(fort ? [0, 40] : [0, 12]);
   } catch (e) {
     // Sans vibration.
   }

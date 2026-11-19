@@ -73,22 +73,12 @@ import {
 } from '../utils/jeux/slalom';
 import {Decor, Objets, Coureur, Policier, geometrie} from '../components/SceneSlalom3D';
 
-// Vibration légère : module natif facultatif, le jeu marche sans.
-let Haptics = null;
-try {
-  // eslint-disable-next-line global-require
-  Haptics = require('expo-haptics');
-} catch {
-  Haptics = null;
-}
+// Vibration légère (Android seulement), le jeu marche sans.
 function vibrer(fort) {
   try {
-    if (!Haptics) return;
-    const p = fort
-      ? Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
-      : Haptics.selectionAsync();
-    p?.catch?.(() => {});
-  } catch {
+    // eslint-disable-next-line global-require
+    require('../utils/jeux/haptique').vibrer(fort ? [0, 40] : [0, 12]);
+  } catch (e) {
     // Sans vibration.
   }
 }
@@ -114,18 +104,34 @@ const EVENEMENTS = ['choc', 'casqueAbsorbe', 'arrete', 'policePart', 'bosse', 'a
 // Aucun objet pris récemment : même tableau vide à chaque image.
 const AUCUN_PRIS = [];
 
-/** Identifiants des objets pris depuis moins de 3 m (sans tableau intermédiaire). */
+/**
+ * Identifiants des objets pris encore gardés par la course (jusqu'à ce qu'ils
+ * soient loin derrière la caméra) : l'affichage les cache, même quand la scène
+ * dessinée les contient encore (ramassage sans redessin, voir plus bas).
+ */
 function prisRecents(e) {
   if (e.pris.size === 0) return AUCUN_PRIS;
-  let ids = null;
-  const seuil = e.d - 3;
-  for (const [id, z] of e.pris) {
-    if (z > seuil) {
-      if (!ids) ids = [];
-      ids.push(id);
-    }
+  return Array.from(e.pris.keys());
+}
+
+/**
+ * Vrai si la liste d'objets ne diffère de la scène dessinée que par des objets
+ * ramassés : aucun nouvel objet, aucun objet remplacé, et chaque objet retiré
+ * est dans e.pris (donc déjà caché par l'affichage). Dans ce cas la scène
+ * n'est pas redessinée : un redessin à chaque colis ou bonus ramassé faisait
+ * saccader la course.
+ */
+function seulementRamasses(dessines, e) {
+  const objets = e.objets;
+  if (!dessines || objets.length >= dessines.length) return false;
+  const presents = new Set(dessines);
+  for (let i = 0; i < objets.length; i += 1) if (!presents.has(objets[i])) return false;
+  const restants = new Set(objets);
+  for (let i = 0; i < dessines.length; i += 1) {
+    const o = dessines[i];
+    if (!restants.has(o) && !e.pris.has(o.id)) return false;
   }
-  return ids || AUCUN_PRIS;
+  return true;
 }
 
 /** Avance de dt secondes, en plusieurs pas si le calcul a pris du retard. */
@@ -296,6 +302,8 @@ export default function SlalomScreen({navigation}) {
   repriseRef.current = reprise;
   const publierRef = useRef(null);
   const redessinerRef = useRef(null);
+  // Liste d'objets de la dernière scène dessinée (seulementRamasses).
+  const dessinesRef = useRef(null);
   const jouerRef = useRef(null);
 
   const appliquer = useCallback(
@@ -348,6 +356,7 @@ export default function SlalomScreen({navigation}) {
 
   const redessiner = useCallback(e => {
     if (!monteRef.current) return;
+    dessinesRef.current = e.objets;
     setScene({objets: e.objets, d: e.d});
     setBandeau(bandeauDe(e));
   }, []);
@@ -360,6 +369,7 @@ export default function SlalomScreen({navigation}) {
    */
   const redessinerFond = useCallback(e => {
     if (!monteRef.current) return;
+    dessinesRef.current = e.objets;
     setScene({objets: e.objets, d: e.d});
     const b = bandeauDe(e);
     startTransition(() => setBandeau(b));
@@ -479,7 +489,7 @@ export default function SlalomScreen({navigation}) {
         banniereRef.current?.annoncer({texte: t('jeuNiveau', {n: ev.niveau}), icone: 'flag', couleur: C.marque});
       }
       if (ev.bosse) vibrer(false);
-      if (ev.change) {
+      if (ev.change && !seulementRamasses(dessinesRef.current, e)) {
         redessinerFond(e);
         bandeauRef.current = ts;
       } else if (ts - bandeauRef.current > PERIODE_BANDEAU) {
