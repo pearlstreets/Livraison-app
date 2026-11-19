@@ -1,5 +1,7 @@
 /**
- * Logique pure du mini-jeu « Drone express » (screens/JeuDroneScreen.js).
+ * Mini-jeu « Drone express » : monde, physique, obstacles, bonus, score et sauvegarde.
+ *
+ * Logique pure (sans React) : l'écran screens/JeuDroneScreen.js l'utilise.
  *
  * Monde en unités : la hauteur vaut toujours HAUTEUR (1000), la largeur
  * dépend de l'écran (largeur en pixels / échelle). Même difficulté sur tous
@@ -8,7 +10,15 @@
  *
  * Phases : 'pret' (le drone flotte, attend le premier toucher), 'vol',
  * 'chute' (obstacle touché, le drone pique jusqu'au sol), 'fini'.
+ *
+ * Sauvegarde (AsyncStorage) : records locaux du jeu dans
+ * USER_JEU_DRONE_V1_<idUser|local> ({meilleurScore, meilleurNiveau}, lu par
+ * l'écran Mini-jeux) ; la partie en cours passe par utils/jeux/sauvegardePartie.js.
  */
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {cleSauvegardeJeu, entierJeu} from './commun';
+
+export const JEU_DRONE = 'drone';
 
 export const HAUTEUR = 1000;
 export const SOL = 80; // hauteur de la rue en bas
@@ -88,13 +98,14 @@ function borner(v, min, max) {
 /**
  * Réglages selon le nombre de passages déjà franchis (10 passages par niveau).
  * Courbe raide pour que la partie reste courte : le niveau 1 sert de prise en
- * main mais bouge déjà (obstacles mobiles dès le 2e passage), les niveaux 2 et
- * 3 accélèrent nettement, les niveaux 4 à 6 deviennent durs, les niveaux 7 à
- * 12 approchent du plus dur, puis les niveaux 13 à 24 relèvent encore le
- * plafond (obstacles mobiles plus fréquents). Au-delà, réglages figés au plus
- * dur. Les motifs (voir MOTIFS) changent la forme des séries d'obstacles d'un
- * niveau à l'autre. La marge verticale reste toujours calculée
- * (ecartAtteignable) : chaque passage reste faisable.
+ * main mais bouge déjà (obstacles mobiles dès le 2e passage, changements de
+ * hauteur au dernier moment dès le 4e), les niveaux 2 et 3 accélèrent nettement,
+ * les niveaux 4 à 6 deviennent durs, les niveaux 7 à 12 approchent du plus dur,
+ * puis les niveaux 13 à 24 relèvent encore le plafond (obstacles mobiles plus
+ * fréquents).
+ * Au-delà, réglages figés au plus dur. Les motifs (voir MOTIFS) changent la
+ * forme des séries d'obstacles d'un niveau à l'autre. La marge verticale reste
+ * toujours calculée (ecartAtteignable) : chaque passage reste faisable.
  */
 export function reglages(passes) {
   const p1 = borner(passes / 10, 0, 1);
@@ -108,16 +119,23 @@ export function reglages(passes) {
     espacement: 460 - 25 * p1 - 20 * p2 - 20 * p3 - 15 * p4, // distance entre deux obstacles (460 puis 380)
     // Part minimale du plus grand écart de hauteur atteignable entre deux passages.
     franc: 0.55 + 0.05 * p1 + 0.05 * p2 + 0.05 * p3 + 0.05 * p4,
-    probaMouvement: passes < 2 ? 0 : 0.3 + 0.1 * p2 + 0.1 * p3 + 0.05 * p4 + 0.05 * p5, // 0,3 au 2e passage, 0,6 au plus dur
+    probaMouvement:
+      passes < 2
+        ? 0
+        : 0.3 + 0.1 * p2 + 0.1 * p3 + 0.05 * p4 + 0.05 * p5, // 0,3 au 2e passage, 0,6 au plus dur
     amplitude: passes < 2 ? 0 : 24 + 8 * p2 + 8 * p3 + 6 * p4, // 24 puis 46
     omega: 1.1 + 0.2 * p2 + 0.15 * p3 + 0.05 * p4, // vitesse de balancement des obstacles mobiles
+    // Passage fixe qui change de hauteur quand le drone approche (signe visible avant).
+    probaBascule:
+      passes < 4 ? 0 : 0.15 + 0.05 * p1 + 0.05 * p2 + 0.05 * p3 + 0.05 * p4, // 0,15 puis 0,35
   };
 }
 
 /**
  * Motifs : séries de 3 à 6 obstacles qui changent la forme du parcours, tirés
  * au hasard parmi ceux débloqués (rang du premier obstacle), jamais deux fois
- * de suite le même. Mêmes immeubles qu'avant, assemblés autrement :
+ * de suite le même. Mêmes immeubles et mêmes pièges qu'avant, assemblés
+ * autrement :
  * - libre : hauteurs franches, le plus souvent en alternance ;
  * - zigzag : toujours à l'opposé, au plus grand écart atteignable ;
  * - escalier : passages fixes toujours dans le même sens (montée ou
@@ -125,6 +143,8 @@ export function reglages(passes) {
  * - vague : obstacles mobiles à la suite, balancements décalés en vague ;
  * - serre : immeubles rapprochés, passages fixes, marches plus petites,
  *   rythme plus rapide ;
+ * - pieges : changements de hauteur au dernier moment un passage sur deux,
+ *   passages fixes entre deux pièges ;
  * - large : immeubles espacés mais tous mobiles et plus amples.
  */
 export const MOTIFS = {
@@ -133,14 +153,17 @@ export const MOTIFS = {
   escalier: 8,
   vague: 12,
   serre: 20,
+  pieges: 30,
   large: 40,
 };
 const SERRE = 0.85; // part de l'espacement normal dans le motif serre
 const LARGE = 1.2; // part de l'espacement normal dans le motif large
-const AMPLE = 1.25; // amplitude des obstacles du motif large (bornée à 46)
+const AMPLE = 1.25; // amplitude des obstacles du motif large (bornée par les réglages des niveaux suivants)
 
 function tirerMotif(m, rang) {
-  const ouverts = Object.keys(MOTIFS).filter((k) => rang >= MOTIFS[k] && k !== m.motif);
+  const ouverts = Object.keys(MOTIFS).filter(
+    k => rang >= MOTIFS[k] && k !== m.motif,
+  );
   m.motif = ouverts[Math.floor(aleatoire(m) * ouverts.length)] || 'libre';
   m.motifReste = 3 + Math.floor(aleatoire(m) * 4);
 }
@@ -164,11 +187,12 @@ export function creerMonde(largeur, graine = Date.now()) {
     colis: 0,
     clients: 0,
     yDepart,
-    drone: { x: positionDrone(l), y: yDepart, vy: 0, angle: 0 },
+    drone: {x: positionDrone(l), y: yDepart, vy: 0, angle: 0},
     obstacles: [],
     prochainId: 1,
     dernierCentre: yDepart,
     dernierAmp: 0,
+    dernierSens: 0, // -1 : le dernier passage montait, 1 : il descendait
     tempsChute: 0,
     // Bonus spéciaux (sauvegardés avec le monde).
     bouclier: false,
@@ -191,9 +215,11 @@ export function multiplicateur(m) {
 /** Bonus actifs, pour le HUD : { id, ratio } (ratio de temps restant, 1 pour le bouclier). */
 export function bonusActifs(m) {
   const l = [];
-  if (m.bouclier) l.push({ id: 'bouclier', ratio: 1 });
-  if ((m.aimant || 0) > 0) l.push({ id: 'aimant', ratio: m.aimant / DUREE_AIMANT });
-  if ((m.double || 0) > 0) l.push({ id: 'double', ratio: m.double / DUREE_DOUBLE });
+  if (m.bouclier) l.push({id: 'bouclier', ratio: 1});
+  if ((m.aimant || 0) > 0)
+    l.push({id: 'aimant', ratio: m.aimant / DUREE_AIMANT});
+  if ((m.double || 0) > 0)
+    l.push({id: 'double', ratio: m.double / DUREE_DOUBLE});
   return l;
 }
 
@@ -202,9 +228,21 @@ export function changerLargeur(m, largeur) {
   m.drone.x = positionDrone(m.largeur);
 }
 
-/** Centre actuel du passage (les obstacles mobiles montent et descendent). */
+// Changement de hauteur au dernier moment : déclenché quand le bord avant
+// de l'obstacle est à TEMPS_BASCULE secondes du drone, glissement en
+// DUREE_BASCULE secondes, toujours fini avant que le drone n'entre.
+export const TEMPS_BASCULE = 0.65; // s
+export const DUREE_BASCULE = 0.3; // s
+export const BASCULE_MIN = 50; // unités, pour que le changement se voie
+
+/** Centre actuel du passage (obstacles mobiles et changements au dernier moment). */
 export function centreObstacle(o, t) {
-  return o.amp ? o.centre + o.amp * Math.sin(o.phi + t * o.omega) : o.centre;
+  let c = o.amp ? o.centre + o.amp * Math.sin(o.phi + t * o.omega) : o.centre;
+  if (o.bascule && o.basculeT != null && t > o.basculeT) {
+    const x = Math.min(1, (t - o.basculeT) / DUREE_BASCULE);
+    c += o.bascule * x * x * (3 - 2 * x);
+  }
+  return c;
 }
 
 /**
@@ -216,7 +254,10 @@ export function centreObstacle(o, t) {
  * gravité aide) mais bornée pour rester contrôlable.
  */
 export function ecartAtteignable(distance, vitesse, ecart) {
-  const duree = Math.max(0.2, (distance - LARGEUR_OBSTACLE - 2 * DRONE_DX) / vitesse);
+  const duree = Math.max(
+    0.2,
+    (distance - LARGEUR_OBSTACLE - 2 * DRONE_DX) / vitesse,
+  );
   const jeu = 0.25 * Math.max(0, ecart - 2 * DRONE_DY);
   return {
     montee: 0.6 * MONTEE_HUMAINE * duree + jeu,
@@ -234,10 +275,10 @@ export function bornesCentre(ecart, amp) {
 
 /** Ajoute un obstacle à droite du dernier (ou juste hors écran s'il n'y en a aucun). */
 export function nouvelObstacle(m) {
-  const r = reglages(m.passes + m.obstacles.filter((o) => !o.franchi).length);
+  const r = reglages(m.passes + m.obstacles.filter(o => !o.franchi).length);
   const precedent = m.obstacles[m.obstacles.length - 1];
   const rangObs = m.passes + m.obstacles.length;
-  if (!(m.motifReste > 0) || !Object.prototype.hasOwnProperty.call(MOTIFS, m.motif)) {
+  if (!(m.motifReste > 0) || !MOTIFS.hasOwnProperty(m.motif)) {
     tirerMotif(m, rangObs);
   }
   const motif = m.motif;
@@ -245,27 +286,57 @@ export function nouvelObstacle(m) {
   // Serre : seulement derrière un passage fixe (sortir d'un obstacle mobile
   // demande le temps normal).
   const serre = motif === 'serre' && !(precedent && precedent.amp);
-  const espace = r.espacement * (serre ? SERRE : motif === 'large' ? LARGE : 1);
+  const espace =
+    r.espacement * (serre ? SERRE : motif === 'large' ? LARGE : 1);
   const x = precedent ? precedent.x + espace : m.largeur + 60;
+  const tirageForme = aleatoire(m);
+  const basculeVoulue =
+    rangObs >= 4 &&
+    r.probaBascule > 0 &&
+    motif !== 'vague' &&
+    motif !== 'large' &&
+    motif !== 'serre' &&
+    motif !== 'escalier' &&
+    (motif === 'pieges'
+      ? !(precedent && precedent.bascule) // un piège sur deux, jamais collés
+      : tirageForme < r.probaBascule);
   const mobile =
+    !basculeVoulue &&
     r.probaMouvement > 0 &&
     motif !== 'serre' &&
     motif !== 'escalier' &&
-    (motif === 'vague' || motif === 'large' || aleatoire(m) < r.probaMouvement);
-  const amp = mobile ? (motif === 'large' ? Math.min(46, r.amplitude * AMPLE) : r.amplitude) : 0;
-  const { montee, descente } = ecartAtteignable(espace, r.vitesse, r.ecart);
+    motif !== 'pieges' &&
+    (motif === 'vague' ||
+      motif === 'large' ||
+      tirageForme < r.probaBascule + r.probaMouvement);
+  const amp = mobile
+    ? motif === 'large'
+      ? Math.min(46, r.amplitude * AMPLE)
+      : r.amplitude
+    : 0;
+  const {montee, descente} = ecartAtteignable(espace, r.vitesse, r.ecart);
   // Les obstacles mobiles réduisent la marge de toute leur amplitude (pire moment du balancement).
   const reserve = amp + (m.dernierAmp || 0);
   const limMontee = Math.max(20, montee - reserve);
   const limDescente = Math.max(20, descente - reserve);
   const b = bornesCentre(r.ecart, amp);
-  const depart = borner(Number.isFinite(m.dernierCentre) ? m.dernierCentre : m.yDepart, b.min, b.max);
+  const depart = borner(m.dernierCentre, b.min, b.max);
   // Hauteurs franches : le plus souvent à l'opposé du passage précédent
   // (en haut puis en bas), d'au moins `franc` fois le plus grand écart atteignable.
-  const place = (sens) => (sens < 0 ? Math.min(limMontee, depart - b.min) : Math.min(limDescente, b.max - depart));
+  const place = sens =>
+    sens < 0
+      ? Math.min(limMontee, depart - b.min)
+      : Math.min(limDescente, b.max - depart);
   const tirageSens = aleatoire(m);
-  const garder = motif === 'escalier' ? 1 : motif === 'zigzag' ? 0 : 0.2; // chance de garder le sens
-  let sens = m.dernierSens ? (tirageSens < garder ? m.dernierSens : -m.dernierSens) : tirageSens < 0.5 ? -1 : 1;
+  const garder =
+    motif === 'escalier' ? 1 : motif === 'zigzag' ? 0 : 0.2; // chance de garder le sens
+  let sens = m.dernierSens
+    ? tirageSens < garder
+      ? m.dernierSens
+      : -m.dernierSens
+    : tirageSens < 0.5
+    ? -1
+    : 1;
   // L'escalier tourne plus tôt, loin des bords (on n'arrive pas collé au toit).
   const assez = motif === 'escalier' ? 1 : 0.5;
   if (place(sens) < assez * (sens < 0 ? limMontee : limDescente)) {
@@ -273,25 +344,60 @@ export function nouvelObstacle(m) {
     if (motif === 'escalier') m.motifReste = 0; // bout de l'escalier : motif suivant
   }
   const maxi = Math.max(0, place(sens));
-  const franc = motif === 'zigzag' ? Math.max(r.franc, 0.85) : r.franc;
-  // Serre : marches plus petites (couloir sinueux). Escalier : marches
-  // régulières, plus de la moitié de l'écart atteignable.
+  const franc =
+    motif === 'zigzag' ? Math.max(r.franc, 0.85) : r.franc;
+  // Motif serre : immeubles rapprochés, marches plus petites (couloir sinueux).
+  // Escalier : marches régulières, plus de la moitié de l'écart atteignable.
   const tiragePart = aleatoire(m);
   const part =
     motif === 'serre'
       ? 0.3 + 0.3 * tiragePart
       : motif === 'escalier'
-        ? 0.5 + 0.3 * tiragePart
-        : franc + (1 - franc) * tiragePart;
+      ? 0.5 + 0.3 * tiragePart
+      : franc + (1 - franc) * tiragePart;
   const centre = depart + sens * maxi * part;
-  const rang = m.passes + m.obstacles.length;
+  // Changement au dernier moment : le passage s'affiche à `centre - bascule`
+  // et glisse jusqu'à `centre`. Les deux hauteurs restent atteignables depuis le
+  // passage précédent, et le glissement reste rattrapable en TEMPS_BASCULE.
+  let bascule = 0;
+  if (basculeVoulue) {
+    const rattrapage = ecartAtteignable(
+      r.vitesse * TEMPS_BASCULE + LARGEUR_OBSTACLE + 2 * DRONE_DX,
+      r.vitesse,
+      r.ecart,
+    );
+    const tirageB = aleatoire(m);
+    const taille = 0.65 + 0.35 * aleatoire(m);
+    for (const s of tirageB < 0.5 ? [-1, 1] : [1, -1]) {
+      // s < 0 : le passage remonte au dernier moment (le drone doit monter).
+      // Même marge prudente vers le haut et vers le bas (montée).
+      const grand = rattrapage.montee * taille;
+      const avant = centre - s * grand;
+      const ecartAvant = avant - depart;
+      const ok =
+        grand >= BASCULE_MIN &&
+        avant >= b.min &&
+        avant <= b.max &&
+        (ecartAvant < 0 ? -ecartAvant <= limMontee : ecartAvant <= limDescente);
+      if (ok) {
+        bascule = s * grand;
+        break;
+      }
+    }
+  }
+  const rang = rangObs;
   const tirage = aleatoire(m);
   const client = rang >= 4 && tirage < 0.13;
   const colis = !client && rang >= 2 && tirage > 0.8;
   // Bonus spécial : jamais avec un colis, au plus un tous les BONUS_ECART obstacles.
   let bonus = null;
   const dernierBonus = m.dernierBonus ?? -99;
-  if (!colis && rang >= BONUS_RANG_MIN && rang - dernierBonus >= BONUS_ECART && aleatoire(m) < BONUS_PROBA) {
+  if (
+    !colis &&
+    rang >= BONUS_RANG_MIN &&
+    rang - dernierBonus >= BONUS_ECART &&
+    aleatoire(m) < BONUS_PROBA
+  ) {
     const b = aleatoire(m);
     bonus = b < 0.36 ? 'bouclier' : b < 0.7 ? 'aimant' : 'double';
     m.dernierBonus = rang;
@@ -300,14 +406,21 @@ export function nouvelObstacle(m) {
     id: m.prochainId,
     x,
     largeur: LARGEUR_OBSTACLE,
-    centre,
+    centre: centre - bascule,
     ecart: r.ecart,
     amp,
+    bascule, // glissement au dernier moment (0 : aucun)
+    basculeT: null, // instant du déclenchement
+    dBascule: r.vitesse * TEMPS_BASCULE, // distance de déclenchement
+
     omega:
       motif === 'vague'
         ? (r.omega || 1) * 1.25 // même cadence pour toute la vague
         : (r.omega || 1) * (1.0 + aleatoire(m) * 0.5),
-    phi: motif === 'vague' ? (Number(m.dernierPhi) || 0) + 0.9 + aleatoire(m) * 0.4 : aleatoire(m) * Math.PI * 2,
+    phi:
+      motif === 'vague'
+        ? (m.dernierPhi || 0) + 0.9 + aleatoire(m) * 0.4
+        : aleatoire(m) * Math.PI * 2,
     haut: TYPES_HAUT[Math.floor(aleatoire(m) * TYPES_HAUT.length)],
     teinte: Math.floor(aleatoire(m) * 4),
     colis,
@@ -358,21 +471,21 @@ function prendreBonus(m, type, ev) {
   else if (type === 'aimant') m.aimant = DUREE_AIMANT;
   else if (type === 'double') m.double = DUREE_DOUBLE;
   m.bonusPris = (m.bonusPris || 0) + 1;
-  ev.push({ type: 'bonus', bonus: type });
+  ev.push({type: 'bonus', bonus: type});
 }
 
 // Choc encaissé par le bouclier : il disparaît, courte invincibilité.
 function encaisser(m, ev) {
   m.bouclier = false;
   m.invincible = DUREE_INVINCIBLE;
-  ev.push({ type: 'bouclierPerdu' });
+  ev.push({type: 'bouclierPerdu'});
 }
 
 function crash(m, ev) {
   m.phase = 'chute';
   m.tempsChute = 0;
   m.drone.vy = Math.min(m.drone.vy, -260); // petit sursaut avant de piquer
-  ev.push({ type: 'crash' });
+  ev.push({type: 'crash'});
 }
 
 /**
@@ -403,7 +516,7 @@ export function avancer(m, dtBrut) {
     if (d.y + DRONE_DY >= HAUTEUR - SOL) {
       d.y = HAUTEUR - SOL - DRONE_DY;
       m.phase = 'fini';
-      ev.push({ type: 'sol' });
+      ev.push({type: 'sol'});
     }
     return ev;
   }
@@ -422,31 +535,44 @@ export function avancer(m, dtBrut) {
   const aimant = (m.aimant || 0) > 0;
   if (m.double > 0) {
     m.double = Math.max(0, m.double - dt);
-    if (m.double === 0) ev.push({ type: 'finBonus', bonus: 'double' });
+    if (m.double === 0) ev.push({type: 'finBonus', bonus: 'double'});
   }
   if (m.aimant > 0) {
     m.aimant = Math.max(0, m.aimant - dt);
-    if (m.aimant === 0) ev.push({ type: 'finBonus', bonus: 'aimant' });
+    if (m.aimant === 0) ev.push({type: 'finBonus', bonus: 'aimant'});
   }
 
   let changement = false;
   for (const o of m.obstacles) {
     o.x -= pas;
+    if (
+      o.bascule &&
+      o.basculeT == null &&
+      o.x - (d.x + DRONE_DX) <= (o.dBascule || r.vitesse * TEMPS_BASCULE)
+    ) {
+      o.basculeT = m.t;
+      changement = true; // le signe disparaît, le passage glisse
+    }
     if (!o.franchi && d.x > o.x + o.largeur) {
       o.franchi = true;
       m.passes += 1;
       m.score += POINTS_PASSAGE * mult;
-      ev.push({ type: 'passage', points: POINTS_PASSAGE * mult });
+      ev.push({type: 'passage', points: POINTS_PASSAGE * mult});
       if (m.passes % PALIER === 0) {
         const niveau = niveauPalier(m.passes);
-        ev.push({ type: 'palier', niveau, medaille: medaille(niveau), decor: decorNiveau(niveau) });
+        ev.push({
+          type: 'palier',
+          niveau,
+          medaille: medaille(niveau),
+          decor: decorNiveau(niveau),
+        });
       }
       if (o.client && !o.livre && (aimant || d.y > centreObstacle(o, m.t))) {
         o.livre = true;
         m.clients += 1;
         m.score += POINTS_CLIENT * mult;
         changement = true;
-        ev.push({ type: 'client', points: POINTS_CLIENT * mult, id: o.id });
+        ev.push({type: 'client', points: POINTS_CLIENT * mult, id: o.id});
       }
     }
     if (o.colis && !o.colisPris && toucheColis(d, o, m.t, aimant)) {
@@ -454,7 +580,7 @@ export function avancer(m, dtBrut) {
       m.colis += 1;
       m.score += POINTS_COLIS * mult;
       changement = true;
-      ev.push({ type: 'colis', points: POINTS_COLIS * mult, id: o.id });
+      ev.push({type: 'colis', points: POINTS_COLIS * mult, id: o.id});
     }
     if (o.bonus && !o.bonusPris && toucheColis(d, o, m.t, aimant)) {
       o.bonusPris = true;
@@ -465,18 +591,18 @@ export function avancer(m, dtBrut) {
 
   // Recyclage : on retire ce qui est sorti à gauche, on ajoute à droite.
   const avant = m.obstacles.length;
-  m.obstacles = m.obstacles.filter((o) => o.x + o.largeur > -40);
+  m.obstacles = m.obstacles.filter(o => o.x + o.largeur > -40);
   if (m.obstacles.length !== avant) changement = true;
   let dernier = m.obstacles[m.obstacles.length - 1];
   while (!dernier || dernier.x < m.largeur + 140) {
     dernier = nouvelObstacle(m);
     changement = true;
   }
-  if (changement) ev.push({ type: 'liste' });
+  if (changement) ev.push({type: 'liste'});
 
   // Collisions : haut, sol, obstacles. Bouclier : le choc est encaissé ;
   // invincible : le drone rebondit sur le haut et le sol et traverse les obstacles.
-  const dedans = m.obstacles.some((o) => toucheObstacle(d, o, m.t));
+  const dedans = m.obstacles.some(o => toucheObstacle(d, o, m.t));
   const bord = d.y - DRONE_DY <= 0 || d.y + DRONE_DY >= HAUTEUR - SOL;
   if ((dedans || bord) && !(m.invincible > 0) && m.bouclier) encaisser(m, ev);
   if (m.invincible > 0) {
@@ -488,7 +614,9 @@ export function avancer(m, dtBrut) {
       d.vy = -IMPULSION;
     }
     // L'invincibilité ne finit jamais au milieu d'un obstacle.
-    m.invincible = dedans ? Math.max(m.invincible - dt, 0.05) : Math.max(0, m.invincible - dt);
+    m.invincible = dedans
+      ? Math.max(m.invincible - dt, 0.05)
+      : Math.max(0, m.invincible - dt);
     return ev;
   }
   if (bord) {
@@ -498,4 +626,120 @@ export function avancer(m, dtBrut) {
   }
   if (dedans) crash(m, ev);
   return ev;
+}
+
+/**
+ * Niveau affiché et envoyé au classement : 1 au départ, +1 tous les PALIER
+ * passages (niveauPalier + 1).
+ */
+export function niveauJeu(passes) {
+  return niveauPalier(passes) + 1;
+}
+
+// Plafond de score par niveau atteint (pire cas impossible : chaque passage
+// avec colis et client, toujours points doublés).
+export const SCORE_MAX_PAR_NIVEAU =
+  PALIER * 2 * (POINTS_PASSAGE + POINTS_COLIS + POINTS_CLIENT);
+
+/** Records locaux sûrs (valeurs abîmées remplacées). */
+export function nettoyerRecords(brut) {
+  const b =
+    brut && typeof brut === 'object' && !Array.isArray(brut) ? brut : {};
+  return {
+    meilleurScore: entierJeu(b.meilleurScore),
+    meilleurNiveau: Math.max(1, entierJeu(b.meilleurNiveau, 1)),
+  };
+}
+
+/** Records après une partie (score et passages de la partie). */
+export function recordsApres(records, score, passes) {
+  const r = nettoyerRecords(records);
+  const s = entierJeu(score);
+  const n = niveauJeu(entierJeu(passes));
+  return {
+    meilleurScore: Math.max(r.meilleurScore, s),
+    meilleurNiveau: Math.max(r.meilleurNiveau, n),
+  };
+}
+
+/**
+ * Monde relu depuis une sauvegarde de reprise : null s'il est abîmé ou
+ * terminé. Les champs de bonus absents (ancienne sauvegarde) sont remis à zéro.
+ */
+export function nettoyerMonde(brut) {
+  try {
+    if (!brut || typeof brut !== 'object' || Array.isArray(brut)) return null;
+    if (brut.phase !== 'vol' && brut.phase !== 'pret') return null;
+    const d = brut.drone;
+    if (
+      !d ||
+      !Number.isFinite(d.x) ||
+      !Number.isFinite(d.y) ||
+      !Array.isArray(brut.obstacles)
+    )
+      return null;
+    const ok = brut.obstacles.every(
+      o =>
+        o &&
+        Number.isFinite(o.x) &&
+        Number.isFinite(o.centre) &&
+        Number.isFinite(o.ecart),
+    );
+    if (!ok) return null;
+    const base = creerMonde(brut.largeur, brut.graine);
+    const passes = entierJeu(brut.passes);
+    const m = {
+      ...base,
+      ...brut,
+      passes,
+      score: Math.min(
+        SCORE_MAX_PAR_NIVEAU * niveauJeu(passes),
+        entierJeu(brut.score),
+      ),
+      colis: entierJeu(brut.colis),
+      clients: entierJeu(brut.clients),
+      bouclier: !!brut.bouclier,
+      aimant: Math.max(0, Math.min(DUREE_AIMANT, Number(brut.aimant) || 0)),
+      double: Math.max(0, Math.min(DUREE_DOUBLE, Number(brut.double) || 0)),
+      invincible: Math.max(
+        0,
+        Math.min(DUREE_INVINCIBLE, Number(brut.invincible) || 0),
+      ),
+      bonusPris: entierJeu(brut.bonusPris),
+      dernierBonus: Number.isFinite(brut.dernierBonus)
+        ? brut.dernierBonus
+        : -99,
+      drone: {
+        x: d.x,
+        y: d.y,
+        vy: Number(d.vy) || 0,
+        angle: Number(d.angle) || 0,
+      },
+    };
+    return m;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** Records du jeu par compte livreur sur le téléphone : USER_JEU_DRONE_V1_<idUser|local>. */
+export function cleSauvegarde(idUser) {
+  return cleSauvegardeJeu(JEU_DRONE, idUser);
+}
+
+export async function chargerRecords(cle) {
+  try {
+    const texte = await AsyncStorage.getItem(cle);
+    return nettoyerRecords(texte ? JSON.parse(texte) : null);
+  } catch (e) {
+    return nettoyerRecords(null);
+  }
+}
+
+export async function enregistrerRecords(cle, records) {
+  try {
+    await AsyncStorage.setItem(cle, JSON.stringify(nettoyerRecords(records)));
+  } catch (e) {
+    // Mémoire indisponible : le record sera réécrit à la prochaine partie.
+  }
 }
