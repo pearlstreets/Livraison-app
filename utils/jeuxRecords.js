@@ -10,7 +10,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { deliveryService } from '../services/deliveryService';
 
-export const JEUX = ['toits', 'sommet', 'drone', 'slalom', 'coupe', 'memoire', 'basket'];
+export const JEUX = ['toits', 'sommet', 'drone', 'slalom', 'coupe', 'memoire', 'basket', 'pile'];
 
 const PREFIXE = 'pearl_jeux_record';
 
@@ -86,13 +86,54 @@ export async function finDePartie(jeu, idLivreur, score) {
   return { meilleur: record.meilleur, nouveauRecord };
 }
 
+/**
+ * Pendant la partie (utils/jeux/useEnvoiRecord.js) : garde `record` (record à vie du jeu) et
+ * `partie` (score de la partie en cours, pour le meilleur score du mois), sans rien envoyer.
+ * Rend true si quelque chose a changé.
+ */
+export async function noterScore(jeu, idLivreur, { record = 0, partie = 0 } = {}) {
+  const r = await chargerRecord(jeu, idLivreur);
+  const rec = entier(record);
+  const s = entier(partie);
+  const mois = moisParis();
+  const memeMois = r.mois === mois;
+  const meilleur = Math.max(r.meilleur, rec, s);
+  const maxMois = Math.max(memeMois ? r.maxMois : 0, s);
+  if (meilleur === r.meilleur && memeMois && maxMois === r.maxMois) return false;
+  await ecrire(jeu, idLivreur, {
+    ...r,
+    meilleur,
+    moisMeilleur: meilleur > r.meilleur ? mois : r.moisMeilleur,
+    mois,
+    maxMois,
+    envoyeMois: memeMois ? r.envoyeMois : 0,
+  });
+  return true;
+}
+
+/** Vrai si un envoi reste à faire (record à vie ou meilleur score du mois). */
+export async function envoiEnAttente(jeu, idLivreur) {
+  const r = await chargerRecord(jeu, idLivreur);
+  return (r.meilleur > 0 && r.meilleur > r.envoye) || (r.mois === moisParis() && r.maxMois > r.envoyeMois);
+}
+
+// Score refusé par le serveur (400, plafond du jeu) : inutile de le renvoyer.
+async function envoyer(jeu, score, mois) {
+  try {
+    await deliveryService.envoyerRecordJeux(jeu, score, mois);
+  } catch (e) {
+    if (e?.status === 400 || e?.response?.status === 400) return;
+    throw e;
+  }
+}
+
 /** Envoie le record à vie et le meilleur score du mois s'ils ne sont pas encore connus du serveur. */
 export async function envoyerRecordEnAttente(jeu, idLivreur) {
   const r = await chargerRecord(jeu, idLivreur);
   const mois = moisParis();
   if (r.meilleur > 0 && r.meilleur > r.envoye) {
     // Sans mois connu (record d'avant le 14/11/2026), le serveur ne le compte pas dans le mois.
-    await deliveryService.envoyerRecordJeux(jeu, r.meilleur, r.moisMeilleur || '2000-01');
+    await envoyer(jeu, r.meilleur, r.moisMeilleur || '2000-01');
     const apres = await chargerRecord(jeu, idLivreur);
     const envoyeMois = r.moisMeilleur === mois && apres.mois === mois
       ? Math.max(apres.envoyeMois, r.meilleur) : apres.envoyeMois;
@@ -100,7 +141,7 @@ export async function envoyerRecordEnAttente(jeu, idLivreur) {
   }
   const m = await chargerRecord(jeu, idLivreur);
   if (m.mois === mois && m.maxMois > 0 && m.maxMois > m.envoyeMois) {
-    await deliveryService.envoyerRecordJeux(jeu, m.maxMois, mois);
+    await envoyer(jeu, m.maxMois, mois);
     const apres = await chargerRecord(jeu, idLivreur);
     if (apres.mois === mois) {
       await ecrire(jeu, idLivreur, { ...apres, envoyeMois: Math.max(apres.envoyeMois, m.maxMois) });

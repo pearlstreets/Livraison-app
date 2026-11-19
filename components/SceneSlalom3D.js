@@ -14,7 +14,7 @@
  * tranches, colis, bonus) sont redessinés par React seulement quand la liste
  * change ; leur position est calculée à chaque image depuis `monde`.
  * Les passants, mamies et voitures qui traversent la rue se placent selon le
- * temps de jeu `monde.tj` (voir xMobile dans utils/jeuSlalom.js).
+ * temps de jeu `monde.tj` (voir xMobile dans utils/jeux/slalom.js).
  *
  * Logo Pearl Streets, discret : un petit panneau translucide au bout de la
  * rue (fixe, dans le ciel entre les façades) et deux petites enseignes
@@ -29,8 +29,8 @@ import React, {memo} from 'react';
 import {View, Text, Image, StyleSheet} from 'react-native';
 import Animated, {useAnimatedStyle} from 'react-native-reanimated';
 import {Ionicons} from '@expo/vector-icons';
-import {BRAND} from '../contexts/ThemeContext';
-import {LOGO_PEARL, RATIO_LOGO, BLEU_NUIT, VERT_PEARL} from './FondJeu';
+import {COULEURS_JEUX as C} from '../utils/jeux/commun';
+import {PlaqueLogo, mesurePlaque, OPACITE_LOGO_DISCRET, LOGO_PEARL} from './jeux/FondJeu';
 import {
   LARGEUR_VOIE,
   VOIES,
@@ -40,38 +40,7 @@ import {
   PORTEE_AIMANT,
   DUREE_POLICE,
   zRelatif,
-} from '../utils/jeuSlalom';
-
-// Couleurs de la scène (dessinée en clair, comme dans l'app client).
-const C = {
-  marque: BRAND,
-  bordureForte: '#C5C6C7',
-  texte: '#30334F',
-  danger: '#ff623d',
-  or: '#F2B705',
-  blanc: '#FFFFFF',
-};
-
-// Plaque du logo Pearl Streets : bleu nuit, liseré vert, logo blanc (assets/images/logo-pearl-streets.png).
-const OPACITE_LOGO_DISCRET = 0.38;
-function mesurePlaque(hauteur) {
-  const h = Math.max(24, Math.round(hauteur));
-  const marge = Math.round(h * 0.14);
-  const hLogo = h - 2 * marge;
-  const lLogo = Math.round(hLogo * RATIO_LOGO);
-  return {h, marge, hLogo, lLogo, l: lLogo + 2 * (marge + 4)};
-}
-const PlaqueLogo = memo(function PlaqueLogo({hauteur}) {
-  const {h, marge, hLogo, lLogo} = mesurePlaque(hauteur);
-  return (
-    <View
-      pointerEvents="none"
-      accessible={false}
-      style={[styles.plaque, {height: h, paddingHorizontal: marge + 4, borderRadius: Math.round(h * 0.18)}]}>
-      <Image source={LOGO_PEARL} style={{width: lLogo, height: hLogo}} resizeMode="contain" />
-    </View>
-  );
-});
+} from '../utils/jeux/slalom';
 
 export const RECUL = 7; // m entre la caméra et le coureur
 const U = 40; // px par mètre des dessins de base (mis à l'échelle ensuite)
@@ -129,7 +98,17 @@ function poser(px, py, kx, ky, bw, bh) {
   return [{translateX: px - bw / 2}, {translateY: py - bh / 2 - (ky * bh) / 2}, {scaleX: kx}, {scaleY: ky}];
 }
 
+/** Comme poser, suivi d'une rotation (un seul tableau, sans recopie). */
+function poserTourne(px, py, kx, ky, bw, bh, rot) {
+  'worklet';
+  return [{translateX: px - bw / 2}, {translateY: py - bh / 2 - (ky * bh) / 2}, {scaleX: kx}, {scaleY: ky}, {rotate: `${rot}deg`}];
+}
+
+// Objets de style constants : Reanimated compare les styles par référence,
+// renvoyer toujours le même objet évite toute mise à jour native.
 const CACHE = {opacity: 0, transform: [{translateX: -9999}]};
+// Membre au repos (rotation nulle), aussi pour un membre dont le parent est caché.
+const IMMOBILE = {transform: [{rotate: '0deg'}]};
 
 /** Distance devant le livreur (version worklet de zRelatif). */
 function zObjet(o, d) {
@@ -233,6 +212,9 @@ const Tiret = memo(function Tiret({geo, monde, X, j}) {
   const style = useAnimatedStyle(() => {
     const g = geo.value;
     const zr = emplacement(j, 8, 12, monde.value.d, 8);
+    // Hors champ (brouillard ou derrière) : rien à calculer ni à envoyer.
+    const vis = visibilite(zr);
+    if (vis <= 0) return CACHE;
     const zr2 = zr + 2.6;
     const s1 = echelle(g, Math.max(zr, -g.recul + 1));
     const s2 = echelle(g, zr2);
@@ -246,7 +228,7 @@ const Tiret = memo(function Tiret({geo, monde, X, j}) {
     const long = Math.sqrt(dx * dx + dy * dy);
     const large = 0.14 * (s1 + s2) * 0.5;
     return {
-      opacity: visibilite(zr) * 0.9,
+      opacity: vis * 0.9,
       transform: [
         {translateX: (x1 + x2) / 2 - 5},
         {translateY: (y1 + y2) / 2 - 50},
@@ -264,10 +246,12 @@ const Joint = memo(function Joint({geo, monde, j}) {
   const style = useAnimatedStyle(() => {
     const g = geo.value;
     const zr = emplacement(j, 3.2, 30, monde.value.d, 8);
+    const vis = visibilite(zr);
+    if (vis <= 0) return CACHE;
     const s = echelle(g, zr);
     if (!s) return CACHE;
     return {
-      opacity: visibilite(zr),
+      opacity: vis,
       transform: [{translateY: g.hy + g.camH * s}, {scaleY: Math.max(1, 0.07 * s)}],
     };
   });
@@ -279,6 +263,8 @@ const Fenetres = memo(function Fenetres({geo, monde, cote, j}) {
   const style = useAnimatedStyle(() => {
     const g = geo.value;
     const zr = emplacement(j, 5, 19, monde.value.d, 6) + (cote > 0 ? 0 : 2.5);
+    const vis = visibilite(zr);
+    if (vis <= 0) return CACHE;
     const s1 = echelle(g, zr);
     const s2 = echelle(g, zr + 2.2);
     if (!s1 || !s2) return CACHE;
@@ -287,7 +273,7 @@ const Fenetres = memo(function Fenetres({geo, monde, cote, j}) {
     const sm = (s1 + s2) / 2;
     const large = Math.abs(x1 - x2);
     return {
-      opacity: visibilite(zr),
+      opacity: vis,
       transform: poser((x1 + x2) / 2, g.hy + g.camH * sm, large / 40, (sm * H_FACADE) / (U * H_FACADE / 4), 40, (U * H_FACADE) / 4),
     };
   });
@@ -307,11 +293,13 @@ const Lampadaire = memo(function Lampadaire({geo, monde, cote, j}) {
   const style = useAnimatedStyle(() => {
     const g = geo.value;
     const zr = emplacement(j, 22, 5, monde.value.d, 8) + (cote > 0 ? 0 : 11);
+    const vis = visibilite(zr);
+    if (vis <= 0) return CACHE;
     const s = echelle(g, zr);
     if (!s) return CACHE;
     const k = s / U;
     return {
-      opacity: visibilite(zr),
+      opacity: vis,
       transform: poser(g.cx + cote * (DEMI_ROUTE + 1.1) * s, g.hy + g.camH * s, -cote * k, k, U, 4.6 * U),
     };
   });
@@ -356,11 +344,13 @@ const Enseigne = memo(function Enseigne({geo, monde, cote, j}) {
   const style = useAnimatedStyle(() => {
     const g = geo.value;
     const zr = emplacement(j, 52, 2, monde.value.d, 8) + (cote > 0 ? 6 : 32);
+    const vis = visibilite(zr);
+    if (vis <= 0) return CACHE;
     const s = echelle(g, zr);
     if (!s) return CACHE;
     const k = (s * ENSEIGNE_M) / ENSEIGNE_BW;
     return {
-      opacity: visibilite(zr) * ENSEIGNE_OPACITE,
+      opacity: vis * ENSEIGNE_OPACITE,
       transform: poser(g.cx + cote * (FACADE - 1.5) * s, g.hy + (g.camH - 3.4) * s, k, k, ENSEIGNE_BW, ENSEIGNE_BH),
     };
   });
@@ -381,6 +371,8 @@ const Zebra = memo(function Zebra({geo, monde, j}) {
   const style = useAnimatedStyle(() => {
     const g = geo.value;
     const zr = emplacement(j, 70, 2, monde.value.d, 8) + 20;
+    const vis = visibilite(zr);
+    if (vis <= 0) return CACHE;
     const s1 = echelle(g, zr);
     const s2 = echelle(g, zr + 3);
     if (!s1 || !s2) return CACHE;
@@ -388,7 +380,7 @@ const Zebra = memo(function Zebra({geo, monde, j}) {
     const y2 = g.hy + g.camH * s2;
     const sm = (s1 + s2) / 2;
     return {
-      opacity: visibilite(zr),
+      opacity: vis,
       transform: [
         {translateX: g.cx - 50},
         {translateY: (y1 + y2) / 2 - 50},
@@ -413,11 +405,13 @@ const Terrasse = memo(function Terrasse({geo, monde, cote, j}) {
   const style = useAnimatedStyle(() => {
     const g = geo.value;
     const zr = emplacement(j, 17, 6, monde.value.d, 8) + (cote > 0 ? 4 : 11);
+    const vis = visibilite(zr);
+    if (vis <= 0) return CACHE;
     const s = echelle(g, zr);
     if (!s) return CACHE;
     const k = s / U;
     return {
-      opacity: visibilite(zr),
+      opacity: vis,
       transform: poser(g.cx + cote * (DEMI_ROUTE + 2.1) * s, g.hy + g.camH * s, k, k, U * 1.6, U * 1.9),
     };
   });
@@ -505,8 +499,12 @@ const Tranche = memo(function Tranche({
   const styleDessus = useAnimatedStyle(() => {
     if (!dessus) return CACHE;
     const g = geo.value;
-    const X = xMetres(o, monde.value);
-    const z0 = zObjet(o, monde.value.d);
+    const m = monde.value;
+    const z0 = zObjet(o, m.d);
+    // Hors champ ou fondu terminé : rien à calculer ni à envoyer.
+    const op = visibilite(z0 + decal) * chute(o, m).fondu;
+    if (op <= 0) return CACHE;
+    const X = xMetres(o, m);
     const s1 = echelle(g, z0 + decal);
     const s2 = echelle(g, z0 + dessus.decal);
     if (!s1 || !s2) return CACHE;
@@ -517,7 +515,7 @@ const Tranche = memo(function Tranche({
     const h = y2 - y1;
     if (h < 1) return CACHE;
     return {
-      opacity: visibilite(z0 + decal) * chute(o, monde.value).fondu,
+      opacity: op,
       transform: [
         {translateX: (x1 + x2) / 2 - bw / 2},
         {translateY: (y1 + y2) / 2 - 50},
@@ -529,15 +527,18 @@ const Tranche = memo(function Tranche({
   });
   const style = useAnimatedStyle(() => {
     const g = geo.value;
-    const X = xMetres(o, monde.value);
-    const zr = zObjet(o, monde.value.d) + decal;
+    const m = monde.value;
+    const zr = zObjet(o, m.d) + decal;
+    const ch = chute(o, m);
+    const op = visibilite(zr) * ch.fondu;
+    if (op <= 0) return CACHE;
     const s = echelle(g, zr);
     if (!s) return CACHE;
+    const X = xMetres(o, m);
     const k = s / U;
-    const ch = chute(o, monde.value);
     return {
-      opacity: visibilite(zr) * ch.fondu,
-      transform: [...poser(g.cx + X * s, g.hy + (g.camH - base) * s, k, k, bw, bh), {rotate: `${ch.rot}deg`}],
+      opacity: op,
+      transform: poserTourne(g.cx + X * s, g.hy + (g.camH - base) * s, k, k, bw, bh, ch.rot),
     };
   });
   return (
@@ -670,6 +671,13 @@ const CHEVEUX = ['#3A2A1E', '#C98B4B', '#1E1E24', '#7B4B2A'];
 const PEAU = '#F1C7A0';
 const JEAN = '#3A3D6B';
 
+/** Vrai si le personnage est dessiné (mêmes conditions que son style). */
+function persoVisible(o, g, m) {
+  'worklet';
+  const zr = zObjet(o, m.d);
+  return visibilite(zr) * chute(o, m).fondu > 0 && echelle(g, zr) > 0;
+}
+
 /** Mamie, passant ou ouvrier de chantier : un petit personnage qui marche. */
 const Personnage = memo(function Personnage({geo, monde, o}) {
   const bw = 28;
@@ -684,24 +692,30 @@ const Personnage = memo(function Personnage({geo, monde, o}) {
   const style = useAnimatedStyle(() => {
     const g = geo.value;
     const m = monde.value;
-    const X = xMetres(o, m);
     const zr = zObjet(o, m.d);
+    const ch = chute(o, m);
+    const op = visibilite(zr) * ch.fondu;
+    if (op <= 0) return CACHE;
     const s = echelle(g, zr);
     if (!s) return CACHE;
+    const X = xMetres(o, m);
     const k = s / U;
-    const ch = chute(o, m);
     const bond = ouv ? 0 : 0.05 * Math.abs(Math.sin(m.t * cadence + o.id));
     return {
-      opacity: visibilite(zr) * ch.fondu,
-      transform: [...poser(g.cx + X * s, g.hy + (g.camH - bond) * s, k, k, bw, bh), {rotate: `${ch.rot}deg`}],
+      opacity: op,
+      transform: poserTourne(g.cx + X * s, g.hy + (g.camH - bond) * s, k, k, bw, bh, ch.rot),
     };
   });
+  // Jambes : immobiles (même objet, aucune mise à jour) pour l'ouvrier et
+  // tant que le personnage est caché.
   const jambeG = useAnimatedStyle(() => {
-    const a = ouv ? 0 : Math.sin(monde.value.t * cadence + o.id) * (mam ? 14 : 28);
+    if (ouv || !persoVisible(o, geo.value, monde.value)) return IMMOBILE;
+    const a = Math.sin(monde.value.t * cadence + o.id) * (mam ? 14 : 28);
     return {transform: [{translateY: -jambe / 2}, {rotate: `${a}deg`}, {translateY: jambe / 2}]};
   });
   const jambeD = useAnimatedStyle(() => {
-    const a = ouv ? 0 : -Math.sin(monde.value.t * cadence + o.id) * (mam ? 14 : 28);
+    if (ouv || !persoVisible(o, geo.value, monde.value)) return IMMOBILE;
+    const a = -Math.sin(monde.value.t * cadence + o.id) * (mam ? 14 : 28);
     return {transform: [{translateY: -jambe / 2}, {rotate: `${a}deg`}, {translateY: jambe / 2}]};
   });
   return (
@@ -763,7 +777,9 @@ function VoitureTravers({geo, monde, o}) {
   );
 }
 
-function Obstacle({geo, monde, o}) {
+// Mémorisé : quand la liste d'objets change, les obstacles déjà là ne sont
+// pas redessinés (leurs tranches et leurs styles animés restent en place).
+const Obstacle = memo(function Obstacle({geo, monde, o}) {
   if (o.type === 'mamie' || o.type === 'passant' || o.type === 'ouvrier') return <Personnage geo={geo} monde={monde} o={o} />;
   if (o.type === 'voitureTraverse') return <VoitureTravers geo={geo} monde={monde} o={o} />;
   if (o.type === 'voiture') return <Voiture geo={geo} monde={monde} o={o} />;
@@ -824,7 +840,7 @@ function Obstacle({geo, monde, o}) {
       </Tranche>
     </>
   );
-}
+});
 
 const COULEURS_BONUS = {turbo: '#FF6A13', superSaut: '#2F80ED', double: '#8E6CEF', aimant: C.danger, casque: C.marque};
 const ICONES_BONUS = {turbo: 'flash', superSaut: 'arrow-up', aimant: 'magnet', casque: 'shield-checkmark'};
@@ -840,6 +856,7 @@ const Objet = memo(function Objet({geo, monde, o}) {
   const style = useAnimatedStyle(() => {
     const g = geo.value;
     const m = monde.value;
+    if (m.pris && m.pris.indexOf(o.id) >= 0) return CACHE;
     const zr = o.z - m.d;
     let x = X;
     let y = o.y - taille / 2 + 0.08 * Math.sin(m.t * 4 + o.id);
@@ -851,13 +868,15 @@ const Objet = memo(function Objet({geo, monde, o}) {
       y += (m.jy + 0.7 - y) * a;
       z = zr * (1 - a * 0.6);
     }
+    const vis = visibilite(z);
+    if (vis <= 0) return CACHE;
     const s = echelle(g, z);
     if (!s) return CACHE;
     const k = s / U;
     const tourne = etoile ? 14 * Math.sin(m.t * 3 + o.id) : bonus ? 0 : 8 * Math.sin(m.t * 3 + o.id);
     return {
-      opacity: visibilite(z),
-      transform: [...poser(g.cx + x * s, g.hy + (g.camH - y) * s, k, k, bw, bw), {rotate: `${tourne}deg`}],
+      opacity: vis,
+      transform: poserTourne(g.cx + x * s, g.hy + (g.camH - y) * s, k, k, bw, bw, tourne),
     };
   });
   if (bonus) {
@@ -892,9 +911,13 @@ const Objet = memo(function Objet({geo, monde, o}) {
 
 /** Objets du parcours, du plus loin au plus près (redessinés quand la liste change). */
 export const Objets = memo(function Objets({objets, d, geo, monde}) {
-  const tries = objets
-    .slice()
-    .sort((a, b) => zRelatif(b, d) + (b.longueur || 0) * 0.5 - (zRelatif(a, d) + (a.longueur || 0) * 0.5));
+  // Clé de tri calculée une fois par objet (même ordre qu'avant).
+  const cles = new Map();
+  for (let i = 0; i < objets.length; i += 1) {
+    const o = objets[i];
+    cles.set(o, zRelatif(o, d) + (o.longueur || 0) * 0.5);
+  }
+  const tries = objets.slice().sort((a, b) => cles.get(b) - cles.get(a));
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       {tries.map(o =>
@@ -920,38 +943,54 @@ function pivotHaut(h, deg) {
   return {transform: [{translateY: -h / 2}, {rotate: `${deg}deg`}, {translateY: h / 2}]};
 }
 
+// Membres en l'air : poses fixes, calculées une fois (aucune mise à jour pendant le saut).
+const SAUT_JAMBE_G = pivotHaut(JAMBE, 38);
+const SAUT_JAMBE_D = pivotHaut(JAMBE, -32);
+const SAUT_BRAS_G = pivotHaut(BRAS, -70);
+const SAUT_BRAS_D = pivotHaut(BRAS, 70);
+
+/** Visibilité du policier (0 : absent), selon les secondes de police restantes. */
+function visPolice(m) {
+  'worklet';
+  const arrive = clamp((DUREE_POLICE - m.pol) / 1.4, 0, 1);
+  const part = clamp(m.pol / 1.2, 0, 1);
+  return m.pol > 0 ? arrive * part : 0;
+}
+
 /**
  * Personnage vu de dos qui court : proportions humaines, jambes et bras qui
  * balancent selon le temps (plus vite quand la course accélère). `tenue`
  * donne les couleurs ; `casque` dessine le casque booster.
  */
-const Silhouette = memo(function Silhouette({monde, tenue, casque, dephase = 0, bw, bh}) {
+const Silhouette = memo(function Silhouette({monde, tenue, casque, dephase = 0, bw, bh, policier = false}) {
+  // Policier absent (presque toute la course) : membres figés, aucune mise à jour.
   const jambeG = useAnimatedStyle(() => {
     const m = monde.value;
-    const en = m.jy - m.sol > 0.08;
-    const a = en ? 38 : Math.sin(m.t * m.cad + dephase) * 42;
-    return pivotHaut(JAMBE, a);
+    if (policier && visPolice(m) <= 0.01) return IMMOBILE;
+    if (m.jy - m.sol > 0.08) return SAUT_JAMBE_G;
+    return pivotHaut(JAMBE, Math.sin(m.t * m.cad + dephase) * 42);
   });
   const jambeD = useAnimatedStyle(() => {
     const m = monde.value;
-    const en = m.jy - m.sol > 0.08;
-    const a = en ? -32 : -Math.sin(m.t * m.cad + dephase) * 42;
-    return pivotHaut(JAMBE, a);
+    if (policier && visPolice(m) <= 0.01) return IMMOBILE;
+    if (m.jy - m.sol > 0.08) return SAUT_JAMBE_D;
+    return pivotHaut(JAMBE, -Math.sin(m.t * m.cad + dephase) * 42);
   });
   const brasG = useAnimatedStyle(() => {
     const m = monde.value;
-    const en = m.jy - m.sol > 0.08;
-    const a = en ? -70 : -Math.sin(m.t * m.cad + dephase) * 38;
-    return pivotHaut(BRAS, a);
+    if (policier && visPolice(m) <= 0.01) return IMMOBILE;
+    if (m.jy - m.sol > 0.08) return SAUT_BRAS_G;
+    return pivotHaut(BRAS, -Math.sin(m.t * m.cad + dephase) * 38);
   });
   const brasD = useAnimatedStyle(() => {
     const m = monde.value;
-    const en = m.jy - m.sol > 0.08;
-    const a = en ? 70 : Math.sin(m.t * m.cad + dephase) * 38;
-    return pivotHaut(BRAS, a);
+    if (policier && visPolice(m) <= 0.01) return IMMOBILE;
+    if (m.jy - m.sol > 0.08) return SAUT_BRAS_D;
+    return pivotHaut(BRAS, Math.sin(m.t * m.cad + dephase) * 38);
   });
   const buste = useAnimatedStyle(() => {
     const m = monde.value;
+    if (policier && visPolice(m) <= 0.01) return IMMOBILE;
     return {transform: [{rotate: `${Math.sin(m.t * m.cad + dephase) * 3}deg`}]};
   });
   return (
@@ -965,6 +1004,18 @@ const Silhouette = memo(function Silhouette({monde, tenue, casque, dephase = 0, 
       <Animated.View style={[styles.buste, {top: 15, backgroundColor: tenue.haut}, buste]}>
         {tenue.sac && <View style={[styles.sacDos, {backgroundColor: tenue.sac}]} />}
         {tenue.badge && <View style={[styles.rayureHaut, {backgroundColor: tenue.badge}]} />}
+        {tenue.sacPearl && (
+          <>
+            <View style={[styles.bretelle, {left: 3}]} />
+            <View style={[styles.bretelle, {right: 3}]} />
+            <View style={[styles.sacPearl, {backgroundColor: tenue.sacPearl}]}>
+              <View style={styles.rabatSac} />
+              <View style={styles.cadreLogoSac}>
+                <Image source={LOGO_PEARL} style={styles.logoSac} resizeMode="contain" />
+              </View>
+            </View>
+          </>
+        )}
       </Animated.View>
       <Animated.View style={[styles.brasCoureur, {left: bw / 2 - 17, top: 17, backgroundColor: tenue.haut}, brasG]}>
         <View style={[styles.main, {backgroundColor: PEAU}]} />
@@ -974,6 +1025,7 @@ const Silhouette = memo(function Silhouette({monde, tenue, casque, dephase = 0, 
         {tenue.sacMain && <View style={[styles.sacMainCoureur, {backgroundColor: tenue.sacMain}]} />}
       </Animated.View>
       <View style={styles.cou} />
+      {tenue.capuche && <View style={[styles.capuche, {backgroundColor: tenue.capuche}]} />}
       <View style={[styles.teteCoureur, {backgroundColor: PEAU}]} />
       <View style={[styles.cheveuxCoureur, {backgroundColor: tenue.cheveux}]} />
       {tenue.casquette && <View style={[styles.casquette, {backgroundColor: tenue.casquette}]} />}
@@ -982,12 +1034,16 @@ const Silhouette = memo(function Silhouette({monde, tenue, casque, dephase = 0, 
   );
 });
 
+// Livreur Pearl : sweat à capuche, casquette et sac isotherme orange au logo Pearl.
+const ORANGE_PEARL = '#FF6A13';
 const TENUE_CLIENT = {
-  haut: '#2F80ED',
-  pantalon: '#3A3D6B',
-  chaussures: '#FFFFFF',
-  cheveux: '#4A3020',
-  sacMain: '#09D7AA',
+  haut: '#232A3B',
+  capuche: '#2E3649',
+  pantalon: '#2A3142',
+  chaussures: ORANGE_PEARL,
+  cheveux: '#3B2A1E',
+  casquette: ORANGE_PEARL,
+  sacPearl: ORANGE_PEARL,
 };
 const TENUE_POLICIER = {
   haut: '#2B3A67',
@@ -1020,7 +1076,7 @@ export const Coureur = memo(function Coureur({geo, monde, casque}) {
     const ky = m.acc ? (k * H_ACCROUPI) / H_DEBOUT : k;
     return {
       opacity: m.inv > 0 ? 0.55 + 0.45 * Math.cos(m.t * 40) : 1,
-      transform: [...poser(g.cx + m.jx * s, g.hy + (g.camH - m.jy) * s, k, ky, bw, bh), {rotate: `${m.tilt}deg`}],
+      transform: poserTourne(g.cx + m.jx * s, g.hy + (g.camH - m.jy) * s, k, ky, bw, bh, m.tilt),
     };
   });
   return (
@@ -1033,6 +1089,8 @@ export const Coureur = memo(function Coureur({geo, monde, casque}) {
   );
 });
 
+const GYRO_FIGE = {backgroundColor: '#FF3B30'};
+
 /**
  * Policier à ses trousses : apparaît derrière le coureur au premier choc,
  * rattrape pendant la poursuite (gyrophare), puis s'éloigne et disparaît.
@@ -1043,9 +1101,7 @@ export const Policier = memo(function Policier({geo, monde}) {
   const poursuite = useAnimatedStyle(() => {
     const g = geo.value;
     const m = monde.value;
-    const arrive = clamp((DUREE_POLICE - m.pol) / 1.4, 0, 1);
-    const part = clamp(m.pol / 1.2, 0, 1);
-    const vis = m.pol > 0 ? arrive * part : 0;
+    const vis = visPolice(m);
     if (vis <= 0.01) return CACHE;
     const zr = -2.4 - 3.2 * (1 - vis);
     const s = echelle(g, zr);
@@ -1056,12 +1112,14 @@ export const Policier = memo(function Policier({geo, monde}) {
       transform: poser(g.cx + m.jxp * s, g.hy + g.camH * s, k, k, bw, bh),
     };
   });
-  const gyro = useAnimatedStyle(() => ({
-    backgroundColor: Math.sin(monde.value.t * 16) > 0 ? '#FF3B30' : '#2F80ED',
-  }));
+  // Gyrophare : couleur figée tant que le policier est absent.
+  const gyro = useAnimatedStyle(() => {
+    if (visPolice(monde.value) <= 0.01) return GYRO_FIGE;
+    return {backgroundColor: Math.sin(monde.value.t * 16) > 0 ? '#FF3B30' : '#2F80ED'};
+  });
   return (
     <Animated.View pointerEvents="none" style={[styles.coureur, {width: bw, height: bh}, poursuite]}>
-      <Silhouette monde={monde} tenue={TENUE_POLICIER} casque={false} dephase={1.2} bw={bw} bh={bh} />
+      <Silhouette monde={monde} tenue={TENUE_POLICIER} casque={false} dephase={1.2} bw={bw} bh={bh} policier />
       <Animated.View style={[styles.gyrophare, gyro]} />
     </Animated.View>
   );
@@ -1217,6 +1275,12 @@ const styles = StyleSheet.create({
   buste: {position: 'absolute', width: 24, height: 27, borderRadius: 9, alignSelf: 'center', overflow: 'hidden'},
   sacDos: {position: 'absolute', left: 4, right: 4, top: 3, bottom: 3, borderRadius: 5},
   rayureHaut: {position: 'absolute', left: 0, right: 0, top: 4, height: 3},
+  bretelle: {position: 'absolute', top: 0, width: 3, height: 8, backgroundColor: '#1A1F2C'},
+  sacPearl: {position: 'absolute', left: 2, right: 2, top: 3, bottom: 1, borderRadius: 4, overflow: 'hidden', alignItems: 'center', borderWidth: 1, borderColor: '#D9560B'},
+  rabatSac: {position: 'absolute', left: 0, right: 0, top: 0, height: 5, backgroundColor: '#E85D0C'},
+  cadreLogoSac: {position: 'absolute', top: 8, width: 18, height: 8, overflow: 'hidden', alignItems: 'center', justifyContent: 'center'},
+  logoSac: {width: 54, height: 25},
+  capuche: {position: 'absolute', top: 9, width: 18, height: 9, borderTopLeftRadius: 9, borderTopRightRadius: 9, borderBottomLeftRadius: 4, borderBottomRightRadius: 4},
   brasCoureur: {position: 'absolute', width: 6, height: BRAS, borderRadius: 3},
   main: {position: 'absolute', left: 0, bottom: -3, width: 6, height: 6, borderRadius: 3},
   sacMainCoureur: {position: 'absolute', left: -4, bottom: -17, width: 12, height: 14, borderRadius: 3, borderWidth: 1, borderColor: '#FFFFFF'},
@@ -1226,5 +1290,4 @@ const styles = StyleSheet.create({
   casquette: {position: 'absolute', top: -3, width: 16, height: 6, borderTopLeftRadius: 8, borderTopRightRadius: 8},
   casqueBooster: {position: 'absolute', top: -4, width: 20, height: 12, borderTopLeftRadius: 10, borderTopRightRadius: 10, backgroundColor: C.or, borderWidth: 2, borderColor: '#FFFFFF'},
   gyrophare: {position: 'absolute', top: -9, width: 12, height: 6, borderRadius: 3, borderWidth: 1, borderColor: '#FFFFFF'},
-  plaque: {alignItems: 'center', justifyContent: 'center', backgroundColor: BLEU_NUIT, borderWidth: 2, borderColor: VERT_PEARL},
 });

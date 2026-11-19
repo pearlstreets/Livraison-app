@@ -1,6 +1,6 @@
 /**
  * Mini-jeu « Slalom urbain » en 3D : parcours, physique, collisions, police,
- * boosters, reprise de la course.
+ * boosters, sauvegarde.
  *
  * Logique pure (sans React) : l'écran screens/JeuSlalomScreen.js l'utilise,
  * le rendu en perspective est dans components/SceneSlalom3D.js.
@@ -31,22 +31,23 @@
  * casque. Objets à ramasser : sacs d'achat (5 points) et étoiles (25 points).
  *
  * Score = mètres parcourus + points d'objets (doublés avec le x2). Niveau =
- * 1 + un par tranche de 500 m. Le score reste sous 500 x niveau x 21 : la
- * fréquence des objets est réglée pour rester très en dessous de 21 points
- * par mètre (voir pointsMaxObjets), même plafond que le jeu de l'app client.
+ * 1 + un par tranche de 500 m (envoyé au classement). Le serveur refuse un
+ * score supérieur à 500 x niveau x 21 : la fréquence des objets est réglée
+ * pour rester très en dessous de 21 points par mètre (voir pointsMaxObjets).
  * L'état de course est modifié sur place (boucle à 60 images par seconde).
  *
- * Difficulté (16/11/2026, jeu jugé trop simple et répétitif, même courbe
- * que le jeu de l'app client) : voir difficulte() et pression(). En bref :
- * départ à 13 m/s (10 avant), 33 m/s au plus (27 avant) ; tous les motifs
- * de base ouverts vers 1,3 km (niveau 3, 2,4 km avant) ; puis la pression
- * monte jusqu'au niveau 9 : rangées plus serrées, combinaisons plus
- * fréquentes, moins de rangées faciles, nouveaux motifs et enchaînements
- * (SUITES) débloqués niveau après niveau. Une voie reste toujours
- * franchissable (rangeeFranchissable) et chaque rangée garde une voie au
- * passage tolérant (rangeeSure) ; l'écart entre deux rangées ne descend
- * jamais sous ECART_MIN secondes.
+ * Difficulté (16/11/2026, jeu encore jugé trop simple et répétitif) :
+ * voir difficulte() et pression(). En bref : départ à 13 m/s, 33 m/s au
+ * plus ; tous les motifs de base ouverts vers 1,3 km (niveau 3) ; puis la
+ * pression monte jusqu'au niveau 9 : rangées plus serrées, combinaisons
+ * plus fréquentes, moins de rangées faciles, nouveaux motifs et
+ * enchaînements (SUITES) débloqués niveau après niveau. Une voie reste
+ * toujours franchissable (rangeeFranchissable) et chaque rangée garde une
+ * voie au passage tolérant (rangeeSure) ; l'écart entre deux rangées ne
+ * descend jamais sous ECART_MIN secondes.
  */
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 export const VERSION = 3;
 export const VOIES = 3;
 export const LARGEUR_VOIE = 2.2; // m
@@ -166,6 +167,7 @@ const MOTIFS = [
   [0.5, 2, ['barriere', 'echafaudage', 'barrierePied']],
   [0.55, 2, ['voitureMobile', 'camionnetteMobile', 'echafaudage']],
 ];
+
 // Motifs débloqués par la pression (niveau 3 et au-delà) : [pression
 // minimale, poids, voies]. Chacun garde une voie au passage tolérant.
 const MOTIFS_PRESSION = [
@@ -622,19 +624,39 @@ export function nouvelleCourse(graine = 1) {
  */
 export function remplir(e) {
   let change = false;
-  const nouveaux = [];
-  while (e.gen.z <= e.d + GENERE_DEVANT) genererRangee(e.gen, nouveaux);
-  nouveaux.forEach(o => {
-    if (!e.pris.has(o.id) && !e.detruits.has(o.id)) {
-      e.objets.push(o);
-      change = true;
+  // Appelé à chaque image : aucun tableau ni fonction créés quand rien ne
+  // change. La liste n'est jamais modifiée sur place (l'écran la garde pour
+  // son rendu) : une nouvelle liste est faite dès qu'un objet entre ou sort.
+  let ajouts = null;
+  if (e.gen.z <= e.d + GENERE_DEVANT) {
+    const nouveaux = [];
+    while (e.gen.z <= e.d + GENERE_DEVANT) genererRangee(e.gen, nouveaux);
+    for (let i = 0; i < nouveaux.length; i += 1) {
+      const o = nouveaux[i];
+      if (!e.pris.has(o.id) && !e.detruits.has(o.id)) {
+        if (!ajouts) ajouts = [];
+        ajouts.push(o);
+        change = true;
+      }
     }
-  });
-  const avant = e.objets.length;
-  e.objets = e.objets.filter(o => zRelatif(o, e.d) + (o.longueur || 0) > -DERRIERE);
-  if (e.objets.length !== avant) change = true;
+  }
+  let derriere = false;
+  for (let i = 0; i < e.objets.length; i += 1) {
+    const o = e.objets[i];
+    if (!(zRelatif(o, e.d) + (o.longueur || 0) > -DERRIERE)) {
+      derriere = true;
+      break;
+    }
+  }
+  if (derriere || ajouts) {
+    const avant = e.objets.length + (ajouts ? ajouts.length : 0);
+    const liste = ajouts ? e.objets.concat(ajouts) : e.objets;
+    e.objets = liste.filter(o => zRelatif(o, e.d) + (o.longueur || 0) > -DERRIERE);
+    if (e.objets.length !== avant) change = true;
+  }
   const limite = e.d - DERRIERE - 5;
-  [e.pris, e.detruits].forEach(m => m.forEach((z, id) => z < limite && m.delete(id)));
+  for (const [id, z] of e.pris) if (z < limite) e.pris.delete(id);
+  for (const [id, z] of e.detruits) if (z < limite) e.detruits.delete(id);
   return change;
 }
 
@@ -728,6 +750,8 @@ function ecarter(e, choc) {
   let sens = (choc.mobile ? xMobile(choc, e.d) : choc.voie) <= e.x ? -1 : 1;
   if (!choc.mobile && choc.voie === 2) sens = 1;
   if (!choc.mobile && choc.voie === 0) sens = -1;
+  // Copie de la liste : celle que l'écran dessine n'est jamais modifiée sur place.
+  e.objets = e.objets.slice();
   e.objets[i] = {...choc, ej: {t0: e.t, sens}};
 }
 
@@ -774,9 +798,7 @@ function pas(e, h, v, ev) {
   }
   e.xPolice += (e.x - e.xPolice) * Math.min(1, 5 * h);
   if (e.acc > 0 && e.auSol) e.acc = Math.max(0, e.acc - h);
-  BONUS.forEach(b => {
-    e[b] = Math.max(0, e[b] - h);
-  });
+  for (let i = 0; i < BONUS.length; i += 1) e[BONUS[i]] = Math.max(0, e[BONUS[i]] - h);
   e.trebuche = Math.max(0, e.trebuche - h);
   if (e.police > 0) {
     e.police = Math.max(0, e.police - h);
@@ -1010,4 +1032,65 @@ export function reprendreCourse(c) {
   e.sol = collisions(e).sol;
   if (e.auSol) e.y = Math.max(e.y, e.sol);
   return e;
+}
+
+/** Sauvegarde neuve (records gardés). */
+export function partieNeuve(records = {}) {
+  return {
+    v: VERSION,
+    phase: 'accueil', // accueil | pause (une course en cours est toujours relue en pause)
+    meilleurScore: entier(records.meilleurScore),
+    meilleurNiveau: Math.max(1, entier(records.meilleurNiveau)),
+    course: null,
+  };
+}
+
+/**
+ * Relit une sauvegarde : toute valeur abîmée est remplacée par une valeur
+ * sûre, jamais de plantage. Ancienne version : records gardés, nouvelle
+ * course. Une course en cours revient en pause.
+ */
+export function nettoyerSauvegarde(brut) {
+  try {
+    if (!brut || typeof brut !== 'object' || Array.isArray(brut)) return partieNeuve();
+    const base = partieNeuve(brut);
+    if (brut.v !== VERSION) return base;
+    const course = nettoyerCourse(brut.course);
+    const enCours = !!course && (brut.phase === 'jeu' || brut.phase === 'pause');
+    return {
+      ...base,
+      phase: enCours ? 'pause' : 'accueil',
+      course: enCours ? course : null,
+      meilleurScore: Math.max(base.meilleurScore, enCours ? Math.floor(course.d) + course.pointsObjets : 0),
+      meilleurNiveau: Math.max(base.meilleurNiveau, enCours ? niveauPour(course.d) : 1),
+    };
+  } catch (e) {
+    return partieNeuve();
+  }
+}
+
+export async function chargerPartie(cle) {
+  try {
+    const texte = await AsyncStorage.getItem(cle);
+    let brut = null;
+    try {
+      brut = texte ? JSON.parse(texte) : null;
+    } catch (e) {
+      brut = null;
+    }
+    if (texte && (!brut || typeof brut !== 'object')) {
+      AsyncStorage.removeItem(cle).catch(() => {});
+    }
+    return nettoyerSauvegarde(brut);
+  } catch (e) {
+    return partieNeuve();
+  }
+}
+
+export async function enregistrerPartie(cle, etat) {
+  try {
+    await AsyncStorage.setItem(cle, JSON.stringify(etat));
+  } catch (e) {
+    // Mémoire pleine ou indisponible : la partie continue, nouvel essai au prochain événement.
+  }
 }
