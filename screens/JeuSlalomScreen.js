@@ -48,7 +48,6 @@ import HudJeu from '../components/jeux/HudJeu';
 import BandeauClassement, {formaterNombre} from '../components/jeux/BandeauClassement';
 import {CouchePopups, BanniereRecompense, RecapRecompenses, OR_FONCE} from '../components/jeux/RecompensesJeu';
 import FenetreReprise from '../components/jeux/FenetreReprise';
-import IndiceGestes from '../components/jeux/IndiceGestes';
 import SonJeux, {demarrerMusique, arreterMusique, bruit, ReglagesSon} from '../components/jeux/SonJeux';
 import {
   LARGEUR_VOIE,
@@ -109,9 +108,28 @@ const AUCUN_PRIS = [];
  * soient loin derrière la caméra) : l'affichage les cache, même quand la scène
  * dessinée les contient encore (ramassage sans redessin, voir plus bas).
  */
+// Dernière liste rendue : même tableau tant que e.pris n'a pas changé, pour ne
+// pas en créer (et en recopier vers l'affichage) un nouveau à chaque image.
+let derniersPris = AUCUN_PRIS;
 function prisRecents(e) {
-  if (e.pris.size === 0) return AUCUN_PRIS;
-  return Array.from(e.pris.keys());
+  if (e.pris.size === 0) {
+    derniersPris = AUCUN_PRIS;
+    return AUCUN_PRIS;
+  }
+  if (derniersPris.length === e.pris.size) {
+    let i = 0;
+    let pareil = true;
+    for (const id of e.pris.keys()) {
+      if (derniersPris[i] !== id) {
+        pareil = false;
+        break;
+      }
+      i += 1;
+    }
+    if (pareil) return derniersPris;
+  }
+  derniersPris = Array.from(e.pris.keys());
+  return derniersPris;
 }
 
 /**
@@ -742,7 +760,7 @@ export default function SlalomScreen({navigation}) {
   }
 
   const enCourse = etat.phase === 'jeu' || compte > 0;
-  const fenetre = !enCourse && !classementOuvert && !reprise.proposition;
+  const fenetre = !enCourse && !reprise.proposition;
   const nObjets = bandeau.sacs + bandeau.etoiles;
   const objets = {
     n: nObjets,
@@ -776,7 +794,6 @@ export default function SlalomScreen({navigation}) {
             <Coureur geo={geo} monde={vue} casque={bandeau.casque} />
           </>
         )}
-        <IndiceGestes jeu="slalom" gestes={['gauche', 'droite', 'haut', 'bas']} actif={etat.phase === 'jeu'} />
         {bandeau.police > 0 && enCourse && (
           <View pointerEvents="none" style={styles.policeZone}>
             <View style={styles.policeBadge}>
@@ -807,8 +824,8 @@ export default function SlalomScreen({navigation}) {
           <View style={styles.carte}>
             {etat.phase === 'accueil' && (
               <>
-                <ReglagesSon />
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeauClassement?.rang} record={bandeauClassement?.record} top1={bandeauClassement?.top1} />
+                <ReglagesSon />
                 <Ionicons name="walk" size={42} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuxSlalomTitre')}</Text>
                 <Text style={styles.texte}>{t('jeuxSlalomRegleCourte')}</Text>
@@ -821,8 +838,8 @@ export default function SlalomScreen({navigation}) {
             )}
             {etat.phase === 'pause' && (
               <>
-                <ReglagesSon />
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeauClassement?.rang} record={bandeauClassement?.record} top1={bandeauClassement?.top1} />
+                <ReglagesSon />
                 <Ionicons name="pause-circle" size={44} color={C.marque} />
                 <Text style={styles.titre}>{t('jeuEnPause')}</Text>
                 <Text style={styles.texte}>{t('jeuSauvegarde')}</Text>
@@ -835,8 +852,8 @@ export default function SlalomScreen({navigation}) {
             )}
             {etat.phase === 'fin' && (
               <>
-                <ReglagesSon />
                 <BoutonClassement onPress={ouvrirClassement} rang={bandeauClassement?.rang} record={bandeauClassement?.record} top1={bandeauClassement?.top1} />
+                <ReglagesSon />
                 <Ionicons name={fin?.record ? 'trophy' : 'alert-circle'} size={44} color={fin?.record ? C.or : C.danger} />
                 <Text style={styles.titre}>{t('jeuxSlalomFinTitre')}</Text>
                 {fin?.record && <Text style={[styles.texte, styles.record]}>{t('jeuxSlalomNouveauRecord')}</Text>}

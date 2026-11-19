@@ -2,14 +2,14 @@
  * Classement d'un mini-jeu (modale), commun aux 4 jeux :
  *   <ClassementJeu jeu="panier" visible={ouvert} onClose={fermer} avantChargement={envoyer} />
  *
- * Top 20 des livreurs (prénom et initiale du nom), médailles, ligne du client
+ * Tous les livreurs (prénom et initiale du nom), médailles, ligne du client
  * mise en avant (« Vous »), son rang s'il est hors du top. États : chargement,
  * vide, hors ligne (Réessayer). Livreur : toujours connecté, pas d'invitation ;
  * serveur driver/jeux/<jeu>/classement/ (lignes sans niveau : niveau masqué).
  * `avantChargement` : envoi du record en attente, ses erreurs sont ignorées.
  */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
+import {ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View} from 'react-native';
 import {Ionicons} from '@expo/vector-icons';
 import {useLanguage} from '../../contexts/LanguageContext';
 import {deliveryService} from '../../services/deliveryService';
@@ -93,11 +93,15 @@ export default function ClassementJeu({jeu, visible, onClose, avantChargement}) 
 
           {connecte && !etat.charge && !etat.erreur && etat.liste.length > 0 && (
             <>
-              <ScrollView style={styles.liste} contentContainerStyle={{paddingBottom: 4}}>
-                {etat.liste.map((l, i) => (
-                  <Ligne key={`${l.rang}-${l.nom}-${i}`} l={l} t={t} />
-                ))}
-              </ScrollView>
+              <FlatList
+                style={styles.liste}
+                contentContainerStyle={{paddingBottom: 4}}
+                data={etat.liste}
+                keyExtractor={(l, i) => `${l.rang}-${l.nom}-${i}`}
+                renderItem={({item}) => <Ligne l={item} t={t} />}
+                initialNumToRender={20}
+                windowSize={7}
+              />
               {!moiDansTop && etat.moi && (
                 <View style={styles.votreRang}>
                   {!!etat.moi.nom && <Text style={styles.votreRangTexte}>{String(etat.moi.nom)}</Text>}

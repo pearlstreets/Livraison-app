@@ -39,6 +39,17 @@ function etapeCourse(order) {
    Avant acceptation, le livreur n'a besoin que de la zone : quartier, ville et
    code postal. Ni nom, ni téléphone, ni numéro de rue. Les champs vides sont
    simplement ignorés pour ne jamais afficher un libellé vide. */
+// Deux listes de courses aux mêmes données (objets simples d'adaptAssignment).
+function memeListe(a, b) {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
 function buildZoneLabel(a) {
   const ua = (a && a.user_address) || {};
   return [ua.road_area_colony, ua.city, ua.pincode || ua.postalCode]
@@ -264,7 +275,10 @@ export default function OrdersScreen({ navigation, route }) {
         .filter(Boolean)
         .map(a => adaptAssignment(a, { revealCustomer: false }))
         .filter(o => !exclues.has(orderKey(o)));
-      setAvailable(disponibles);
+      // Même liste qu'avant (cas courant) : l'état est gardé tel quel, sans
+      // redessiner l'accueil ni sa carte toutes les 15 s, même pendant un
+      // mini-jeu ouvert dans un autre onglet (saccades).
+      setAvailable(prev => (memeListe(prev, disponibles) ? prev : disponibles));
       // Son d'une nouvelle course, une fois par course, même si l'accueil
       // n'est pas affiché (services/sonCourse.js). App en arrière-plan : la
       // push a déjà sonné, les courses sont notées sans son au retour.
