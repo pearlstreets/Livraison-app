@@ -156,10 +156,13 @@ function GelDiffere({cache, children}) {
 }
 
 // Ecrans d'avant l'app (connexion) : une colonne au milieu, au format du
-// telephone.
+// telephone, sur un fond du meme blanc que l'ecran, sans bandes grises sur
+// les cotes (user 20/11/2026).
 export function AuMilieu({children}) {
+  const {dark, colors} = useTheme();
   return (
-    <View style={styles.milieu}>
+    <View
+      style={[styles.milieu, {backgroundColor: dark ? colors.bg : '#fff'}]}>
       <View style={{width: largeurMoitie(), flex: 1}}>{children}</View>
     </View>
   );
@@ -182,7 +185,7 @@ const styles = StyleSheet.create({
     width: StyleSheet.hairlineWidth,
     backgroundColor: COULEUR_SEPARATION,
   },
-  milieu: {flex: 1, alignItems: 'center', backgroundColor: FOND_REPOS},
+  milieu: {flex: 1, alignItems: 'center'},
 });
 
 export const createDeuxEcransNavigator = createNavigatorFactory(
