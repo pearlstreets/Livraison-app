@@ -27,6 +27,7 @@ import {BottomTabBarHeightContext} from '@react-navigation/bottom-tabs';
 import {Freeze} from 'react-freeze';
 import {useTheme} from '../contexts/ThemeContext';
 import {
+  dimensionsApp,
   dimensionsReelles,
   echelleTablette,
   largeurMoitie,
@@ -179,8 +180,8 @@ export function AuMilieu({children}) {
   // Toute l'app est deja agrandie sur tablette (utils/agrandiTablette.js) :
   // la colonne l'est en plus, jusqu'a ECHELLE_MAX en tout.
   const base = echelleTablette();
-  const {width, height} = dimensionsReelles() || {width: 0, height: 0};
-  const colonne = Math.min(largeurMoitie(), COLONNE_MAX);
+  const {width, height} = dimensionsApp() || {width: 0, height: 0};
+  const colonne = Math.min(Math.floor(width / 2), COLONNE_MAX);
   const totale = Math.max(
     base,
     Math.min(

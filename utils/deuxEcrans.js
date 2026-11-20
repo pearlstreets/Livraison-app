@@ -25,7 +25,8 @@ let surTablette = false;
 // Tablette : toute l'app est dessinee plus grosse, comme les grandes apps
 // (boites, boutons, textes, user 20/11/2026). Elle est mise en page sur
 // l'ecran divise par l'echelle, puis agrandie (utils/agrandiTablette.js).
-// Chaque moitie garde au moins la largeur d'un telephone (360).
+// Tablette : un seul ecran, pas coupe en deux (les deux moities sont pour
+// les pliables, user 20/11/2026).
 const ECHELLE_TABLETTE = 1.2;
 const RAPPORT_MAX_PLIABLE = 1.3;
 const presqueCarre = (width, height) =>
@@ -52,6 +53,11 @@ export function preparerDeuxEcrans(width, height) {
   surTablette =
     tablette && !pliable && !(Platform.OS === 'android' && presqueCarre(width, height));
   echelle = surTablette ? echelleDe(width) : 1;
+  if (surTablette) {
+    ecran = {width, height};
+    reel = null;
+    return Math.floor(width / echelle);
+  }
   if (pliable || tablette) {
     ecran = {width, height};
     reel = {width: width / echelle, height: height / echelle};
@@ -71,17 +77,24 @@ export const echelleTablette = () => echelle;
 export const tabletteDeplie = () => surTablette;
 // Hauteur a annoncer a l'app (points de l'app).
 export const hauteurApp = height => height / echelle;
+// Taille annoncee a l'app sur tablette (points de l'app, ecran entier).
+export const dimensionsApp = () =>
+  reel ||
+  (surTablette && ecran
+    ? {width: Math.floor(ecran.width / echelle), height: ecran.height / echelle}
+    : null);
 export const largeurMoitie = () => (reel ? Math.floor(reel.width / 2) : 0);
 
 // Android renvoie la vraie largeur a chaque changement de configuration :
 // elle est remise a celle d'une moitie.
 let ecoute = null;
 export function garderLargeurMoitie() {
-  if (!reel || ecoute) {
+  if ((!reel && !surTablette) || ecoute) {
     return;
   }
   ecoute = Dimensions.addEventListener('change', ({window, screen}) => {
-    const moitie = largeurMoitie();
+    // Tablette : la largeur de l'ecran entier, en points de l'app.
+    const moitie = reel ? largeurMoitie() : dimensionsApp().width;
     if (!window || Math.abs((window.width || 0) - moitie) < ECART_MIN) {
       return;
     }

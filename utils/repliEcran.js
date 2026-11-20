@@ -15,8 +15,10 @@ import {Dimensions, DevSettings} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {navigationRef} from '../services/navigationService';
 import {
+  dimensionsApp,
   dimensionsEcran,
   dimensionsReelles,
+  tabletteDeplie,
   echelleTablette,
   largeurMoitie,
 } from './deuxEcrans';
@@ -188,10 +190,13 @@ export function surveillerRepliEcran() {
     rechargementEnCours = false;
   }
   const abonnement = Dimensions.addEventListener('change', ({window}) => {
-    if (
-      dimensionsReelles() &&
-      Math.abs(((window && window.width) || 0) - largeurMoitie()) < 2
-    ) {
+    // Largeur remise par utils/deuxEcrans.js (moitie, ou tablette agrandie).
+    const annoncee = dimensionsReelles()
+      ? largeurMoitie()
+      : tabletteDeplie()
+      ? dimensionsApp().width
+      : 0;
+    if (annoncee && Math.abs(((window && window.width) || 0) - annoncee) < 2) {
       return;
     }
     verifierTaille(window);
