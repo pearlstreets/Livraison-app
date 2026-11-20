@@ -9,12 +9,13 @@
 // livreur retrouve l'ecran qu'il regardait.
 //
 // La LARGEUR de la fenetre : le clavier (adjustResize sous Android) ne change
-// que sa hauteur. Une rotation ne recharge rien (utils/ecranPliable.js).
+// que sa hauteur. Une rotation ne recharge rien, sauf sur tablette
+// (utils/ecranPliable.js).
 import {Dimensions, DevSettings} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {navigationRef} from '../services/navigationService';
 import {dimensionsReelles, largeurMoitie} from './deuxEcrans';
-import {ecranChange, ECART_MIN} from './ecranPliable';
+import {ecranChange, rotationTablette, ECART_MIN} from './ecranPliable';
 
 const CLE_ETAT = 'pd.repliEcran.etat';
 // Saisie de l'ecran de connexion / inscription (livreur pas encore connecte,
@@ -143,7 +144,7 @@ const verifierTaille = fenetre => {
     reference = fenetre;
     return;
   }
-  if (ecranChange(reference, fenetre)) {
+  if (ecranChange(reference, fenetre) || rotationTablette(reference, fenetre)) {
     recharger();
     return;
   }

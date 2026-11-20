@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ecranChange,
+  rotationTablette,
   ecransVisibles,
   pileAvantOuverture,
   retourDeLaSource,
@@ -73,4 +74,20 @@ test('retour depuis la page de droite : ferme cette page, pas la liste du dessus
   assert.equal(retourDeLaSource(avant, etranger), etranger);
   const ouvrir = {type: 'NAVIGATE', source: 'MenuMain-0', payload: {name: 'Wallet'}};
   assert.equal(retourDeLaSource(avant, ouvrir), ouvrir);
+});
+
+test('tablette : rotation et fenetre redimensionnee rechargent, telephone non', () => {
+  const ipadPortrait = {width: 820, height: 1180};
+  const ipadPaysage = {width: 1180, height: 820};
+  const splitView = {width: 590, height: 820};
+  const tabletteAndroid = {width: 800, height: 1280};
+  assert.equal(rotationTablette(ipadPortrait, ipadPaysage), true);
+  assert.equal(rotationTablette(ipadPaysage, ipadPortrait), true);
+  assert.equal(rotationTablette(ipadPaysage, splitView), true);
+  assert.equal(rotationTablette(splitView, ipadPaysage), true);
+  assert.equal(rotationTablette(tabletteAndroid, {width: 1280, height: 800}), true);
+  // Clavier : la largeur ne change pas.
+  assert.equal(rotationTablette(ipadPortrait, {width: 820, height: 700}), false);
+  // Telephone : jamais.
+  assert.equal(rotationTablette({width: 390, height: 844}, {width: 844, height: 390}), false);
 });
