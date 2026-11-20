@@ -22,6 +22,7 @@ import { chargerDocumentsSeuil, donneesConnues, ecouter, estDocumentsRequis, sig
 import { chargerEtapes, cleCourse, enregistrerEtape, garderSeulement, lireEtape, oublierEtape } from '../services/etapesCourses';
 import { annoncerCourses, marquerCoursesAnnoncees, noterReleve } from '../services/sonCourse';
 import { peutSimuler } from '../utils/simulation';
+import { brancherAccueil, publierAccueil } from '../services/pontCarPlay';
 
 // Libellé de l'étape en cours d'une course acceptée (index DeliveryFlow).
 const ACTIVE_STEP_KEYS = ['pickup', 'enRoute', 'arrived', 'deliveryCode', 'deliveryDone'];
@@ -296,13 +297,14 @@ export default function OrdersScreen({ navigation, route }) {
   const setOnline = setIsOnline;
   // Comme Uber : pas en ligne sans position. La position part d'abord, pour que
   // le serveur ait une position fraîche dès le passage en ligne.
+  // Résultat rendu à l'écran CarPlay : { enLigne, message, motif }.
   const passerEnLigne = useCallback(async () => {
     const coords = await positionObligatoire(t);
-    if (!coords) return;
+    if (!coords) return { enLigne: false, message: '', motif: 'position' };
     if (coords.latitude != null) {
       await envoyerPosition(coords.latitude, coords.longitude, { forcer: true, mocked: coords.mocked });
     }
-    setOnline(true);
+    return setOnline(true);
   }, [t, setOnline]);
   const [active, setActive] = useState([]);           // En cours
   const [available, setAvailable] = useState([]);     // Disponibles (backend)
@@ -419,10 +421,10 @@ export default function OrdersScreen({ navigation, route }) {
       setActive(prev => [accepted, ...prev]);
       enregistrerEtape(cleCourse(accepted), { step: 0, statut: 'accepted' });
       navigation.navigate('DeliveryFlow', { order: accepted });
-      return;
+      return true;
     }
     // Une seule demande par course, même sur un double appui.
-    if (acceptEnCours.current.has(key)) return;
+    if (acceptEnCours.current.has(key)) return false;
     acceptEnCours.current.add(key);
     // Retrait optimiste de la liste disponible
     setAvailable(prev => prev.filter(o => orderKey(o) !== key));
@@ -432,6 +434,7 @@ export default function OrdersScreen({ navigation, route }) {
       setActive(prev => [assignment, ...prev.filter(o => orderKey(o) !== orderKey(assignment))]);
       enregistrerEtape(cleCourse(assignment), { step: 0, statut: 'accepted' });
       navigation.navigate('DeliveryFlow', { order: assignment });
+      return true;
     } catch (e) {
       // Course prise par un autre livreur, retirée ou refusée pour ce
       // livreur : elle ne revient pas. Autre échec : remise dans la liste.
@@ -445,7 +448,7 @@ export default function OrdersScreen({ navigation, route }) {
           { text: t('cancel'), style: 'cancel' },
           { text: t('idvOuvrir'), onPress: () => ouvrirVerification(e.identite || null) },
         ]);
-        return;
+        return false;
       }
       // Documents demandés par le serveur : pas d'erreur générique.
       if (estDocumentsRequis(e)) signalerDocumentsRequis(e, t);
@@ -455,6 +458,7 @@ export default function OrdersScreen({ navigation, route }) {
       // Réponse perdue ou course déjà attribuée : elle est peut-être à ce
       // livreur, on relit ses courses en cours sur le serveur.
       if (e?.isNetworkError || e?.status === 409) restaurerCourses();
+      return false;
     } finally {
       acceptEnCours.current.delete(key);
     }
@@ -522,6 +526,38 @@ export default function OrdersScreen({ navigation, route }) {
     if (offre && !displayedAvailable.some(o => (cleOffre != null ? orderKey(o) === cleOffre : o === offre))) setOffre(null);
   }, [displayedAvailable, offre, cleOffre]);
   const estOffre = (o) => !!offre && (cleOffre != null ? orderKey(o) === cleOffre : o === offre);
+
+  // Écran CarPlay (components/PontCarPlay.js) : il lit cet état et agit par
+  // ces mêmes fonctions, avec les mêmes contrôles que le téléphone.
+  useEffect(() => {
+    publierAccueil({ pret: true, online, offre: online && carteVide ? offre : null, courses: active });
+  }, [online, offre, active, carteVide]);
+  useEffect(() => () => publierAccueil({ pret: false, offre: null, courses: [] }), []);
+  const pourCarPlay = useRef({});
+  pourCarPlay.current = { passerEnLigne, setOnline, onAccept, onDecline, active };
+  useEffect(() => {
+    const retirerOffre = (order) => {
+      offresVues.current.add(String(orderKey(order)));
+      setOffre(o => (o && orderKey(o) === orderKey(order) ? null : o));
+    };
+    return brancherAccueil({
+      passerEnLigne: () => pourCarPlay.current.passerEnLigne(),
+      // Comme l'interrupteur : jamais hors ligne avec une course en cours.
+      passerHorsLigne: async () => {
+        if (pourCarPlay.current.active.length > 0) return { enLigne: true, message: '', motif: 'course' };
+        return pourCarPlay.current.setOnline(false);
+      },
+      accepter: async (order) => {
+        retirerOffre(order);
+        return pourCarPlay.current.onAccept(order);
+      },
+      refuser: async (order) => {
+        retirerOffre(order);
+        await pourCarPlay.current.onDecline(order);
+        return true;
+      },
+    });
+  }, []);
 
   if (!accountActive) {
     return (

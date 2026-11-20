@@ -13,6 +13,16 @@ let charge = null;
 
 const persistante = (cle) => !String(cle).startsWith('mock-');
 
+// Écouteurs des changements (écran CarPlay, components/PontCarPlay.js).
+const ecouteurs = new Set();
+function prevenir() {
+  ecouteurs.forEach((fn) => { try { fn(); } catch { /* écouteur fautif ignoré */ } });
+}
+export function ecouterEtapes(fn) {
+  ecouteurs.add(fn);
+  return () => ecouteurs.delete(fn);
+}
+
 function sauver() {
   const aGarder = {};
   for (const [cle, v] of Object.entries(etapes)) if (persistante(cle)) aGarder[cle] = v;
@@ -26,6 +36,7 @@ export function chargerEtapes() {
       .then((brut) => {
         const lu = brut ? JSON.parse(brut) : {};
         if (lu && typeof lu === 'object') etapes = { ...lu, ...etapes };
+        prevenir();
       })
       .catch(() => {});
   }
@@ -45,6 +56,7 @@ export function enregistrerEtape(cle, champs) {
   if (!cle) return;
   etapes = { ...etapes, [cle]: { ...(etapes[cle] || {}), ...champs } };
   sauver();
+  prevenir();
 }
 
 export function oublierEtape(cle) {
@@ -53,6 +65,7 @@ export function oublierEtape(cle) {
   delete suite[cle];
   etapes = suite;
   sauver();
+  prevenir();
 }
 
 // Garde seulement les courses que le serveur donne encore en cours.
@@ -67,5 +80,6 @@ export function garderSeulement(cles) {
   if (change) {
     etapes = suite;
     sauver();
+    prevenir();
   }
 }

@@ -82,6 +82,7 @@ import JeuPileScreen from './screens/JeuPileScreen';
 import { ecranDeplie, largeurMoitie, tabletteDeplie } from './utils/deuxEcrans';
 import { createDeuxEcransNavigator, AuMilieu } from './navigation/DeuxEcransStack';
 import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli, noterEtatNavigation } from './utils/repliEcran';
+import PontCarPlay from './components/PontCarPlay';
 
 // Tap sur une notification : écran concerné. La destination arrive dans
 // `data.route` (backend DeliveryApp/notifications). Push en envoi direct
@@ -468,6 +469,8 @@ export default function App() {
             <View style={{ flex: 1 }} onLayout={signalerTailleRacine}>
               <NavigationTheme />
               <Lancement />
+              {/* Écran CarPlay (iOS, build avec l'option) : ne dessine rien ici. */}
+              <PontCarPlay />
             </View>
           </CurrencyGate>
           </ThemeProvider>
