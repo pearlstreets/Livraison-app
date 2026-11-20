@@ -1,0 +1,7 @@
+{
+  "name": "pearl-carplay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Écran CarPlay de Pearl Delivery (catégorie Driving Task), module local.",
+  "main": "index.js"
+}

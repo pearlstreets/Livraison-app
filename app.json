@@ -99,7 +99,8 @@
       "./plugins/withSecuriteReseau",
       "./plugins/withUIScene",
       "./plugins/withToucherNotification",
-      "./plugins/withOrientationTablette"
+      "./plugins/withOrientationTablette",
+      ["./plugins/withCarPlay", { "actif": false }]
     ],
     "extra": {
       "eas": {

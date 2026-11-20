@@ -61,6 +61,20 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
       ]
     }
 
+    // Fenêtre déjà créée sans scène (app ouverte depuis l'écran CarPlay,
+    // plugins/withCarPlay.js) : React Native tourne déjà, elle est rattachée
+    // à la scène téléphone au lieu d'en créer une seconde.
+    if let existante = appDelegate.window, existante.windowScene == nil {
+      existante.windowScene = windowScene
+      existante.frame = windowScene.coordinateSpace.bounds
+      self.window = existante
+      existante.makeKeyAndVisible()
+      if !connectionOptions.urlContexts.isEmpty {
+        self.scene(scene, openURLContexts: connectionOptions.urlContexts)
+      }
+      return
+    }
+
     // La fenêtre est connue d'AppDelegate AVANT la vue : expo-updates la
     // cherche pour poser la vraie vue.
     let window = UIWindow(windowScene: windowScene)
@@ -120,9 +134,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 function withUIScene(config) {
   config = withInfoPlist(config, (c) => {
+    // Les autres rôles déjà déclarés (scène CarPlay, plugins/withCarPlay.js)
+    // sont gardés.
+    const avant = c.modResults.UIApplicationSceneManifest || {};
     c.modResults.UIApplicationSceneManifest = {
       UIApplicationSupportsMultipleScenes: false,
       UISceneConfigurations: {
+        ...(avant.UISceneConfigurations || {}),
         UIWindowSceneSessionRoleApplication: [
           {
             UISceneConfigurationName: 'Default Configuration',
