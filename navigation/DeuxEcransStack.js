@@ -17,7 +17,7 @@
 // Pas de pile native ici : une page native posee sur une moitie retient les
 // touchers de toute la fenetre (react-native-screens, mesure AppUser).
 import React, {useContext, useEffect, useState} from 'react';
-import {Image, StyleSheet, View} from 'react-native';
+import {Image, KeyboardAvoidingView, StyleSheet, View} from 'react-native';
 import {
   createNavigatorFactory,
   StackRouter,
@@ -155,15 +155,64 @@ function GelDiffere({cache, children}) {
   return <Freeze freeze={cache && gele}>{children}</Freeze>;
 }
 
-// Ecrans d'avant l'app (connexion) : une colonne au milieu, au format du
-// telephone, sur un fond du meme blanc que l'ecran, sans bandes grises sur
-// les cotes (user 20/11/2026).
+// Ecrans d'avant l'app (connexion) sur tablette : une colonne au milieu, sur
+// un fond du meme blanc que l'ecran, sans bandes grises sur les cotes, et
+// agrandie (champs, boutons, textes) comme les grandes apps (user 20/11/2026).
+// La colonne est mise en page a la largeur d'un telephone, puis agrandie.
+const COLONNE_MAX = 420;
+const ECHELLE_MAX = 1.4;
+const HAUTEUR_COLONNE = 760;
+
+// Echelle en cours, lue par le correctif clavier ci-dessous.
+let echelleCourante = 1;
+
+// KeyboardAvoidingView compare sa place (en points de la colonne) a la
+// position du clavier (en points de l'ecran) : sur la colonne agrandie, la
+// position du clavier est ramenee en points de la colonne, sinon le champ
+// saisi reste sous le clavier.
+const hauteurClavierOrigine =
+  KeyboardAvoidingView?.prototype?._relativeKeyboardHeight;
+if (hauteurClavierOrigine) {
+  KeyboardAvoidingView.prototype._relativeKeyboardHeight = function (clavier) {
+    if (echelleCourante === 1 || !clavier) {
+      return hauteurClavierOrigine.call(this, clavier);
+    }
+    return hauteurClavierOrigine.call(this, {
+      ...clavier,
+      screenX: clavier.screenX / echelleCourante,
+      screenY: clavier.screenY / echelleCourante,
+      width: clavier.width / echelleCourante,
+      height: clavier.height / echelleCourante,
+    });
+  };
+}
+
 export function AuMilieu({children}) {
   const {dark, colors} = useTheme();
+  const {width, height} = dimensionsReelles() || {width: 0, height: 0};
+  const colonne = Math.min(largeurMoitie(), COLONNE_MAX);
+  const echelle = Math.max(
+    1,
+    Math.min(ECHELLE_MAX, (width * 0.72) / colonne, height / HAUTEUR_COLONNE),
+  );
+  echelleCourante = echelle;
+  useEffect(
+    () => () => {
+      echelleCourante = 1;
+    },
+    [],
+  );
   return (
     <View
       style={[styles.milieu, {backgroundColor: dark ? colors.bg : '#fff'}]}>
-      <View style={{width: largeurMoitie(), flex: 1}}>{children}</View>
+      <View
+        style={{
+          width: colonne,
+          height: height / echelle,
+          transform: [{scale: echelle}],
+        }}>
+        {children}
+      </View>
     </View>
   );
 }
@@ -185,7 +234,7 @@ const styles = StyleSheet.create({
     width: StyleSheet.hairlineWidth,
     backgroundColor: COULEUR_SEPARATION,
   },
-  milieu: {flex: 1, alignItems: 'center'},
+  milieu: {flex: 1, alignItems: 'center', justifyContent: 'center'},
 });
 
 export const createDeuxEcransNavigator = createNavigatorFactory(
