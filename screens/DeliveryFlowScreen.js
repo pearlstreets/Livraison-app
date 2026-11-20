@@ -19,6 +19,7 @@ import { prendrePhoto, preparerCamera, envoyerPreuve, renvoyerPreuvesEnAttente, 
 import AppareilPhotoIntegre from '../components/AppareilPhotoIntegre';
 import { lienApplePlansVers } from '../lib/carteDemande';
 import { cleCourse, enregistrerEtape, lireEtape, oublierEtape } from '../services/etapesCourses';
+import { brancherPilote } from '../services/pontCarPlay';
 
 // Statuts serveur d'une course en cours, dans l'ordre imposé par le serveur
 // (aucun saut possible). 'delivered' est envoyé à part, avec le code.
@@ -563,8 +564,9 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     ]);
   }, [cle, order, t, navigation]);
 
+  // Vrai si l'étape a changé (rendu à l'écran CarPlay).
   const nextStep = useCallback(async () => {
-    if (stepIndex >= STEPS.length - 1 || avanceEnCours.current) return;
+    if (stepIndex >= STEPS.length - 1 || avanceEnCours.current) return false;
     const cible = STATUT_CIBLE[STEPS[stepIndex]];
     if (assignmentId && cible) {
       avanceEnCours.current = true;
@@ -586,7 +588,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
             // Course annulée par le client : retour à l'accueil, plus d'étape gardée.
             if (dejaLa && dejaLa[1] === 'cancelled') {
               quitterCourseAnnulee();
-              return;
+              return false;
             }
             if (dejaLa && CHAINE_STATUTS.includes(dejaLa[1]) && dejaLa[1] !== statutRef.current) {
               statutRef.current = dejaLa[1];
@@ -594,18 +596,19 @@ export default function DeliveryFlowScreen({ navigation, route }) {
               continue;
             }
             Alert.alert(t('error'), e?.isNetworkError ? t('errorNetwork') : t('statusUpdateError'));
-            return;
+            return false;
           }
         }
         if (CHAINE_STATUTS.indexOf(statutRef.current) < CHAINE_STATUTS.indexOf(cible)) {
           Alert.alert(t('error'), t('statusUpdateError'));
-          return;
+          return false;
         }
       } finally {
         avanceEnCours.current = false;
       }
     }
     setStepIndex(stepIndex + 1);
+    return true;
   }, [stepIndex, assignmentId, cle, t, quitterCourseAnnulee]);
 
   // Statut relu sur le serveur au retour au premier plan et à chaque
@@ -646,6 +649,20 @@ export default function DeliveryFlowScreen({ navigation, route }) {
     enregistrerEtape(cle, { step: stepIndex });
     navigation.setParams({ currentStep: stepIndex, currentStepLabel: t(STEP_LABEL_KEYS[STEPS[stepIndex]]) });
   }, [stepIndex]);
+
+  // Écran CarPlay : « Commande récupérée » et « Je suis arrivé » passent par
+  // cette même étape suivante, avec le même contrôle de la photo du ticket.
+  // Le reste (photo, code) se fait ici, sur le téléphone.
+  const preuveRetrait = Boolean(ticketPhoto || ticketScanne || preuveManquante);
+  useEffect(() => { enregistrerEtape(cle, { preuveRetrait }); }, [cle, preuveRetrait]);
+  const pourCarPlay = useRef({});
+  pourCarPlay.current = { stepIndex, nextStep, preuveRetrait };
+  useEffect(() => brancherPilote(cle, async (etapeAttendue) => {
+    const { stepIndex: etape, nextStep: suivante, preuveRetrait: preuve } = pourCarPlay.current;
+    if (etape !== etapeAttendue) return false;
+    if (STEPS[etape] === 'pickup' ? !preuve : STEPS[etape] !== 'enroute') return false;
+    return suivante();
+  }), [cle]);
 
   const openMap = useCallback((dest) => {
     const lat = order.dropoffLat;

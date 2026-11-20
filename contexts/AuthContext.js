@@ -633,41 +633,50 @@ export function AuthProvider({ children }) {
     setIsOnlineState(next);
     // Passage en ligne par toggle-online : le serveur peut demander d'abord
     // un selfie vidéo (verification_requise) ou refuser un compte bloqué (423).
+    // Rend le résultat (écran CarPlay) : { enLigne, message }. L'écran du
+    // téléphone l'ignore, ses alertes restent celles d'avant.
     const appel = next === true
       ? deliveryService.toggleOnline(true)
       : authService.updateProfile({ is_online: next });
-    appel
+    return appel
       .then((res) => {
-        if (next !== true) return;
+        if (next !== true) return { enLigne: false, message: '' };
         if (res?.status === 'verification_requise') {
           setIsOnlineState(false);
           ouvrirVerification(res.identite || { bloque: false, blocage: null, verification: res.verification || null });
-          return;
+          return { enLigne: false, message: '' };
         }
         // Passage en ligne refusé par le serveur (réponse is_online false) :
         // l'app ne reste pas « en ligne » sans recevoir de courses.
-        if (res?.is_online === false || res?.data?.is_online === false) setIsOnlineState(false);
+        if (res?.is_online === false || res?.data?.is_online === false) {
+          setIsOnlineState(false);
+          return { enLigne: false, message: '' };
+        }
+        return { enLigne: true, message: '' };
       })
       .catch((e) => {
         if (next === true && e?.status === 423) {
           setIsOnlineState(false);
           ouvrirVerification(e.identite || null);
-          return;
+          return { enLigne: false, message: '' };
         }
         // Seul un refus explicite du serveur (4xx hors session expirée) remet
         // hors ligne, avec son message. Réseau coupé : on reste en ligne, la
         // position continue de partir. Le passage hors ligne n'est jamais annulé.
         const statut = e?.status;
-        if (next !== true || !statut || statut < 400 || statut >= 500 || statut === 401 || statut === 429) return;
+        if (next !== true || !statut || statut < 400 || statut >= 500 || statut === 401 || statut === 429) {
+          return { enLigne: next === true, message: '' };
+        }
         setIsOnlineState(false);
         const t = tRef.current;
         // Documents demandés par le serveur (seuil de gains) : hors ligne,
         // sans erreur générique, avec l'accès à l'écran des documents.
         if (t && estDocumentsRequis(e)) {
           signalerDocumentsRequis(e, t);
-          return;
+          return { enLigne: false, message: e.serverMessage || '' };
         }
         Alert.alert(t ? t('error') : '', e.serverMessage || (t ? t('genericError') : ''));
+        return { enLigne: false, message: e.serverMessage || '' };
       });
   }, []);
 
