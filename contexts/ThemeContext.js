@@ -11,6 +11,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { Appearance } from 'react-native';
 import * as Updates from 'expo-updates';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { tabletteDeplie } from '../utils/deuxEcrans';
 
 const CLE = 'pearl.delivery.theme';
 
@@ -35,6 +36,9 @@ const CLAIR = {
   danger: '#e74c3c',
   success: '#2ecc71',
 };
+
+// Tablette, en clair : fond des pages blanc, pas de gris (user 20/11/2026).
+if (tabletteDeplie()) CLAIR.bg = '#ffffff';
 
 const SOMBRE = {
   dark: true,

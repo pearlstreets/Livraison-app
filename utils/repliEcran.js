@@ -14,7 +14,12 @@
 import {Dimensions, DevSettings} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {navigationRef} from '../services/navigationService';
-import {dimensionsReelles, largeurMoitie} from './deuxEcrans';
+import {
+  dimensionsEcran,
+  dimensionsReelles,
+  echelleTablette,
+  largeurMoitie,
+} from './deuxEcrans';
 import {ecranChange, rotationTablette, ECART_MIN} from './ecranPliable';
 
 const CLE_ETAT = 'pd.repliEcran.etat';
@@ -160,8 +165,10 @@ const verifierTaille = fenetre => {
 // evenement Dimensions, la vue racine, elle, est toujours remesuree.
 export function signalerTailleRacine(event) {
   try {
+    // Tablette : la vue racine est mesuree en points de l'app agrandie.
     const {width, height} = event.nativeEvent.layout;
-    verifierTaille({width, height});
+    const e = echelleTablette();
+    verifierTaille({width: width * e, height: height * e});
   } catch (_) {}
 }
 
@@ -174,7 +181,7 @@ export function surveillerRepliEcran() {
     debut = Date.now();
     // Deplie, Dimensions annonce une moitie (utils/deuxEcrans.js) : la
     // reference et les mesures restent celles de l'ecran entier.
-    reference = dimensionsReelles() || Dimensions.get('window');
+    reference = dimensionsEcran() || Dimensions.get('window');
   } else {
     // Remontage : la vue racine remesuree redemande le rechargement.
     montage += 1;

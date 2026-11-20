@@ -17,7 +17,7 @@
 // Pas de pile native ici : une page native posee sur une moitie retient les
 // touchers de toute la fenetre (react-native-screens, mesure AppUser).
 import React, {useContext, useEffect, useState} from 'react';
-import {Image, KeyboardAvoidingView, StyleSheet, View} from 'react-native';
+import {Image, StyleSheet, View} from 'react-native';
 import {
   createNavigatorFactory,
   StackRouter,
@@ -26,7 +26,12 @@ import {
 import {BottomTabBarHeightContext} from '@react-navigation/bottom-tabs';
 import {Freeze} from 'react-freeze';
 import {useTheme} from '../contexts/ThemeContext';
-import {dimensionsReelles, largeurMoitie} from '../utils/deuxEcrans';
+import {
+  dimensionsReelles,
+  echelleTablette,
+  largeurMoitie,
+} from '../utils/deuxEcrans';
+import {fixerEchelleClavier} from '../utils/agrandiTablette';
 import {
   aGauche,
   ecransVisibles,
@@ -41,7 +46,6 @@ import {
 const DELAI_GEL = 400;
 
 const COULEUR_SEPARATION = '#E5E7EB';
-const FOND_REPOS = '#F7F7F5';
 const TEINTE_LOGO = '#C4C7CC';
 
 // Routeur de pile, plus : une page ouverte depuis la gauche remplace celle
@@ -129,10 +133,17 @@ function DeuxEcransNavigator({
   );
 }
 
-// Moitie droite quand rien n'y est ouvert : le logo de l'app, en gris.
+// Moitie droite quand rien n'y est ouvert : le logo de l'app, discret, sur
+// le meme fond que les pages (blanc, pas de gris, user 20/11/2026).
 function PanneauRepos({left, width}) {
+  const {dark, colors} = useTheme();
   return (
-    <View style={[styles.cote, styles.repos, {left, width, bottom: 0}]}>
+    <View
+      style={[
+        styles.cote,
+        styles.repos,
+        {left, width, bottom: 0, backgroundColor: dark ? colors.bg : '#fff'},
+      ]}>
       <Image
         source={require('../assets/adaptive-icon.png')}
         style={styles.logo}
@@ -163,45 +174,24 @@ const COLONNE_MAX = 420;
 const ECHELLE_MAX = 1.4;
 const HAUTEUR_COLONNE = 760;
 
-// Echelle en cours, lue par le correctif clavier ci-dessous.
-let echelleCourante = 1;
-
-// KeyboardAvoidingView compare sa place (en points de la colonne) a la
-// position du clavier (en points de l'ecran) : sur la colonne agrandie, la
-// position du clavier est ramenee en points de la colonne, sinon le champ
-// saisi reste sous le clavier.
-const hauteurClavierOrigine =
-  KeyboardAvoidingView?.prototype?._relativeKeyboardHeight;
-if (hauteurClavierOrigine) {
-  KeyboardAvoidingView.prototype._relativeKeyboardHeight = function (clavier) {
-    if (echelleCourante === 1 || !clavier) {
-      return hauteurClavierOrigine.call(this, clavier);
-    }
-    return hauteurClavierOrigine.call(this, {
-      ...clavier,
-      screenX: clavier.screenX / echelleCourante,
-      screenY: clavier.screenY / echelleCourante,
-      width: clavier.width / echelleCourante,
-      height: clavier.height / echelleCourante,
-    });
-  };
-}
-
 export function AuMilieu({children}) {
   const {dark, colors} = useTheme();
+  // Toute l'app est deja agrandie sur tablette (utils/agrandiTablette.js) :
+  // la colonne l'est en plus, jusqu'a ECHELLE_MAX en tout.
+  const base = echelleTablette();
   const {width, height} = dimensionsReelles() || {width: 0, height: 0};
   const colonne = Math.min(largeurMoitie(), COLONNE_MAX);
-  const echelle = Math.max(
-    1,
-    Math.min(ECHELLE_MAX, (width * 0.72) / colonne, height / HAUTEUR_COLONNE),
+  const totale = Math.max(
+    base,
+    Math.min(
+      ECHELLE_MAX,
+      (width * 0.72 * base) / colonne,
+      (height * base) / HAUTEUR_COLONNE,
+    ),
   );
-  echelleCourante = echelle;
-  useEffect(
-    () => () => {
-      echelleCourante = 1;
-    },
-    [],
-  );
+  const echelle = totale / base;
+  fixerEchelleClavier(totale);
+  useEffect(() => () => fixerEchelleClavier(echelleTablette()), []);
   return (
     <View
       style={[styles.milieu, {backgroundColor: dark ? colors.bg : '#fff'}]}>
@@ -222,7 +212,6 @@ const styles = StyleSheet.create({
   cote: {position: 'absolute', top: 0, overflow: 'hidden'},
   cache: {display: 'none'},
   repos: {
-    backgroundColor: FOND_REPOS,
     alignItems: 'center',
     justifyContent: 'center',
   },
