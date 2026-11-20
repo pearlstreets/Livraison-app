@@ -137,7 +137,7 @@ public class PearlCarPlayModule: Module {
     AsyncFunction("afficher") { (donnees: EcranCarPlay) -> Bool in
       guard let controleur = PearlCarPlayCentre.shared.controleur else { return false }
       let items = donnees.lignes.map { CPInformationItem(title: $0.titre, detail: $0.detail) }
-      let maximum = CPInformationTemplate.maximumActionCount
+      let maximum = 3 // CPInformationTemplate : trois actions au plus.
       let boutons = donnees.actions.prefix(maximum).map { action -> CPTextButton in
         let style: CPTextButtonStyle
         switch action.style {
