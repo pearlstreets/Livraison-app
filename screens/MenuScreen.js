@@ -344,7 +344,7 @@ export default function MenuScreen({ navigation }) {
 const makeStyles = (dark, c) => {
   const k = (clair, sombre) => (dark ? sombre : clair);
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg) },
+  container: { flex: 1, backgroundColor: c.bg },
   gainCard: { flex: 1, backgroundColor: k('#fff', c.card), borderRadius: 12, padding: 12, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   gainValue: { fontSize: 16, fontWeight: '900', color: k('#111', c.text) },
   gainLabel: { fontSize: 11, fontWeight: '600', color: k('#6B7280', c.textMuted), marginTop: 2 },
@@ -365,7 +365,7 @@ const makeStyles = (dark, c) => {
   menuDetail: { fontSize: 14, color: k('#888', c.textFaint), fontWeight: '600', marginRight: 8, marginLeft: 8, flexShrink: 1, maxWidth: '45%' },
   badge: { backgroundColor: BRAND, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginRight: 8 },
   badgeText: { color: '#fff', fontWeight: '800', fontSize: 12 },
-  divider: { height: 10, backgroundColor: k('#f5f5f5', c.bg) },
+  divider: { height: 10, backgroundColor: c.bg },
 
   // Earnings bar
   earningsBar: { flexDirection: 'row', backgroundColor: BRAND, paddingVertical: 12, paddingHorizontal: 16, alignItems: 'center' },
