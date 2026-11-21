@@ -197,7 +197,7 @@ export default function ChangePasswordScreen({ navigation }) {
 const makeStyles = (dark, c) => {
   const k = (clair, sombre) => (dark ? sombre : clair);
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg) },
+  container: { flex: 1, backgroundColor: c.bg },
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, paddingTop: 16 },
   headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 18, fontWeight: '800', color: k('#111', c.text) },

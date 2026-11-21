@@ -29,6 +29,25 @@ export const ecranChange = (avant, apres) => {
   return !rotation;
 };
 
+// Tablette (plus petit cote d'au moins 600) : une rotation change aussi la
+// largeur des moities, ou passe d'une moitie a deux. Elle recharge l'app,
+// comme un pliage (20/11/2026). Pareil pour une fenetre d'iPad
+// redimensionnee (Split View) : avant ou apres, l'un des deux suffit.
+export const COTE_MIN_TABLETTE = 600;
+export const rotationTablette = (avant, apres) => {
+  const la = (avant && avant.width) || 0;
+  const ha = (avant && avant.height) || 0;
+  const lb = (apres && apres.width) || 0;
+  const hb = (apres && apres.height) || 0;
+  if (!la || !lb || !hb) {
+    return false;
+  }
+  const grand =
+    Math.min(la, ha || la) >= COTE_MIN_TABLETTE ||
+    Math.min(lb, hb) >= COTE_MIN_TABLETTE;
+  return grand && Math.abs(lb - la) >= ECART_MIN;
+};
+
 // Ecran de navigation (moitie gauche) : le premier ecran de la pile et ceux
 // de la liste `gauche`. Les autres s'ouvrent a droite.
 export const aGauche = (gauche, nom, index) =>

@@ -13,7 +13,7 @@
       "backgroundColor": "#FF6A13"
     },
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Votre position est utilisée pour vous proposer les commandes proches quand vous êtes en ligne, y compris téléphone verrouillé, et pour suivre vos livraisons en temps réel.",
         "NSCameraUsageDescription": "La caméra est utilisée pour la preuve de livraison.",
@@ -98,7 +98,8 @@
       "./plugins/withFmtConstevalFix",
       "./plugins/withSecuriteReseau",
       "./plugins/withUIScene",
-      "./plugins/withToucherNotification"
+      "./plugins/withToucherNotification",
+      "./plugins/withOrientationTablette"
     ],
     "extra": {
       "eas": {
