@@ -9,12 +9,20 @@
 // livreur retrouve l'ecran qu'il regardait.
 //
 // La LARGEUR de la fenetre : le clavier (adjustResize sous Android) ne change
-// que sa hauteur. Une rotation ne recharge rien (utils/ecranPliable.js).
+// que sa hauteur. Une rotation ne recharge rien, sauf sur tablette
+// (utils/ecranPliable.js).
 import {Dimensions, DevSettings} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {navigationRef} from '../services/navigationService';
-import {dimensionsReelles, largeurMoitie} from './deuxEcrans';
-import {ecranChange, ECART_MIN} from './ecranPliable';
+import {
+  dimensionsApp,
+  dimensionsEcran,
+  dimensionsReelles,
+  tabletteDeplie,
+  echelleTablette,
+  largeurMoitie,
+} from './deuxEcrans';
+import {ecranChange, rotationTablette, ECART_MIN} from './ecranPliable';
 
 const CLE_ETAT = 'pd.repliEcran.etat';
 // Saisie de l'ecran de connexion / inscription (livreur pas encore connecte,
@@ -143,7 +151,7 @@ const verifierTaille = fenetre => {
     reference = fenetre;
     return;
   }
-  if (ecranChange(reference, fenetre)) {
+  if (ecranChange(reference, fenetre) || rotationTablette(reference, fenetre)) {
     recharger();
     return;
   }
@@ -159,8 +167,10 @@ const verifierTaille = fenetre => {
 // evenement Dimensions, la vue racine, elle, est toujours remesuree.
 export function signalerTailleRacine(event) {
   try {
+    // Tablette : la vue racine est mesuree en points de l'app agrandie.
     const {width, height} = event.nativeEvent.layout;
-    verifierTaille({width, height});
+    const e = echelleTablette();
+    verifierTaille({width: width * e, height: height * e});
   } catch (_) {}
 }
 
@@ -173,17 +183,20 @@ export function surveillerRepliEcran() {
     debut = Date.now();
     // Deplie, Dimensions annonce une moitie (utils/deuxEcrans.js) : la
     // reference et les mesures restent celles de l'ecran entier.
-    reference = dimensionsReelles() || Dimensions.get('window');
+    reference = dimensionsEcran() || Dimensions.get('window');
   } else {
     // Remontage : la vue racine remesuree redemande le rechargement.
     montage += 1;
     rechargementEnCours = false;
   }
   const abonnement = Dimensions.addEventListener('change', ({window}) => {
-    if (
-      dimensionsReelles() &&
-      Math.abs(((window && window.width) || 0) - largeurMoitie()) < 2
-    ) {
+    // Largeur remise par utils/deuxEcrans.js (moitie, ou tablette agrandie).
+    const annoncee = dimensionsReelles()
+      ? largeurMoitie()
+      : tabletteDeplie()
+      ? dimensionsApp().width
+      : 0;
+    if (annoncee && Math.abs(((window && window.width) || 0) - annoncee) < 2) {
       return;
     }
     verifierTaille(window);
