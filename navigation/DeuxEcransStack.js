@@ -26,7 +26,13 @@ import {
 import {BottomTabBarHeightContext} from '@react-navigation/bottom-tabs';
 import {Freeze} from 'react-freeze';
 import {useTheme} from '../contexts/ThemeContext';
-import {dimensionsReelles, largeurMoitie} from '../utils/deuxEcrans';
+import {
+  dimensionsApp,
+  dimensionsReelles,
+  echelleTablette,
+  largeurMoitie,
+} from '../utils/deuxEcrans';
+import {fixerEchelleClavier} from '../utils/agrandiTablette';
 import {
   aGauche,
   ecransVisibles,
@@ -41,7 +47,6 @@ import {
 const DELAI_GEL = 400;
 
 const COULEUR_SEPARATION = '#E5E7EB';
-const FOND_REPOS = '#F7F7F5';
 const TEINTE_LOGO = '#C4C7CC';
 
 // Routeur de pile, plus : une page ouverte depuis la gauche remplace celle
@@ -129,10 +134,17 @@ function DeuxEcransNavigator({
   );
 }
 
-// Moitie droite quand rien n'y est ouvert : le logo de l'app, en gris.
+// Moitie droite quand rien n'y est ouvert : le logo de l'app, discret, sur
+// le meme fond que les pages (blanc, pas de gris, user 20/11/2026).
 function PanneauRepos({left, width}) {
+  const {dark, colors} = useTheme();
   return (
-    <View style={[styles.cote, styles.repos, {left, width, bottom: 0}]}>
+    <View
+      style={[
+        styles.cote,
+        styles.repos,
+        {left, width, bottom: 0, backgroundColor: dark ? colors.bg : '#fff'},
+      ]}>
       <Image
         source={require('../assets/adaptive-icon.png')}
         style={styles.logo}
@@ -155,12 +167,43 @@ function GelDiffere({cache, children}) {
   return <Freeze freeze={cache && gele}>{children}</Freeze>;
 }
 
-// Ecrans d'avant l'app (connexion) : une colonne au milieu, au format du
-// telephone.
+// Ecrans d'avant l'app (connexion) sur tablette : une colonne au milieu, sur
+// un fond du meme blanc que l'ecran, sans bandes grises sur les cotes, et
+// agrandie (champs, boutons, textes) comme les grandes apps (user 20/11/2026).
+// La colonne est mise en page a la largeur d'un telephone, puis agrandie.
+const COLONNE_MAX = 420;
+const ECHELLE_MAX = 1.4;
+const HAUTEUR_COLONNE = 760;
+
 export function AuMilieu({children}) {
+  const {dark, colors} = useTheme();
+  // Toute l'app est deja agrandie sur tablette (utils/agrandiTablette.js) :
+  // la colonne l'est en plus, jusqu'a ECHELLE_MAX en tout.
+  const base = echelleTablette();
+  const {width, height} = dimensionsApp() || {width: 0, height: 0};
+  const colonne = Math.min(Math.floor(width / 2), COLONNE_MAX);
+  const totale = Math.max(
+    base,
+    Math.min(
+      ECHELLE_MAX,
+      (width * 0.72 * base) / colonne,
+      (height * base) / HAUTEUR_COLONNE,
+    ),
+  );
+  const echelle = totale / base;
+  fixerEchelleClavier(totale);
+  useEffect(() => () => fixerEchelleClavier(echelleTablette()), []);
   return (
-    <View style={styles.milieu}>
-      <View style={{width: largeurMoitie(), flex: 1}}>{children}</View>
+    <View
+      style={[styles.milieu, {backgroundColor: dark ? colors.bg : '#fff'}]}>
+      <View
+        style={{
+          width: colonne,
+          height: height / echelle,
+          transform: [{scale: echelle}],
+        }}>
+        {children}
+      </View>
     </View>
   );
 }
@@ -170,7 +213,6 @@ const styles = StyleSheet.create({
   cote: {position: 'absolute', top: 0, overflow: 'hidden'},
   cache: {display: 'none'},
   repos: {
-    backgroundColor: FOND_REPOS,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -182,7 +224,7 @@ const styles = StyleSheet.create({
     width: StyleSheet.hairlineWidth,
     backgroundColor: COULEUR_SEPARATION,
   },
-  milieu: {flex: 1, alignItems: 'center', backgroundColor: FOND_REPOS},
+  milieu: {flex: 1, alignItems: 'center', justifyContent: 'center'},
 });
 
 export const createDeuxEcransNavigator = createNavigatorFactory(
