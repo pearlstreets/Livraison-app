@@ -108,7 +108,8 @@ object PearlAutoCentre {
         lien.startsWith("tel:") -> Intent(Intent.ACTION_DIAL, Uri.parse(lien))
         lien.startsWith("geo:") -> {
           // Seuls l'adresse geo: et le paquet sont repris de l'intention reçue.
-          val lue = Intent.parseUri(lien, Intent.URI_INTENT_SCHEME)
+          // Drapeau 0 : avec URI_INTENT_SCHEME, un lien qui ne commence pas par intent: perd son #Intent (paquet ignoré).
+          val lue = Intent.parseUri(lien, 0)
           val donnee = lue.data ?: return false
           if (donnee.scheme != "geo") return false
           val paquet = lue.`package`
