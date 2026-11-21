@@ -1,0 +1,3 @@
+<!-- Service Android Auto déclaré par plugins/withAndroidAuto.js, seulement
+     quand l'option est activée (rien ici, pour ne rien publier par défaut). -->
+<manifest />

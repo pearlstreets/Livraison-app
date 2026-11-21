@@ -5,9 +5,10 @@
 // (services/etapesCourses.js), en tire l'écran de la voiture (lib/carplay.js)
 // et transmet chaque appui aux fonctions du téléphone (services/pontCarPlay.js),
 // avec leurs contrôles : rien n'est refait ici.
-// Sans module natif CarPlay (Android, Expo Go, build sans l'option), ne monte rien.
+// Même écran sur Android Auto (module natif PearlAndroidAuto, même interface).
+// Sans module natif (Expo Go, build sans le module), ne monte rien.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking } from 'react-native';
+import { Linking, Platform } from 'react-native';
 import * as CarPlay from '../modules/pearl-carplay';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -140,9 +141,9 @@ function PontActif() {
     if (!c) return;
     const etape = etapeDeCourse(g, c.status);
 
-    if (id === 'itineraire') { CarPlay.presenter(feuilleItineraire(tr)); return; }
+    if (id === 'itineraire') { CarPlay.presenter(feuilleItineraire(tr, Platform.OS)); return; }
     if (id.startsWith('gps:')) {
-      const liens = liensItineraire(destinationEtape(c, etape));
+      const liens = liensItineraire(destinationEtape(c, etape), Platform.OS);
       const lien = liens && liens[id.slice(4)];
       const ok = lien ? await CarPlay.ouvrirUrl(lien) : false;
       if (!ok) info('info', tr('carplayGpsIndisponible'));

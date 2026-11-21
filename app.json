@@ -100,7 +100,8 @@
       "./plugins/withUIScene",
       "./plugins/withToucherNotification",
       "./plugins/withOrientationTablette",
-      ["./plugins/withCarPlay", { "actif": false }]
+      ["./plugins/withCarPlay", { "actif": false }],
+      ["./plugins/withAndroidAuto", { "actif": false }]
     ],
     "extra": {
       "eas": {

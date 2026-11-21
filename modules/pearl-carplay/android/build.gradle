@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.pearlstreets.delivery'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.pearlcarplay"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // Android for Cars App Library : écran Android Auto à base de modèles.
+  implementation "androidx.car.app:app:1.4.0"
+}

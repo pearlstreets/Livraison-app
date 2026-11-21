@@ -1,16 +1,18 @@
-// Accès JS à l'écran CarPlay (module natif local, iOS seulement).
+// Accès JS à l'écran de la voiture (module natif local) : CarPlay sur iOS
+// (PearlCarPlay), Android Auto sur Android (PearlAndroidAuto), même interface.
 //
-// Jamais d'exception : sans le module natif (Android, Expo Go, iOS sans
-// CarPlay, build sans l'option), chaque fonction répond « pas connecté »,
-// faux ou ne fait rien.
+// Jamais d'exception : sans le module natif (Expo Go, build sans le module),
+// chaque fonction répond « pas connecté », faux ou ne fait rien.
 import { Platform } from 'react-native';
 
+const NOM_NATIF = { ios: 'PearlCarPlay', android: 'PearlAndroidAuto' }[Platform.OS];
+
 let natif = null;
-if (Platform.OS === 'ios') {
+if (NOM_NATIF) {
   try {
     // eslint-disable-next-line global-require
     const { requireOptionalNativeModule } = require('expo-modules-core');
-    natif = requireOptionalNativeModule('PearlCarPlay');
+    natif = requireOptionalNativeModule(NOM_NATIF);
   } catch {
     natif = null;
   }

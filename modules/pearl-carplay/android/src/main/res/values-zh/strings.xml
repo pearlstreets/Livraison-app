@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Écran Android Auto avant le démarrage du JS (même texte que carplayOuvrezTelephone, contexts/translations.js). -->
+<resources>
+  <string name="pearl_auto_ouvrez_telephone">请在您的手机上打开 Pearl Delivery</string>
+</resources>

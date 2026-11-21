@@ -28,5 +28,6 @@ _SAUVEGARDES_archive_*.tar.gz
 ANDROID_BUILD_STATUS.txt
 DELIVERY_BUILD_STATUS.txt
 
-# Code natif des modules locaux (modules/<nom>/ios), lui versionné.
+# Code natif des modules locaux (modules/<nom>/ios et android), lui versionné.
 !modules/*/ios/
+!modules/*/android/
