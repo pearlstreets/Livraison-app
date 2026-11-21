@@ -52,7 +52,7 @@ public final class PearlCarPlaySceneDelegate: UIResponder, CPTemplateApplication
     }
 
     // Écran d'attente au nom de l'app, remplacé dès que le JS a démarré.
-    if interfaceController.rootTemplate == nil {
+    if interfaceController.templates.isEmpty {
       let attente = CPInformationTemplate(title: "Pearl Delivery", layout: .leading, items: [], actions: [])
       interfaceController.setRootTemplate(attente, animated: false, completion: nil)
     }
