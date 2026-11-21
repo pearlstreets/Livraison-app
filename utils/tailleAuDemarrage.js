@@ -13,7 +13,13 @@
 // declaree dans index.js, avant ce chargement.
 import React from 'react';
 import {View, Dimensions} from 'react-native';
-import {preparerDeuxEcrans, garderLargeurMoitie} from './deuxEcrans';
+import {
+  preparerDeuxEcrans,
+  garderLargeurMoitie,
+  hauteurApp,
+  echelleTablette,
+} from './deuxEcrans';
+import {Agrandi, agrandirLesModales} from './agrandiTablette';
 
 // En dessous, ecarts d'arrondi : on ne touche a rien.
 const ECART_MIN = 2;
@@ -64,14 +70,20 @@ export function avecTailleMesuree(chargerApp) {
         const {width, height} = event.nativeEvent.layout;
         if (width > 0 && height > 0) {
           // Deplie : l'app voit la largeur d'une moitie (utils/deuxEcrans.js).
-          corrigerDimensions(preparerDeuxEcrans(width, height), height);
+          const largeur = preparerDeuxEcrans(width, height);
+          corrigerDimensions(largeur, hauteurApp(height));
           garderLargeurMoitie();
+          agrandirLesModales();
         }
       } catch (_) {}
       setApp(() => chargerApp());
     };
     if (App) {
-      return <App {...props} />;
+      return (
+        <Agrandi echelle={echelleTablette()}>
+          <App {...props} />
+        </Agrandi>
+      );
     }
     return <View style={{flex: 1}} onLayout={auLayout} />;
   };

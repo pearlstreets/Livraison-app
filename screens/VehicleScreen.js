@@ -88,7 +88,7 @@ export default function VehicleScreen({ navigation }) {
 const makeStyles = (dark, c) => {
   const k = (clair, sombre) => (dark ? sombre : clair);
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg) },
+  container: { flex: 1, backgroundColor: c.bg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
   headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 18, fontWeight: '800', color: k('#111', c.text) },
   subtitle: { color: k('#888', c.textFaint), fontSize: 14, paddingHorizontal: 16, marginBottom: 16 },
