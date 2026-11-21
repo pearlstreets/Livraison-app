@@ -843,7 +843,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
   const progress = useMemo(() => stepIndex / (STEPS.length - 1), [stepIndex]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: dark ? colors.bg : '#f5f5f5' }} edges={['top']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
       {/* Header */}
       <View style={ss.header}>
         {step === 'done' ? (
@@ -1420,7 +1420,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
       {/* Problème code modal */}
       <Modal visible={showCodeProblem} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCodeProblem(false)}>
-        <View style={{ flex: 1, backgroundColor: dark ? colors.bg : '#f5f5f5' }}>
+        <View style={{ flex: 1, backgroundColor: colors.bg }}>
           <View style={ss.chatHeader}>
             <Pressable onPress={() => setShowCodeProblem(false)}>
               <Ionicons name="close" size={28} color={dark ? colors.text : '#111'} />
@@ -1536,7 +1536,7 @@ export default function DeliveryFlowScreen({ navigation, route }) {
 
       {/* Chat client modal */}
       <Modal visible={showChat} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowChat(false)}>
-        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: dark ? colors.bg : '#f5f5f5' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={ss.chatHeader}>
             <Pressable onPress={() => setShowChat(false)}>
               <Ionicons name="close" size={28} color={dark ? colors.text : '#111'} />
@@ -1685,7 +1685,7 @@ function makeSS(c, dark) {
   progressSegment: { flex: 1, height: 4, borderRadius: 2 },
   progressSegmentActive: { backgroundColor: BRAND },
   progressSegmentInactive: { backgroundColor: d(c.borderStrong, '#e0e0e0') },
-  bottomBar: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 30, backgroundColor: d(c.bg, '#f5f5f5'), flexShrink: 0 },
+  bottomBar: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 30, backgroundColor: c.bg, flexShrink: 0 },
   // Call popup
   callPopup: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', zIndex: 100 },
   callPopupCard: { backgroundColor: '#e74c3c', borderRadius: 20, padding: 28, alignItems: 'center', marginHorizontal: 32, width: W - 64 },

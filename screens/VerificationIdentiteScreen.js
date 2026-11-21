@@ -577,7 +577,7 @@ export default function VerificationIdentiteScreen({ navigation, route }) {
 const makeStyles = (dark, c) => {
   const k = (clair, sombre) => (dark ? sombre : clair);
   return StyleSheet.create({
-  container: { flex: 1, backgroundColor: k('#f5f5f5', c.bg), paddingHorizontal: 16 },
+  container: { flex: 1, backgroundColor: c.bg, paddingHorizontal: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 8 },
   headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8, fontSize: 16, fontWeight: '800', color: k('#111', c.text) },
 
