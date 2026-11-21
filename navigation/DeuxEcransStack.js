@@ -167,8 +167,10 @@ const largeurMilieu = () => {
 };
 
 export function AuMilieu({children}) {
+  // Bords du meme fond que l'ecran de connexion (clair ou sombre).
+  const {dark, colors} = useTheme();
   return (
-    <View style={styles.milieu}>
+    <View style={[styles.milieu, {backgroundColor: dark ? colors.bg : '#fff'}]}>
       <View style={{width: largeurMilieu(), flex: 1}}>{children}</View>
     </View>
   );
