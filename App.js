@@ -79,7 +79,7 @@ import JeuCoupeScreen from './screens/JeuCoupeScreen';
 import JeuMemoireScreen from './screens/JeuMemoireScreen';
 import JeuBasketScreen from './screens/JeuBasketScreen';
 import JeuPileScreen from './screens/JeuPileScreen';
-import { ecranDeplie, largeurMoitie } from './utils/deuxEcrans';
+import { ecranDeplie, largeurMoitie, tabletteDeplie } from './utils/deuxEcrans';
 import { createDeuxEcransNavigator, AuMilieu } from './navigation/DeuxEcransStack';
 import { signalerTailleRacine, surveillerRepliEcran, restaurerEcranApresRepli, noterEtatNavigation } from './utils/repliEcran';
 
@@ -180,6 +180,9 @@ const Tab = createBottomTabNavigator();
 // telephone : piles natives, rien ne change. Fixe au chargement, l'app se
 // recharge au pliage (utils/repliEcran.js).
 const DEPLIE = ecranDeplie();
+// Tablette : un seul ecran, agrandi (utils/agrandiTablette.js) ; connexion
+// en colonne au milieu.
+const TABLETTE = tabletteDeplie();
 const createPile = DEPLIE ? createDeuxEcransNavigator : createNativeStackNavigator;
 const HomeStack = createPile();
 const MenuStack = createPile();
@@ -379,7 +382,7 @@ function Main() {
   const [carteDemande, setCarteDemande] = useState(false);
 
   if (bootstrapping) return null;
-  if (!user) return DEPLIE ? <AuMilieu><LoginScreen /></AuMilieu> : <LoginScreen />;
+  if (!user) return DEPLIE || TABLETTE ? <AuMilieu><LoginScreen /></AuMilieu> : <LoginScreen />;
 
   const barre = [BARRE, { backgroundColor: colors.card, borderTopColor: colors.border }];
 
