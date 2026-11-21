@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { dimensionsReelles } from '../utils/deuxEcrans';
 
 // Animation d'ouverture, même principe que l'app user : le « P » se dessine
 // de bas en haut sous les roues du vélo, qui apparaît au pied du P (comme le
@@ -55,7 +56,10 @@ function veloA(s) {
 }
 
 export default function LancementAnime({ pret, onFini }) {
-  const { width, height } = useWindowDimensions();
+  const fenetre = useWindowDimensions();
+  // Tablette ou pliable deplie : l'app voit une moitie, l'animation couvre
+  // tout l'ecran et reste centree sur le logo natif.
+  const { width, height } = dimensionsReelles() || fenetre;
   const cote = Math.min(width, height);
   const k = cote / 1024;
   const origineX = (width - cote) / 2;

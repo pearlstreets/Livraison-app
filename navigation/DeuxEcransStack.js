@@ -26,7 +26,7 @@ import {
 import {BottomTabBarHeightContext} from '@react-navigation/bottom-tabs';
 import {Freeze} from 'react-freeze';
 import {useTheme} from '../contexts/ThemeContext';
-import {dimensionsReelles, largeurMoitie} from '../utils/deuxEcrans';
+import {dimensionsReelles, estTablette, largeurMoitie} from '../utils/deuxEcrans';
 import {
   aGauche,
   ecransVisibles,
@@ -156,11 +156,20 @@ function GelDiffere({cache, children}) {
 }
 
 // Ecrans d'avant l'app (connexion) : une colonne au milieu, au format du
-// telephone.
+// telephone. Sur tablette, colonne plus large (80 % de l'ecran, 680 au plus).
+const LARGEUR_MAX_TABLETTE = 680;
+const largeurMilieu = () => {
+  const reel = dimensionsReelles();
+  if (reel && estTablette(reel.width, reel.height)) {
+    return Math.min(Math.floor(reel.width * 0.8), LARGEUR_MAX_TABLETTE);
+  }
+  return largeurMoitie();
+};
+
 export function AuMilieu({children}) {
   return (
     <View style={styles.milieu}>
-      <View style={{width: largeurMoitie(), flex: 1}}>{children}</View>
+      <View style={{width: largeurMilieu(), flex: 1}}>{children}</View>
     </View>
   );
 }
