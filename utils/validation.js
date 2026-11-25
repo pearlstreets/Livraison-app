@@ -7,13 +7,17 @@ export const isValidPhone = (phone) => /^[\d\s\+\-\(\)]{6,20}$/.test(phone);
 // Sanitize text input (prevent XSS)
 export const sanitizeInput = (text) => {
   if (typeof text !== 'string') return '';
-  return text.replace(/<[^>]*>/g, '').replace(/[<>"'&]/g, '').trim();
+  // Apostrophes et guillemets gardés (« l'entrée B ») : React Native n'interprète
+  // pas le HTML, seules les balises et les chevrons sont retirés.
+  return text.replace(/<[^>]*>/g, '').replace(/[<>&]/g, '').trim();
 };
 
-// Sanitize for SQL injection patterns
+// Corps JSON envoyé au serveur : texte gardé tel quel, espaces des bords
+// retirés. Le serveur (ORM Django) protège déjà des injections SQL ; retirer
+// ' " ; \ abîmait les adresses (« l'entrée B ») et les mots de passe.
 export const sanitizeForApi = (text) => {
   if (typeof text !== 'string') return '';
-  return text.replace(/['";\\]/g, '').trim();
+  return text.trim();
 };
 
 // Validate delivery code (4 digits)
