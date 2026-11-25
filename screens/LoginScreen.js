@@ -183,7 +183,7 @@ export default function LoginScreen() {
   const [vehicle, setVehicle] = useState('bicycle');
   // Inscription en une page (26/10/2026) : statut, déclaration des revenus
   // et compte de virement Stripe.
-  const [proStatus, setProStatus] = useState('auto_entrepreneur'); // pro : auto_entrepreneur | societe
+  const [proStatus, setProStatus] = useState('auto_entrepreneur'); // pro : auto_entrepreneur | societe_unique | societe
   const [dob, setDob] = useState('');
   const [postalCode, setPostalCode] = useState('');
   const [city, setCity] = useState('');
@@ -325,7 +325,10 @@ export default function LoginScreen() {
   const selectedCountry = COUNTRIES.find(c => c.code === country) || COUNTRIES[0];
   const selectedPhoneCountry = COUNTRIES.find(c => c.code === phoneCountry) || COUNTRIES[0];
   const phoneFmt = phoneFmtFor(phoneCountry);
-  const legalStatus = isPro ? proStatus : 'particulier';
+  // SASU, EURL : une société dont le livreur est l'associé unique. Pour le
+  // serveur et Stripe c'est une société ; la question des 25 % est réglée.
+  const associeUnique = isPro && proStatus === 'societe_unique';
+  const legalStatus = isPro ? (associeUnique ? 'societe' : proStatus) : 'particulier';
 
   // Page 2 : le pays de résidence dit si le compte de virement Stripe est
   // créé dès l'inscription (société : compte entreprise, représentant et associés).
@@ -340,8 +343,9 @@ export default function LoginScreen() {
   const stripeActif = !!stripeInfo?.stripe_form;
   const societeStripe = stripeActif && legalStatus === 'societe';
   // Associés : 3 au plus avec le représentant, 4 sans lui (4 personnes en tout).
-  const maxAssocies = proprietaires === 'moiEtAutres' ? 3 : 4;
-  const associesVisibles = proprietaires === 'moiEtAutres' || proprietaires === 'autres';
+  const proprio = associeUnique ? 'moiSeul' : proprietaires;
+  const maxAssocies = proprio === 'moiEtAutres' ? 3 : 4;
+  const associesVisibles = proprio === 'moiEtAutres' || proprio === 'autres';
   const majAssocie = (i, champ, v) => setAssocies((l) => l.map((a, j) => (j === i ? { ...a, [champ]: v } : a)));
   const choisirProprietaires = (id) => {
     setProprietaires(id);
@@ -628,7 +632,7 @@ export default function LoginScreen() {
     if (societeStripe) {
       const associeIncomplet = (a) => !a.firstName?.trim() || !a.lastName?.trim() || !a.email?.trim()
         || !a.line1?.trim() || !a.postalCode?.trim() || !a.city?.trim();
-      if (!fonction.trim() || !proprietaires || (associesVisibles && !liste.length) || liste.some(associeIncomplet)) {
+      if (!fonction.trim() || !proprio || (associesVisibles && !liste.length) || liste.some(associeIncomplet)) {
         setError(t('errorOwners')); return;
       }
       if (liste.some((a) => !dateValide(a.dob || ''))) { setError(t('payoutSetupInvalidDob')); return; }
@@ -669,7 +673,7 @@ export default function LoginScreen() {
             {
               firstName: prenom, lastName: nom, dob, email: email.trim(), phone: tel,
               line1: address, postalCode, city, representant: true, titre: fonction,
-              proprietaire: proprietaires === 'moiSeul' || proprietaires === 'moiEtAutres',
+              proprietaire: proprio === 'moiSeul' || proprio === 'moiEtAutres',
             },
             ...liste.map((a) => ({ ...a, proprietaire: true })),
           ];
@@ -972,16 +976,17 @@ export default function LoginScreen() {
               {isPro && (
                 <>
                   {section('briefcase-outline', t('sectionStatus'), true)}
-                  <View style={p.chipsRow}>
+                  <View style={{marginTop:2}}>
                     {[
                       { id: 'auto_entrepreneur', label: t('statusAutoEntrepreneur') },
+                      { id: 'societe_unique', label: t('statusSoleCompany') },
                       { id: 'societe', label: t('statusCompany') },
                     ].map((o) => {
                       const actif = proStatus === o.id;
                       return (
-                        <TouchableOpacity key={o.id} onPress={() => setProStatus(o.id)} style={[p.chip, actif && p.chipActif]}>
-                          <Ionicons name={actif ? 'radio-button-on' : 'radio-button-off'} size={18} color={actif ? BRAND : '#9CA3AF'} style={{marginRight:8}} />
-                          <Text style={[p.chipTxt, actif && {color:BRAND}]}>{o.label}</Text>
+                        <TouchableOpacity key={o.id} onPress={() => setProStatus(o.id)} style={[p.doc, actif && p.chipActif]}>
+                          <Ionicons name={actif ? 'radio-button-on' : 'radio-button-off'} size={18} color={actif ? BRAND : '#9CA3AF'} style={{marginRight:10}} />
+                          <Text style={[p.chipTxt, {flex:1}, actif && {color:BRAND}]}>{o.label}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -1076,6 +1081,7 @@ export default function LoginScreen() {
                   <Text style={p.hint}>{t('ownersHint')}</Text>
                   <Text style={p.label}>{t('jobTitleLabel')}</Text>
                   <TextInput style={p.input} value={fonction} onChangeText={setFonction} placeholder={t('jobTitlePlaceholder')} placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="words" />
+                  {!associeUnique && (<>
                   <Text style={p.label}>{t('ownersQuestion')}</Text>
                   {[
                     { id: 'moiSeul', label: t('ownersMeOnly') },
@@ -1091,6 +1097,7 @@ export default function LoginScreen() {
                       </TouchableOpacity>
                     );
                   })}
+                  </>)}
                   {associesVisibles && associes.map((a, i) => (
                     <View key={i} style={p.carteAssocie}>
                       <View style={p.siretLigne}>
