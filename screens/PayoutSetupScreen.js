@@ -130,6 +130,19 @@ export default function PayoutSetupScreen({ navigation }) {
           <Text style={s.info}>{t('stripeSetupError')}</Text>
           <Pressable style={s.saveBtn} onPress={charger}><Text style={s.saveTxt}>{t('retry')}</Text></Pressable>
         </View>
+      ) : etat.mode === 'compte_societe' ? (
+        // Société inscrite en une page (25/11/2026) : tout a été envoyé à
+        // Stripe à l'inscription, rien à remplir ici.
+        <View style={s.body}>
+          {etat.payouts_enabled ? (
+            <View style={s.okCard}>
+              <Ionicons name="checkmark-circle" size={22} color={BRAND} style={{ marginRight: 10 }} />
+              <Text style={s.okTxt}>{t('payoutsActive')}</Text>
+            </View>
+          ) : (
+            <Text style={s.info}>{t('payoutCompanyChecking')}</Text>
+          )}
+        </View>
       ) : etat.mode !== 'form' ? (
         <View style={s.body}>
           <Text style={s.info}>{t('payoutSetupIntro')}</Text>

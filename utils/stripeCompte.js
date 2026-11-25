@@ -41,6 +41,69 @@ export function corpsJeton(f, pays) {
 // Jeton de compte Stripe : { id } ou { erreur } (message de Stripe s'il en donne un).
 // Délai de 15 s : réseau coupé ou trop lent = erreur réseau (isNetworkError).
 export async function creerJetonCompte(cle, f, pays) {
+  return posterJeton(cle, corpsJeton(f, pays));
+}
+
+function encoder(champs) {
+  return Object.entries(champs).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+}
+
+// Société (25/11/2026) : jeton de compte entreprise. f = champs de la page
+// d'inscription (raison sociale, SIRET, adresse, téléphone E.164).
+export function corpsJetonSociete(f, pays) {
+  const champs = {
+    'account[business_type]': 'company',
+    'account[company][name]': f.companyName.trim(),
+    'account[company][tax_id]': f.siret.replace(/\s/g, ''),
+    'account[company][address][line1]': f.line1.trim(),
+    'account[company][address][postal_code]': f.postalCode.trim(),
+    'account[company][address][city]': f.city.trim(),
+    'account[company][address][country]': pays,
+    'account[company][owners_provided]': 'true',
+    'account[company][directors_provided]': 'true',
+    'account[company][executives_provided]': 'true',
+    'account[tos_shown_and_accepted]': 'true',
+  };
+  if (f.phone) champs['account[company][phone]'] = f.phone;
+  return encoder(champs);
+}
+
+export async function creerJetonSociete(cle, f, pays) {
+  return posterJeton(cle, corpsJetonSociete(f, pays));
+}
+
+// Personne de la société : représentant légal ou associé de 25 % ou plus.
+// p = { firstName, lastName, dob, email, phone?, line1, postalCode, city,
+// representant?, titre?, proprietaire? }. Jamais de percent_ownership.
+export function corpsJetonPersonne(p, pays) {
+  const [jour, mois, annee] = p.dob.split('/').map((x) => parseInt(x, 10));
+  const champs = {
+    'person[first_name]': p.firstName.trim(),
+    'person[last_name]': p.lastName.trim(),
+    'person[email]': p.email.trim(),
+    'person[dob][day]': String(jour),
+    'person[dob][month]': String(mois),
+    'person[dob][year]': String(annee),
+    'person[address][line1]': p.line1.trim(),
+    'person[address][postal_code]': p.postalCode.trim(),
+    'person[address][city]': p.city.trim(),
+    'person[address][country]': pays,
+  };
+  if (p.phone) champs['person[phone]'] = p.phone;
+  if (p.representant) {
+    champs['person[relationship][representative]'] = 'true';
+    champs['person[relationship][executive]'] = 'true';
+    if (p.titre) champs['person[relationship][title]'] = p.titre.trim();
+  }
+  if (p.proprietaire) champs['person[relationship][owner]'] = 'true';
+  return encoder(champs);
+}
+
+export async function creerJetonPersonne(cle, p, pays) {
+  return posterJeton(cle, corpsJetonPersonne(p, pays));
+}
+
+async function posterJeton(cle, corps) {
   const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const minuteur = ctrl ? setTimeout(() => ctrl.abort(), 15000) : null;
   let rep;
@@ -49,7 +112,7 @@ export async function creerJetonCompte(cle, f, pays) {
     rep = await fetch('https://api.stripe.com/v1/tokens', {
       method: 'POST',
       headers: { Authorization: `Bearer ${cle}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: corpsJeton(f, pays),
+      body: corps,
       signal: ctrl?.signal,
     });
     jeton = await rep.json();
