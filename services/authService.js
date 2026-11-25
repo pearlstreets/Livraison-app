@@ -180,7 +180,12 @@ export const authService = {
   // cas de succès on purge la session locale. Si l'appel échoue, on relance
   // l'erreur SANS vider la session (le compte n'a pas été supprimé côté serveur).
   async deleteAccount() {
-    await api.delete('/api/v1/delivery/delete-account/');
+    const res = await api.delete('/api/v1/delivery/delete-account/');
+    // Le serveur peut répondre HTTP 200 avec status: false (échec de la
+    // suppression) : le compte existe toujours, la session reste.
+    if (res?.data?.status === false) {
+      throw new Error(res.data.message || 'Account deletion failed');
+    }
     // Après la suppression seulement (le serveur retire déjà les jetons du
     // compte) : si elle échoue, l'appareil reste enregistré.
     await retirerAppareil();
