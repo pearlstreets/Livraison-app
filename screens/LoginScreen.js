@@ -17,7 +17,7 @@ import { ecrireBrouillonInscription, lireBrouillonInscription, effacerBrouillonI
 
 import { countryName } from '../data/countryNames';
 import { authService } from '../services/authService';
-import { contratStripe, CONFIDENTIALITE_LIVREUR, creerJetonCompte, dateIso, dateValide, formaterDate } from '../utils/stripeCompte';
+import { contratStripe, CONFIDENTIALITE_LIVREUR, creerJetonCompte, creerJetonPersonne, creerJetonSociete, dateIso, dateValide, formaterDate } from '../utils/stripeCompte';
 
 const BRAND = '#FF6A13'; // orange du logo de l'app (essai 04/11)
 const LOGO = require('../assets/icon.png');
@@ -198,6 +198,11 @@ export default function LoginScreen() {
   // réécrase pas ce que le pro a corrigé à la main.
   const siretRecopieRef = useRef('');
   const [iban, setIban] = useState('');
+  // Société (25/11/2026) : fonction du représentant et associés de 25 % ou
+  // plus, envoyés à Stripe avec l'inscription (plus de page Stripe à part).
+  const [fonction, setFonction] = useState('');
+  const [proprietaires, setProprietaires] = useState(''); // moiSeul | moiEtAutres | autres | aucun
+  const [associes, setAssocies] = useState([]);
   const [stripeAccepte, setStripeAccepte] = useState(false);
   const [stripeInfo, setStripeInfo] = useState(null); // { publishable_key, country, stripe_form }
 
@@ -239,7 +244,7 @@ export default function LoginScreen() {
   brouillonRef.current = {
     mode, isPro, step, loginEmail, loginPassword, email, password, confirmPwd,
     nom, prenom, pseudo, companyName, phone, address, country, phoneCountry, vehicle,
-    proStatus, dob, postalCode, city, taxId, siret, iban,
+    proStatus, dob, postalCode, city, taxId, siret, iban, fonction, proprietaires, associes,
     docIdFront, docIdBack, docIban, docKbiss, docLicense, docPhoto, docProofAddress, docRcPro, docUrssaf,
   };
   // Connecte ou dossier envoye : rien a garder.
@@ -267,6 +272,8 @@ export default function LoginScreen() {
       fixe(b.city, setCity); fixe(b.taxId, setTaxId); fixe(b.siret, setSiret);
       // La case du contrat Stripe n'est jamais rendue cochée.
       fixe(b.iban, setIban);
+      fixe(b.fonction, setFonction); fixe(b.proprietaires, setProprietaires);
+      if (Array.isArray(b.associes)) setAssocies(b.associes);
       fixe(b.docIdFront, setDocIdFront); fixe(b.docIdBack, setDocIdBack); fixe(b.docIban, setDocIban);
       fixe(b.docKbiss, setDocKbiss); fixe(b.docLicense, setDocLicense); fixe(b.docPhoto, setDocPhoto);
       fixe(b.docProofAddress, setDocProofAddress); fixe(b.docRcPro, setDocRcPro); fixe(b.docUrssaf, setDocUrssaf);
@@ -304,7 +311,7 @@ export default function LoginScreen() {
     if (minuterieInscriptionRef.current) clearTimeout(minuterieInscriptionRef.current);
     minuterieInscriptionRef.current = setTimeout(sauverInscription, 500);
   }, [sauverInscription, mode, isPro, step, email, password, confirmPwd, nom, prenom, pseudo, companyName, phone, address,
-    country, phoneCountry, vehicle, proStatus, dob, postalCode, city, taxId, siret, iban,
+    country, phoneCountry, vehicle, proStatus, dob, postalCode, city, taxId, siret, iban, fonction, proprietaires, associes,
     docIdFront, docIdBack, docIban, docKbiss, docLicense, docPhoto, docProofAddress, docRcPro, docUrssaf]);
   useEffect(() => {
     const abonnement = AppState.addEventListener('change', (etat) => { if (etat !== 'active') sauverInscription(); });
@@ -321,7 +328,7 @@ export default function LoginScreen() {
   const legalStatus = isPro ? proStatus : 'particulier';
 
   // Page 2 : le pays de résidence dit si le compte de virement Stripe est
-  // créé dès l'inscription (société : plus tard, depuis le profil).
+  // créé dès l'inscription (société : compte entreprise, représentant et associés).
   useEffect(() => {
     if (mode !== 'signup' || step !== 2) return undefined;
     let actif = true;
@@ -330,7 +337,18 @@ export default function LoginScreen() {
       .catch(() => { if (actif) setStripeInfo(null); });
     return () => { actif = false; };
   }, [mode, step, country]);
-  const stripeActif = !!stripeInfo?.stripe_form && legalStatus !== 'societe';
+  const stripeActif = !!stripeInfo?.stripe_form;
+  const societeStripe = stripeActif && legalStatus === 'societe';
+  // Associés : 3 au plus avec le représentant, 4 sans lui (4 personnes en tout).
+  const maxAssocies = proprietaires === 'moiEtAutres' ? 3 : 4;
+  const associesVisibles = proprietaires === 'moiEtAutres' || proprietaires === 'autres';
+  const majAssocie = (i, champ, v) => setAssocies((l) => l.map((a, j) => (j === i ? { ...a, [champ]: v } : a)));
+  const choisirProprietaires = (id) => {
+    setProprietaires(id);
+    if (id === 'moiEtAutres' || id === 'autres') {
+      setAssocies((l) => (l.length ? l.slice(0, id === 'moiEtAutres' ? 3 : 4) : [{}]));
+    }
+  };
 
   // SIRET complet (France) : la fiche du registre public remplit le nom,
   // l'adresse, le code postal et la ville, toujours modifiables. Registre
@@ -606,6 +624,16 @@ export default function LoginScreen() {
     if (isPro && siretEtat === 'ferme') { setError(t('siretClosed')); return; }
     if (ibanPropre.length < 15) { setError(t('errorIban')); return; }
     if (docFields.some(f => !f.value?.uri)) { setError(t('errorDocsRequired') || 'Tous les documents sont obligatoires.'); return; }
+    const liste = associesVisibles ? associes : [];
+    if (societeStripe) {
+      const associeIncomplet = (a) => !a.firstName?.trim() || !a.lastName?.trim() || !a.email?.trim()
+        || !a.line1?.trim() || !a.postalCode?.trim() || !a.city?.trim();
+      if (!fonction.trim() || !proprietaires || (associesVisibles && !liste.length) || liste.some(associeIncomplet)) {
+        setError(t('errorOwners')); return;
+      }
+      if (liste.some((a) => !dateValide(a.dob || ''))) { setError(t('payoutSetupInvalidDob')); return; }
+      if (liste.some((a) => !isValidEmail(a.email.trim()))) { setError(t('errorInvalidEmail') || 'Format email invalide'); return; }
+    }
     if (stripeActif && !stripeAccepte) { setError(t('errorStripeTerms')); return; }
     setLoading(true);
     let docUrls;
@@ -623,12 +651,40 @@ export default function LoginScreen() {
     // Compte de virement Stripe : jeton fabriqué ici, compte créé par le
     // serveur avec l'inscription (annulée entière si Stripe refuse).
     let accountToken;
+    let personTokens;
     if (stripeActif) {
       try {
-        const jeton = await creerJetonCompte(stripeInfo.publishable_key, {
-          firstName: prenom, lastName: nom, dob, line1: address, postalCode, city, email: email.trim(),
-        }, stripeInfo.country || country);
-        if (!jeton.id) { setLoading(false); setError(jeton.erreur || t('stripeSetupError')); return; }
+        const cle = stripeInfo.publishable_key;
+        const paysStripe = stripeInfo.country || country;
+        let jeton;
+        if (societeStripe) {
+          // Société : compte entreprise, puis le représentant (en premier) et
+          // chaque associé de 25 % ou plus, chacun par son jeton de personne.
+          const tel = `${selectedPhoneCountry.phoneCode}${phone.replace(/\D/g, '').replace(/^0/, '')}`;
+          jeton = await creerJetonSociete(cle, {
+            companyName, siret: siretPropre, line1: address, postalCode, city, phone: tel,
+          }, paysStripe);
+          if (!jeton.id) { setLoading(false); setError(jeton.erreur || t('stripeSetupError')); return; }
+          const personnes = [
+            {
+              firstName: prenom, lastName: nom, dob, email: email.trim(), phone: tel,
+              line1: address, postalCode, city, representant: true, titre: fonction,
+              proprietaire: proprietaires === 'moiSeul' || proprietaires === 'moiEtAutres',
+            },
+            ...liste.map((a) => ({ ...a, proprietaire: true })),
+          ];
+          personTokens = [];
+          for (const pers of personnes) {
+            const jp = await creerJetonPersonne(cle, pers, paysStripe);
+            if (!jp.id) { setLoading(false); setError(jp.erreur || t('stripeSetupError')); return; }
+            personTokens.push(jp.id);
+          }
+        } else {
+          jeton = await creerJetonCompte(cle, {
+            firstName: prenom, lastName: nom, dob, line1: address, postalCode, city, email: email.trim(),
+          }, paysStripe);
+          if (!jeton.id) { setLoading(false); setError(jeton.erreur || t('stripeSetupError')); return; }
+        }
         accountToken = jeton.id;
       } catch {
         setLoading(false); setError(t('errorNetwork') || t('genericError')); return;
@@ -644,7 +700,7 @@ export default function LoginScreen() {
       postal_code: postalCode.trim(), city: city.trim(), birth_date: dateIso(dob), tax_id: isPro ? '' : taxId.trim(),
       siret: isPro ? siretPropre : '',
       iban: ibanPropre, iban_holder_name: legalStatus === 'societe' ? companyName.trim() : `${prenom.trim()} ${nom.trim()}`,
-      account_token: accountToken,
+      account_token: accountToken, person_tokens: personTokens,
       vehicle_type: vehicle, role: isPro ? 'professionaluser' : 'user', documents: docUrls,
     }); } catch { result = null; }
     setLoading(false);
@@ -1014,6 +1070,74 @@ export default function LoginScreen() {
                 </View>
               </View>
 
+              {societeStripe && (
+                <>
+                  {section('people-outline', t('sectionOwners'))}
+                  <Text style={p.hint}>{t('ownersHint')}</Text>
+                  <Text style={p.label}>{t('jobTitleLabel')}</Text>
+                  <TextInput style={p.input} value={fonction} onChangeText={setFonction} placeholder={t('jobTitlePlaceholder')} placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="words" />
+                  <Text style={p.label}>{t('ownersQuestion')}</Text>
+                  {[
+                    { id: 'moiSeul', label: t('ownersMeOnly') },
+                    { id: 'moiEtAutres', label: t('ownersMeAndOthers') },
+                    { id: 'autres', label: t('ownersOthers') },
+                    { id: 'aucun', label: t('ownersNone') },
+                  ].map((o) => {
+                    const actif = proprietaires === o.id;
+                    return (
+                      <TouchableOpacity key={o.id} onPress={() => choisirProprietaires(o.id)} style={[p.doc, actif && p.chipActif]}>
+                        <Ionicons name={actif ? 'radio-button-on' : 'radio-button-off'} size={18} color={actif ? BRAND : '#9CA3AF'} style={{marginRight:10}} />
+                        <Text style={[p.chipTxt, {flex:1}, actif && {color:BRAND}]}>{o.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {associesVisibles && associes.map((a, i) => (
+                    <View key={i} style={p.carteAssocie}>
+                      <View style={p.siretLigne}>
+                        <Text style={[p.label, {marginTop:0, flex:1}]}>{t('ownerCardTitle')} {i + 1}</Text>
+                        {associes.length > 1 && (
+                          <TouchableOpacity onPress={() => setAssocies((l) => l.filter((_, j) => j !== i))} style={{padding:4}}>
+                            <Ionicons name="close-circle" size={20} color="#EF4444" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      <View style={p.row}>
+                        <View style={{flex:1, marginRight:10}}>
+                          <Text style={p.label}>{t('driverFirstName') || 'Prénom'}</Text>
+                          <TextInput style={p.input} value={a.firstName || ''} onChangeText={(v) => majAssocie(i, 'firstName', v)} placeholder={t('firstNamePlaceholder')} placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="words" />
+                        </View>
+                        <View style={{flex:1}}>
+                          <Text style={p.label}>{t('driverLastName') || 'Nom'}</Text>
+                          <TextInput style={p.input} value={a.lastName || ''} onChangeText={(v) => majAssocie(i, 'lastName', v)} placeholder={t('lastNamePlaceholder')} placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="words" />
+                        </View>
+                      </View>
+                      <Text style={p.label}>{t('birthDate')}</Text>
+                      <TextInput style={p.input} value={a.dob || ''} onChangeText={(v) => majAssocie(i, 'dob', formaterDate(v))} placeholder={t('birthDatePlaceholder')} placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="number-pad" maxLength={10} />
+                      <Text style={p.label}>{t('emailLabel') || 'Email'}</Text>
+                      <TextInput style={p.input} value={a.email || ''} onChangeText={(v) => majAssocie(i, 'email', v)} placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} />
+                      <Text style={p.label}>{t('streetAddress') || t('driverAddressLabel') || 'Adresse'}</Text>
+                      <TextInput style={p.input} value={a.line1 || ''} onChangeText={(v) => majAssocie(i, 'line1', v)} placeholder={t('addressPlaceholder')} placeholderTextColor={dark ? colors.textFaint : '#aaa'} />
+                      <View style={p.row}>
+                        <View style={{flex:1, marginRight:10}}>
+                          <Text style={p.label}>{t('postalCode')}</Text>
+                          <TextInput style={p.input} value={a.postalCode || ''} onChangeText={(v) => majAssocie(i, 'postalCode', v)} placeholder="75002" placeholderTextColor={dark ? colors.textFaint : '#aaa'} keyboardType="number-pad" maxLength={10} />
+                        </View>
+                        <View style={{flex:2}}>
+                          <Text style={p.label}>{t('city')}</Text>
+                          <TextInput style={p.input} value={a.city || ''} onChangeText={(v) => majAssocie(i, 'city', v)} placeholder="Paris" placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="words" />
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                  {associesVisibles && associes.length < maxAssocies && (
+                    <TouchableOpacity onPress={() => setAssocies((l) => [...l, {}])} style={[p.doc, {justifyContent:'center'}]}>
+                      <Ionicons name="add-circle-outline" size={20} color={BRAND} style={{marginRight:8}} />
+                      <Text style={[p.chipTxt, {color:BRAND}]}>{t('addOwner')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+
               {!isPro && (
                 <>
                   {section('document-text-outline', t('sectionTax'))}
@@ -1041,7 +1165,7 @@ export default function LoginScreen() {
               <Text style={p.hint}>{t('payoutSetupIntro')}</Text>
               <Text style={p.label}>{t('ibanLabel')}</Text>
               <TextInput style={p.input} value={iban} onChangeText={setIban} onFocus={() => setChampActif('iban')} onBlur={() => setChampActif(null)} secureTextEntry={!!iban && champActif !== 'iban'} placeholder="FR76 XXXX XXXX XXXX XXXX XXXX XXX" placeholderTextColor={dark ? colors.textFaint : '#aaa'} autoCapitalize="characters" autoCorrect={false} maxLength={42} />
-              {legalStatus === 'societe' && <Text style={p.hintSous}>{t('signupPayoutCompanyLater')}</Text>}
+              {legalStatus === 'societe' && !stripeActif && <Text style={p.hintSous}>{t('signupPayoutCompanyLater')}</Text>}
 
               {section('folder-open-outline', t('sectionDocuments'))}
               <Text style={p.hint}>{t('docsWhyIntro')}</Text>
@@ -1232,6 +1356,7 @@ const makeP = (dark, c) => {
   vehicule: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: k('rgba(0,0,0,0.15)', c.inputBorder), marginRight: 10, backgroundColor: k('#fff', c.card) },
   vehiculeTxt: { maxWidth: '100%', paddingHorizontal: 4, fontSize: 11, marginTop: 4, fontWeight: '500', color: k('#6B7280', c.textMuted) },
   doc: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: k('rgba(0,0,0,0.15)', c.inputBorder), marginTop: 10, backgroundColor: k('#fff', c.card) },
+  carteAssocie: { borderWidth: 1, borderColor: k('rgba(0,0,0,0.15)', c.inputBorder), borderRadius: 12, padding: 12, marginTop: 12, backgroundColor: k('#FAFAFA', c.card) },
   checkRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 22 },
   checkTxt: { flex: 1, fontSize: 13, color: k('#333', c.textSoft), lineHeight: 19 },
   lien: { color: BRAND, fontWeight: '700', textDecorationLine: 'underline' },
